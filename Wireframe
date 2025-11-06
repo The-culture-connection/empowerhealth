@@ -1,0 +1,758 @@
+# Pregnancy Advocacy App — Flutter skeleton & Claude wireframe prompt
+
+Below is a ready‑to‑use app skeleton (files + code stubs) **and** a polished wireframe prompt you can paste into Claude to get clickable mockups. The Flutter code centralizes your colors, typography, spacing, and components in a single design system file.
+
+---
+
+## 1) Recommended project structure
+
+```
+lib/
+  main.dart
+  app_router.dart
+  design_system/
+    theme.dart           // colors, text styles, spacing, radii, shadows
+    widgets.dart         // shared Button, TextField, Card, AppBar, etc
+  features/
+    landing/
+      landing_screen.dart
+    auth/
+      login_screen.dart
+      signup_screen.dart
+      forgot_password_screen.dart
+    tabs/
+      main_tab_scaffold.dart
+      home_tab.dart
+      modules_tab.dart
+      recorder_tab.dart
+      feedback_tab.dart
+      community_tab.dart
+    recorder/
+      recorder_controller.dart   // later: audio recording logic
+    feedback/
+      feedback_form.dart
+    community/
+      post_list.dart
+      post_detail.dart
+
+  core/
+    constants.dart        // keys, route names
+    services/
+      analytics_service.dart
+      auth_service.dart (stub)
+      secure_store.dart (stub)
+      api_client.dart (stub)
+```
+
+---
+
+## 2) Centralized design system (single source of truth)
+
+**lib/design_system/theme.dart**
+
+```dart
+import 'package:flutter/material.dart';
+
+class AppTheme {
+  // 1) Brand Colors
+  static const Color primary = Color(0xFF5B6EF5); // Indigo-ish
+  static const Color onPrimary = Colors.white;
+  static const Color secondary = Color(0xFF00A7A7); // Teal
+  static const Color onSecondary = Colors.white;
+  static const Color background = Color(0xFFF8FAFC);
+  static const Color surface = Colors.white;
+  static const Color textPrimary = Color(0xFF0F172A); // Slate-900
+  static const Color textSecondary = Color(0xFF475569); // Slate-600
+  static const Color success = Color(0xFF16A34A);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color error = Color(0xFFDC2626);
+
+  // 2) Spacing & Radii
+  static const double radius = 16;
+  static const double spacingXS = 6;
+  static const double spacingS  = 10;
+  static const double spacingM  = 14;
+  static const double spacingL  = 20;
+  static const double spacingXL = 28;
+
+  // 3) Shadows
+  static const List<BoxShadow> cardShadow = [
+    BoxShadow(
+      color: Colors.black12,
+      blurRadius: 12,
+      offset: Offset(0, 6),
+    )
+  ];
+
+  // 4) Typography
+  static const String fontFamily = 'Inter'; // add to pubspec when ready
+
+  static TextTheme textTheme = const TextTheme(
+    displaySmall: TextStyle(fontSize: 32, fontWeight: FontWeight.w700),
+    headlineSmall: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+    titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+    bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+    bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
+    labelLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+  ).apply(
+    bodyColor: textPrimary,
+    displayColor: textPrimary,
+    fontFamily: fontFamily,
+  );
+
+  // 5) Material ThemeData
+  static ThemeData light() {
+    final base = ThemeData.light(useMaterial3: true);
+    return base.copyWith(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primary,
+        primary: primary,
+        onPrimary: onPrimary,
+        secondary: secondary,
+        onSecondary: onSecondary,
+        background: background,
+        surface: surface,
+        error: error,
+      ),
+      scaffoldBackgroundColor: background,
+      textTheme: textTheme,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        foregroundColor: textPrimary,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radius),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radius),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radius),
+          borderSide: BorderSide(color: primary, width: 1.5),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: onPrimary,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: primary),
+          foregroundColor: primary,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+      cardTheme: CardTheme(
+        color: surface,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+      ),
+    );
+  }
+}
+```
+
+**lib/design_system/widgets.dart**
+
+```dart
+import 'package:flutter/material.dart';
+import 'theme.dart';
+
+class DS {
+  // Gap helpers
+  static const gapS = SizedBox(height: AppTheme.spacingS);
+  static const gapM = SizedBox(height: AppTheme.spacingM);
+  static const gapL = SizedBox(height: AppTheme.spacingL);
+
+  // Branded CTA
+  static Widget cta(String label, {VoidCallback? onPressed, IconData? icon}) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: icon != null ? Icon(icon) : const SizedBox.shrink(),
+      label: Text(label),
+    );
+  }
+
+  // Secondary button
+  static Widget secondary(String label, {VoidCallback? onPressed}) =>
+      OutlinedButton(onPressed: onPressed, child: Text(label));
+
+  // Section card
+  static Widget section({required String title, required Widget child, Widget? trailing}) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacingL),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text(title, style: ThemeData.light().textTheme.titleMedium)),
+                if (trailing != null) trailing,
+              ],
+            ),
+            const SizedBox(height: AppTheme.spacingM),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+## 3) App entry & routing
+
+**lib/main.dart**
+
+```dart
+import 'package:flutter/material.dart';
+import 'design_system/theme.dart';
+import 'app_router.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const AdvocacyApp());
+}
+
+class AdvocacyApp extends StatelessWidget {
+  const AdvocacyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Advocacy',
+      theme: AppTheme.light(),
+      onGenerateRoute: AppRouter.onGenerateRoute,
+      initialRoute: AppRouter.landing,
+    );
+  }
+}
+```
+
+**lib/app_router.dart**
+
+```dart
+import 'package:flutter/material.dart';
+import 'core/constants.dart';
+import 'features/landing/landing_screen.dart';
+import 'features/auth/login_screen.dart';
+import 'features/auth/signup_screen.dart';
+import 'features/tabs/main_tab_scaffold.dart';
+
+class AppRouter {
+  static const landing = Routes.landing;
+
+  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+    switch (settings.name) {
+      case Routes.landing:
+        return _page(const LandingScreen());
+      case Routes.login:
+        return _page(const LoginScreen());
+      case Routes.signup:
+        return _page(const SignupScreen());
+      case Routes.tabs:
+        return _page(const MainTabScaffold());
+      default:
+        return _page(const LandingScreen());
+    }
+  }
+
+  static PageRoute _page(Widget child) => MaterialPageRoute(builder: (_) => child);
+}
+```
+
+**lib/core/constants.dart**
+
+```dart
+class Routes {
+  static const landing = '/';
+  static const login = '/login';
+  static const signup = '/signup';
+  static const tabs = '/tabs';
+}
+```
+
+---
+
+## 4) Landing → Login/Signup flow
+
+**lib/features/landing/landing_screen.dart**
+
+```dart
+import 'package:flutter/material.dart';
+import '../../design_system/widgets.dart';
+import '../../design_system/theme.dart';
+import '../../core/constants.dart';
+
+class LandingScreen extends StatelessWidget {
+  const LandingScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.spacingXL),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Spacer(),
+              Text('Advocacy for Every Prenatal Visit', style: Theme.of(context).textTheme.displaySmall),
+              const SizedBox(height: AppTheme.spacingM),
+              Text(
+                'Record, summarize, and share — so mothers, doulas, and providers align with confidence.',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.textSecondary),
+              ),
+              const Spacer(),
+              DS.cta('Get Started', icon: Icons.login, onPressed: () => Navigator.pushNamed(context, Routes.login)),
+              DS.gapM,
+              DS.secondary('Create an account', onPressed: () => Navigator.pushNamed(context, Routes.signup)),
+              const SizedBox(height: AppTheme.spacingL),
+              Text('By continuing you agree to our Terms & Privacy.', style: Theme.of(context).textTheme.bodyMedium),
+              const Spacer(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+**lib/features/auth/login_screen.dart**
+
+```dart
+import 'package:flutter/material.dart';
+import '../../design_system/theme.dart';
+import '../../design_system/widgets.dart';
+import '../../core/constants.dart';
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Sign in')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppTheme.spacingXL),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                  validator: (v) => (v == null || v.isEmpty) ? 'Email required' : null,
+                ),
+                DS.gapM,
+                TextFormField(
+                  controller: _password,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Password'),
+                  validator: (v) => (v == null || v.length < 6) ? 'Min 6 chars' : null,
+                ),
+                DS.gapL,
+                DS.cta('Continue', onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    // TODO: call AuthService.login
+                    Navigator.pushReplacementNamed(context, Routes.tabs);
+                  }
+                }),
+                DS.gapM,
+                TextButton(
+                  onPressed: () {/* TODO: forgot flow */},
+                  child: const Text('Forgot password?'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+**lib/features/auth/signup_screen.dart**
+
+```dart
+import 'package:flutter/material.dart';
+import '../../design_system/theme.dart';
+import '../../design_system/widgets.dart';
+import '../../core/constants.dart';
+
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({super.key});
+  @override
+  State<SignupScreen> createState() => _SignupScreenState();
+}
+
+class _SignupScreenState extends State<SignupScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create account')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppTheme.spacingXL),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _name,
+                  decoration: const InputDecoration(labelText: 'Full name'),
+                  validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                ),
+                DS.gapM,
+                TextFormField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                  validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                ),
+                DS.gapM,
+                TextFormField(
+                  controller: _password,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Password'),
+                  validator: (v) => (v == null || v.length < 6) ? 'Min 6 chars' : null,
+                ),
+                DS.gapL,
+                DS.cta('Create account', onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    // TODO: call AuthService.signup
+                    Navigator.pushReplacementNamed(context, Routes.tabs);
+                  }
+                }),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+## 5) Main tab navigation (Home, Modules, Recorder, Feedback, Community)
+
+**lib/features/tabs/main_tab_scaffold.dart**
+
+```dart
+import 'package:flutter/material.dart';
+import '../../design_system/theme.dart';
+import 'home_tab.dart';
+import 'modules_tab.dart';
+import 'recorder_tab.dart';
+import 'feedback_tab.dart';
+import 'community_tab.dart';
+
+class MainTabScaffold extends StatefulWidget {
+  const MainTabScaffold({super.key});
+
+  @override
+  State<MainTabScaffold> createState() => _MainTabScaffoldState();
+}
+
+class _MainTabScaffoldState extends State<MainTabScaffold> {
+  int _index = 0;
+
+  final _tabs = const [
+    HomeTab(),
+    ModulesTab(),
+    RecorderTab(),
+    FeedbackTab(),
+    CommunityTab(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(child: _tabs[_index]),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.view_module_outlined), selectedIcon: Icon(Icons.view_module), label: 'Modules'),
+          NavigationDestination(icon: Icon(Icons.mic_none), selectedIcon: Icon(Icons.mic), label: 'Record'),
+          NavigationDestination(icon: Icon(Icons.rate_review_outlined), selectedIcon: Icon(Icons.rate_review), label: 'Feedback'),
+          NavigationDestination(icon: Icon(Icons.forum_outlined), selectedIcon: Icon(Icons.forum), label: 'Community'),
+        ],
+        backgroundColor: AppTheme.surface,
+      ),
+    );
+  }
+}
+```
+
+**Tab stubs (drop in the same folder):**
+
+`home_tab.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import '../../design_system/widgets.dart';
+import '../../design_system/theme.dart';
+
+class HomeTab extends StatelessWidget {
+  const HomeTab({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTheme.spacingXL),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Welcome back,', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: AppTheme.spacingS),
+          Text('Here’s your prenatal visit timeline and next actions.', style: Theme.of(context).textTheme.bodyLarge),
+          DS.gapL,
+          DS.section(
+            title: 'Upcoming visit',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('OB appointment • Tue 10:30 AM')
+              ],
+            ),
+          ),
+          DS.gapL,
+          DS.section(
+            title: 'Recent summaries',
+            child: Column(
+              children: const [
+                ListTile(title: Text('Visit 10/31 • 3 min summary'), subtitle: Text('Fundal height 28cm, GDM screen ordered…')),
+                ListTile(title: Text('Visit 10/15 • 2 min summary'), subtitle: Text('BP 118/72, fetal HR 140, next labs…')),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+`modules_tab.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import '../../design_system/widgets.dart';
+import '../../design_system/theme.dart';
+
+class ModulesTab extends StatelessWidget {
+  const ModulesTab({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(AppTheme.spacingXL),
+      children: [
+        DS.section(title: 'Education modules', child: Column(children: const [
+          ListTile(title: Text('Birth plan basics'), subtitle: Text('Preferences, interventions, contingencies')),
+          ListTile(title: Text('Warning signs')),
+          ListTile(title: Text('Postpartum planning')),
+        ])),
+      ],
+    );
+  }
+}
+```
+
+`recorder_tab.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import '../../design_system/widgets.dart';
+import '../../design_system/theme.dart';
+
+class RecorderTab extends StatelessWidget {
+  const RecorderTab({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacingXL),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.mic, size: 72),
+            const SizedBox(height: AppTheme.spacingL),
+            Text('Record your visit', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: AppTheme.spacingM),
+            Text('Tap below to start a secure, on‑device recording. You control what’s shared.'),
+            const SizedBox(height: AppTheme.spacingL),
+            DS.cta('Start recording', icon: Icons.fiber_manual_record, onPressed: () {
+              // TODO: trigger recording flow
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+`feedback_tab.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import '../../design_system/widgets.dart';
+import '../../design_system/theme.dart';
+
+class FeedbackTab extends StatelessWidget {
+  const FeedbackTab({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(AppTheme.spacingXL),
+      children: [
+        DS.section(
+          title: 'Request feedback',
+          child: Column(
+            children: [
+              const TextField(maxLines: 3, decoration: InputDecoration(hintText: 'Describe what you want input on…')),
+              const SizedBox(height: AppTheme.spacingM),
+              DS.cta('Send to doula / provider', icon: Icons.send, onPressed: () { /* TODO */ }),
+            ],
+          ),
+        ),
+        DS.gapL,
+        DS.section(
+          title: 'Received',
+          child: Column(children: const [
+            ListTile(title: Text('Doula A • 2h ago'), subtitle: Text('Consider asking about Tdap…')),
+            ListTile(title: Text('Provider B • Yesterday'), subtitle: Text('All labs look good. Next step: glucose screen.')),
+          ]),
+        ),
+      ],
+    );
+  }
+}
+```
+
+`community_tab.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import '../../design_system/widgets.dart';
+import '../../design_system/theme.dart';
+
+class CommunityTab extends StatelessWidget {
+  const CommunityTab({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(AppTheme.spacingXL),
+      children: [
+        DS.section(title: 'Community', child: Column(children: const [
+          ListTile(title: Text('How did you prep for GDM test?'), subtitle: Text('12 replies • last active 5m')),
+          ListTile(title: Text('Birth plan templates')),
+        ])),
+      ],
+    );
+  }
+}
+```
+
+---
+
+## 6) Claude wireframe prompt (paste this into Claude)
+
+**System/Developer style:**
+
+> You are a meticulous product designer. Deliver clean, mobile‑first wireframes for a Flutter app. Use neutral greys, clear hierarchy, and include copy placeholders. Prioritize accessibility (WCAG AA), large tap targets (≥44dp), and clear primary CTAs.
+
+**User prompt:**
+
+```
+Goal: Design wireframes for a "Prenatal Advocacy" app that (1) records/transcribes OB visits, (2) generates AI summaries shared with a doula or provider, (3) lets users request/receive feedback, and (4) securely shares anonymized data for research/policy.
+
+Deliverables:
+1) Landing → Auth flow
+   - Landing page with value prop, 1–2 benefit bullets, primary "Get started" and secondary "Create account".
+   - Login (email, password, forgot), Signup (name, email, password, ToS/Privacy acknowledgement).
+   - Success state routes into Main Tabs.
+
+2) Main Tab Navigation (bottom bar, 5 items)
+   - Home: Upcoming visit card, recent summaries list, "Start recording" CTA.
+   - Modules: List of education cards (Birth plan basics, Warning signs, Postpartum planning) with search.
+   - Record: Big mic button, timer, waveform placeholder, permission state, uploading state, and summary preview state.
+   - Feedback: Compose request form; Inbox of received feedback threads.
+   - Community: Simple feed of questions/resources; each item shows title, meta (replies, last active).
+
+3) States & Empty‑states
+   - No upcoming visit → show CTA to add calendar link.
+   - No summaries yet → prompt to record first visit.
+   - Microphone permission denied → inline explainer with "Open Settings" CTA.
+   - Loading, error, success banners for major actions.
+
+4) Information Architecture & Components
+   - Global app bar per screen (title, optional action).
+   - Cards with 16dp radius, 12dp padding, subtle shadow.
+   - Primary CTA color: #5B6EF5, Secondary: #00A7A7. Body text Slate‑900, secondary Slate‑600.
+   - Buttons: primary filled, secondary outlined; full‑width CTAs on forms.
+   - Inputs: rounded, large touch targets; labels outside fields.
+
+5) Accessibility & Content
+   - Body text ≥14sp; touch targets ≥44dp; color contrast ≥4.5:1.
+   - Provide placeholder microcopy for: value prop, module descriptions, summary snippets, and community posts.
+
+6) Export
+   - Provide an artboard per screen (mobile size 390×844). Name layers sensibly.
+   - Include a brief spec per screen: spacing, font sizes, component mapping to Flutter widgets.
+```
+
+---
+
+## 7) Next steps & notes (privacy/security minded)
+
+* **Recording/transcription:** later integrate `record`/`flutter_sound` + cloud STT (or on‑device). Explain consent UI for recording medical visits; let user control sharing scope per recording.
+* **Summaries:** queue a Cloud Function to generate concise clinical summaries; show editable draft before sharing to doula/PHR/portal.
+* **Secure sharing:** build a de‑identification pipeline before research export (remove PHI; k‑anonymity buckets for age/zip). Store tokens in `flutter_secure_storage`.
+* **Compliance:** add explicit consent screens (HIPAA/PHI disclaimers), audit logs for share events, and role‑based access for doulas/providers.
+
+This gives you a running start: paste the files, wire up your auth/recording later, and use the Claude prompt to generate polished wireframes matching the structure above.

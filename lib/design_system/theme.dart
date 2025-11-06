@@ -57,7 +57,6 @@ class AppTheme {
         onPrimary: onPrimary,
         secondary: secondary,
         onSecondary: onSecondary,
-        background: background,
         surface: surface,
         error: error,
       ),

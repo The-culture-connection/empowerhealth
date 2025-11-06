@@ -16,7 +16,7 @@ class RecorderTab extends StatelessWidget {
             const SizedBox(height: AppTheme.spacingL),
             Text('Record your visit', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: AppTheme.spacingM),
-            const Text('Tap below to start a secure, on‑device recording. You control what's shared.'),
+            const Text("Tap below to start a secure, on‑device recording. You control what's shared."),
             const SizedBox(height: AppTheme.spacingL),
             DS.cta('Start recording', icon: Icons.fiber_manual_record, onPressed: () {
               // TODO: trigger recording flow

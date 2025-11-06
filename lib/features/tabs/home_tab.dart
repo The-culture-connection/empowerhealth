@@ -11,9 +11,9 @@ class HomeTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Welcome back,', style: Theme.of(context).textTheme.headlineSmall),
+          Text("Welcome back,", style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: AppTheme.spacingS),
-          Text('Here's your prenatal visit timeline and next actions.', style: Theme.of(context).textTheme.bodyLarge),
+          Text("Here's your prenatal visit timeline and next actions.", style: Theme.of(context).textTheme.bodyLarge),
           DS.gapL,
           DS.section(
             title: 'Upcoming visit',

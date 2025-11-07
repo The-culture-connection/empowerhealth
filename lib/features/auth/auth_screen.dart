@@ -9,18 +9,37 @@ class AuthScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.lightPrimary,
-              AppTheme.lightAccent,
-            ],
+      body: Stack(
+        children: [
+          // Fixed background image
+          Positioned.fill(
+            child: Image.asset(
+              DS.authBackground,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                // Fallback to gradient if image not found
+                return Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.lightPrimary,
+                        AppTheme.lightAccent,
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-        child: SafeArea(
+          // Dark overlay for better text readability
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.3),
+            ),
+          ),
+          SafeArea(
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(AppTheme.spacingXL),
@@ -129,7 +148,7 @@ class AuthScreen extends StatelessWidget {
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

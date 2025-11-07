@@ -49,19 +49,31 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Fixed background
+          // Fixed background image
+          Positioned.fill(
+            child: Image.asset(
+              DS.feedbackBackground,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.lightBackground,
+                        AppTheme.lightMuted,
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // Light overlay for readability
           Positioned.fill(
             child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppTheme.lightBackground,
-                    AppTheme.lightMuted,
-                  ],
-                ),
-              ),
+              color: AppTheme.lightBackground.withOpacity(0.7),
             ),
           ),
           

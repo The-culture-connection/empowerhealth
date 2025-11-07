@@ -209,14 +209,23 @@ class DS {
     );
   }
 
-  // Random background image helper
+  // Background images for each screen
+  static const String authBackground = 'assets/images/Authscreen.jpeg';
+  static const String homeBackground = 'assets/images/Homeimage.jpeg';
+  static const String communityBackground = 'assets/images/babyfamily.jpeg';
+  static const String feedbackBackground = 'assets/images/family.jpeg';
+  static const String appointmentsBackground = 'assets/images/helpingheadjpg.jpeg';
+  static const String transcriptionBackground = 'assets/images/braidinghair.png';
+  
+  // Random background image helper (legacy support)
   static String getRandomBackgroundImage() {
     final images = [
-      'assets/images/bg1.png',
-      'assets/images/bg2.png',
-      'assets/images/bg3.png',
-      'assets/images/bg4.png',
-      'assets/images/bg5.png',
+      authBackground,
+      homeBackground,
+      communityBackground,
+      feedbackBackground,
+      appointmentsBackground,
+      transcriptionBackground,
     ];
     return images[math.Random().nextInt(images.length)];
   }

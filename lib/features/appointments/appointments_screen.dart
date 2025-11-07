@@ -32,17 +32,29 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         children: [
           // Fixed background image
           Positioned.fill(
+            child: Image.asset(
+              DS.appointmentsBackground,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.lightBackground,
+                        AppTheme.lightMuted,
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // Light overlay for readability
+          Positioned.fill(
             child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppTheme.lightBackground,
-                    AppTheme.lightMuted,
-                  ],
-                ),
-              ),
+              color: AppTheme.lightBackground.withOpacity(0.7),
             ),
           ),
           

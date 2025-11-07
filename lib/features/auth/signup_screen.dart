@@ -30,28 +30,45 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundImage = DS.getRandomBackgroundImage();
-    
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Header with background image and logo
-              Container(
-                height: 220,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.lightPrimary,
-                      AppTheme.lightAccent,
-                    ],
+      body: Stack(
+        children: [
+          // Fixed background image
+          Positioned.fill(
+            child: Image.asset(
+              DS.authBackground,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.lightPrimary,
+                        AppTheme.lightAccent,
+                      ],
+                    ),
                   ),
-                ),
-                child: Stack(
+                );
+              },
+            ),
+          ),
+          // Dark overlay for better text readability
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.3),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Header with logo
+                  Container(
+                    height: 220,
+                    width: double.infinity,
+                    child: Stack(
                   children: [
                     Positioned(
                       top: 16,
@@ -251,9 +268,11 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
               ),
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

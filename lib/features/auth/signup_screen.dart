@@ -229,7 +229,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             ? () {
                                 if (_formKey.currentState!.validate()) {
                                   // TODO: call AuthService.signup
-                                  Navigator.pushReplacementNamed(context, Routes.tabs);
+                                  Navigator.pushReplacementNamed(context, Routes.mainNavigation);
                                 }
                               }
                             : null,

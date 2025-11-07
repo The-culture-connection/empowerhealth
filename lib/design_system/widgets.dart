@@ -210,7 +210,7 @@ class DS {
   }
 
   // Random background image helper
-  static String getRandomBackgroundImage() {
+  static String? getRandomBackgroundImage() {
     final images = [
       'assets/images/bg1.png',
       'assets/images/bg2.png',
@@ -218,7 +218,12 @@ class DS {
       'assets/images/bg4.png',
       'assets/images/bg5.png',
     ];
-    return images[math.Random().nextInt(images.length)];
+    // Return null if images don't exist, will use gradient fallback
+    try {
+      return images[math.Random().nextInt(images.length)];
+    } catch (e) {
+      return null;
+    }
   }
 
   // Hero header with background image

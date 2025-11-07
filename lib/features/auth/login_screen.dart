@@ -150,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
                             // TODO: call AuthService.login
-                            Navigator.pushReplacementNamed(context, Routes.tabs);
+                            Navigator.pushReplacementNamed(context, Routes.mainNavigation);
                           }
                         },
                       ),

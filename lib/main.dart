@@ -14,8 +14,10 @@ class AdvocacyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Advocacy',
+      title: 'EmpowerHealth',
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.system,
       onGenerateRoute: AppRouter.onGenerateRoute,
       initialRoute: AppRouter.landing,
     );

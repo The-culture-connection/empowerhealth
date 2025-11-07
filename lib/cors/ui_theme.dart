@@ -136,4 +136,25 @@ class AppTheme {
       ),
     );
   }
+
+  // Spacing scale (used in widgets and screens)
+  static const double spacingXS = 4.0;
+  static const double spacingS = 8.0;
+  static const double spacingM = 12.0;
+  static const double spacingL = 16.0;
+  static const double spacingXL = 24.0;
+  static const double spacingXXL = 32.0;
+
+  // Corner radii
+  static const double radiusSmall = 8.0;
+  static const double radius = 12.0;
+
+  // Common colors used across light UI
+  // These map to the brand palette above for consistency.
+  static const Color lightPrimary = brandBrown;
+  static const Color lightAccent = brandPeach;
+  static const Color lightForeground = brandBlack;
+  static const Color lightBackground = brandWhite;
+  static const Color lightMuted = Color(0xFFF1F5F9); // neutral surface tint
+  static const Color error = Color(0xFFE11D48);
 }

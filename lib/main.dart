@@ -19,7 +19,7 @@ class AdvocacyApp extends StatelessWidget {
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
       onGenerateRoute: AppRouter.onGenerateRoute,
-      initialRoute: AppRouter.landing,
+      initialRoute: AppRouter.initialRoute,
     );
   }
 }

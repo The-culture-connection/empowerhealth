@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'design_system/theme.dart';
+import 'cors/ui_theme.dart';
 import 'app_router.dart';
 
 void main() {

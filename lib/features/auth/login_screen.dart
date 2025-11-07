@@ -24,28 +24,45 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundImage = DS.getRandomBackgroundImage();
-    
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Header with background image and logo
-              Container(
-                height: 250,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.lightPrimary,
-                      AppTheme.lightAccent,
-                    ],
+      body: Stack(
+        children: [
+          // Fixed background image
+          Positioned.fill(
+            child: Image.asset(
+              DS.authBackground,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.lightPrimary,
+                        AppTheme.lightAccent,
+                      ],
+                    ),
                   ),
-                ),
-                child: Stack(
+                );
+              },
+            ),
+          ),
+          // Dark overlay for better text readability
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.3),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Header with logo
+                  Container(
+                    height: 250,
+                    width: double.infinity,
+                    child: Stack(
                   children: [
                     // Background pattern or image would go here
                     Positioned(
@@ -150,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
                             // TODO: call AuthService.login
-                            Navigator.pushReplacementNamed(context, Routes.tabs);
+                            Navigator.pushReplacementNamed(context, Routes.mainNavigation);
                           }
                         },
                       ),
@@ -171,9 +188,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -27,7 +27,7 @@ class AuthScreen extends StatelessWidget {
                       fontFamily: 'Primary',
                       fontSize: 80,
                       fontWeight: FontWeight.w500,
-                    ).copyWith(color: AppTheme.brandBrown),
+                    ).copyWith(color: AppTheme.brandPurple),
                   ),
                   const Spacer(),
                   // Buttons styled to match design (solid brown rectangles)
@@ -62,8 +62,8 @@ class _AuthPrimaryButton extends StatelessWidget {
       height: 56,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.brandBrown,
-          foregroundColor: AppTheme.brandBlack,
+          backgroundColor: AppTheme.brandPurple,
+          foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),

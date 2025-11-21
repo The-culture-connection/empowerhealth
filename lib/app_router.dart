@@ -12,11 +12,13 @@ import 'editprofile/edit_profile_screen.dart';
 import 'Home/Appointments/appointments_screen.dart';
 import 'Home/Learning Modules/Learning_modules_screen.dart';
 import 'Home/Messages/Messages_screen.dart';
+import 'profile/profile_creation_screen.dart';
 
 class Routes {
   static const auth = '/auth';
   static const login = '/login';
   static const signup = '/signup';
+  static const profileCreation = '/profile-creation';
   static const main = '/main';
 
   // Tabs
@@ -39,12 +41,12 @@ class AppRouter {
     switch (settings.name) {
       case Routes.auth:
         return _page(const AuthScreen());
-      case Routes.auth:
-        return _page(const AuthScreen());
       case Routes.login:
         return _page(const LoginScreen());
       case Routes.signup:
         return _page(const SignUpScreen());
+      case Routes.profileCreation:
+        return _page(const ProfileCreationScreen());
       case Routes.main:
         return _page(const MainNavigationScaffold());
 
@@ -68,7 +70,6 @@ class AppRouter {
       case Routes.messages:
         return _page(const MessagesScreen());
       default:
-        return _page(const AuthScreen());
         return _page(const AuthScreen());
     }
   }

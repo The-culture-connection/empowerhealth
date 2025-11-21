@@ -39,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontFamily: 'Primary',
                           fontSize: 70,
                           fontWeight: FontWeight.w500,
-                          color: AppTheme.brandPeach,
+                          color: AppTheme.brandGold,
                         ),
                       ),
                       IconButton(
@@ -47,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         iconSize: 36,
                         icon: const Icon(
                           Icons.mic_none_rounded,
-                          color: AppTheme.brandBrown,
+                          color: AppTheme.brandPurple,
                         ),
                       ),
                     ],
@@ -145,7 +145,7 @@ class _CardTitle extends StatelessWidget {
       text,
       style: const TextStyle(
         fontFamily: 'Primary',
-        color: AppTheme.brandPeach,
+        color: AppTheme.brandGold,
         fontSize: 30,
         fontWeight: FontWeight.w600,
       ),
@@ -163,7 +163,7 @@ class _GlassCard extends StatelessWidget {
     final card = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.brandBrown.withOpacity(0.65),
+        color: AppTheme.brandPurple.withOpacity(0.65),
         borderRadius: BorderRadius.circular(18),
       ),
       child: child,

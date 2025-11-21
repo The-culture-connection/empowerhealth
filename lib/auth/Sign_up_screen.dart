@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_router.dart';
+import '../services/auth_service.dart';
+import '../cors/ui_theme.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -13,6 +15,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final AuthService _authService = AuthService();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -20,6 +24,42 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _email.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  Future<void> _signUp() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final user = await _authService.registerWithEmail(
+        _email.text.trim(),
+        _password.text,
+      );
+
+      if (user != null) {
+        // Update display name
+        await _authService.updateDisplayName(_name.text.trim());
+
+        if (mounted) {
+          // Navigate to profile creation
+          Navigator.pushReplacementNamed(context, Routes.profileCreation);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -66,12 +106,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                           const SizedBox(height: 20),
                           ElevatedButton(
-                            onPressed: () {
-                              if (_formKey.currentState?.validate() ?? false) {
-                                Navigator.pushReplacementNamed(context, Routes.main);
-                              }
-                            },
-                            child: const Text('Sign Up'),
+                            onPressed: _isLoading ? null : _signUp,
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Text('Sign Up'),
                           ),
                           const SizedBox(height: 8),
                           TextButton(

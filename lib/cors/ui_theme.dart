@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Brand palette from request
-  static const Color brandBrown = Color(0xFF5B331C); // #5b331c
-  static const Color brandBlack = Color(0xFF000000); // #000000
-  static const Color brandWhite = Color.fromARGB(255, 192, 115, 115); // #ffffff
-  static const Color brandPeach = Color.fromARGB(255, 39, 17, 4); // #ffceb2
+  // Brand palette from brand guidelines
+  static const Color brandTurquoise = Color(0xFF23C0C2); // #23C0C2
+  static const Color brandPurple = Color(0xFF663398); // #663398
+  static const Color brandBlack = Color(0xFF0C0A0A); // #0C0A0A
+  static const Color brandGold = Color(0xFFDCB85E); // #DCB85E
+  static const Color brandWhite = Color(0xFFF4F4F4); // #F4F4F4
 
   // Backwards-compatible names used in code
-  static const Color _primary = brandBrown;
-  static const Color _secondary = brandPeach;
+  static const Color _primary = brandPurple;
+  static const Color _secondary = brandTurquoise;
+  static const Color _accent = brandGold;
   static const Color _surface = brandWhite;
   static const Color _text = brandBlack;
 
@@ -57,23 +59,23 @@ class AppTheme {
           ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: brandBrown,
-          foregroundColor: brandBlack,
+          backgroundColor: brandPurple,
+          foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(8),
           ),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: brandBrown,
-          side: const BorderSide(color: brandBrown, width: 1.5),
+          foregroundColor: brandPurple,
+          side: const BorderSide(color: brandPurple, width: 1.5),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(8),
           ),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
@@ -102,7 +104,7 @@ class AppTheme {
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: brandBrown,
+        selectedItemColor: brandPurple,
         unselectedItemColor: Colors.grey.shade600,
         backgroundColor: brandWhite,
         showUnselectedLabels: true,
@@ -122,16 +124,16 @@ class AppTheme {
       colorScheme: colorScheme,
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: brandBrown,
-          foregroundColor: brandBlack,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          backgroundColor: brandPurple,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: brandPeach,
-          side: BorderSide(color: brandPeach.withOpacity(0.7), width: 1.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          foregroundColor: brandTurquoise,
+          side: BorderSide(color: brandTurquoise.withOpacity(0.7), width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );
@@ -151,8 +153,9 @@ class AppTheme {
 
   // Common colors used across light UI
   // These map to the brand palette above for consistency.
-  static const Color lightPrimary = brandBrown;
-  static const Color lightAccent = brandPeach;
+  static const Color lightPrimary = brandPurple;
+  static const Color lightSecondary = brandTurquoise;
+  static const Color lightAccent = brandGold;
   static const Color lightForeground = brandBlack;
   static const Color lightBackground = brandWhite;
   static const Color lightMuted = Color(0xFFF1F5F9); // neutral surface tint

@@ -4,14 +4,21 @@ const {OpenAI} = require("openai");
 
 admin.initializeApp();
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Helper to get OpenAI client (lazy initialization)
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY || functions.config().openai?.key;
+  if (!apiKey) {
+    throw new Error("OpenAI API key not configured");
+  }
+  return new OpenAI({
+    apiKey: apiKey,
+  });
+}
 
 // Helper function to simplify text to 6th grade level
 async function simplifyTo6thGrade(text, context = "") {
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -80,6 +87,7 @@ exports.generateLearningContent = functions.https.onCall(async (data, context) =
   }
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -142,6 +150,7 @@ exports.summarizeVisitNotes = functions.https.onCall(async (data, context) => {
   const {visitNotes, providerInstructions, medications, diagnoses, emotionalFlags} = data;
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -215,6 +224,7 @@ exports.generateBirthPlan = functions.https.onCall(async (data, context) => {
   const {preferences, medicalHistory, concerns, supportPeople} = data;
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -276,6 +286,7 @@ exports.generateAppointmentChecklist = functions.https.onCall(async (data, conte
   const {appointmentType, trimester, concerns, lastVisit} = data;
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -325,6 +336,7 @@ exports.analyzeEmotionalContent = functions.https.onCall(async (data, context) =
   const {journalEntry, visitNotes} = data;
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -377,6 +389,7 @@ exports.generateRightsContent = functions.https.onCall(async (data, context) => 
   const {topic, state} = data;
 
   try {
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [

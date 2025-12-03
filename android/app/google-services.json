@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "725364003316",
+    "project_id": "empower-health-watch",
+    "storage_bucket": "empower-health-watch.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:725364003316:android:1411a89c67dc93338229a1",
+        "android_client_info": {
+          "package_name": "com.example.empowerhealth"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2arGVVaRoFBJ8Bhpq6oPuvIbM8d5gzhM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

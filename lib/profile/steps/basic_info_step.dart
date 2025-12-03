@@ -13,20 +13,17 @@ class BasicInfoStep extends StatefulWidget {
 
 class _BasicInfoStepState extends State<BasicInfoStep> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   final _zipCodeController = TextEditingController();
   
   @override
   void initState() {
     super.initState();
     final provider = Provider.of<ProfileCreationProvider>(context, listen: false);
-    _nameController.text = provider.name;
     _zipCodeController.text = provider.zipCode;
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
     _zipCodeController.dispose();
     super.dispose();
   }
@@ -45,26 +42,6 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                 style: TextStyle(fontSize: 16, color: Colors.black87),
               ),
               const SizedBox(height: AppTheme.spacingXL),
-
-              // Name
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Full Name',
-                  hintText: 'Enter your full name',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your name';
-                  }
-                  return null;
-                },
-                onChanged: (value) {
-                  provider.updateBasicInfo(name: value);
-                },
-              ),
-              const SizedBox(height: AppTheme.spacingL),
 
               // Age
               TextFormField(

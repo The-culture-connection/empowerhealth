@@ -3,8 +3,28 @@ import 'package:provider/provider.dart';
 import '../../providers/profile_creation_provider.dart';
 import '../../cors/ui_theme.dart';
 
-class DemographicsStep extends StatelessWidget {
+class DemographicsStep extends StatefulWidget {
   const DemographicsStep({super.key});
+
+  @override
+  State<DemographicsStep> createState() => _DemographicsStepState();
+}
+
+class _DemographicsStepState extends State<DemographicsStep> {
+  final _nameController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final provider = Provider.of<ProfileCreationProvider>(context, listen: false);
+    _nameController.text = provider.name;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,14 +34,40 @@ class DemographicsStep extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'This information helps us connect you with culturally relevant resources and support.',
+              'Tell us a bit more about yourself.',
               style: TextStyle(fontSize: 16, color: Colors.black87),
             ),
-            const Text(
-              'All fields are optional.',
-              style: TextStyle(fontSize: 14, color: Colors.black54, fontStyle: FontStyle.italic),
-            ),
             const SizedBox(height: AppTheme.spacingXL),
+
+            // Full Name
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                hintText: 'Enter your full name',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your name';
+                }
+                return null;
+              },
+              onChanged: (value) {
+                provider.updateBasicInfo(name: value);
+              },
+            ),
+            const SizedBox(height: AppTheme.spacingL),
+
+            const Text(
+              'The following demographic information helps us connect you with culturally relevant resources and support.',
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            const Text(
+              'These fields are optional.',
+              style: TextStyle(fontSize: 13, color: Colors.black54, fontStyle: FontStyle.italic),
+            ),
+            const SizedBox(height: AppTheme.spacingL),
 
             // Race/Ethnicity
             DropdownButtonFormField<String>(

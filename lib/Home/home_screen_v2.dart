@@ -5,6 +5,7 @@ import '../visits/visit_summary_screen.dart';
 import '../birthplan/birth_plan_creator_screen.dart';
 import '../appointments/appointment_checklist_screen.dart';
 import '../learning/learning_modules_screen.dart';
+import 'learning_todo_widget.dart';
 
 class HomeScreenV2 extends StatefulWidget {
   const HomeScreenV2({super.key});
@@ -142,7 +143,25 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
 
                   const SizedBox(height: 16),
 
-                  // Learning section
+                  // Learning Tasks Todo Widget
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const LearningTodoWidget(),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Learning section - Browse All Modules
                   _GlassCard(
                     onTap: () {
                       Navigator.push(
@@ -160,7 +179,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _CardTitle('Learning'),
+                              _CardTitle('Browse All Modules'),
                               SizedBox(height: 4),
                               Text(
                                 'Trimester guides • Know your rights • Birth prep',

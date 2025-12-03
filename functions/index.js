@@ -1,12 +1,18 @@
-const functions = require("firebase-functions");
+// Load environment variables from .env file (for local development)
+require("dotenv").config();
+
+const {onCall} = require("firebase-functions/v2/https");
+const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const {OpenAI} = require("openai");
 
 admin.initializeApp();
 
-// Helper to get OpenAI client (lazy initialization)
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY || functions.config().openai?.key;
+// Define the OpenAI API key as a secret
+const openaiApiKey = defineSecret("OPENAI_API_KEY");
+
+// Helper to get OpenAI client
+function getOpenAIClient(apiKey) {
   if (!apiKey) {
     throw new Error("OpenAI API key not configured");
   }
@@ -46,11 +52,15 @@ Focus on what the person needs to know and do.`,
 }
 
 // 1. Generate AI-powered learning module content
-exports.generateLearningContent = functions.https.onCall(async (data, context) => {
-  // Verify user is authenticated
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-  }
+exports.generateLearningContent = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    // Verify user is authenticated
+    if (!request.auth) {
+      throw new Error("User must be authenticated");
+    }
+
+    const data = request.data;
 
   const {topic, trimester, moduleType, userProfile} = data;
 
@@ -87,7 +97,7 @@ exports.generateLearningContent = functions.https.onCall(async (data, context) =
   }
 
   try {
-    const openai = getOpenAIClient();
+    const openai = getOpenAIClient(openaiApiKey.value());
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -128,29 +138,33 @@ Keep everything at ${readingLevel} reading level with short paragraphs. Make it 
       moduleType,
       content,
       generatedBy: "ai",
-      personalizedFor: userProfile ? context.auth.uid : null,
+      personalizedFor: userProfile ? request.auth.uid : null,
       readingLevel,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      userId: context.auth.uid,
+      userId: request.auth.uid,
     });
 
     return {success: true, content};
   } catch (error) {
     console.error("Error generating learning content:", error);
-    throw new functions.https.HttpsError("internal", "Failed to generate content");
+    throw new Error("Failed to generate content");
   }
 });
 
 // 2. Summarize appointment/visit notes
-exports.summarizeVisitNotes = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-  }
+exports.summarizeVisitNotes = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("User must be authenticated");
+    }
+
+    const data = request.data;
 
   const {visitNotes, providerInstructions, medications, diagnoses, emotionalFlags} = data;
 
   try {
-    const openai = getOpenAIClient();
+    const openai = getOpenAIClient(openaiApiKey.value());
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -199,7 +213,7 @@ Format as:
 
     // Save to Firestore
     await admin.firestore().collection("visit_summaries").add({
-      userId: context.auth.uid,
+      userId: request.auth.uid,
       originalNotes: visitNotes,
       summary,
       diagnoses,
@@ -211,20 +225,24 @@ Format as:
     return {success: true, summary};
   } catch (error) {
     console.error("Error summarizing visit notes:", error);
-    throw new functions.https.HttpsError("internal", "Failed to summarize visit");
+    throw new Error("Failed to summarize visit");
   }
 });
 
 // 3. Generate personalized birth plan
-exports.generateBirthPlan = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-  }
+exports.generateBirthPlan = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("User must be authenticated");
+    }
+
+    const data = request.data;
 
   const {preferences, medicalHistory, concerns, supportPeople} = data;
 
   try {
-    const openai = getOpenAIClient();
+    const openai = getOpenAIClient(openaiApiKey.value());
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -262,7 +280,7 @@ Keep language simple and clear.`,
 
     // Save to Firestore
     const docRef = await admin.firestore().collection("birth_plans").add({
-      userId: context.auth.uid,
+      userId: request.auth.uid,
       preferences,
       medicalHistory,
       birthPlan,
@@ -273,20 +291,24 @@ Keep language simple and clear.`,
     return {success: true, birthPlan, planId: docRef.id};
   } catch (error) {
     console.error("Error generating birth plan:", error);
-    throw new functions.https.HttpsError("internal", "Failed to generate birth plan");
+    throw new Error("Failed to generate birth plan");
   }
 });
 
 // 4. Generate appointment checklist
-exports.generateAppointmentChecklist = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-  }
+exports.generateAppointmentChecklist = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("User must be authenticated");
+    }
+
+    const data = request.data;
 
   const {appointmentType, trimester, concerns, lastVisit} = data;
 
   try {
-    const openai = getOpenAIClient();
+    const openai = getOpenAIClient(openaiApiKey.value());
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -323,20 +345,24 @@ Keep language simple and actionable.`,
     return {success: true, checklist};
   } catch (error) {
     console.error("Error generating checklist:", error);
-    throw new functions.https.HttpsError("internal", "Failed to generate checklist");
+    throw new Error("Failed to generate checklist");
   }
 });
 
 // 5. Analyze emotional moments and confusion in visit notes
-exports.analyzeEmotionalContent = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-  }
+exports.analyzeEmotionalContent = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("User must be authenticated");
+    }
+
+    const data = request.data;
 
   const {journalEntry, visitNotes} = data;
 
   try {
-    const openai = getOpenAIClient();
+    const openai = getOpenAIClient(openaiApiKey.value());
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -376,20 +402,24 @@ Respond in JSON format:
     return {success: true, analysis};
   } catch (error) {
     console.error("Error analyzing emotional content:", error);
-    throw new functions.https.HttpsError("internal", "Failed to analyze content");
+    throw new Error("Failed to analyze content");
   }
 });
 
 // 6. Generate "Know Your Rights" content
-exports.generateRightsContent = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-  }
+exports.generateRightsContent = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("User must be authenticated");
+    }
+
+    const data = request.data;
 
   const {topic, state} = data;
 
   try {
-    const openai = getOpenAIClient();
+    const openai = getOpenAIClient(openaiApiKey.value());
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -422,24 +452,47 @@ Keep language simple, clear, and empowering.`,
     return {success: true, content};
   } catch (error) {
     console.error("Error generating rights content:", error);
-    throw new functions.https.HttpsError("internal", "Failed to generate rights content");
+    throw new Error("Failed to generate rights content");
   }
 });
 
 // Export helper function for use in other functions
-exports.simplifyText = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
-  }
+exports.simplifyText = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("User must be authenticated");
+    }
 
-  const {text, context: textContext} = data;
+    const {text, context: textContext} = request.data;
 
-  try {
-    const simplified = await simplifyTo6thGrade(text, textContext);
-    return {success: true, simplified};
-  } catch (error) {
-    console.error("Error simplifying text:", error);
-    throw new functions.https.HttpsError("internal", "Failed to simplify text");
+    try {
+      const openai = getOpenAIClient(openaiApiKey.value());
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: `You are a medical communication expert who translates complex medical information 
+into simple, clear language appropriate for a 6th grade reading level. Use short sentences, 
+common words, and avoid medical jargon. When medical terms are necessary, explain them simply. 
+Focus on what the person needs to know and do.`,
+          },
+          {
+            role: "user",
+            content: `${textContext ? textContext + "\n\n" : ""}Please simplify this to 6th grade reading level:\n\n${text}`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
+
+      const simplified = response.choices[0].message.content;
+      return {success: true, simplified};
+    } catch (error) {
+      console.error("Error simplifying text:", error);
+      throw new Error("Failed to simplify text");
+    }
   }
-});
+);
 

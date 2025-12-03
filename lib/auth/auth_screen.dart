@@ -33,16 +33,19 @@ class AuthScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Logo/title at top in cursive-like style
-                  const Text(
-                    'EmpowerHealth',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      // Use the provided Primary font for titles
-                      fontFamily: 'Primary',
-                      fontSize: 40,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.brandPurple,
+                  // Logo/title at top in cursive-like style - responsive
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'EmpowerHealth',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        // Use the provided Primary font for titles
+                        fontFamily: 'Primary',
+                        fontSize: MediaQuery.of(context).size.width * 0.18,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.brandPurple,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),

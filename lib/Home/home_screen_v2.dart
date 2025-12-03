@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import '../app_router.dart';
 import '../cors/ui_theme.dart';
-import '../visits/visit_summary_screen.dart';
 import '../birthplan/birth_plan_creator_screen.dart';
-import '../appointments/appointment_checklist_screen.dart';
-import '../learning/learning_modules_screen.dart';
+import '../appointments/appointments_list_screen.dart';
 import 'learning_todo_widget.dart';
 
 class HomeScreenV2 extends StatefulWidget {
@@ -62,7 +60,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const VisitSummaryScreen(),
+                          builder: (context) => const AppointmentsListScreen(),
                         ),
                       );
                     },

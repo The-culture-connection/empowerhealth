@@ -496,3 +496,89 @@ Focus on what the person needs to know and do.`,
   }
 );
 
+// 7. After-Visit Summary - Summarize uploaded PDF with specific structure
+exports.summarizeAfterVisitPDF = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("User must be authenticated");
+    }
+
+    const {pdfText, appointmentDate, educationLevel} = request.data;
+
+    // Determine reading level based on education
+    const getReadingLevel = (educationLevel) => {
+      if (!educationLevel) return "6th grade";
+      if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
+        return "8th grade";
+      }
+      if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
+        return "6th-7th grade";
+      }
+      return "5th-6th grade";
+    };
+
+    const readingLevel = educationLevel ? getReadingLevel(educationLevel) : "6th grade";
+
+    try {
+      const openai = getOpenAIClient(openaiApiKey.value());
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: `You are a medical interpreter specializing in maternal health. 
+Summarize visit notes at a ${readingLevel} reading level using professional clinical language. 
+Avoid casual terms like "momma". Structure your response in clear sections.`,
+          },
+          {
+            role: "user",
+            content: `Summarize this medical visit in plain language at ${readingLevel} reading level:
+
+${pdfText}
+
+Create a summary with these sections:
+
+## How Your Baby Is Doing
+[Brief summary of fetal health, measurements, heartbeat, movements, development]
+
+## How You Are Doing  
+[Brief summary of maternal health, vitals, symptoms, concerns addressed]
+
+## Actions To Take
+[List specific actions: medications, lifestyle changes, appointments to schedule, tests needed]
+
+## Suggested Learning Topics
+[Based on this visit, suggest 2-3 relevant learning modules, such as:]
+- Topic name (why it's relevant based on visit)
+
+Keep each section concise and in plain language.`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+      });
+
+      const summary = response.choices[0].message.content;
+
+      // Save to Firestore under user's profile
+      await admin.firestore()
+          .collection("users")
+          .doc(request.auth.uid)
+          .collection("visit_summaries")
+          .add({
+        appointmentDate: appointmentDate,
+        originalText: pdfText,
+        summary: summary,
+        readingLevel: readingLevel,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return {success: true, summary};
+    } catch (error) {
+      console.error("Error summarizing after-visit PDF:", error);
+      throw new Error("Failed to summarize visit");
+    }
+  }
+);
+

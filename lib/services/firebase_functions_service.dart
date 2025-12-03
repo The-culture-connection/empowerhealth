@@ -137,5 +137,23 @@ class FirebaseFunctionsService {
       throw Exception('Failed to simplify text: $e');
     }
   }
+
+  // Summarize after-visit PDF
+  Future<Map<String, dynamic>> summarizeAfterVisitPDF({
+    required String pdfText,
+    required String appointmentDate,
+    String? educationLevel,
+  }) async {
+    try {
+      final result = await _functions.httpsCallable('summarizeAfterVisitPDF').call({
+        'pdfText': pdfText,
+        'appointmentDate': appointmentDate,
+        'educationLevel': educationLevel,
+      });
+      return result.data as Map<String, dynamic>;
+    } catch (e) {
+      throw Exception('Failed to summarize PDF: $e');
+    }
+  }
 }
 

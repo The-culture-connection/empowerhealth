@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../Home/home_screen.dart';
+import '../Home/home_screen_v2.dart';
 import '../Journal/Journal_screen.dart';
 import '../Community/community_screen.dart';
 import '../assistant/assistant_screen.dart';
@@ -17,7 +17,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
   int _index = 0;
 
   final _pages = const [
-    HomeScreen(),
+    HomeScreenV2(),
     JournalScreen(),
     CommunityScreen(),
     AssistantScreen(),
@@ -29,9 +29,8 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: NavigationBar(
-        backgroundColor: Colors.white.withOpacity(0.15),
-        elevation: 0,
-        indicatorColor: Colors.white.withOpacity(0.25),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 8,
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [

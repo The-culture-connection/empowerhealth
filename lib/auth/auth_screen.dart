@@ -11,7 +11,22 @@ class AuthScreen extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset('assets/Authscreen.jpeg', fit: BoxFit.cover),
+          Image.asset(
+            'assets/Authscreen.jpeg',
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              // Fallback to gradient if image fails to load
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [AppTheme.brandPurple.withOpacity(0.3), AppTheme.brandPurple],
+                  ),
+                ),
+              );
+            },
+          ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24),
@@ -19,15 +34,26 @@ class AuthScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Logo/title at top in cursive-like style
-                  Text(
+                  const Text(
                     'EmpowerHealth',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       // Use the provided Primary font for titles
                       fontFamily: 'Primary',
                       fontSize: 80,
                       fontWeight: FontWeight.w500,
-                    ).copyWith(color: AppTheme.brandPurple),
+                      color: AppTheme.brandPurple,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Your Pregnancy Journey,\nYour Way',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w400,
+                      color: AppTheme.brandPurple,
+                    ),
                   ),
                   const Spacer(),
                   // Buttons styled to match design (solid brown rectangles)

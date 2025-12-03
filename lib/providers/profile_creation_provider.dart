@@ -174,6 +174,9 @@ class ProfileCreationProvider extends ChangeNotifier {
 
   // Create UserProfile from provider data
   UserProfile toUserProfile(String userId) {
+    // Calculate trimester from due date
+    final calculatedTrimester = _calculateTrimester(dueDate);
+    
     return UserProfile(
       userId: userId,
       name: name,
@@ -188,7 +191,7 @@ class ProfileCreationProvider extends ChangeNotifier {
       languagePreference: languagePreference,
       maritalStatus: maritalStatus,
       educationLevel: educationLevel,
-      pregnancyStage: pregnancyStage,
+      pregnancyStage: calculatedTrimester,
       chronicConditions: chronicConditions,
       medications: medications,
       allergies: allergies,
@@ -242,6 +245,19 @@ class ProfileCreationProvider extends ChangeNotifier {
     interestedInBreastfeeding = false;
     healthLiteracyGoals = [];
     notifyListeners();
+  }
+
+  String _calculateTrimester(DateTime? dueDate) {
+    if (dueDate == null) return 'First Trimester';
+    
+    final now = DateTime.now();
+    final daysUntilDue = dueDate.difference(now).inDays;
+    final weeksPregnant = 40 - (daysUntilDue / 7).floor();
+    
+    if (weeksPregnant <= 0) return 'First Trimester';
+    if (weeksPregnant <= 13) return 'First Trimester';
+    if (weeksPregnant <= 27) return 'Second Trimester';
+    return 'Third Trimester';
   }
 }
 

@@ -28,16 +28,20 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Welcome header with flexible text
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Welcome',
-                        style: TextStyle(
-                          fontFamily: 'Primary',
-                          fontSize: 70,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.brandGold,
+                      const Flexible(
+                        child: Text(
+                          'Welcome',
+                          style: TextStyle(
+                            fontFamily: 'Primary',
+                            fontSize: 70,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.brandGold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       IconButton(
@@ -52,90 +56,65 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Quick access grid
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _GlassCard(
-                          onTap: () => Navigator.pushNamed(context, Routes.appointments),
-                          child: const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _CardTitle('Appointments'),
-                              SizedBox(height: 8),
-                              Text('Nov, 29\n6:00pm\n\nFirst Trimester\nCheck-up',
-                                  style: TextStyle(color: Colors.white)),
-                            ],
-                          ),
+                  // Appointments Card
+                  _GlassCard(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const VisitSummaryScreen(),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _GlassCard(
-                          onTap: () => Navigator.pushNamed(context, Routes.messages),
-                          child: const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _CardTitle('Messages'),
-                              SizedBox(height: 8),
-                              Text('PHP: Hey How\nis it going',
-                                  style: TextStyle(color: Colors.white)),
-                            ],
-                          ),
+                      );
+                    },
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.medical_information, color: Colors.white, size: 32),
+                            SizedBox(width: 12),
+                            Flexible(
+                              child: _CardTitle('Appointments'),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        SizedBox(height: 8),
+                        Text(
+                          'Upload visit summary PDF',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // AI-Powered Tools Section
+                  // Birth Plan Creator
                   _GlassCard(
-                    child: Column(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const BirthPlanCreatorScreen(),
+                        ),
+                      );
+                    },
+                    child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const _CardTitle('AI Tools'),
-                        const SizedBox(height: 12),
-                        _ToolButton(
-                          icon: Icons.summarize,
-                          label: 'Visit Summary',
-                          description: 'Understand your appointment notes',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const VisitSummaryScreen(),
-                              ),
-                            );
-                          },
+                        Row(
+                          children: [
+                            Icon(Icons.assignment, color: Colors.white, size: 32),
+                            SizedBox(width: 12),
+                            Flexible(
+                              child: _CardTitle('Birth Plan'),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        _ToolButton(
-                          icon: Icons.checklist,
-                          label: 'Appointment Checklist',
-                          description: 'Prepare for your next visit',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const AppointmentChecklistScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 8),
-                        _ToolButton(
-                          icon: Icons.assignment,
-                          label: 'Birth Plan Creator',
-                          description: 'Plan your perfect birth experience',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const BirthPlanCreatorScreen(),
-                              ),
-                            );
-                          },
+                        SizedBox(height: 8),
+                        Text(
+                          'Create your personalized birth plan',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
                         ),
                       ],
                     ),
@@ -159,39 +138,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                     child: const LearningTodoWidget(),
                   ),
 
-                  const SizedBox(height: 16),
-
-                  // Learning section - Browse All Modules
-                  _GlassCard(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LearningModulesScreen(),
-                        ),
-                      );
-                    },
-                    child: const Row(
-                      children: [
-                        Icon(Icons.school, color: Colors.white, size: 32),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _CardTitle('Browse All Modules'),
-                              SizedBox(height: 4),
-                              Text(
-                                'Trimester guides • Know your rights • Birth prep',
-                                style: TextStyle(color: Colors.white70, fontSize: 14),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(Icons.arrow_forward_ios, color: Colors.white70),
-                      ],
-                    ),
-                  ),
+                  const SizedBox(height: 80), // Extra space at bottom for nav bar
                 ],
               ),
             ),

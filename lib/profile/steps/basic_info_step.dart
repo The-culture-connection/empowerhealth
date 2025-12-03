@@ -111,6 +111,32 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                     }
                   },
                 ),
+                if (provider.dueDate != null) ...[
+                  const SizedBox(height: AppTheme.spacingM),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.brandPurple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: AppTheme.brandPurple),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Current Trimester: ${_calculateTrimester(provider.dueDate)}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.brandPurple,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
 
               const SizedBox(height: AppTheme.spacingM),
@@ -218,6 +244,19 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
         fontFamily: 'Primary',
       ),
     );
+  }
+
+  String _calculateTrimester(DateTime? dueDate) {
+    if (dueDate == null) return 'First';
+    
+    final now = DateTime.now();
+    final daysUntilDue = dueDate.difference(now).inDays;
+    final weeksPregnant = 40 - (daysUntilDue / 7).floor();
+    
+    if (weeksPregnant <= 0) return 'First';
+    if (weeksPregnant <= 13) return 'First';
+    if (weeksPregnant <= 27) return 'Second';
+    return 'Third';
   }
 }
 

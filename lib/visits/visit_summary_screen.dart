@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 import '../services/firebase_functions_service.dart';
+import '../services/database_service.dart';
+import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
 
 class VisitSummaryScreen extends StatefulWidget {
@@ -14,7 +18,13 @@ class VisitSummaryScreen extends StatefulWidget {
 
 class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
   final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
+  final DatabaseService _databaseService = DatabaseService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  File? _selectedPDF;
+  String? _pdfFileName;
+  DateTime? _selectedDate;
+  UserProfile? _userProfile;
   
   final TextEditingController _visitNotesController = TextEditingController();
   final TextEditingController _diagnosesController = TextEditingController();
@@ -28,6 +38,22 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
   Map<String, dynamic>? _emotionalAnalysis;
 
   @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    final userId = _auth.currentUser?.uid;
+    if (userId != null) {
+      final profile = await _databaseService.getUserProfile(userId);
+      setState(() {
+        _userProfile = profile;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _visitNotesController.dispose();
     _diagnosesController.dispose();
@@ -37,10 +63,48 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
     super.dispose();
   }
 
-  Future<void> _generateSummary() async {
-    if (_visitNotesController.text.trim().isEmpty) {
+  Future<void> _pickPDF() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (result != null) {
+        setState(() {
+          _selectedPDF = File(result.files.single.path!);
+          _pdfFileName = result.files.single.name;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF selected: $_pdfFileName')),
+        );
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your visit notes')),
+        SnackBar(content: Text('Error selecting PDF: $e')),
+      );
+    }
+  }
+
+  Future<void> _generateSummary() async {
+    // For PDF: Extract text (placeholder - would need OCR service)
+    // For now, use manual text or show message
+    final visitText = _visitNotesController.text.trim();
+    
+    if (_selectedPDF != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PDF text extraction coming soon. Please enter text manually for now.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    
+    if (visitText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter visit notes or upload PDF')),
       );
       return;
     }
@@ -54,7 +118,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
     try {
       // Generate summary
       final result = await _functionsService.summarizeVisitNotes(
-        visitNotes: _visitNotesController.text.trim(),
+        visitNotes: visitText,
         providerInstructions: _providerInstructionsController.text.trim().isEmpty
             ? null
             : _providerInstructionsController.text.trim(),
@@ -68,6 +132,23 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
             ? null
             : _emotionalNotesController.text.trim(),
       );
+
+      // Save to user's profile under visit_summaries subcollection
+      final userId = _auth.currentUser!.uid;
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('visit_summaries')
+          .add({
+        'appointmentDate': _selectedDate,
+        'originalNotes': visitText,
+        'summary': result['summary'],
+        'diagnoses': _diagnosesController.text.trim(),
+        'medications': _medicationsController.text.trim(),
+        'providerInstructions': _providerInstructionsController.text.trim(),
+        'emotionalFlags': _emotionalNotesController.text.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
       // Analyze emotional content if enabled
       if (_showEmotionalAnalysis) {
@@ -99,7 +180,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Visit Summary Tool'),
+        title: const Text('Appointment Visit Summary'),
         backgroundColor: AppTheme.brandPurple,
         foregroundColor: Colors.white,
       ),
@@ -110,7 +191,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
           children: [
             // Header
             const Text(
-              'Understand Your Visit',
+              'Upload Visit Summary',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -119,14 +200,168 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Get a simple explanation of your appointment in easy-to-understand language',
+              'Upload your visit summary PDF and get an easy-to-understand explanation',
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 24),
 
-            // Visit Notes
-            TextField(
-              controller: _visitNotesController,
+            // Appointment Date Picker
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.calendar_today, color: AppTheme.brandPurple),
+              title: const Text(
+                'Appointment Date',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                _selectedDate != null
+                    ? '${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}'
+                    : 'Tap to select date',
+                style: TextStyle(
+                  color: _selectedDate != null ? Colors.black87 : Colors.grey,
+                ),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDate: DateTime.now(),
+                );
+                if (date != null) {
+                  setState(() {
+                    _selectedDate = date;
+                  });
+                }
+              },
+            ),
+            const Divider(),
+            const SizedBox(height: 16),
+
+            // PDF Upload Section
+            if (_selectedPDF == null) ...[
+              GestureDetector(
+                onTap: _pickPDF,
+                child: Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: AppTheme.brandPurple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppTheme.brandPurple,
+                      width: 2,
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  child: const Column(
+                    children: [
+                      Icon(
+                        Icons.cloud_upload_outlined,
+                        size: 64,
+                        color: AppTheme.brandPurple,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Upload Visit Summary PDF',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.brandPurple,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Tap to select PDF file',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.picture_as_pdf, color: Colors.green, size: 32),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'PDF Selected',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green,
+                            ),
+                          ),
+                          Text(
+                            _pdfFileName ?? '',
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.red),
+                      onPressed: () {
+                        setState(() {
+                          _selectedPDF = null;
+                          _pdfFileName = null;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Generate Summary Button
+              ElevatedButton(
+                onPressed: (_selectedDate != null && !_isLoading) 
+                    ? _generateSummary 
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.brandPurple,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Analyze & Summarize',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+              ),
+            ],
+
+            const SizedBox(height: 24),
+
+            // Manual Text Entry Alternative
+            ExpansionTile(
+              title: const Text(
+                'Or Enter Text Manually',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              children: [
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _visitNotesController,
               decoration: const InputDecoration(
                 labelText: 'What happened during your visit? *',
                 hintText: 'Doctor said... tests done... measurements taken...',
@@ -228,6 +463,8 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
                       'Generate Simple Summary',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
+            ),
+              ],
             ),
             const SizedBox(height: 24),
 

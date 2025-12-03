@@ -89,32 +89,127 @@ class _LearningModulesScreenState extends State<LearningModulesScreen> with Sing
         title: const Text('Learning Modules'),
         backgroundColor: AppTheme.brandPurple,
         foregroundColor: Colors.white,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: '1st Trimester'),
-            Tab(text: '2nd Trimester'),
-            Tab(text: '3rd Trimester'),
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('learning_tasks')
+                  .where('userId', isEqualTo: _auth.currentUser?.uid)
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Column(
+                      children: [
+                        Icon(Icons.school_outlined, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'No learning modules yet',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Modules will be generated when you complete your profile',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return _buildTasksList(snapshot.data!.docs);
+              },
+            ),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildModuleList('First'),
-          _buildModuleList('Second'),
-          _buildModuleList('Third'),
-        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCustomTopicDialog,
         backgroundColor: AppTheme.brandPurple,
         icon: const Icon(Icons.add),
-        label: const Text('Custom Topic'),
+        label: const Text('Add Topic'),
       ),
+    );
+  }
+
+  Widget _buildTasksList(List<QueryDocumentSnapshot> docs) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: docs.length,
+      itemBuilder: (context, index) {
+        final doc = docs[index];
+        final data = doc.data() as Map<String, dynamic>;
+        
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListTile(
+            leading: const Icon(
+              Icons.check_circle_outline,
+              color: AppTheme.brandPurple,
+              size: 28,
+            ),
+            title: Text(
+              data['title'] ?? '',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text(
+                  data['description'] ?? '',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, size: 14, color: Colors.amber),
+                    const SizedBox(width: 4),
+                    Text(
+                      'AI Generated',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.amber[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ModuleDetailScreen(
+                    title: data['title'] ?? '',
+                    trimester: data['trimester'] ?? 'First',
+                    type: 'personalized',
+                    preloadedContent: data['content'],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 

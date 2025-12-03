@@ -13,12 +13,14 @@ class FirebaseFunctionsService {
     required String topic,
     required String trimester,
     required String moduleType,
+    Map<String, dynamic>? userProfile,
   }) async {
     try {
       final result = await _functions.httpsCallable('generateLearningContent').call({
         'topic': topic,
         'trimester': trimester,
         'moduleType': moduleType,
+        'userProfile': userProfile,
       });
       return result.data as Map<String, dynamic>;
     } catch (e) {

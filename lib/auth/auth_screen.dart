@@ -40,7 +40,7 @@ class AuthScreen extends StatelessWidget {
                     style: TextStyle(
                       // Use the provided Primary font for titles
                       fontFamily: 'Primary',
-                      fontSize: 80,
+                      fontSize: 40,
                       fontWeight: FontWeight.w500,
                       color: AppTheme.brandPurple,
                     ),

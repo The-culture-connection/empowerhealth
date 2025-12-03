@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_functions_service.dart';
+import '../services/database_service.dart';
+import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
 
 class ModuleDetailScreen extends StatefulWidget {
@@ -23,9 +26,12 @@ class ModuleDetailScreen extends StatefulWidget {
 
 class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
+  final DatabaseService _databaseService = DatabaseService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   String? _content;
   bool _isLoading = false;
   String? _error;
+  UserProfile? _userProfile;
 
   @override
   void initState() {
@@ -33,8 +39,16 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     if (widget.preloadedContent != null) {
       _content = widget.preloadedContent;
     } else {
-      _loadContent();
+      _loadUserProfileAndContent();
     }
+  }
+
+  Future<void> _loadUserProfileAndContent() async {
+    final userId = _auth.currentUser?.uid;
+    if (userId != null) {
+      _userProfile = await _databaseService.getUserProfile(userId);
+    }
+    _loadContent();
   }
 
   Future<void> _loadContent() async {
@@ -53,10 +67,23 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           _isLoading = false;
         });
       } else {
+        // Prepare user profile data for personalization
+        Map<String, dynamic>? profileData;
+        if (_userProfile != null) {
+          profileData = {
+            'chronicConditions': _userProfile!.chronicConditions,
+            'healthLiteracyGoals': _userProfile!.healthLiteracyGoals,
+            'insuranceType': _userProfile!.insuranceType,
+            'providerPreferences': _userProfile!.providerPreferences,
+            'educationLevel': _userProfile!.educationLevel,
+          };
+        }
+
         final result = await _functionsService.generateLearningContent(
           topic: widget.title,
           trimester: widget.trimester,
           moduleType: widget.type,
+          userProfile: profileData,
         );
         setState(() {
           _content = result['content'];

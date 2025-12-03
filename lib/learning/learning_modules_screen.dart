@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_functions_service.dart';
+import '../services/database_service.dart';
+import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
 import 'module_detail_screen.dart';
 
@@ -15,7 +17,9 @@ class LearningModulesScreen extends StatefulWidget {
 class _LearningModulesScreenState extends State<LearningModulesScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
+  final DatabaseService _databaseService = DatabaseService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  UserProfile? _userProfile;
 
   // Predefined learning topics for each trimester
   final Map<String, List<Map<String, String>>> _topics = {
@@ -46,6 +50,17 @@ class _LearningModulesScreenState extends State<LearningModulesScreen> with Sing
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    final userId = _auth.currentUser?.uid;
+    if (userId != null) {
+      final profile = await _databaseService.getUserProfile(userId);
+      setState(() {
+        _userProfile = profile;
+      });
+    }
   }
 
   @override
@@ -306,10 +321,23 @@ class _LearningModulesScreenState extends State<LearningModulesScreen> with Sing
     );
 
     try {
+      // Prepare user profile data for personalization
+      Map<String, dynamic>? profileData;
+      if (_userProfile != null) {
+        profileData = {
+          'chronicConditions': _userProfile!.chronicConditions,
+          'healthLiteracyGoals': _userProfile!.healthLiteracyGoals,
+          'insuranceType': _userProfile!.insuranceType,
+          'providerPreferences': _userProfile!.providerPreferences,
+          'educationLevel': _userProfile!.educationLevel,
+        };
+      }
+
       await _functionsService.generateLearningContent(
         topic: topic,
         trimester: _currentTrimester,
         moduleType: 'custom',
+        userProfile: profileData,
       );
       
       if (mounted) {

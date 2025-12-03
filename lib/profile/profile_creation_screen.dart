@@ -65,7 +65,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile created successfully!')),
         );
-        Navigator.of(context).pushReplacementNamed('/home');
+        Navigator.of(context).pushReplacementNamed('/main');
       }
     } catch (e) {
       if (mounted) {

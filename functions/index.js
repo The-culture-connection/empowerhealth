@@ -45,7 +45,39 @@ exports.generateLearningContent = functions.https.onCall(async (data, context) =
     throw new functions.https.HttpsError("unauthenticated", "User must be authenticated");
   }
 
-  const {topic, trimester, moduleType} = data;
+  const {topic, trimester, moduleType, userProfile} = data;
+
+  // Determine reading level based on education
+  const getReadingLevel = (educationLevel) => {
+    if (!educationLevel) return "6th grade";
+    if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
+      return "8th grade";
+    }
+    if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
+      return "6th-7th grade";
+    }
+    return "5th-6th grade";
+  };
+
+  const readingLevel = userProfile?.educationLevel ?
+    getReadingLevel(userProfile.educationLevel) : "6th grade";
+
+  // Build personalized context
+  let personalContext = "";
+  if (userProfile) {
+    if (userProfile.chronicConditions && userProfile.chronicConditions.length > 0) {
+      personalContext += `\nUser has these conditions: ${userProfile.chronicConditions.join(", ")}. Address any relevant considerations.`;
+    }
+    if (userProfile.healthLiteracyGoals && userProfile.healthLiteracyGoals.length > 0) {
+      personalContext += `\nUser's learning goals: ${userProfile.healthLiteracyGoals.join(", ")}.`;
+    }
+    if (userProfile.insuranceType) {
+      personalContext += `\nInsurance type: ${userProfile.insuranceType}. Mention coverage considerations if relevant.`;
+    }
+    if (userProfile.providerPreferences && userProfile.providerPreferences.length > 0) {
+      personalContext += `\nProvider preferences: ${userProfile.providerPreferences.join(", ")}.`;
+    }
+  }
 
   try {
     const response = await openai.chat.completions.create({
@@ -53,21 +85,26 @@ exports.generateLearningContent = functions.https.onCall(async (data, context) =
       messages: [
         {
           role: "system",
-          content: `You are a maternal health educator creating content for pregnant women. 
-Create engaging, supportive, and medically accurate content at a 6th grade reading level. 
-Include practical tips, what to expect, and when to seek medical help. Use warm, encouraging tone.`,
+          content: `You are a maternal health educator creating personalized content for pregnant women. 
+Create engaging, supportive, and medically accurate content at a ${readingLevel} reading level. 
+Include practical tips, what to expect, and when to seek medical help. Use warm, encouraging tone.
+Tailor your content to the user's specific health situation and learning goals when provided.`,
         },
         {
           role: "user",
           content: `Create a learning module about "${topic}" for ${trimester} trimester. 
-Type: ${moduleType}. Include:
+Type: ${moduleType}. 
+
+${personalContext}
+
+Include:
 1. Overview (2-3 simple sentences)
 2. What to Know (3-5 key points)
 3. What to Do (practical steps)
 4. When to Call Your Doctor
 5. Helpful Tips
 
-Keep everything at 6th grade reading level with short paragraphs.`,
+Keep everything at ${readingLevel} reading level with short paragraphs. Make it personally relevant based on the user's profile.`,
         },
       ],
       temperature: 0.8,
@@ -83,6 +120,8 @@ Keep everything at 6th grade reading level with short paragraphs.`,
       moduleType,
       content,
       generatedBy: "ai",
+      personalizedFor: userProfile ? context.auth.uid : null,
+      readingLevel,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       userId: context.auth.uid,
     });

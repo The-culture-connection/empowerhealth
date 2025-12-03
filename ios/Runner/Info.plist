@@ -45,5 +45,15 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photos to upload visit summaries</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We need access to your camera to take photos</string>
+	<key>NSDocumentPickerUsageDescription</key>
+	<string>We need access to documents to upload PDF visit summaries</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 </dict>
 </plist>

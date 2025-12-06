@@ -56,6 +56,7 @@ dependencies:
   
   # PDF and sharing
   pdf: ^3.10.8
+  syncfusion_flutter_pdf: ^28.1.40
   share_plus: ^7.2.2
   path_provider: ^2.1.2
   file_picker: ^8.1.6

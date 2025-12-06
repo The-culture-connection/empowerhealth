@@ -57,10 +57,11 @@ class AppointmentsListScreen extends StatelessWidget {
                       color: Colors.grey,
                     ),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'No Visit Summaries Yet',
-                      style: TextStyle(
-                        fontSize: 20,
+                      style: AppTheme.responsiveTitleStyle(
+                        context,
+                        baseSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

@@ -135,11 +135,10 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         _stepTitles[provider.currentStep],
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
+                        style: AppTheme.responsiveTitleStyle(
+                          context,
+                          baseSize: 18,
                           color: AppTheme.brandPurple,
-                          fontFamily: 'Primary',
                         ),
                       ),
                     ),
@@ -352,10 +351,11 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
               color: AppTheme.brandPurple,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Creating Your Learning Plan',
-              style: TextStyle(
-                fontSize: 20,
+              style: AppTheme.responsiveTitleStyle(
+                context,
+                baseSize: 20,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.brandPurple,
               ),

@@ -36,28 +36,83 @@ class _HealthInfoStepState extends State<HealthInfoStep> {
             ),
             const SizedBox(height: AppTheme.spacingXL),
 
-            // Pregnancy Stage
-            DropdownButtonFormField<String>(
-              value: provider.pregnancyStage,
-              decoration: const InputDecoration(
-                labelText: 'Pregnancy Stage',
-                hintText: 'Select your stage',
-                prefixIcon: Icon(Icons.pregnant_woman),
+            // Pregnancy Stage - Auto-calculated if pregnant, otherwise allow selection
+            if (provider.isPregnant && provider.dueDate != null) ...[
+              // Show calculated trimester as read-only
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.brandPurple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.brandPurple.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: AppTheme.brandPurple),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Pregnancy Stage (Auto-calculated)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.brandPurple,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _calculateTrimester(provider.dueDate),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.brandPurple,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              items: const [
-                DropdownMenuItem(value: 'First Trimester', child: Text('First Trimester (1-12 weeks)')),
-                DropdownMenuItem(value: 'Second Trimester', child: Text('Second Trimester (13-26 weeks)')),
-                DropdownMenuItem(value: 'Third Trimester', child: Text('Third Trimester (27-40 weeks)')),
-                DropdownMenuItem(value: '0-6 weeks postpartum', child: Text('0-6 weeks postpartum')),
-                DropdownMenuItem(value: '6-12 weeks postpartum', child: Text('6-12 weeks postpartum')),
-                DropdownMenuItem(value: '3-6 months postpartum', child: Text('3-6 months postpartum')),
-                DropdownMenuItem(value: '6-12 months postpartum', child: Text('6-12 months postpartum')),
-                DropdownMenuItem(value: '12+ months postpartum', child: Text('12+ months postpartum')),
-              ],
-              onChanged: (value) {
-                provider.updateHealthInfo(pregnancyStage: value);
-              },
-            ),
+              // Auto-update provider with calculated trimester
+              Builder(
+                builder: (context) {
+                  final calculatedStage = _calculateTrimester(provider.dueDate);
+                  if (provider.pregnancyStage != calculatedStage) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      provider.updateHealthInfo(pregnancyStage: calculatedStage);
+                    });
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ] else ...[
+              // Allow manual selection for postpartum or if not pregnant
+              DropdownButtonFormField<String>(
+                value: provider.pregnancyStage,
+                decoration: const InputDecoration(
+                  labelText: 'Pregnancy Stage',
+                  hintText: 'Select your stage',
+                  prefixIcon: Icon(Icons.pregnant_woman),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'First Trimester', child: Text('First Trimester (1-12 weeks)')),
+                  DropdownMenuItem(value: 'Second Trimester', child: Text('Second Trimester (13-26 weeks)')),
+                  DropdownMenuItem(value: 'Third Trimester', child: Text('Third Trimester (27-40 weeks)')),
+                  DropdownMenuItem(value: '0-6 weeks postpartum', child: Text('0-6 weeks postpartum')),
+                  DropdownMenuItem(value: '6-12 weeks postpartum', child: Text('6-12 weeks postpartum')),
+                  DropdownMenuItem(value: '3-6 months postpartum', child: Text('3-6 months postpartum')),
+                  DropdownMenuItem(value: '6-12 months postpartum', child: Text('6-12 months postpartum')),
+                  DropdownMenuItem(value: '12+ months postpartum', child: Text('12+ months postpartum')),
+                ],
+                onChanged: (value) {
+                  provider.updateHealthInfo(pregnancyStage: value);
+                },
+              ),
+            ],
             const SizedBox(height: AppTheme.spacingXL),
 
             // Chronic Conditions
@@ -162,6 +217,19 @@ class _HealthInfoStepState extends State<HealthInfoStep> {
         fontFamily: 'Primary',
       ),
     );
+  }
+
+  String _calculateTrimester(DateTime? dueDate) {
+    if (dueDate == null) return 'First Trimester';
+    
+    final now = DateTime.now();
+    final daysUntilDue = dueDate.difference(now).inDays;
+    final weeksPregnant = 40 - (daysUntilDue / 7).floor();
+    
+    if (weeksPregnant <= 0) return 'First Trimester';
+    if (weeksPregnant <= 13) return 'First Trimester';
+    if (weeksPregnant <= 27) return 'Second Trimester';
+    return 'Third Trimester';
   }
 
   Widget _buildListInput({

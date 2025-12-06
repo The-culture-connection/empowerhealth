@@ -14,17 +14,20 @@ class BasicInfoStep extends StatefulWidget {
 class _BasicInfoStepState extends State<BasicInfoStep> {
   final _formKey = GlobalKey<FormState>();
   final _zipCodeController = TextEditingController();
+  final _childAgeMonthsController = TextEditingController();
   
   @override
   void initState() {
     super.initState();
     final provider = Provider.of<ProfileCreationProvider>(context, listen: false);
     _zipCodeController.text = provider.zipCode;
+    _childAgeMonthsController.text = provider.childAgeMonths?.toString() ?? '';
   }
 
   @override
   void dispose() {
     _zipCodeController.dispose();
+    _childAgeMonthsController.dispose();
     super.dispose();
   }
 
@@ -157,7 +160,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               if (provider.isPostpartum) ...[
                 const SizedBox(height: AppTheme.spacingM),
                 TextFormField(
-                  initialValue: provider.childAgeMonths?.toString() ?? '',
+                  controller: _childAgeMonthsController,
                   decoration: const InputDecoration(
                     labelText: 'Child\'s Age (in months)',
                     hintText: 'Enter age in months',
@@ -168,6 +171,8 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                     final age = int.tryParse(value);
                     if (age != null && age >= 0) {
                       provider.updateBasicInfo(childAgeMonths: age);
+                    } else if (value.isEmpty) {
+                      provider.updateBasicInfo(childAgeMonths: null);
                     }
                   },
                 ),

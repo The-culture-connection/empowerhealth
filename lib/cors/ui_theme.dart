@@ -160,4 +160,54 @@ class AppTheme {
   static const Color lightBackground = brandWhite;
   static const Color lightMuted = Color(0xFFF1F5F9); // neutral surface tint
   static const Color error = Color(0xFFE11D48);
+
+  // Responsive text sizing based on screen width
+  static double responsiveFontSize(BuildContext context, {
+    double? baseSize,
+    double? smallScreenMultiplier,
+    double? largeScreenMultiplier,
+  }) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final base = baseSize ?? 18.0;
+    final small = smallScreenMultiplier ?? 0.85; // 15% smaller on small screens
+    final large = largeScreenMultiplier ?? 1.15; // 15% larger on large screens
+    
+    if (screenWidth < 360) {
+      // Small phones
+      return base * small;
+    } else if (screenWidth > 600) {
+      // Tablets and large screens
+      return base * large;
+    }
+    // Standard phones
+    return base;
+  }
+
+  // Helper for responsive title text style
+  static TextStyle responsiveTitleStyle(BuildContext context, {
+    Color? color,
+    FontWeight? fontWeight,
+    String? fontFamily,
+    double? baseSize,
+  }) {
+    return TextStyle(
+      fontSize: responsiveFontSize(context, baseSize: baseSize ?? 20),
+      fontWeight: fontWeight ?? FontWeight.w600,
+      color: color ?? brandPurple,
+      fontFamily: fontFamily ?? 'Primary',
+    );
+  }
+
+  // Helper for responsive subtitle text style
+  static TextStyle responsiveSubtitleStyle(BuildContext context, {
+    Color? color,
+    FontWeight? fontWeight,
+    double? baseSize,
+  }) {
+    return TextStyle(
+      fontSize: responsiveFontSize(context, baseSize: baseSize ?? 16),
+      fontWeight: fontWeight ?? FontWeight.w400,
+      color: color ?? brandBlack,
+    );
+  }
 }

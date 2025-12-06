@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_router.dart';
 import '../cors/ui_theme.dart';
-import '../birthplan/birth_plan_creator_screen.dart';
+import '../birthplan/comprehensive_birth_plan_screen.dart';
 import '../appointments/appointments_list_screen.dart';
 import 'learning_todo_widget.dart';
 
@@ -35,21 +35,14 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                           'Welcome',
                           style: TextStyle(
                             fontFamily: 'Primary',
-                            fontSize: 70,
+                            fontSize: 40,
                             fontWeight: FontWeight.w500,
                             color: AppTheme.brandGold,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      IconButton(
-                        onPressed: () {},
-                        iconSize: 36,
-                        icon: const Icon(
-                          Icons.mic_none_rounded,
-                          color: AppTheme.brandPurple,
-                        ),
-                      ),
+                      
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -93,7 +86,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const BirthPlanCreatorScreen(),
+                          builder: (context) => const ComprehensiveBirthPlanScreen(),
                         ),
                       );
                     },

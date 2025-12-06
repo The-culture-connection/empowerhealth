@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'dart:io';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
@@ -81,8 +82,29 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     });
 
     try {
-      // Read PDF text (placeholder - in production use PDF text extraction library)
-      final pdfText = await _selectedPDF!.readAsString();
+      // Extract text from PDF using syncfusion_flutter_pdf
+      final pdfBytes = await _selectedPDF!.readAsBytes();
+      final PdfDocument pdfDoc = PdfDocument(inputBytes: pdfBytes);
+      
+      String pdfText = '';
+      final pageCount = pdfDoc.pages.count;
+      
+      // Extract text from all pages
+      for (int i = 0; i < pageCount; i++) {
+        final PdfPage page = pdfDoc.pages[i];
+        final String pageText = PdfTextExtractor(pdfDoc).extractText(startPageIndex: i, endPageIndex: i);
+        pdfText += pageText;
+        if (i < pageCount - 1) {
+          pdfText += '\n\n'; // Add spacing between pages
+        }
+      }
+      
+      pdfDoc.dispose();
+
+      // Check if we extracted any text
+      if (pdfText.trim().isEmpty) {
+        throw Exception('Could not extract text from PDF. The PDF might be image-based or encrypted. Please try entering the text manually.');
+      }
 
       // Call Firebase Function to summarize
       final result = await _functionsService.summarizeAfterVisitPDF(
@@ -107,7 +129,10 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     }
@@ -127,10 +152,11 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Header
-            const Text(
+            Text(
               'Upload Your Visit Summary',
-              style: TextStyle(
-                fontSize: 24,
+              style: AppTheme.responsiveTitleStyle(
+                context,
+                baseSize: 24,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.brandPurple,
               ),
@@ -195,24 +221,25 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                       width: 2,
                     ),
                   ),
-                  child: const Column(
+                  child: Column(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.cloud_upload_outlined,
                         size: 80,
                         color: AppTheme.brandPurple,
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
                         'Upload Visit Summary PDF',
-                        style: TextStyle(
-                          fontSize: 20,
+                        style: AppTheme.responsiveTitleStyle(
+                          context,
+                          baseSize: 20,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.brandPurple,
                         ),
                       ),
-                      SizedBox(height: 8),
-                      Text(
+                      const SizedBox(height: 8),
+                      const Text(
                         'Tap to select PDF file from your device',
                         style: TextStyle(color: Colors.grey, fontSize: 14),
                         textAlign: TextAlign.center,
@@ -321,11 +348,12 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                       children: [
                         const Icon(Icons.check_circle, color: Colors.green, size: 28),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Your Visit Summary',
-                            style: TextStyle(
-                              fontSize: 20,
+                            style: AppTheme.responsiveTitleStyle(
+                              context,
+                              baseSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

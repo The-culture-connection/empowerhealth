@@ -3,6 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'dart:io';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
@@ -88,18 +89,53 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
   }
 
   Future<void> _generateSummary() async {
-    // For PDF: Extract text (placeholder - would need OCR service)
-    // For now, use manual text or show message
-    final visitText = _visitNotesController.text.trim();
+    String visitText = _visitNotesController.text.trim();
     
+    // Extract text from PDF if one is selected
     if (_selectedPDF != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('PDF text extraction coming soon. Please enter text manually for now.'),
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
+      setState(() {
+        _isLoading = true;
+      });
+      
+      try {
+        final pdfBytes = await _selectedPDF!.readAsBytes();
+        final PdfDocument pdfDoc = PdfDocument(inputBytes: pdfBytes);
+        
+        String pdfText = '';
+        final pageCount = pdfDoc.pages.count;
+        
+        // Extract text from all pages
+        for (int i = 0; i < pageCount; i++) {
+          final String pageText = PdfTextExtractor(pdfDoc).extractText(startPageIndex: i, endPageIndex: i);
+          pdfText += pageText;
+          if (i < pageCount - 1) {
+            pdfText += '\n\n'; // Add spacing between pages
+          }
+        }
+        
+        pdfDoc.dispose();
+        
+        if (pdfText.trim().isNotEmpty) {
+          visitText = pdfText;
+          // Optionally populate the text field with extracted text
+          _visitNotesController.text = visitText;
+        } else {
+          throw Exception('Could not extract text from PDF. The PDF might be image-based or encrypted.');
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error extracting PDF text: ${e.toString()}. Please enter text manually.'),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
     }
     
     if (visitText.isEmpty) {
@@ -190,10 +226,11 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Header
-            const Text(
+            Text(
               'Upload Visit Summary',
-              style: TextStyle(
-                fontSize: 24,
+              style: AppTheme.responsiveTitleStyle(
+                context,
+                baseSize: 24,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.brandPurple,
               ),

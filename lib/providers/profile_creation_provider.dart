@@ -86,7 +86,13 @@ class ProfileCreationProvider extends ChangeNotifier {
     if (name != null) this.name = name;
     if (age != null) this.age = age;
     if (isPregnant != null) this.isPregnant = isPregnant;
-    if (dueDate != null) this.dueDate = dueDate;
+    if (dueDate != null) {
+      this.dueDate = dueDate;
+      // Auto-update pregnancy stage when due date changes
+      if (isPregnant ?? this.isPregnant) {
+        this.pregnancyStage = _calculateTrimester(dueDate);
+      }
+    }
     if (isPostpartum != null) this.isPostpartum = isPostpartum;
     if (childAgeMonths != null) this.childAgeMonths = childAgeMonths;
     if (zipCode != null) this.zipCode = zipCode;

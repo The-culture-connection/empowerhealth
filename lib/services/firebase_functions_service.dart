@@ -143,15 +143,45 @@ class FirebaseFunctionsService {
     required String pdfText,
     required String appointmentDate,
     String? educationLevel,
+    Map<String, dynamic>? userProfile,
   }) async {
     try {
-      final result = await _functions.httpsCallable('summarizeAfterVisitPDF').call({
+      print('🔵 Calling summarizeAfterVisitPDF function...');
+      print('🔵 PDF text length: ${pdfText.length}');
+      print('🔵 Appointment date: $appointmentDate');
+      
+      final callable = _functions.httpsCallable(
+        'summarizeAfterVisitPDF',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 300), // 5 minute timeout for large PDFs
+        ),
+      );
+      
+      final result = await callable.call({
         'pdfText': pdfText,
         'appointmentDate': appointmentDate,
         'educationLevel': educationLevel,
+        'userProfile': userProfile,
       });
+      
+      print('✅ Function call successful');
       return result.data as Map<String, dynamic>;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ Error calling summarizeAfterVisitPDF: $e');
+      print('❌ Stack trace: $stackTrace');
+      
+      // Provide more specific error messages
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('timeout') || errorString.contains('deadline exceeded')) {
+        throw Exception('Request timed out. The PDF may be too large. Please try with a smaller PDF or contact support.');
+      } else if (errorString.contains('unavailable') || errorString.contains('unreachable')) {
+        throw Exception('Service temporarily unavailable. Please try again in a few moments.');
+      } else if (errorString.contains('permission') || errorString.contains('unauthorized')) {
+        throw Exception('Permission denied. Please ensure you are logged in.');
+      } else if (errorString.contains('not found') || errorString.contains('404')) {
+        throw Exception('Function not found. Please contact support.');
+      }
+      
       throw Exception('Failed to summarize PDF: $e');
     }
   }

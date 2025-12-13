@@ -34,11 +34,11 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.edit_note_rounded), label: 'Journal'),
-          NavigationDestination(icon: Icon(Icons.people_rounded), label: 'Community'),
-          NavigationDestination(icon: Icon(Icons.support_agent_rounded), label: 'Assistant'),
-          NavigationDestination(icon: Icon(Icons.person_rounded), label: 'Profile'),
+          NavigationDestination(icon: Icon(Icons.home_rounded), label: '', tooltip: 'Home'),
+          NavigationDestination(icon: Icon(Icons.edit_note_rounded), label: '', tooltip: 'Journal'),
+          NavigationDestination(icon: Icon(Icons.people_rounded), label: '', tooltip: 'Community'),
+          NavigationDestination(icon: Icon(Icons.support_agent_rounded), label: '', tooltip: 'Assistant'),
+          NavigationDestination(icon: Icon(Icons.person_rounded), label: '', tooltip: 'Profile'),
         ],
       ),
     );

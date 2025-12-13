@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -23,11 +24,139 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
   bool _isLoading = false;
   List<LearningTask> _tasks = [];
   Set<String> _completedTasks = {};
+  
+  // Module generation progress
+  bool _isGenerating = false;
+  int _completedModules = 0;
+  int _totalModules = 0;
+  StreamSubscription? _generationStatusSubscription;
+  StreamSubscription? _tasksSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _listenForGenerationStatus();
+    _listenForNewTasks();
+  }
+
+  @override
+  void dispose() {
+    _generationStatusSubscription?.cancel();
+    _tasksSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _listenForGenerationStatus() {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return;
+
+    // Listen to user profile for generation status
+    _generationStatusSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .snapshots()
+        .listen(
+      (snapshot) {
+        if (snapshot.exists && mounted) {
+          final data = snapshot.data();
+          // Read flat structure fields
+          final isGenerating = data?['moduleGen_isGenerating'] ?? false;
+          final completedModules = data?['moduleGen_completedModules'] ?? 0;
+          final totalModules = data?['moduleGen_totalModules'] ?? 0;
+          
+          if (totalModules > 0 || isGenerating) {
+            setState(() {
+              _isGenerating = isGenerating;
+              _completedModules = completedModules;
+              _totalModules = totalModules;
+            });
+          } else {
+            // Fallback: calculate from learning tasks count
+            _calculateProgressFromTasks();
+          }
+        }
+      },
+      onError: (error) {
+        // Silently handle network errors from background listeners
+        // These are expected when offline or network is unavailable
+        print('Background listener error (expected when offline): $error');
+      },
+    );
+  }
+
+  Future<void> _calculateProgressFromTasks() async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      // Count generated tasks created in the last hour (likely from current generation)
+      final oneHourAgo = DateTime.now().subtract(const Duration(hours: 1));
+      final tasksSnapshot = await FirebaseFirestore.instance
+          .collection('learning_tasks')
+          .where('userId', isEqualTo: userId)
+          .where('isGenerated', isEqualTo: true)
+          .where('createdAt', isGreaterThan: Timestamp.fromDate(oneHourAgo))
+          .get();
+
+      final count = tasksSnapshot.docs.length;
+      
+      // If we have tasks but no status, estimate progress
+      if (count > 0 && _totalModules == 0) {
+        // Estimate total modules (typically 4-5)
+        final estimatedTotal = count < 4 ? 4 : (count < 5 ? 5 : count);
+        setState(() {
+          _totalModules = estimatedTotal;
+          _completedModules = count;
+          _isGenerating = count < estimatedTotal;
+        });
+      }
+    } catch (e) {
+      print('Error calculating progress from tasks: $e');
+    }
+  }
+
+  void _listenForNewTasks() {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return;
+
+    _tasksSubscription = FirebaseFirestore.instance
+        .collection('learning_tasks')
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .listen(
+      (snapshot) {
+        if (mounted) {
+          final loadedTasks = snapshot.docs.map((doc) {
+            final data = doc.data();
+            return LearningTask(
+              id: doc.id,
+              title: data['title'] ?? '',
+              description: data['description'] ?? '',
+              trimester: data['trimester'] ?? 'First',
+              isGenerated: data['isGenerated'] ?? false,
+              moduleId: data['moduleId'],
+              content: data['content'],
+            );
+          }).toList();
+
+          setState(() {
+            _tasks = loadedTasks.isEmpty ? _generateSuggestedTasks() : loadedTasks;
+          });
+          
+          // Calculate progress from tasks if no status available
+          if (!_isGenerating && _totalModules == 0) {
+            _calculateProgressFromTasks();
+          }
+        }
+      },
+      onError: (error) {
+        // Silently handle network errors from background listeners
+        // These are expected when offline or network is unavailable
+        print('Background listener error (expected when offline): $error');
+      },
+    );
   }
 
   Future<void> _loadData() async {
@@ -263,15 +392,75 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'To Do',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.brandPurple,
-            ),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'To Do',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.brandPurple,
+                ),
+              ),
+              if (_isGenerating && _totalModules > 0) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.brandPurple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.brandPurple.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Generating personalized modules...',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.brandPurple,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '$_completedModules/$_totalModules',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.brandPurple,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: _totalModules > 0 ? _completedModules / _totalModules : 0,
+                        backgroundColor: Colors.grey[200],
+                        valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                        minHeight: 4,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         ListView.builder(

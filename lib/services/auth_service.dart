@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -74,6 +76,78 @@ class AuthService {
     } catch (e) {
       if (kDebugMode) {
         print('Update display name error: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Sign in with Google
+  Future<User?> signInWithGoogle() async {
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+      );
+      
+      // Sign out first to ensure clean state
+      await googleSignIn.signOut();
+      
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        // User canceled the sign-in
+        return null;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await _auth.signInWithCredential(credential);
+      return userCredential.user;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Google sign in error: $e');
+      }
+      // Return a more user-friendly error message
+      if (e.toString().contains('channel-error') || e.toString().contains('PlatformException')) {
+        throw Exception('Google Sign-In is not properly configured. Please contact support or use email sign-in.');
+      }
+      rethrow;
+    }
+  }
+
+  // Sign in with Apple
+  Future<User?> signInWithApple() async {
+    try {
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final oauthCredential = OAuthProvider("apple.com").credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+
+      final userCredential = await _auth.signInWithCredential(oauthCredential);
+      
+      // Update display name if provided
+      if (appleCredential.givenName != null || appleCredential.familyName != null) {
+        final displayName = '${appleCredential.givenName ?? ''} ${appleCredential.familyName ?? ''}'.trim();
+        if (displayName.isNotEmpty) {
+          await userCredential.user?.updateDisplayName(displayName);
+          await userCredential.user?.reload();
+        }
+      }
+      
+      return userCredential.user;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Apple sign in error: $e');
       }
       rethrow;
     }

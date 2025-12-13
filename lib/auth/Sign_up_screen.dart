@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_router.dart';
 import '../services/auth_service.dart';
+import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final AuthService _authService = AuthService();
+  final DatabaseService _databaseService = DatabaseService();
   bool _isLoading = false;
 
   @override
@@ -24,6 +26,66 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _email.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = await _authService.signInWithGoogle();
+      if (user != null && mounted) {
+        final hasProfile = await _databaseService.userProfileExists(user.uid);
+        if (mounted) {
+          if (hasProfile) {
+            Navigator.pushReplacementNamed(context, Routes.main);
+          } else {
+            Navigator.pushReplacementNamed(context, Routes.profileCreation);
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _signInWithApple() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = await _authService.signInWithApple();
+      if (user != null && mounted) {
+        final hasProfile = await _databaseService.userProfileExists(user.uid);
+        if (mounted) {
+          if (hasProfile) {
+            Navigator.pushReplacementNamed(context, Routes.main);
+          } else {
+            Navigator.pushReplacementNamed(context, Routes.profileCreation);
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _signUp() async {
@@ -117,6 +179,35 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     ),
                                   )
                                 : const Text('Sign Up'),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(child: Divider(color: Colors.grey[300])),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text('OR', style: TextStyle(color: Colors.grey[600])),
+                              ),
+                              Expanded(child: Divider(color: Colors.grey[300])),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: _isLoading ? null : _signInWithGoogle,
+                            icon: const Icon(Icons.g_mobiledata, size: 24),
+                            label: const Text('Continue with Google'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: _isLoading ? null : _signInWithApple,
+                            icon: const Icon(Icons.apple, size: 24),
+                            label: const Text('Continue with Apple'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
                           ),
                           const SizedBox(height: 8),
                           TextButton(

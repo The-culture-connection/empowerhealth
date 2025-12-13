@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/profile_creation_provider.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
@@ -64,9 +65,10 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       await _databaseService.saveUserProfile(profile);
 
       if (mounted) {
-        // Show progress dialog and generate learning modules
-        await _showModuleGenerationProgress(profile);
+        // Start async module generation in background
+        _generateModulesAsync(profile);
         
+        // Navigate immediately to main screen
         Navigator.of(context).pushReplacementNamed('/main');
       }
     } catch (e) {
@@ -80,12 +82,112 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     }
   }
 
-  Future<void> _showModuleGenerationProgress(dynamic profile) async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _ModuleGenerationDialog(profile: profile),
-    );
+  Future<void> _generateModulesAsync(dynamic profile) async {
+    // Generate modules in background without blocking UI
+    try {
+      final FirebaseFunctionsService functionsService = FirebaseFunctionsService();
+      final DatabaseService dbService = DatabaseService();
+      final userId = profile.userId;
+      final trimester = _calculateTrimester(profile.dueDate);
+
+      // Prepare profile data
+      final profileData = {
+        'chronicConditions': profile.chronicConditions ?? [],
+        'healthLiteracyGoals': profile.healthLiteracyGoals ?? [],
+        'insuranceType': profile.insuranceType ?? '',
+        'providerPreferences': profile.providerPreferences ?? [],
+        'educationLevel': profile.educationLevel ?? '',
+      };
+
+      // Define modules to generate
+      final modules = [
+        {'title': 'Your $trimester Trimester Guide', 'description': 'Essential information for your stage'},
+        {'title': 'Nutrition & Wellness', 'description': 'What to eat and how to stay healthy'},
+        {'title': 'Know Your Rights', 'description': 'Patient advocacy in maternity care'},
+        {'title': 'Preparing for Appointments', 'description': 'Making the most of your visits'},
+      ];
+
+      // Add condition-specific module if needed
+      if (profile.chronicConditions != null && profile.chronicConditions.isNotEmpty) {
+        modules.add({
+          'title': 'Managing ${profile.chronicConditions.first}',
+          'description': 'Special considerations during pregnancy',
+        });
+      }
+
+      // Update generation status in user profile (using flat structure)
+      await dbService.updateUserProfile(userId, {
+        'moduleGen_isGenerating': true,
+        'moduleGen_totalModules': modules.length,
+        'moduleGen_completedModules': 0,
+        'moduleGen_startedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Generate modules one by one
+      for (int i = 0; i < modules.length; i++) {
+        final module = modules[i];
+        
+        try {
+          final result = await functionsService.generateLearningContent(
+            topic: module['title']!,
+            trimester: trimester,
+            moduleType: 'personalized',
+            userProfile: profileData,
+          );
+
+          // Save to learning tasks
+          await FirebaseFirestore.instance.collection('learning_tasks').add({
+            'userId': userId,
+            'title': module['title'],
+            'description': module['description'],
+            'trimester': trimester,
+            'isGenerated': true,
+            'content': result['content'],
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+
+          // Update progress in user profile
+          await dbService.updateUserProfile(userId, {
+            'moduleGen_completedModules': i + 1,
+          });
+
+          // Small delay for better UX
+          await Future.delayed(const Duration(milliseconds: 500));
+        } catch (e) {
+          print('Error generating module ${module['title']}: $e');
+          // Continue with other modules even if one fails
+        }
+      }
+
+      // Mark generation as complete in user profile
+      await dbService.updateUserProfile(userId, {
+        'moduleGen_isGenerating': false,
+        'moduleGen_completedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error in async module generation: $e');
+      // Update status to show error in user profile
+      try {
+        final DatabaseService dbService = DatabaseService();
+        await dbService.updateUserProfile(profile.userId, {
+          'moduleGen_isGenerating': false,
+          'moduleGen_error': e.toString(),
+        });
+      } catch (_) {}
+    }
+  }
+
+  String _calculateTrimester(DateTime? dueDate) {
+    if (dueDate == null) return 'First';
+    
+    final now = DateTime.now();
+    final daysUntilDue = dueDate.difference(now).inDays;
+    final weeksPregnant = 40 - (daysUntilDue / 7).floor();
+    
+    if (weeksPregnant <= 0) return 'First';
+    if (weeksPregnant <= 13) return 'First';
+    if (weeksPregnant <= 27) return 'Second';
+    return 'Third';
   }
 
   @override
@@ -219,172 +321,5 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   }
 }
 
-class _ModuleGenerationDialog extends StatefulWidget {
-  final dynamic profile;
-
-  const _ModuleGenerationDialog({required this.profile});
-
-  @override
-  State<_ModuleGenerationDialog> createState() => _ModuleGenerationDialogState();
-}
-
-class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
-  final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
-  double _progress = 0.0;
-  String _currentTask = 'Preparing your personalized learning plan...';
-  int _completedModules = 0;
-  int _totalModules = 4;
-
-  @override
-  void initState() {
-    super.initState();
-    _generateModules();
-  }
-
-  Future<void> _generateModules() async {
-    final trimester = _calculateTrimester(widget.profile.dueDate);
-    final userId = widget.profile.userId;
-
-    // Prepare profile data
-    final profileData = {
-      'chronicConditions': widget.profile.chronicConditions,
-      'healthLiteracyGoals': widget.profile.healthLiteracyGoals,
-      'insuranceType': widget.profile.insuranceType,
-      'providerPreferences': widget.profile.providerPreferences,
-      'educationLevel': widget.profile.educationLevel,
-    };
-
-    // Define modules to generate
-    final modules = [
-      {'title': 'Your $trimester Trimester Guide', 'description': 'Essential information for your stage'},
-      {'title': 'Nutrition & Wellness', 'description': 'What to eat and how to stay healthy'},
-      {'title': 'Know Your Rights', 'description': 'Patient advocacy in maternity care'},
-      {'title': 'Preparing for Appointments', 'description': 'Making the most of your visits'},
-    ];
-
-    // Add condition-specific module if needed
-    if (widget.profile.chronicConditions.isNotEmpty) {
-      modules.add({
-        'title': 'Managing ${widget.profile.chronicConditions.first}',
-        'description': 'Special considerations during pregnancy',
-      });
-      _totalModules = 5;
-    }
-
-    for (int i = 0; i < modules.length; i++) {
-      final module = modules[i];
-      
-      setState(() {
-        _currentTask = 'Generating: ${module['title']}...';
-        _progress = (i / modules.length);
-      });
-
-      try {
-        final result = await _functionsService.generateLearningContent(
-          topic: module['title']!,
-          trimester: trimester,
-          moduleType: 'personalized',
-          userProfile: profileData,
-        );
-
-        // Save to learning tasks
-        await FirebaseFirestore.instance.collection('learning_tasks').add({
-          'userId': userId,
-          'title': module['title'],
-          'description': module['description'],
-          'trimester': trimester,
-          'isGenerated': true,
-          'content': result['content'],
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        setState(() {
-          _completedModules = i + 1;
-          _progress = ((i + 1) / modules.length);
-        });
-
-        // Small delay for better UX
-        await Future.delayed(const Duration(milliseconds: 500));
-      } catch (e) {
-        print('Error generating module: $e');
-        // Continue with other modules even if one fails
-      }
-    }
-
-    setState(() {
-      _currentTask = 'Complete! Your learning plan is ready.';
-      _progress = 1.0;
-    });
-
-    await Future.delayed(const Duration(seconds: 1));
-    
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
-  }
-
-  String _calculateTrimester(DateTime? dueDate) {
-    if (dueDate == null) return 'First';
-    
-    final now = DateTime.now();
-    final daysUntilDue = dueDate.difference(now).inDays;
-    final weeksPregnant = 40 - (daysUntilDue / 7).floor();
-    
-    if (weeksPregnant <= 0) return 'First';
-    if (weeksPregnant <= 13) return 'First';
-    if (weeksPregnant <= 27) return 'Second';
-    return 'Third';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.auto_awesome,
-              size: 48,
-              color: AppTheme.brandPurple,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Creating Your Learning Plan',
-              style: AppTheme.responsiveTitleStyle(
-                context,
-                baseSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.brandPurple,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            LinearProgressIndicator(
-              value: _progress,
-              backgroundColor: Colors.grey[200],
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _currentTask,
-              style: const TextStyle(fontSize: 14, color: Colors.black87),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$_completedModules of $_totalModules modules generated',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 

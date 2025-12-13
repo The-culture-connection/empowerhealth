@@ -74,20 +74,18 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               ),
               const SizedBox(height: AppTheme.spacingXL),
 
-              // Pregnancy Status
+              // Pregnancy Status - Single Select
               _buildSectionHeader('Pregnancy Status'),
               const SizedBox(height: AppTheme.spacingM),
               
-              CheckboxListTile(
+              RadioListTile<String>(
                 title: const Text('I am currently pregnant'),
-                value: provider.isPregnant,
+                value: 'pregnant',
+                groupValue: provider.isPregnant ? 'pregnant' : (provider.isPostpartum ? 'postpartum' : null),
                 activeColor: AppTheme.brandPurple,
                 contentPadding: EdgeInsets.zero,
                 onChanged: (value) {
-                  provider.updateBasicInfo(isPregnant: value ?? false);
-                  if (value == false) {
-                    provider.updateBasicInfo(dueDate: null);
-                  }
+                  provider.updateBasicInfo(isPregnant: true, isPostpartum: false);
                 },
               ),
 
@@ -144,38 +142,53 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
 
               const SizedBox(height: AppTheme.spacingM),
               
-              CheckboxListTile(
+              RadioListTile<String>(
                 title: const Text('I am postpartum'),
-                value: provider.isPostpartum,
+                value: 'postpartum',
+                groupValue: provider.isPregnant ? 'pregnant' : (provider.isPostpartum ? 'postpartum' : null),
                 activeColor: AppTheme.brandPurple,
                 contentPadding: EdgeInsets.zero,
                 onChanged: (value) {
-                  provider.updateBasicInfo(isPostpartum: value ?? false);
-                  if (value == false) {
-                    provider.updateBasicInfo(childAgeMonths: null);
-                  }
+                  provider.updateBasicInfo(isPregnant: false, isPostpartum: true);
                 },
               ),
 
               if (provider.isPostpartum) ...[
                 const SizedBox(height: AppTheme.spacingM),
-                TextFormField(
-                  controller: _childAgeMonthsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Child\'s Age (in months)',
-                    hintText: 'Enter age in months',
-                    prefixIcon: Icon(Icons.child_care),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Delivery Date'),
+                  subtitle: Text(
+                    provider.deliveryDate != null
+                        ? DateFormat('MMMM d, yyyy').format(provider.deliveryDate!)
+                        : 'Tap to select',
                   ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) {
-                    final age = int.tryParse(value);
-                    if (age != null && age >= 0) {
-                      provider.updateBasicInfo(childAgeMonths: age);
-                    } else if (value.isEmpty) {
-                      provider.updateBasicInfo(childAgeMonths: null);
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: provider.deliveryDate ?? DateTime.now().subtract(const Duration(days: 30)),
+                      firstDate: DateTime.now().subtract(const Duration(days: 730)),
+                      lastDate: DateTime.now(),
+                    );
+                    if (date != null) {
+                      provider.updateBasicInfo(deliveryDate: date);
                     }
                   },
                 ),
+                if (provider.deliveryDate != null) ...[
+                  const SizedBox(height: AppTheme.spacingM),
+                  TextFormField(
+                    controller: _childAgeMonthsController,
+                    decoration: const InputDecoration(
+                      labelText: 'Child\'s Age (in months)',
+                      hintText: 'Auto-calculated from delivery date',
+                      prefixIcon: Icon(Icons.child_care),
+                    ),
+                    keyboardType: TextInputType.number,
+                    readOnly: true,
+                  ),
+                ],
               ],
 
               const SizedBox(height: AppTheme.spacingXL),

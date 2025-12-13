@@ -235,7 +235,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         await _authService.signOut();
         if (mounted) {
           Navigator.of(context).pushNamedAndRemoveUntil(
-            Routes.login,
+            Routes.auth,
             (route) => false,
           );
         }

@@ -62,7 +62,7 @@ class AuthScreen extends StatelessWidget {
                   // Buttons styled to match design (solid brown rectangles)
                   _AuthPrimaryButton(
                     label: 'Sign Up',
-                    onTap: () => Navigator.pushNamed(context, Routes.signup),
+                    onTap: () => Navigator.pushNamed(context, Routes.terms),
                   ),
                   const SizedBox(height: 16),
                   _AuthPrimaryButton(

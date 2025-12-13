@@ -6,7 +6,13 @@ class LearningModulesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Learning')),
+      appBar: AppBar(
+        title: const Text('Learning'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: Stack(
         fit: StackFit.expand,
         children: [

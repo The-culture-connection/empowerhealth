@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'auth/auth_screen.dart';
 import 'auth/Login_screen.dart';
 import 'auth/Sign_up_screen.dart';
+import 'auth/terms_and_conditions_screen.dart';
 import 'cors/main_navigation_scaffold.dart';
 import 'Home/home_screen.dart';
 import 'Journal/Journal_screen.dart';
@@ -18,6 +19,7 @@ class Routes {
   static const auth = '/auth';
   static const login = '/login';
   static const signup = '/signup';
+  static const terms = '/terms';
   static const profileCreation = '/profile-creation';
   static const main = '/main';
 
@@ -45,6 +47,8 @@ class AppRouter {
         return _page(const LoginScreen());
       case Routes.signup:
         return _page(const SignUpScreen());
+      case Routes.terms:
+        return _page(const TermsAndConditionsScreen());
       case Routes.profileCreation:
         return _page(const ProfileCreationScreen());
       case Routes.main:

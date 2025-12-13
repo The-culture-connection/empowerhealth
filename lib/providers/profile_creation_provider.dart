@@ -10,6 +10,7 @@ class ProfileCreationProvider extends ChangeNotifier {
   bool isPregnant = false;
   DateTime? dueDate;
   bool isPostpartum = false;
+  DateTime? deliveryDate;
   int? childAgeMonths;
   String zipCode = '';
   String insuranceType = '';
@@ -79,13 +80,21 @@ class ProfileCreationProvider extends ChangeNotifier {
     bool? isPregnant,
     DateTime? dueDate,
     bool? isPostpartum,
+    DateTime? deliveryDate,
     int? childAgeMonths,
     String? zipCode,
     String? insuranceType,
   }) {
     if (name != null) this.name = name;
     if (age != null) this.age = age;
-    if (isPregnant != null) this.isPregnant = isPregnant;
+    if (isPregnant != null) {
+      this.isPregnant = isPregnant;
+      if (isPregnant) {
+        this.isPostpartum = false;
+        this.deliveryDate = null;
+        this.childAgeMonths = null;
+      }
+    }
     if (dueDate != null) {
       this.dueDate = dueDate;
       // Auto-update pregnancy stage when due date changes
@@ -93,7 +102,19 @@ class ProfileCreationProvider extends ChangeNotifier {
         this.pregnancyStage = _calculateTrimester(dueDate);
       }
     }
-    if (isPostpartum != null) this.isPostpartum = isPostpartum;
+    if (isPostpartum != null) {
+      this.isPostpartum = isPostpartum;
+      if (isPostpartum) {
+        this.isPregnant = false;
+        this.dueDate = null;
+      }
+    }
+    if (deliveryDate != null) {
+      this.deliveryDate = deliveryDate;
+      // Calculate child age in months
+      final months = ((DateTime.now().difference(deliveryDate).inDays) / 30).floor();
+      this.childAgeMonths = months;
+    }
     if (childAgeMonths != null) this.childAgeMonths = childAgeMonths;
     if (zipCode != null) this.zipCode = zipCode;
     if (insuranceType != null) this.insuranceType = insuranceType;
@@ -190,6 +211,7 @@ class ProfileCreationProvider extends ChangeNotifier {
       isPregnant: isPregnant,
       dueDate: dueDate,
       isPostpartum: isPostpartum,
+      deliveryDate: deliveryDate,
       childAgeMonths: childAgeMonths,
       zipCode: zipCode,
       insuranceType: insuranceType,
@@ -225,6 +247,7 @@ class ProfileCreationProvider extends ChangeNotifier {
     isPregnant = false;
     dueDate = null;
     isPostpartum = false;
+    deliveryDate = null;
     childAgeMonths = null;
     zipCode = '';
     insuranceType = '';

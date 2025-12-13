@@ -8,6 +8,7 @@ class UserProfile {
   final bool isPregnant;
   final DateTime? dueDate;
   final bool isPostpartum;
+  final DateTime? deliveryDate;
   final int? childAgeMonths;
   final String zipCode;
   final String insuranceType;
@@ -56,6 +57,7 @@ class UserProfile {
     required this.isPregnant,
     this.dueDate,
     required this.isPostpartum,
+    this.deliveryDate,
     this.childAgeMonths,
     required this.zipCode,
     required this.insuranceType,
@@ -95,6 +97,7 @@ class UserProfile {
       'isPregnant': isPregnant,
       'dueDate': dueDate?.toIso8601String(),
       'isPostpartum': isPostpartum,
+      'deliveryDate': deliveryDate?.toIso8601String(),
       'childAgeMonths': childAgeMonths,
       'zipCode': zipCode,
       'insuranceType': insuranceType,
@@ -134,6 +137,7 @@ class UserProfile {
       isPregnant: map['isPregnant'] ?? false,
       dueDate: map['dueDate'] != null ? DateTime.parse(map['dueDate']) : null,
       isPostpartum: map['isPostpartum'] ?? false,
+      deliveryDate: map['deliveryDate'] != null ? DateTime.parse(map['deliveryDate']) : null,
       childAgeMonths: map['childAgeMonths'],
       zipCode: map['zipCode'] ?? '',
       insuranceType: map['insuranceType'] ?? '',

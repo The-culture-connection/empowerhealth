@@ -6,16 +6,24 @@ import '../../cors/ui_theme.dart';
 class GoalsStep extends StatelessWidget {
   const GoalsStep({super.key});
 
-  static const List<String> _healthLiteracyOptions = [
+  static const List<String> _pregnancyOptions = [
     'Nutrition guidance',
     'Exercise during pregnancy',
     'Mental wellness',
     'Healthy pregnancy tips',
-    'Postpartum recovery',
-    'Infant care',
     'Sleep management',
     'Stress management',
     'Birth preparation',
+  ];
+  
+  static const List<String> _postpartumOptions = [
+    'Postpartum recovery',
+    'Infant care',
+    'Sleep management',
+    'Mental wellness',
+    'Nutrition guidance',
+    'Breastfeeding support',
+    'Returning to exercise',
   ];
 
   @override
@@ -117,10 +125,17 @@ class GoalsStep extends StatelessWidget {
             ),
             const SizedBox(height: AppTheme.spacingL),
 
-            Wrap(
-              spacing: AppTheme.spacingM,
-              runSpacing: AppTheme.spacingM,
-              children: _healthLiteracyOptions.map((goal) {
+            Builder(
+              builder: (context) {
+                // Show different options based on pregnancy/postpartum status
+                final options = provider.isPregnant 
+                    ? _pregnancyOptions 
+                    : (provider.isPostpartum ? _postpartumOptions : _pregnancyOptions);
+                
+                return Wrap(
+                  spacing: AppTheme.spacingM,
+                  runSpacing: AppTheme.spacingM,
+                  children: options.map((goal) {
                 final isSelected = provider.healthLiteracyGoals.contains(goal);
                 return InkWell(
                   onTap: () {
@@ -170,7 +185,9 @@ class GoalsStep extends StatelessWidget {
                     ),
                   ),
                 );
-              }).toList(),
+                  }).toList(),
+                );
+              },
             ),
 
             const SizedBox(height: AppTheme.spacingXXL),

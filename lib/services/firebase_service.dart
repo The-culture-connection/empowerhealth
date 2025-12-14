@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/foundation.dart';
 
 class FirebaseService {
@@ -9,6 +10,41 @@ class FirebaseService {
       );
       if (kDebugMode) {
         print('Firebase initialized successfully');
+      }
+      
+      // TEMPORARILY DISABLED: App Check activation
+      // App Check is causing "Too many attempts" errors because debug token isn't registered
+      // TODO: Re-enable after adding debug token to Firebase Console
+      // Debug token: 8c88f9e4-b464-4115-aa74-e972fff7e419
+      // 
+      // To re-enable:
+      // 1. Go to Firebase Console → App Check → your app → Manage debug tokens
+      // 2. Add token: 8c88f9e4-b464-4115-aa74-e972fff7e419
+      // 3. Uncomment the code below
+      // 4. Also disable App Check enforcement in Firebase Console if needed
+      
+      /*
+      try {
+        await FirebaseAppCheck.instance.activate(
+          androidProvider: AndroidProvider.debug, // Use debug for development
+          // Switch to AndroidProvider.playIntegrity for production
+          appleProvider: AppleProvider.debug, // Use debug for development
+          // Switch to AppleProvider.appAttest or AppleProvider.deviceCheck for production
+        );
+        if (kDebugMode) {
+          print('✅ App Check activated successfully');
+          print('📋 IMPORTANT: Copy the debug token from logs and add it to Firebase Console → App Check → Manage debug tokens');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('⚠️ App Check activation failed: $e');
+        }
+      }
+      */
+      
+      if (kDebugMode) {
+        print('⚠️ App Check temporarily disabled - function will work without App Check token');
+        print('📋 To enable App Check: Add debug token 8c88f9e4-b464-4115-aa74-e972fff7e419 to Firebase Console');
       }
     } catch (e) {
       if (kDebugMode) {

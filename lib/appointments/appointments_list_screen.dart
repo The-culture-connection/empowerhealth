@@ -165,7 +165,7 @@ class AppointmentsListScreen extends StatelessWidget {
                         if (summary != null) ...[
                           const SizedBox(height: 12),
                           Text(
-                            summary.split('\n').first.replaceAll('#', ''),
+                            _extractPreviewText(summary),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(color: Colors.black87),
@@ -198,6 +198,58 @@ class AppointmentsListScreen extends StatelessWidget {
       }
     }
     return date.toString();
+  }
+
+  String _extractActionsToTake(String? summary) {
+    if (summary == null) return 'No actions available';
+    
+    // Extract the "Actions To Take" section from markdown
+    final actionsMatch = RegExp(r'## Actions To Take\n(.*?)(?=\n## |$)', dotAll: true)
+        .firstMatch(summary);
+    
+    if (actionsMatch != null) {
+      return actionsMatch.group(1)?.trim() ?? 'No actions available';
+    }
+    
+    // Fallback: return first paragraph or section
+    final lines = summary.split('\n');
+    final firstSection = lines.takeWhile((line) => 
+      !line.startsWith('##') || line.startsWith('## Actions To Take')
+    ).join('\n');
+    
+    return firstSection.isNotEmpty ? firstSection : 'No actions available';
+  }
+
+  bool _hasActionsToTake(String? summary) {
+    if (summary == null) return false;
+    return summary.contains('## Actions To Take');
+  }
+
+  String _extractPreviewText(String? summary) {
+    if (summary == null) return '';
+    
+    // Try to extract "How Your Baby Is Doing" section (shown on card in image)
+    final babyMatch = RegExp(r'## How Your Baby Is Doing\n(.*?)(?=\n## |$)', dotAll: true)
+        .firstMatch(summary);
+    if (babyMatch != null) {
+      final content = babyMatch.group(1)?.trim() ?? '';
+      // Return first sentence or first 100 characters
+      final firstSentence = content.split('.').first;
+      if (firstSentence.length > 0 && firstSentence.length < 100) {
+        return firstSentence + '.';
+      }
+      return content.length > 100 ? content.substring(0, 100) + '...' : content;
+    }
+    
+    // Fallback: get first non-header line
+    final lines = summary.split('\n');
+    for (final line in lines) {
+      if (line.trim().isNotEmpty && !line.startsWith('#')) {
+        return line.trim();
+      }
+    }
+    
+    return summary.split('\n').first.replaceAll('#', '').trim();
   }
 
   void _showSummaryDialog(BuildContext context, Map<String, dynamic> data) {
@@ -247,24 +299,81 @@ class AppointmentsListScreen extends StatelessWidget {
               Flexible(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
-                  child: MarkdownBody(
-                    data: data['summary'] ?? 'No summary available',
-                    styleSheet: MarkdownStyleSheet(
-                      h2: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.brandPurple,
-                      ),
-                      h3: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      p: const TextStyle(fontSize: 15, height: 1.6),
-                      listBullet: const TextStyle(
-                        fontSize: 15,
-                        color: AppTheme.brandPurple,
-                      ),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Actions To Take Section
+                      if (data['summary'] != null) ...[
+                        const Text(
+                          'Actions To Take',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.brandPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        MarkdownBody(
+                          data: _extractActionsToTake(data['summary']),
+                          styleSheet: MarkdownStyleSheet(
+                            p: const TextStyle(fontSize: 15, height: 1.6),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      
+                      // Suggested Learning Topics Section
+                      if (data['learningModules'] != null && 
+                          (data['learningModules'] as List).isNotEmpty) ...[
+                        const Text(
+                          'Suggested Learning Topics',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.brandPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...((data['learningModules'] as List).asMap().entries.map((entry) {
+                          final index = entry.key + 1;
+                          final module = entry.value as Map<String, dynamic>;
+                          final title = module['title'] ?? 'Learning Topic';
+                          final reason = module['reason'] ?? module['description'] ?? 'This is important based on your visit.';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              '$index. $title ($reason)',
+                              style: const TextStyle(fontSize: 15, height: 1.6),
+                            ),
+                          );
+                        })),
+                      ],
+                      
+                      // Full Summary (if Actions To Take section not found)
+                      if (data['summary'] != null && 
+                          !_hasActionsToTake(data['summary'])) ...[
+                        const SizedBox(height: 16),
+                        MarkdownBody(
+                          data: data['summary'],
+                          styleSheet: MarkdownStyleSheet(
+                            h2: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.brandPurple,
+                            ),
+                            h3: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            p: const TextStyle(fontSize: 15, height: 1.6),
+                            listBullet: const TextStyle(
+                              fontSize: 15,
+                              color: AppTheme.brandPurple,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),

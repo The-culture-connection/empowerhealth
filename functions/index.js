@@ -1,4 +1,5 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onObjectFinalized} = require("firebase-functions/v2/storage");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const {OpenAI} = require("openai");
@@ -496,77 +497,305 @@ Focus on what the person needs to know and do.`,
   }
 );
 
-// 7. After-Visit Summary - Summarize uploaded PDF with specific structure
-exports.summarizeAfterVisitPDF = onCall(
+// 7. Upload file to Firebase Storage and return metadata
+exports.uploadVisitSummaryFile = onCall(
   {secrets: [openaiApiKey]},
   async (request) => {
     try {
       if (!request.auth) {
-        console.error("Authentication error: User not authenticated");
-        throw new Error("User must be authenticated");
+        throw new HttpsError("unauthenticated", "🔒 Authentication required. Please log in.");
       }
 
-      console.log("Function called with data:", {
-        hasPdfText: !!request.data.pdfText,
-        pdfTextLength: request.data.pdfText?.length || 0,
-        appointmentDate: request.data.appointmentDate,
-        hasUserProfile: !!request.data.userProfile,
-      });
+      const {fileName, fileData, appointmentDate, userProfile} = request.data;
 
-      const {
-        pdfText, 
-        appointmentDate, 
-        educationLevel,
-        userProfile // Include user profile data
-      } = request.data;
-
-      // Validate required fields
-      if (!pdfText || typeof pdfText !== 'string' || pdfText.trim().length === 0) {
-        console.error("Validation error: pdfText is missing or empty");
-        throw new Error("PDF text is required and cannot be empty");
+      if (!fileName || !fileData) {
+        throw new HttpsError("invalid-argument", "📄 Missing file data. Please select a PDF file.");
       }
 
       if (!appointmentDate) {
-        console.error("Validation error: appointmentDate is missing");
-        throw new Error("Appointment date is required");
+        throw new HttpsError("invalid-argument", "📅 Missing appointment date. Please select a date.");
       }
 
-      // Extract user context with safe defaults
-      const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
-      const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
-      const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
-      const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
-      const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
-      const learningStyle = (userProfile?.learningStyle || "visual").toString();
-
-    // Determine reading level based on education
-    const getReadingLevel = (educationLevel) => {
-      if (!educationLevel) return "6th grade";
-      if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
-        return "8th grade";
+      // Validate file is PDF
+      if (!fileName.toLowerCase().endsWith('.pdf')) {
+        throw new HttpsError("invalid-argument", "❌ Invalid file type. Please upload a PDF file.");
       }
-      if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
-        return "6th-7th grade";
+
+      // Create storage path: visit_summaries/{userId}/{timestamp}_{fileName}
+      const userId = request.auth.uid;
+      const timestamp = Date.now();
+      const storagePath = `visit_summaries/${userId}/${timestamp}_${fileName}`;
+      
+      const bucket = admin.storage().bucket();
+      const file = bucket.file(storagePath);
+
+      // Convert base64 to buffer if needed
+      let fileBuffer;
+      if (typeof fileData === 'string') {
+        // Assume base64 encoded
+        fileBuffer = Buffer.from(fileData, 'base64');
+      } else {
+        fileBuffer = Buffer.from(fileData);
       }
-      return "5th-6th grade";
-    };
 
-      const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "6th grade";
+      // Upload to Storage
+      console.log(`📤 Uploading file to ${storagePath}...`);
+      await file.save(fileBuffer, {
+        metadata: {
+          contentType: 'application/pdf',
+          metadata: {
+            userId: userId,
+            appointmentDate: appointmentDate,
+            uploadedAt: new Date().toISOString(),
+            userProfile: userProfile ? JSON.stringify(userProfile) : null,
+          },
+        },
+      });
 
-      console.log("Calling OpenAI API...");
-      const openai = getOpenAIClient(openaiApiKey.value());
-      const response = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. 
+      // Make file publicly readable (or use signed URLs for security)
+      await file.makePublic();
+
+      console.log(`✅ File uploaded successfully: ${storagePath}`);
+
+      // Save upload metadata to Firestore
+      const uploadRef = await admin.firestore()
+        .collection("users")
+        .doc(userId)
+        .collection("file_uploads")
+        .add({
+          fileName: fileName,
+          storagePath: storagePath,
+          appointmentDate: appointmentDate,
+          status: "uploaded",
+          userProfile: userProfile,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+      return {
+        success: true,
+        message: "📤 File uploaded successfully! Starting analysis...",
+        storagePath: storagePath,
+        uploadId: uploadRef.id,
+        fileUrl: `https://storage.googleapis.com/${bucket.name}/${storagePath}`,
+      };
+    } catch (error) {
+      console.error("❌ Error uploading file:", error);
+      
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      
+      // Provide user-friendly error messages with emojis
+      if (error.code === 'storage/unauthorized') {
+        throw new HttpsError("permission-denied", "🔒 Permission denied. Please check your account permissions.");
+      } else if (error.code === 'storage/quota-exceeded') {
+        throw new HttpsError("resource-exhausted", "💾 Storage quota exceeded. Please contact support.");
+      } else if (error.message && error.message.includes("network")) {
+        throw new HttpsError("unavailable", "🌐 Network error. Please check your connection and try again.");
+      }
+      
+      throw new HttpsError("internal", `❌ Upload failed: ${error.message || "Unknown error"}`);
+    }
+  }
+);
+
+// 8. Storage trigger: Automatically process uploaded PDFs
+exports.processUploadedVisitSummary = onObjectFinalized(
+  {
+    secrets: [openaiApiKey],
+    region: "us-central1",
+    bucket: "empower-health-watch.firebasestorage.app",
+  },
+  async (event) => {
+    const filePath = event.data.name;
+    const bucket = event.data.bucket;
+
+    // Only process files in visit_summaries folder
+    if (!filePath.startsWith('visit_summaries/')) {
+      console.log(`⏭️ Skipping file outside visit_summaries: ${filePath}`);
+      return;
+    }
+
+    // Only process PDFs
+    if (!filePath.toLowerCase().endsWith('.pdf')) {
+      console.log(`⏭️ Skipping non-PDF file: ${filePath}`);
+      return;
+    }
+
+    console.log(`📄 Processing uploaded file: ${filePath}`);
+
+    try {
+      const bucketObj = admin.storage().bucket(bucket);
+      const file = bucketObj.file(filePath);
+
+      // Get file metadata
+      const [metadata] = await file.getMetadata();
+      const customMetadata = metadata.metadata || {};
+      const userId = customMetadata.userId;
+      const appointmentDate = customMetadata.appointmentDate;
+      const userProfileStr = customMetadata.userProfile;
+
+      if (!userId || !appointmentDate) {
+        console.error("❌ Missing required metadata (userId or appointmentDate)");
+        return;
+      }
+
+      // Download file
+      console.log(`📥 Downloading file for processing...`);
+      const [fileBuffer] = await file.download();
+
+      // Extract text from PDF (using pdf-parse or similar)
+      // For now, we'll need to use a PDF parsing library
+      // Note: You may need to install pdf-parse: npm install pdf-parse
+      let pdfText = '';
+      try {
+        // Try to use pdf-parse if available
+        const pdfParse = require('pdf-parse');
+        const pdfData = await pdfParse(fileBuffer);
+        pdfText = pdfData.text;
+      } catch (parseError) {
+        console.error("❌ Error parsing PDF:", parseError);
+        // Update status to error
+        await admin.firestore()
+          .collection("users")
+          .doc(userId)
+          .collection("file_uploads")
+          .where("storagePath", "==", filePath)
+          .get()
+          .then((snapshot) => {
+            snapshot.forEach((doc) => {
+              doc.ref.update({
+                status: "error",
+                errorMessage: "❌ Could not extract text from PDF. The file might be image-based or encrypted.",
+                processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
+            });
+          });
+        return;
+      }
+
+      if (!pdfText || pdfText.trim().length === 0) {
+        throw new Error("📄 No text extracted from PDF");
+      }
+
+      console.log(`✅ Extracted ${pdfText.length} characters from PDF`);
+
+      // Parse user profile if available
+      let userProfile = null;
+      if (userProfileStr) {
+        try {
+          userProfile = JSON.parse(userProfileStr);
+        } catch (e) {
+          console.warn("⚠️ Could not parse user profile metadata");
+        }
+      }
+
+      // Get user's education level from profile if not in metadata
+      let educationLevel = null;
+      if (userProfile?.educationLevel) {
+        educationLevel = userProfile.educationLevel;
+      } else {
+        // Try to get from user profile in Firestore
+        const userDoc = await admin.firestore().collection("users").doc(userId).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          educationLevel = userData?.educationLevel || userData?.profile?.educationLevel;
+        }
+      }
+
+      // Call the analysis function
+      console.log(`🤖 Starting AI analysis...`);
+      const analysisResult = await analyzeVisitSummaryPDF({
+        pdfText,
+        appointmentDate,
+        educationLevel,
+        userProfile,
+        userId,
+      });
+
+      // Update upload status
+      await admin.firestore()
+        .collection("users")
+        .doc(userId)
+        .collection("file_uploads")
+        .where("storagePath", "==", filePath)
+        .get()
+        .then((snapshot) => {
+          snapshot.forEach((doc) => {
+            doc.ref.update({
+              status: "completed",
+              summaryId: analysisResult.summaryId,
+              processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          });
+        });
+
+      console.log(`✅ Successfully processed file: ${filePath}`);
+    } catch (error) {
+      console.error(`❌ Error processing file ${filePath}:`, error);
+      
+      // Extract userId from path if possible
+      const pathParts = filePath.split('/');
+      if (pathParts.length >= 2) {
+        const userId = pathParts[1];
+        await admin.firestore()
+          .collection("users")
+          .doc(userId)
+          .collection("file_uploads")
+          .where("storagePath", "==", filePath)
+          .get()
+          .then((snapshot) => {
+            snapshot.forEach((doc) => {
+              doc.ref.update({
+                status: "error",
+                errorMessage: `❌ ${error.message || "Unknown error occurred during processing"}`,
+                processedAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
+            });
+          });
+      }
+    }
+  }
+);
+
+// Helper function to analyze PDF (extracted from summarizeAfterVisitPDF)
+async function analyzeVisitSummaryPDF({pdfText, appointmentDate, educationLevel, userProfile, userId}) {
+  // Extract user context with safe defaults
+  const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
+  const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
+  const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
+  const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
+  const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
+  const learningStyle = (userProfile?.learningStyle || "visual").toString();
+
+  // Determine reading level based on education
+  const getReadingLevel = (educationLevel) => {
+    if (!educationLevel) return "6th grade";
+    if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
+      return "8th grade";
+    }
+    if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
+      return "6th-7th grade";
+    }
+    return "5th-6th grade";
+  };
+
+  const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "6th grade";
+
+  console.log("🤖 Calling OpenAI API for analysis...");
+  const openai = getOpenAIClient(openaiApiKey.value());
+  const response = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      {
+        role: "system",
+        content: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. 
 Generate a comprehensive, plain-language visit summary at a ${readingLevel} reading level using professional clinical language. 
 Avoid casual terms like "momma". Structure your response as a JSON object with specific sections.`,
-          },
-          {
-            role: "user",
-            content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary. 
+      },
+      {
+        role: "user",
+        content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary. 
 Explain medical terms clearly, outline next steps, offer advocacy questions the mother can ask, and provide supportive, trauma-informed language. 
 Tailor the content to her trimester (${trimester}), stated concerns (${JSON.stringify(concerns)}), and birth preferences (${JSON.stringify(birthPlanPreferences)}). 
 Include a short explanation, what to expect, questions to ask, and when to seek help.
@@ -576,10 +805,10 @@ ${pdfText}
 
 User Context:
 - Trimester: ${trimester}
-- Concerns: ${concerns.join(", ") || "None specified"}
+- Stated Concerns: ${concerns.join(", ") || "None specified"} (pain, safety, anxiety, postpartum issues)
 - Birth Plan Preferences: ${birthPlanPreferences.join(", ") || "None specified"}
 - Cultural/Trauma-Informed Preferences: ${culturalPreferences.concat(traumaInformedPreferences).join(", ") || "None specified"}
-- Learning Style: ${learningStyle}
+- Learning Style: ${learningStyle} (audio, visual, short summaries)
 
 Return a JSON object with the following structure:
 {
@@ -626,89 +855,359 @@ Return a JSON object with the following structure:
   ]
 }
 
-IMPORTANT: 
-- Create todos for: empowerment/advocacy tips, follow-up instructions, medications to take, tests to schedule
-- Create learning modules for: new diagnoses, tests/procedures discussed, medications, provider communication issues, contradictions/missing explanations
-- Flag potential mistreatment, unclear communication, or dismissive behavior
-- Use trauma-informed, culturally affirming language throughout
-- Make all explanations accessible at ${readingLevel} reading level`,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 4000,
-        response_format: { type: "json_object" },
+CRITICAL REQUIREMENTS:
+1. Explain key medical terms mentioned - add to keyMedicalTerms array
+2. Break down next steps in plain language - add to nextSteps
+3. Highlight questions to ask at the next visit - add to questionsToAsk
+4. Provide empowerment + advocacy tips based on that specific encounter - add to empowermentTips AND create todos
+5. Reinforce understanding of any new diagnoses, tests, or procedures - add to newDiagnoses/testsProcedures AND create learning modules
+6. Flag potential mistreatment or unclear communication - add to redFlags
+7. Tests or procedures recommended - add to testsProcedures AND create learning modules
+8. Medications discussed - add to medications AND create learning modules
+9. Follow-up instructions - turn into todos
+10. Provider communication style (e.g., rushed, unclear, dismissive — if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
+11. Emotional markers (mom tapped "confused," "scared," or "unsure") - add to emotionalMarkers
+12. Advocacy moments (e.g., "provider said XYZ without explanation") - add to advocacyMoments
+13. Any contradictions or missing explanations - add to contradictions AND create learning modules to bridge gap
+
+TODOS: Create todos for:
+- Empowerment/advocacy tips (category: "advocacy")
+- Follow-up instructions (category: "followup")
+- Medications to take (category: "medication")
+- Tests to schedule (category: "test")
+
+LEARNING MODULES: Create learning modules for:
+- New diagnoses
+- Tests/procedures discussed
+- Medications
+- Provider communication issues
+- Contradictions/missing explanations
+
+Use trauma-informed, culturally affirming language throughout. Make all explanations accessible at ${readingLevel} reading level.`,
+      },
+    ],
+    temperature: 0.7,
+    max_tokens: 4000,
+    response_format: { type: "json_object" },
+  });
+
+  if (!response.choices || response.choices.length === 0 || !response.choices[0].message.content) {
+    throw new Error("❌ OpenAI API returned an invalid response");
+  }
+
+  const responseContent = response.choices[0].message.content;
+  let parsedResponse;
+  
+  try {
+    parsedResponse = JSON.parse(responseContent);
+  } catch (parseError) {
+    console.error("❌ JSON parse error:", parseError);
+    throw new Error("❌ Failed to parse AI response");
+  }
+
+  // Save to Firestore
+  const summaryRef = await admin.firestore()
+    .collection("users")
+    .doc(userId)
+    .collection("visit_summaries")
+    .add({
+      appointmentDate: appointmentDate,
+      originalText: pdfText.substring(0, 10000),
+      summary: parsedResponse.summary,
+      todos: parsedResponse.todos || [],
+      learningModules: parsedResponse.learningModules || [],
+      redFlags: parsedResponse.redFlags || [],
+      readingLevel: readingLevel,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+  // Create todos
+  if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
+    const todosBatch = admin.firestore().batch();
+    parsedResponse.todos.forEach((todo) => {
+      if (!todo || !todo.title) return;
+      const todoRef = admin.firestore().collection("learning_tasks").doc();
+      todosBatch.set(todoRef, {
+        userId: userId,
+        title: todo.title.toString(),
+        description: (todo.description || "").toString(),
+        category: (todo.category || "followup").toString(),
+        visitSummaryId: summaryRef.id,
+        isGenerated: true,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        completed: false,
       });
+    });
+    await todosBatch.commit();
+  }
 
-      if (!response.choices || response.choices.length === 0 || !response.choices[0].message.content) {
-        console.error("OpenAI API error: Empty or invalid response");
-        throw new Error("OpenAI API returned an invalid response");
-      }
-
-      const responseContent = response.choices[0].message.content;
-      console.log("OpenAI response received, length:", responseContent.length);
-      
-      let parsedResponse;
-      
-      try {
-        parsedResponse = JSON.parse(responseContent);
-        console.log("JSON parsed successfully");
-      } catch (parseError) {
-        console.error("JSON parse error:", parseError);
-        console.error("Response content (first 500 chars):", responseContent.substring(0, 500));
-        // Fallback if JSON parsing fails
-        parsedResponse = {
-          summary: {
-            howBabyIsDoing: "Unable to parse response",
-            howYouAreDoing: responseContent,
-            keyMedicalTerms: [],
-            nextSteps: "",
-            questionsToAsk: [],
-            empowermentTips: [],
-            newDiagnoses: [],
-            testsProcedures: [],
-            medications: [],
-            followUpInstructions: "",
-            providerCommunicationStyle: "",
-            emotionalMarkers: [],
-            advocacyMoments: [],
-            contradictions: []
-          },
-          todos: [],
-          learningModules: [],
-          redFlags: []
-        };
-      }
-
-      // Save to Firestore under user's profile
-      console.log("Saving summary to Firestore...");
-      const summaryRef = await admin.firestore()
-          .collection("users")
-          .doc(request.auth.uid)
-          .collection("visit_summaries")
-          .add({
-        appointmentDate: appointmentDate,
-        originalText: pdfText.substring(0, 10000), // Limit text size for Firestore
-        summary: parsedResponse.summary,
-        todos: parsedResponse.todos || [],
-        learningModules: parsedResponse.learningModules || [],
-        redFlags: parsedResponse.redFlags || [],
-        readingLevel: readingLevel,
+  // Create learning modules
+  if (parsedResponse.learningModules && Array.isArray(parsedResponse.learningModules) && parsedResponse.learningModules.length > 0) {
+    const modulesBatch = admin.firestore().batch();
+    parsedResponse.learningModules.forEach((module) => {
+      if (!module || !module.title) return;
+      const moduleRef = admin.firestore().collection("learning_tasks").doc();
+      modulesBatch.set(moduleRef, {
+        userId: userId,
+        title: module.title.toString(),
+        description: (module.description || module.reason || "").toString(),
+        trimester: trimester,
+        isGenerated: true,
+        visitSummaryId: summaryRef.id,
+        moduleType: "visit_based",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      console.log("Summary saved with ID:", summaryRef.id);
+    });
+    await modulesBatch.commit();
+  }
 
-      // Create todos in learning_tasks collection
+  return {
+    summaryId: summaryRef.id,
+    summary: formatSummaryForDisplay(
+      parsedResponse.summary,
+      parsedResponse.learningModules || []
+    ),
+    todos: parsedResponse.todos || [],
+    learningModules: parsedResponse.learningModules || [],
+    redFlags: parsedResponse.redFlags || [],
+  };
+}
+
+// 9. Analyze PDF directly with OpenAI (NO text extraction)
+// Analyze Visit Summary PDF - Recreated to match working function structure exactly
+exports.analyzeVisitSummaryPDF = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    if (!request.auth) {
+      throw new Error("User must be authenticated");
+    }
+
+    const data = request.data;
+    const {
+      storagePath,
+      downloadUrl,
+      appointmentDate,
+      educationLevel,
+      userProfile,
+    } = data;
+
+    if (!storagePath && !downloadUrl) {
+      throw new Error("PDF file location is required");
+    }
+
+    if (!appointmentDate) {
+      throw new Error("Appointment date is required");
+    }
+
+    // Extract user context
+    const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
+    const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
+    const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
+    const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
+    const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
+    const learningStyle = (userProfile?.learningStyle || "visual").toString();
+
+    // Determine reading level
+    const getReadingLevel = (educationLevel) => {
+      if (!educationLevel) return "6th grade";
+      if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
+        return "8th grade";
+      }
+      if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
+        return "6th-7th grade";
+      }
+      return "5th-6th grade";
+    };
+
+    const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "6th grade";
+
+    try {
+      // Download PDF from Firebase Storage
+      const bucket = admin.storage().bucket();
+      const file = bucket.file(storagePath);
+      const [exists] = await file.exists();
+      if (!exists) {
+        throw new Error(`PDF file not found at: ${storagePath}`);
+      }
+      const [pdfBuffer] = await file.download();
+
+      // Upload PDF to OpenAI
+      const openai = getOpenAIClient(openaiApiKey.value());
+      let pdfFile;
+      try {
+        pdfFile = new File([pdfBuffer], "visit_summary.pdf", {type: "application/pdf"});
+      } catch (e) {
+        const { Readable } = require("stream");
+        const stream = Readable.from(pdfBuffer);
+        stream.name = "visit_summary.pdf";
+        pdfFile = stream;
+      }
+      
+      // Upload PDF to OpenAI for analysis
+      const fileUpload = await openai.files.create({
+        file: pdfFile,
+        purpose: "assistants",
+      });
+
+      // Wait for file to be processed
+      let fileStatus = await openai.files.retrieve(fileUpload.id);
+      let attempts = 0;
+      while (fileStatus.status !== "processed" && attempts < 30) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        fileStatus = await openai.files.retrieve(fileUpload.id);
+        attempts++;
+        if (fileStatus.status === "error") {
+          throw new Error("File processing failed");
+        }
+      }
+
+      // Use Assistants API - attach file to message correctly
+      const assistant = await openai.beta.assistants.create({
+        name: "Visit Summary Analyzer",
+        instructions: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. Analyze the uploaded PDF visit summary and generate a comprehensive, plain-language summary at a ${readingLevel} reading level using professional clinical language. Avoid casual terms like "momma".`,
+        model: "gpt-4-turbo-preview",
+        tools: [{ type: "code_interpreter" }],
+      });
+
+      const thread = await openai.beta.threads.create();
+
+      // Add message with file attachment
+      await openai.beta.threads.messages.create(thread.id, {
+        role: "user",
+        content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary PDF. Explain medical terms clearly, outline next steps, offer advocacy questions the mother can ask, and provide supportive, trauma-informed language. Tailor the content to her trimester (${trimester}), stated concerns (${JSON.stringify(concerns)}), and birth preferences (${JSON.stringify(birthPlanPreferences)}). Include a short explanation, what to expect, questions to ask, and when to seek help.
+
+User Context:
+- Trimester: ${trimester}
+- Stated Concerns: ${concerns.join(", ") || "None specified"} (pain, safety, anxiety, postpartum issues)
+- Birth Plan Preferences: ${birthPlanPreferences.join(", ") || "None specified"}
+- Cultural/Trauma-Informed Preferences: ${culturalPreferences.concat(traumaInformedPreferences).join(", ") || "None specified"}
+- Learning Style: ${learningStyle} (audio, visual, short summaries)
+
+Return a JSON object with this exact structure:
+{
+  "summary": {
+    "howBabyIsDoing": "Brief summary of fetal health, measurements, heartbeat, movements, development",
+    "howYouAreDoing": "Brief summary of maternal health, vitals, symptoms, concerns addressed",
+    "keyMedicalTerms": [{"term": "term name", "explanation": "plain language explanation"}],
+    "nextSteps": "Plain language breakdown of next steps",
+    "questionsToAsk": ["Question 1", "Question 2"],
+    "empowermentTips": ["Advocacy tip 1", "Advocacy tip 2"],
+    "newDiagnoses": [{"diagnosis": "name", "explanation": "plain language explanation"}],
+    "testsProcedures": [{"name": "test/procedure name", "explanation": "what to expect", "whyNeeded": "reason"}],
+    "medications": [{"name": "medication name", "purpose": "why prescribed", "instructions": "how to take"}],
+    "followUpInstructions": "Instructions for follow-up care",
+    "providerCommunicationStyle": "Description of communication style if flagged (rushed, unclear, dismissive, etc.)",
+    "emotionalMarkers": ["confused", "scared", "unsure", etc. if detected],
+    "advocacyMoments": ["Provider said XYZ without explanation", etc.],
+    "contradictions": ["Any contradictions or missing explanations"]
+  },
+  "todos": [
+    {"title": "Todo title", "description": "Todo description", "category": "advocacy|followup|medication|test"}
+  ],
+  "learningModules": [
+    {"title": "Module title", "description": "Why this is relevant", "reason": "Based on visit content"}
+  ],
+  "redFlags": [
+    {"type": "mistreatment|unclear|dismissive", "description": "What was flagged"}
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+1. Explain key medical terms mentioned - add to keyMedicalTerms array
+2. Break down next steps in plain language - add to nextSteps
+3. Highlight questions to ask at the next visit - add to questionsToAsk
+4. Provide empowerment + advocacy tips based on that specific encounter - add to empowermentTips AND create todos
+5. Reinforce understanding of any new diagnoses, tests, or procedures - add to newDiagnoses/testsProcedures AND create learning modules
+6. Flag potential mistreatment or unclear communication - add to redFlags
+7. Tests or procedures recommended - add to testsProcedures AND create learning modules
+8. Medications discussed - add to medications AND create learning modules
+9. Follow-up instructions - turn into todos
+10. Provider communication style (e.g., rushed, unclear, dismissive — if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
+11. Emotional markers (mom tapped "confused," "scared," or "unsure") - add to emotionalMarkers
+12. Advocacy moments (e.g., "provider said XYZ without explanation") - add to advocacyMoments
+13. Any contradictions or missing explanations - add to contradictions AND create learning modules to bridge gap
+
+TODOS: Create todos for empowerment/advocacy tips (category: "advocacy"), follow-up instructions (category: "followup"), medications to take (category: "medication"), tests to schedule (category: "test").
+
+LEARNING MODULES: Create learning modules for new diagnoses, tests/procedures discussed, medications, provider communication issues, contradictions/missing explanations.
+
+Use trauma-informed, culturally affirming language throughout. Make all explanations accessible at ${readingLevel} reading level. Return ONLY valid JSON.`,
+        attachments: [
+          {
+            file_id: fileUpload.id,
+            tools: [{ type: "code_interpreter" }],
+          },
+        ],
+      });
+
+      const run = await openai.beta.threads.runs.create(thread.id, {
+        assistant_id: assistant.id,
+      });
+
+      let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+      while (runStatus.status !== "completed") {
+        if (runStatus.status === "failed") {
+          throw new Error("OpenAI analysis failed");
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+      }
+
+      const messages = await openai.beta.threads.messages.list(thread.id);
+      const assistantMessage = messages.data.find(m => m.role === "assistant");
+      
+      if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
+        throw new Error("No response from OpenAI");
+      }
+
+      const responseContent = assistantMessage.content[0].text.value;
+      let parsedResponse;
+      try {
+        const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) || 
+                         responseContent.match(/```\s*([\s\S]*?)\s*```/);
+        const jsonString = jsonMatch ? jsonMatch[1] : responseContent;
+        parsedResponse = JSON.parse(jsonString);
+      } catch (parseError) {
+        throw new Error("Failed to parse AI response");
+      }
+
+      // Clean up uploaded file
+      try {
+        await openai.files.del(fileUpload.id);
+      } catch (e) {
+        console.warn("Failed to delete uploaded file:", e);
+      }
+
+      // Save to Firestore
+      const appointmentTimestamp = admin.firestore.Timestamp.fromDate(new Date(appointmentDate));
+      const formattedSummary = formatSummaryForDisplay(
+        parsedResponse.summary,
+        parsedResponse.learningModules || []
+      );
+      
+      const summaryRef = await admin.firestore()
+        .collection("users")
+        .doc(request.auth.uid)
+        .collection("visit_summaries")
+        .add({
+          appointmentDate: appointmentTimestamp,
+          storagePath: storagePath,
+          downloadUrl: downloadUrl,
+          summary: formattedSummary,
+          summaryData: parsedResponse.summary,
+          todos: parsedResponse.todos || [],
+          learningModules: parsedResponse.learningModules || [],
+          redFlags: parsedResponse.redFlags || [],
+          readingLevel: readingLevel,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+      // Create todos
       if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
-        console.log("Creating todos:", parsedResponse.todos.length);
         const todosBatch = admin.firestore().batch();
         parsedResponse.todos.forEach((todo) => {
-          if (!todo || !todo.title) {
-            console.warn("Skipping invalid todo:", todo);
-            return;
-          }
-          const todoRef = admin.firestore()
-              .collection("learning_tasks")
-              .doc();
+          if (!todo || !todo.title) return;
+          const todoRef = admin.firestore().collection("learning_tasks").doc();
           todosBatch.set(todoRef, {
             userId: request.auth.uid,
             title: todo.title.toString(),
@@ -721,21 +1220,14 @@ IMPORTANT:
           });
         });
         await todosBatch.commit();
-        console.log("Todos created successfully");
       }
 
       // Create learning modules
       if (parsedResponse.learningModules && Array.isArray(parsedResponse.learningModules) && parsedResponse.learningModules.length > 0) {
-        console.log("Creating learning modules:", parsedResponse.learningModules.length);
         const modulesBatch = admin.firestore().batch();
         parsedResponse.learningModules.forEach((module) => {
-          if (!module || !module.title) {
-            console.warn("Skipping invalid module:", module);
-            return;
-          }
-          const moduleRef = admin.firestore()
-              .collection("learning_tasks")
-              .doc();
+          if (!module || !module.title) return;
+          const moduleRef = admin.firestore().collection("learning_tasks").doc();
           modulesBatch.set(moduleRef, {
             userId: request.auth.uid,
             title: module.title.toString(),
@@ -748,53 +1240,173 @@ IMPORTANT:
           });
         });
         await modulesBatch.commit();
-        console.log("Learning modules created successfully");
       }
 
-      // Format summary for display
-      const formattedSummary = formatSummaryForDisplay(parsedResponse.summary);
-
-      console.log("Function completed successfully");
       return {
-        success: true, 
+        success: true,
+        summaryId: summaryRef.id,
         summary: formattedSummary,
         todos: parsedResponse.todos || [],
         learningModules: parsedResponse.learningModules || [],
-        redFlags: parsedResponse.redFlags || []
+        redFlags: parsedResponse.redFlags || [],
       };
     } catch (error) {
-      console.error("Error in summarizeAfterVisitPDF:", error);
+      console.error("Error in analyzeVisitSummaryPDF:", error);
+      throw new Error(`Failed to analyze PDF: ${error.message || "Unknown error"}`);
+    }
+  }
+);
+
+// 10. After-Visit Summary - Summarize uploaded PDF with specific structure (kept for backward compatibility)
+exports.summarizeAfterVisitPDF = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    try {
+      if (!request.auth) {
+        console.error("Authentication error: User not authenticated");
+        throw new Error("User must be authenticated");
+      }
+
+      console.log("Function called with data:", {
+        hasPdfText: !!request.data.pdfText,
+        pdfTextLength: request.data.pdfText?.length || 0,
+        appointmentDate: request.data.appointmentDate,
+        hasUserProfile: !!request.data.userProfile,
+      });
+
+      const {
+        pdfText, 
+        appointmentDate, 
+        educationLevel,
+        userProfile // Include user profile data
+      } = request.data;
+
+      // Validate required fields
+      if (!pdfText || typeof pdfText !== 'string' || pdfText.trim().length === 0) {
+        console.error("❌ Validation error: pdfText is missing or empty");
+        throw new HttpsError("invalid-argument", "📄 PDF text is required and cannot be empty");
+      }
+
+      if (!appointmentDate) {
+        console.error("❌ Validation error: appointmentDate is missing");
+        throw new HttpsError("invalid-argument", "📅 Appointment date is required");
+      }
+
+      // Extract user context with safe defaults
+      const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
+      const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
+      const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
+      const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
+      const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
+      const learningStyle = (userProfile?.learningStyle || "visual").toString();
+
+    // Determine reading level based on education
+    const getReadingLevel = (educationLevel) => {
+      if (!educationLevel) return "6th grade";
+      if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
+        return "8th grade";
+      }
+      if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
+        return "6th-7th grade";
+      }
+      return "5th-6th grade";
+    };
+
+      // Use the shared analysis function
+      const analysisResult = await analyzeVisitSummaryPDF({
+        pdfText,
+        appointmentDate,
+        educationLevel,
+        userProfile,
+        userId: request.auth.uid,
+      });
+
+      console.log("✅ Function completed successfully");
+      return {
+        success: true, 
+        summary: analysisResult.summary,
+        todos: analysisResult.todos,
+        learningModules: analysisResult.learningModules,
+        redFlags: analysisResult.redFlags,
+        summaryId: analysisResult.summaryId,
+      };
+    } catch (error) {
+      console.error("❌ Error in summarizeAfterVisitPDF:", error);
       console.error("Error stack:", error.stack);
       console.error("Error message:", error.message);
       
-      // Provide more specific error messages
+      // Provide more specific error messages with emojis
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      
       if (error.message && error.message.includes("authentication")) {
-        throw new HttpsError("unauthenticated", error.message);
+        throw new HttpsError("unauthenticated", "🔒 Authentication required. Please log in.");
       } else if (error.message && (error.message.includes("required") || error.message.includes("missing"))) {
-        throw new HttpsError("invalid-argument", error.message);
+        throw new HttpsError("invalid-argument", `❌ ${error.message}`);
+      } else if (error.message && error.message.includes("OpenAI") || error.message.includes("API")) {
+        throw new HttpsError("internal", "🤖 AI service error. Please try again in a moment.");
       } else {
-        // For internal errors, include the error message in the response
-        throw new HttpsError(
-          "internal", 
-          `Failed to summarize visit: ${error.message || "Unknown error"}`
-        );
+        throw new HttpsError("internal", `❌ Analysis failed: ${error.message || "Unknown error occurred"}`);
       }
     }
   }
 );
 
-// Helper function to format summary for display
-function formatSummaryForDisplay(summary) {
+// Helper function to format summary for display (matches image format)
+function formatSummaryForDisplay(summary, learningModules = []) {
   let formatted = "";
   
+  // How Your Baby Is Doing (shown on card - put first)
   if (summary.howBabyIsDoing) {
     formatted += `## How Your Baby Is Doing\n${summary.howBabyIsDoing}\n\n`;
   }
   
+  // How You Are Doing
   if (summary.howYouAreDoing) {
     formatted += `## How You Are Doing\n${summary.howYouAreDoing}\n\n`;
   }
   
+  // Actions To Take section (combines next steps, follow-up, empowerment tips)
+  let actionsToTake = [];
+  
+  if (summary.nextSteps) {
+    actionsToTake.push(summary.nextSteps);
+  }
+  
+  if (summary.followUpInstructions) {
+    actionsToTake.push(summary.followUpInstructions);
+  }
+  
+  if (summary.empowermentTips && summary.empowermentTips.length > 0) {
+    actionsToTake.push(...summary.empowermentTips);
+  }
+  
+  if (summary.medications && summary.medications.length > 0) {
+    const medInstructions = summary.medications.map(med => {
+      let text = `Continue taking ${med.name}`;
+      if (med.purpose) text += ` (${med.purpose})`;
+      if (med.instructions) text += `. ${med.instructions}`;
+      return text;
+    });
+    actionsToTake.push(...medInstructions);
+  }
+  
+  if (actionsToTake.length > 0) {
+    formatted += `## Actions To Take\n${actionsToTake.join(' ')}\n\n`;
+  }
+  
+  // Suggested Learning Topics (from learning modules)
+  if (learningModules && learningModules.length > 0) {
+    formatted += `## Suggested Learning Topics\n`;
+    learningModules.forEach((module, index) => {
+      const reason = module.reason || module.description || "This is important based on your visit.";
+      formatted += `${index + 1}. ${module.title} (${reason})\n`;
+    });
+    formatted += `\n`;
+  }
+  
+  // Key Medical Terms Explained
   if (summary.keyMedicalTerms && summary.keyMedicalTerms.length > 0) {
     formatted += `## Key Medical Terms Explained\n`;
     summary.keyMedicalTerms.forEach(term => {
@@ -803,10 +1415,7 @@ function formatSummaryForDisplay(summary) {
     formatted += `\n`;
   }
   
-  if (summary.nextSteps) {
-    formatted += `## Next Steps\n${summary.nextSteps}\n\n`;
-  }
-  
+  // Questions to Ask at Your Next Visit
   if (summary.questionsToAsk && summary.questionsToAsk.length > 0) {
     formatted += `## Questions to Ask at Your Next Visit\n`;
     summary.questionsToAsk.forEach((q, i) => {
@@ -815,14 +1424,7 @@ function formatSummaryForDisplay(summary) {
     formatted += `\n`;
   }
   
-  if (summary.empowermentTips && summary.empowermentTips.length > 0) {
-    formatted += `## Empowerment & Advocacy Tips\n`;
-    summary.empowermentTips.forEach((tip, i) => {
-      formatted += `${i + 1}. ${tip}\n`;
-    });
-    formatted += `\n`;
-  }
-  
+  // New Diagnoses Explained
   if (summary.newDiagnoses && summary.newDiagnoses.length > 0) {
     formatted += `## New Diagnoses Explained\n`;
     summary.newDiagnoses.forEach(diag => {
@@ -831,6 +1433,7 @@ function formatSummaryForDisplay(summary) {
     formatted += `\n`;
   }
   
+  // Tests & Procedures Discussed
   if (summary.testsProcedures && summary.testsProcedures.length > 0) {
     formatted += `## Tests & Procedures Discussed\n`;
     summary.testsProcedures.forEach(test => {
@@ -842,25 +1445,12 @@ function formatSummaryForDisplay(summary) {
     formatted += `\n`;
   }
   
-  if (summary.medications && summary.medications.length > 0) {
-    formatted += `## Medications Discussed\n`;
-    summary.medications.forEach(med => {
-      formatted += `**${med.name}**: ${med.purpose}\n`;
-      if (med.instructions) {
-        formatted += `   *How to take: ${med.instructions}*\n`;
-      }
-    });
-    formatted += `\n`;
-  }
-  
-  if (summary.followUpInstructions) {
-    formatted += `## Follow-Up Instructions\n${summary.followUpInstructions}\n\n`;
-  }
-  
+  // Provider Communication Notes
   if (summary.providerCommunicationStyle) {
     formatted += `## Provider Communication Notes\n${summary.providerCommunicationStyle}\n\n`;
   }
   
+  // Advocacy Moments
   if (summary.advocacyMoments && summary.advocacyMoments.length > 0) {
     formatted += `## Advocacy Moments\n`;
     summary.advocacyMoments.forEach((moment, i) => {
@@ -869,6 +1459,7 @@ function formatSummaryForDisplay(summary) {
     formatted += `\n`;
   }
   
+  // Important Notes (contradictions)
   if (summary.contradictions && summary.contradictions.length > 0) {
     formatted += `## Important Notes\n`;
     summary.contradictions.forEach((contradiction, i) => {

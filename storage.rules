@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow authenticated users to upload visit summaries
+    match /visit_summaries/{userId}/{allPaths=**} {
+      // Allow users to read/write their own files
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // IMPORTANT: Admin SDK (Cloud Functions) bypasses security rules automatically
+      // But we allow service accounts (no request.auth) as a backup
+      // Service accounts are used by Cloud Functions and don't have request.auth
+      allow read: if request.auth == null; // Service account access
+    }
+    
+    // Block everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

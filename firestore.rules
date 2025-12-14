@@ -26,6 +26,10 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
       
+      match /notes/{noteId} {
+        allow read, write: if isOwner(userId);
+      }
+      
       match /{document=**} {
         allow read, write: if isOwner(userId);
       }
@@ -72,7 +76,14 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
-    // Journal entries
+    // Journal entries (top-level collection)
+    match /journal_entries/{entryId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Journal entries (alternative path structure)
     match /journals/{userId}/entries/{entryId} {
       allow read, write: if isOwner(userId);
     }

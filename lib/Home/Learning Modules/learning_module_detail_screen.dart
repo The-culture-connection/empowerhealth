@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../cors/ui_theme.dart';
+import '../../learning/notes_dialog.dart';
 
 class LearningModuleDetailScreen extends StatelessWidget {
   final String title;
@@ -34,6 +35,18 @@ class LearningModuleDetailScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.note_add),
+            tooltip: 'Add Note',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => NotesDialog(
+                  moduleTitle: title,
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.share),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: content));
@@ -51,6 +64,86 @@ class LearningModuleDetailScreen extends StatelessWidget {
           children: [
             // Content display
             _MarkdownStyleText(content: content),
+            
+            const SizedBox(height: 16),
+            // Selectable text for highlighting
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.highlight, size: 18, color: AppTheme.brandPurple),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Long-press text below to highlight and add a note',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.brandPurple,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    content,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 1.6,
+                      color: Colors.black87,
+                    ),
+                    onSelectionChanged: (selection, cause) {
+                      if (selection.isValid && cause == SelectionChangedCause.longPress) {
+                        final selectedText = content.substring(
+                          selection.start.clamp(0, content.length),
+                          selection.end.clamp(0, content.length),
+                        ).trim();
+                        if (selectedText.length > 3) {
+                          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Selected: ${selectedText.length > 40 ? selectedText.substring(0, 40) + "..." : selectedText}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => NotesDialog(
+                                          preFilledText: selectedText,
+                                          moduleTitle: title,
+                                        ),
+                                      );
+                                    },
+                                    child: const Text('Add Note', style: TextStyle(color: Colors.white)),
+                                  ),
+                                ],
+                              ),
+                              duration: const Duration(seconds: 5),
+                              backgroundColor: AppTheme.brandPurple,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
             
             const SizedBox(height: 32),
             

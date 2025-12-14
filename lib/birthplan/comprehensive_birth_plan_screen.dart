@@ -187,13 +187,13 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         supportPersonRelationship: _supportPersonRelationshipController.text.trim().isEmpty 
             ? null 
             : _supportPersonRelationshipController.text.trim(),
-        contactInfo: _contactInfoController.text.trim().isEmpty 
+        emergencyContact: _contactInfoController.text.trim().isEmpty 
             ? null 
             : _contactInfoController.text.trim(),
         allergies: _allergies,
         medicalConditions: _medicalConditions,
         pregnancyComplications: _pregnancyComplications,
-        environmentPreferences: _environmentPreferences,
+        // environmentPreferences removed - now using lightingPreference, noisePreference, visitorsAllowed
         photographyAllowed: _photographyAllowed,
         videographyAllowed: _videographyAllowed,
         preferredLanguage: _preferredLanguage,
@@ -204,59 +204,55 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         painManagementPreference: _painManagementPreference,
         useDoula: _useDoula,
         waterLaborAvailable: _waterLaborAvailable,
-        membraneSweepingPreference: _membraneSweepingPreference,
-        inductionPreference: _inductionPreference,
+        augmentationPreference: _membraneSweepingPreference, // membrane sweep is now part of augmentation
+        inductionMethodsPreference: _inductionPreference,
         communicationStyle: _communicationStyle,
         preferredPushingPositions: _preferredPushingPositions,
-        pushingStyle: _pushingStyle,
+        coachingStyle: _pushingStyle, // pushingStyle renamed to coachingStyle
         mirrorDuringPushing: _mirrorDuringPushing,
         episiotomyPreference: _episiotomyPreference,
-        tearingPreference: _tearingPreference,
+        // tearingPreference removed
         whoCatchesBaby: _whoCatchesBaby,
         delayedPushingWithEpidural: _delayedPushingWithEpidural,
         delayedCordClampingPreference: _delayedCordClampingPreference,
         whoCutsCord: _whoCutsCord,
         immediateSkinToSkin: _immediateSkinToSkin,
-        babyStaysWithParent: _babyStaysWithParent,
+        delayedNewbornProcedures: _babyStaysWithParent, // babyStaysWithParent -> delayedNewbornProcedures
         vitaminK: _vitaminK,
-        eyeOintment: _eyeOintment,
+        // eyeOintment removed
         hepBVaccine: _hepBVaccine,
-        cordBloodBanking: _cordBloodBanking,
-        cordBloodCompany: _cordBloodCompanyController.text.trim().isEmpty 
-            ? null 
-            : _cordBloodCompanyController.text.trim(),
+        placentaPreference: _cordBloodBanking == true ? 'Save placenta' : null, // cordBloodBanking -> placentaPreference
+        // cordBloodCompany removed
         feedingPreference: _feedingPreference,
         lactationConsultantRequested: _lactationConsultantRequested,
         noPacifierUntilBreastfeeding: _noPacifierUntilBreastfeeding,
         consentForDonorMilk: _consentForDonorMilk,
         roomingIn: _roomingIn,
-        mentalHealthSupport: _mentalHealthSupport,
-        visitorPreference: _visitorPreferenceController.text.trim().isEmpty 
+        mentalHealthScreeningPreference: _mentalHealthSupport,
+        visitorsAfterBirth: _visitorPreferenceController.text.trim().isEmpty 
             ? null 
             : _visitorPreferenceController.text.trim(),
         dietaryPreferences: _dietaryPreferencesController.text.trim().isEmpty 
             ? null 
             : _dietaryPreferencesController.text.trim(),
-        postpartumPainManagement: _postpartumPainManagementController.text.trim().isEmpty 
+        postpartumPainControlPlan: _postpartumPainManagementController.text.trim().isEmpty 
             ? null 
             : _postpartumPainManagementController.text.trim(),
-        drapePreference: _drapePreference,
-        partnerInOR: _partnerInOR,
-        photosAllowedInOR: _photosAllowedInOR,
-        babyOnChestImmediately: _babyOnChestImmediately,
-        delayNewbornCareUntilHolding: _delayNewbornCareUntilHolding,
-        anesthesiaPreference: _anesthesiaPreference,
-        surgicalClosurePreference: _surgicalClosurePreference,
-        religiousConsiderations: _religiousConsiderationsController.text.trim().isEmpty 
+        cesareanDrapePreference: _drapePreference,
+        supportPersonInOR: _partnerInOR,
+        // photosAllowedInOR removed
+        immediateSkinToSkinInOR: _babyOnChestImmediately,
+        // delayNewbornCareUntilHolding removed
+        // anesthesiaPreference removed
+        // surgicalClosurePreference removed
+        culturalReligiousRituals: _religiousConsiderationsController.text.trim().isEmpty 
             ? null 
             : _religiousConsiderationsController.text.trim(),
-        culturalConsiderations: _culturalConsiderationsController.text.trim().isEmpty 
-            ? null 
-            : _culturalConsiderationsController.text.trim(),
+        // culturalConsiderations removed (now part of culturalReligiousRituals)
         accessibilityNeeds: _accessibilityNeedsController.text.trim().isEmpty 
             ? null 
             : _accessibilityNeedsController.text.trim(),
-        traumaHistory: _traumaHistoryController.text.trim().isEmpty 
+        pastBirthTraumaOrComplications: _traumaHistoryController.text.trim().isEmpty 
             ? null 
             : _traumaHistoryController.text.trim(),
         anxietyTriggers: _anxietyTriggers,
@@ -281,11 +277,11 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         dueDate: birthPlan.dueDate,
         supportPersonName: birthPlan.supportPersonName,
         supportPersonRelationship: birthPlan.supportPersonRelationship,
-        contactInfo: birthPlan.contactInfo,
+        emergencyContact: birthPlan.emergencyContact,
         allergies: birthPlan.allergies,
         medicalConditions: birthPlan.medicalConditions,
         pregnancyComplications: birthPlan.pregnancyComplications,
-        environmentPreferences: birthPlan.environmentPreferences,
+        // environmentPreferences removed
         photographyAllowed: birthPlan.photographyAllowed,
         videographyAllowed: birthPlan.videographyAllowed,
         preferredLanguage: birthPlan.preferredLanguage,
@@ -296,45 +292,45 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         painManagementPreference: birthPlan.painManagementPreference,
         useDoula: birthPlan.useDoula,
         waterLaborAvailable: birthPlan.waterLaborAvailable,
-        membraneSweepingPreference: birthPlan.membraneSweepingPreference,
-        inductionPreference: birthPlan.inductionPreference,
+        augmentationPreference: birthPlan.augmentationPreference,
+        inductionMethodsPreference: birthPlan.inductionMethodsPreference,
         communicationStyle: birthPlan.communicationStyle,
         preferredPushingPositions: birthPlan.preferredPushingPositions,
-        pushingStyle: birthPlan.pushingStyle,
+        coachingStyle: birthPlan.coachingStyle,
         mirrorDuringPushing: birthPlan.mirrorDuringPushing,
         episiotomyPreference: birthPlan.episiotomyPreference,
-        tearingPreference: birthPlan.tearingPreference,
+        // tearingPreference removed
         whoCatchesBaby: birthPlan.whoCatchesBaby,
         delayedPushingWithEpidural: birthPlan.delayedPushingWithEpidural,
         delayedCordClampingPreference: birthPlan.delayedCordClampingPreference,
         whoCutsCord: birthPlan.whoCutsCord,
         immediateSkinToSkin: birthPlan.immediateSkinToSkin,
-        babyStaysWithParent: birthPlan.babyStaysWithParent,
+        delayedNewbornProcedures: birthPlan.delayedNewbornProcedures,
         vitaminK: birthPlan.vitaminK,
-        eyeOintment: birthPlan.eyeOintment,
+        // eyeOintment removed
         hepBVaccine: birthPlan.hepBVaccine,
-        cordBloodBanking: birthPlan.cordBloodBanking,
-        cordBloodCompany: birthPlan.cordBloodCompany,
+        placentaPreference: birthPlan.placentaPreference,
+        // cordBloodCompany removed
         feedingPreference: birthPlan.feedingPreference,
         lactationConsultantRequested: birthPlan.lactationConsultantRequested,
         noPacifierUntilBreastfeeding: birthPlan.noPacifierUntilBreastfeeding,
         consentForDonorMilk: birthPlan.consentForDonorMilk,
         roomingIn: birthPlan.roomingIn,
-        mentalHealthSupport: birthPlan.mentalHealthSupport,
-        visitorPreference: birthPlan.visitorPreference,
+        mentalHealthScreeningPreference: birthPlan.mentalHealthScreeningPreference,
+        visitorsAfterBirth: birthPlan.visitorsAfterBirth,
         dietaryPreferences: birthPlan.dietaryPreferences,
-        postpartumPainManagement: birthPlan.postpartumPainManagement,
-        drapePreference: birthPlan.drapePreference,
-        partnerInOR: birthPlan.partnerInOR,
-        photosAllowedInOR: birthPlan.photosAllowedInOR,
-        babyOnChestImmediately: birthPlan.babyOnChestImmediately,
-        delayNewbornCareUntilHolding: birthPlan.delayNewbornCareUntilHolding,
-        anesthesiaPreference: birthPlan.anesthesiaPreference,
-        surgicalClosurePreference: birthPlan.surgicalClosurePreference,
-        religiousConsiderations: birthPlan.religiousConsiderations,
-        culturalConsiderations: birthPlan.culturalConsiderations,
+        postpartumPainControlPlan: birthPlan.postpartumPainControlPlan,
+        cesareanDrapePreference: birthPlan.cesareanDrapePreference,
+        supportPersonInOR: birthPlan.supportPersonInOR,
+        // photosAllowedInOR removed
+        immediateSkinToSkinInOR: birthPlan.immediateSkinToSkinInOR,
+        // delayNewbornCareUntilHolding removed
+        // anesthesiaPreference removed
+        // surgicalClosurePreference removed
+        culturalReligiousRituals: birthPlan.culturalReligiousRituals,
+        // culturalConsiderations removed (now part of culturalReligiousRituals)
         accessibilityNeeds: birthPlan.accessibilityNeeds,
-        traumaHistory: birthPlan.traumaHistory,
+        pastBirthTraumaOrComplications: birthPlan.pastBirthTraumaOrComplications,
         anxietyTriggers: birthPlan.anxietyTriggers,
         consentBasedCare: birthPlan.consentBasedCare,
         preferredBadNewsDelivery: birthPlan.preferredBadNewsDelivery,
@@ -401,7 +397,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         'category': 'Medical Preparation',
       });
     }
-    if (plan.inductionPreference != null) {
+    if (plan.inductionMethodsPreference != null) {
       todos.add({
         'title': 'Ask when to arrive if planning scheduled induction',
         'description': 'Get specific instructions for induction day',
@@ -422,7 +418,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
     ]);
 
     // Labor Comfort Prep To-Dos
-    if (plan.painManagementPreference != null || plan.environmentPreferences.isNotEmpty) {
+    if (plan.painManagementPreference != null || plan.lightingPreference != null || plan.noisePreference != null) {
       todos.addAll([
         {'title': 'Pack labor comfort items', 'description': 'Playlist, dim lights, robe, heating pad', 'category': 'Labor Comfort Prep'},
         {'title': 'Download your birth playlist', 'description': 'Create and download music for labor', 'category': 'Labor Comfort Prep'},
@@ -443,7 +439,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
     });
 
     // Paperwork & Permissions To-Dos
-    if (plan.cordBloodBanking == true) {
+    if (plan.placentaPreference != null && plan.placentaPreference!.contains('Save')) {
       todos.add({
         'title': 'Complete paperwork for cord blood banking',
         'description': 'Fill out cord blood banking forms',
@@ -499,14 +495,14 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
     ]);
 
     // Mental & Emotional Support To-Dos
-    if (plan.traumaInformedCare || plan.traumaHistory != null) {
+    if (plan.traumaInformedCare || plan.pastBirthTraumaOrComplications != null) {
       todos.addAll([
         {'title': 'Identify grounding techniques', 'description': 'Practice techniques for medical exams', 'category': 'Mental & Emotional Support'},
         {'title': 'Share trauma-informed preferences with OB team', 'description': 'Communicate needs to care team', 'category': 'Mental & Emotional Support'},
         {'title': 'Create a "How to Support Me" card for partner', 'description': 'Prepare support instructions', 'category': 'Mental & Emotional Support'},
       ]);
     }
-    if (plan.mentalHealthSupport == true) {
+    if (plan.mentalHealthScreeningPreference == true) {
       todos.add({
         'title': 'Schedule a therapy check-in',
         'description': 'Prenatal mental health provider appointment',
@@ -1220,11 +1216,11 @@ extension BirthPlanCopyWith on BirthPlan {
     DateTime? dueDate,
     String? supportPersonName,
     String? supportPersonRelationship,
-    String? contactInfo,
+    String? emergencyContact,
     List<String>? allergies,
     List<String>? medicalConditions,
     List<String>? pregnancyComplications,
-    List<String>? environmentPreferences,
+    // environmentPreferences removed
     bool? photographyAllowed,
     bool? videographyAllowed,
     String? preferredLanguage,
@@ -1235,45 +1231,45 @@ extension BirthPlanCopyWith on BirthPlan {
     String? painManagementPreference,
     bool? useDoula,
     bool? waterLaborAvailable,
-    String? membraneSweepingPreference,
-    String? inductionPreference,
+    String? augmentationPreference,
+    String? inductionMethodsPreference,
     String? communicationStyle,
     List<String>? preferredPushingPositions,
-    String? pushingStyle,
+    String? coachingStyle,
     bool? mirrorDuringPushing,
     String? episiotomyPreference,
-    String? tearingPreference,
+    // tearingPreference removed
     String? whoCatchesBaby,
     bool? delayedPushingWithEpidural,
     String? delayedCordClampingPreference,
     String? whoCutsCord,
     bool? immediateSkinToSkin,
-    bool? babyStaysWithParent,
+    bool? delayedNewbornProcedures,
     bool? vitaminK,
-    bool? eyeOintment,
+    // eyeOintment removed
     bool? hepBVaccine,
-    bool? cordBloodBanking,
-    String? cordBloodCompany,
+    String? placentaPreference,
+    // cordBloodCompany removed
     String? feedingPreference,
     bool? lactationConsultantRequested,
     bool? noPacifierUntilBreastfeeding,
     bool? consentForDonorMilk,
     bool? roomingIn,
-    bool? mentalHealthSupport,
-    String? visitorPreference,
+    bool? mentalHealthScreeningPreference,
+    String? visitorsAfterBirth,
     String? dietaryPreferences,
-    String? postpartumPainManagement,
-    String? drapePreference,
-    bool? partnerInOR,
-    bool? photosAllowedInOR,
-    bool? babyOnChestImmediately,
-    bool? delayNewbornCareUntilHolding,
+    String? postpartumPainControlPlan,
+    String? cesareanDrapePreference,
+    bool? supportPersonInOR,
+    // photosAllowedInOR removed
+    bool? immediateSkinToSkinInOR,
+    // delayNewbornCareUntilHolding removed
     String? anesthesiaPreference,
-    String? surgicalClosurePreference,
-    String? religiousConsiderations,
-    String? culturalConsiderations,
+    // surgicalClosurePreference removed
+    String? culturalReligiousRituals,
+    // culturalConsiderations removed (now part of culturalReligiousRituals)
     String? accessibilityNeeds,
-    String? traumaHistory,
+    String? pastBirthTraumaOrComplications,
     List<String>? anxietyTriggers,
     bool? consentBasedCare,
     String? preferredBadNewsDelivery,
@@ -1291,11 +1287,11 @@ extension BirthPlanCopyWith on BirthPlan {
       dueDate: dueDate ?? this.dueDate,
       supportPersonName: supportPersonName ?? this.supportPersonName,
       supportPersonRelationship: supportPersonRelationship ?? this.supportPersonRelationship,
-      contactInfo: contactInfo ?? this.contactInfo,
+      emergencyContact: emergencyContact ?? this.emergencyContact,
       allergies: allergies ?? this.allergies,
       medicalConditions: medicalConditions ?? this.medicalConditions,
       pregnancyComplications: pregnancyComplications ?? this.pregnancyComplications,
-      environmentPreferences: environmentPreferences ?? this.environmentPreferences,
+      // environmentPreferences removed
       photographyAllowed: photographyAllowed ?? this.photographyAllowed,
       videographyAllowed: videographyAllowed ?? this.videographyAllowed,
       preferredLanguage: preferredLanguage ?? this.preferredLanguage,
@@ -1306,45 +1302,45 @@ extension BirthPlanCopyWith on BirthPlan {
       painManagementPreference: painManagementPreference ?? this.painManagementPreference,
       useDoula: useDoula ?? this.useDoula,
       waterLaborAvailable: waterLaborAvailable ?? this.waterLaborAvailable,
-      membraneSweepingPreference: membraneSweepingPreference ?? this.membraneSweepingPreference,
-      inductionPreference: inductionPreference ?? this.inductionPreference,
+      augmentationPreference: augmentationPreference ?? this.augmentationPreference,
+      inductionMethodsPreference: inductionMethodsPreference ?? this.inductionMethodsPreference,
       communicationStyle: communicationStyle ?? this.communicationStyle,
       preferredPushingPositions: preferredPushingPositions ?? this.preferredPushingPositions,
-      pushingStyle: pushingStyle ?? this.pushingStyle,
+      coachingStyle: coachingStyle ?? this.coachingStyle,
       mirrorDuringPushing: mirrorDuringPushing ?? this.mirrorDuringPushing,
       episiotomyPreference: episiotomyPreference ?? this.episiotomyPreference,
-      tearingPreference: tearingPreference ?? this.tearingPreference,
+      // tearingPreference removed
       whoCatchesBaby: whoCatchesBaby ?? this.whoCatchesBaby,
       delayedPushingWithEpidural: delayedPushingWithEpidural ?? this.delayedPushingWithEpidural,
       delayedCordClampingPreference: delayedCordClampingPreference ?? this.delayedCordClampingPreference,
       whoCutsCord: whoCutsCord ?? this.whoCutsCord,
       immediateSkinToSkin: immediateSkinToSkin ?? this.immediateSkinToSkin,
-      babyStaysWithParent: babyStaysWithParent ?? this.babyStaysWithParent,
+      delayedNewbornProcedures: delayedNewbornProcedures ?? this.delayedNewbornProcedures,
       vitaminK: vitaminK ?? this.vitaminK,
-      eyeOintment: eyeOintment ?? this.eyeOintment,
+      // eyeOintment removed
       hepBVaccine: hepBVaccine ?? this.hepBVaccine,
-      cordBloodBanking: cordBloodBanking ?? this.cordBloodBanking,
-      cordBloodCompany: cordBloodCompany ?? this.cordBloodCompany,
+      placentaPreference: placentaPreference ?? this.placentaPreference,
+      // cordBloodCompany removed
       feedingPreference: feedingPreference ?? this.feedingPreference,
       lactationConsultantRequested: lactationConsultantRequested ?? this.lactationConsultantRequested,
       noPacifierUntilBreastfeeding: noPacifierUntilBreastfeeding ?? this.noPacifierUntilBreastfeeding,
       consentForDonorMilk: consentForDonorMilk ?? this.consentForDonorMilk,
       roomingIn: roomingIn ?? this.roomingIn,
-      mentalHealthSupport: mentalHealthSupport ?? this.mentalHealthSupport,
-      visitorPreference: visitorPreference ?? this.visitorPreference,
+      mentalHealthScreeningPreference: mentalHealthScreeningPreference ?? this.mentalHealthScreeningPreference,
+      visitorsAfterBirth: visitorsAfterBirth ?? this.visitorsAfterBirth,
       dietaryPreferences: dietaryPreferences ?? this.dietaryPreferences,
-      postpartumPainManagement: postpartumPainManagement ?? this.postpartumPainManagement,
-      drapePreference: drapePreference ?? this.drapePreference,
-      partnerInOR: partnerInOR ?? this.partnerInOR,
-      photosAllowedInOR: photosAllowedInOR ?? this.photosAllowedInOR,
-      babyOnChestImmediately: babyOnChestImmediately ?? this.babyOnChestImmediately,
-      delayNewbornCareUntilHolding: delayNewbornCareUntilHolding ?? this.delayNewbornCareUntilHolding,
-      anesthesiaPreference: anesthesiaPreference ?? this.anesthesiaPreference,
-      surgicalClosurePreference: surgicalClosurePreference ?? this.surgicalClosurePreference,
-      religiousConsiderations: religiousConsiderations ?? this.religiousConsiderations,
-      culturalConsiderations: culturalConsiderations ?? this.culturalConsiderations,
+      postpartumPainControlPlan: postpartumPainControlPlan ?? this.postpartumPainControlPlan,
+      cesareanDrapePreference: cesareanDrapePreference ?? this.cesareanDrapePreference,
+      supportPersonInOR: supportPersonInOR ?? this.supportPersonInOR,
+      // photosAllowedInOR removed
+      immediateSkinToSkinInOR: immediateSkinToSkinInOR ?? this.immediateSkinToSkinInOR,
+      // delayNewbornCareUntilHolding removed
+      // anesthesiaPreference removed
+      // surgicalClosurePreference removed
+      culturalReligiousRituals: culturalReligiousRituals ?? this.culturalReligiousRituals,
+      // culturalConsiderations removed
       accessibilityNeeds: accessibilityNeeds ?? this.accessibilityNeeds,
-      traumaHistory: traumaHistory ?? this.traumaHistory,
+      pastBirthTraumaOrComplications: pastBirthTraumaOrComplications ?? this.pastBirthTraumaOrComplications,
       anxietyTriggers: anxietyTriggers ?? this.anxietyTriggers,
       consentBasedCare: consentBasedCare ?? this.consentBasedCare,
       preferredBadNewsDelivery: preferredBadNewsDelivery ?? this.preferredBadNewsDelivery,

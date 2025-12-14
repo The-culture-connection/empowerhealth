@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../app_router.dart';
 import '../cors/ui_theme.dart';
-import '../birthplan/comprehensive_birth_plan_screen.dart';
+import '../birthplan/birth_plans_list_screen.dart';
 import '../appointments/appointments_list_screen.dart';
 import '../services/database_service.dart';
 import '../services/firebase_functions_service.dart';
@@ -111,13 +111,13 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
 
                   const SizedBox(height: 16),
 
-                  // Birth Plan Creator
+                  // Birth Plans
                   _GlassCard(
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const ComprehensiveBirthPlanScreen(),
+                          builder: (context) => const BirthPlansListScreen(),
                         ),
                       );
                     },
@@ -135,33 +135,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                         ),
                         SizedBox(height: 8),
                         Text(
-                          'Create your personalized birth plan',
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Generate Learning Modules Button
-                  _GlassCard(
-                    onTap: () => _showGenerateModulesDialog(context),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.school, color: Colors.white, size: 32),
-                            SizedBox(width: 12),
-                            Flexible(
-                              child: _CardTitle('Generate Learning Modules'),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Create personalized learning content',
+                          'View and create birth plans',
                           style: TextStyle(color: Colors.white70, fontSize: 14),
                         ),
                       ],

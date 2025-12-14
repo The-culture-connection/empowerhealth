@@ -101,27 +101,38 @@ exports.generateLearningContent = onCall(
       messages: [
         {
           role: "system",
-          content: `You are a maternal health educator creating personalized content for pregnant women. 
-Create medically accurate, clear, and supportive content at a ${readingLevel} reading level. 
-Use a professional, clinical tone. Avoid casual terms like "momma" or overly informal language.
-Include practical medical information, evidence-based guidance, and when to seek medical attention.
-Tailor your content to the user's specific health situation and learning goals when provided.`,
+          content: `You are a culturally affirming, trauma-informed maternal health educator creating personalized content for EmpowerHealth Watch. Create detailed, comprehensive learning modules that are warm, supportive, and empowering. Use plain language at a ${readingLevel} reading level. Emphasize: Your rights, Your choices, Your voice. Brand voice: "Your Health. Your Voice. Your Empowerment."`,
         },
         {
           role: "user",
-          content: `Create a learning module about "${topic}" for ${trimester} trimester. 
-Type: ${moduleType}. 
+          content: `Create a detailed, comprehensive learning module about "${topic}" for ${trimester} trimester. Type: ${moduleType}.
 
 ${personalContext}
 
-Include:
-1. Overview (2-3 simple sentences)
-2. What to Know (3-5 key points)
-3. What to Do (practical steps)
-4. When to Call Your Doctor
-5. Helpful Tips
+${userProfile?.insuranceType ? `Insurance Type: ${userProfile.insuranceType}. Tailor information for this insurance type, including coverage considerations, what's typically covered, and any cost considerations.` : "Provide insurance-agnostic guidance that applies regardless of insurance type."}
 
-Keep everything at ${readingLevel} reading level with short paragraphs. Make it personally relevant based on the user's profile.`,
+CRITICAL: This module must be DETAILED (not high-level) and follow this EXACT structure:
+
+1. **What This Is (Simple Explanation)** - Clear, plain-language explanation of what this is
+2. **Why It Matters for Your Health** - Explain the "why" behind the "what" - why this matters, why it's important, what happens if ignored. Be detailed and specific.
+3. **What to Expect** - Step-by-step, detailed guidance on what will happen. Be specific and clear.
+4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts the mother can use during appointments. Examples: "Can you explain why this test is needed?", "What are my options?", "What happens if I don't do this?"
+5. **Risks, Options, and Alternatives** - Balanced, non-fearful information about risks, options, and alternatives. Be honest but not alarming.
+6. **When to Seek Medical Help** - Clear, specific guidance on when to call provider or seek emergency care
+7. **How This Connects to Your Empowerment** - How this topic relates to self-advocacy, empowerment, and informed decision-making
+8. **Key Points** - 3-5 key takeaways in bullet format
+9. **Your Rights** - 2-3 specific rights related to this topic (e.g., right to ask questions, right to refuse, right to second opinion)
+10. **Insurance Notes** - ${userProfile?.insuranceType ? `Specific information for ${userProfile.insuranceType} insurance, including coverage, costs, and what to ask your insurance about.` : "Insurance-agnostic guidance on what to ask your insurance provider about coverage and costs."}
+
+TONE & VOICE REQUIREMENTS:
+- Warm, supportive, nonjudgmental language
+- Sound like: "Here's what this test means and why it matters. You deserve clear explanations and the chance to ask questions."
+- Trauma-informed: Acknowledge possible fears, past negative experiences, pressure. Use supportive language that reassures and centers safety.
+- Cultural responsiveness: Reflect realities Black mothers may face (bias, being dismissed, rushed). Use validating, empowering language.
+- Avoid: Fear-based language, provider-blaming, cultural stereotypes, overly technical explanations, long paragraphs without breaks
+- Use: Short paragraphs, bulleted lists, defined terms
+
+Keep everything at ${readingLevel} reading level. Make it personally relevant based on the user's profile. Return the content in a structured format with clear sections.`,
         },
       ],
       temperature: 0.8,
@@ -706,8 +717,8 @@ exports.processUploadedVisitSummary = onObjectFinalized(
       // Call the analysis function
       console.log(`🤖 Starting AI analysis...`);
       const analysisResult = await analyzeVisitSummaryPDF({
-        pdfText,
-        appointmentDate,
+        pdfText, 
+        appointmentDate, 
         educationLevel,
         userProfile,
         userId,
@@ -760,42 +771,43 @@ exports.processUploadedVisitSummary = onObjectFinalized(
 
 // Helper function to analyze PDF (extracted from summarizeAfterVisitPDF)
 async function analyzeVisitSummaryPDF({pdfText, appointmentDate, educationLevel, userProfile, userId}) {
-  // Extract user context with safe defaults
-  const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
-  const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
-  const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
-  const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
-  const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
-  const learningStyle = (userProfile?.learningStyle || "visual").toString();
+      // Extract user context with safe defaults
+      const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
+      const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
+      const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
+      const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
+      const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
+      const learningStyle = (userProfile?.learningStyle || "visual").toString();
+      const insuranceType = (userProfile?.insuranceType || "").toString();
 
-  // Determine reading level based on education
-  const getReadingLevel = (educationLevel) => {
-    if (!educationLevel) return "6th grade";
-    if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
-      return "8th grade";
-    }
-    if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
-      return "6th-7th grade";
-    }
-    return "5th-6th grade";
-  };
+    // Determine reading level based on education
+    const getReadingLevel = (educationLevel) => {
+      if (!educationLevel) return "6th grade";
+      if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
+        return "8th grade";
+      }
+      if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
+        return "6th-7th grade";
+      }
+      return "5th-6th grade";
+    };
 
-  const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "6th grade";
+      const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "6th grade";
 
   console.log("🤖 Calling OpenAI API for analysis...");
-  const openai = getOpenAIClient(openaiApiKey.value());
-  const response = await openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [
-      {
-        role: "system",
-        content: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. 
+      const openai = getOpenAIClient(openaiApiKey.value());
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. 
 Generate a comprehensive, plain-language visit summary at a ${readingLevel} reading level using professional clinical language. 
 Avoid casual terms like "momma". Structure your response as a JSON object with specific sections.`,
-      },
-      {
-        role: "user",
-        content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary. 
+          },
+          {
+            role: "user",
+            content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary. 
 Explain medical terms clearly, outline next steps, offer advocacy questions the mother can ask, and provide supportive, trauma-informed language. 
 Tailor the content to her trimester (${trimester}), stated concerns (${JSON.stringify(concerns)}), and birth preferences (${JSON.stringify(birthPlanPreferences)}). 
 Include a short explanation, what to expect, questions to ask, and when to seek help.
@@ -809,6 +821,7 @@ User Context:
 - Birth Plan Preferences: ${birthPlanPreferences.join(", ") || "None specified"}
 - Cultural/Trauma-Informed Preferences: ${culturalPreferences.concat(traumaInformedPreferences).join(", ") || "None specified"}
 - Learning Style: ${learningStyle} (audio, visual, short summaries)
+- Insurance Type: ${insuranceType || "Not specified - use insurance-agnostic guidance"}
 
 Return a JSON object with the following structure:
 {
@@ -876,55 +889,72 @@ TODOS: Create todos for:
 - Medications to take (category: "medication")
 - Tests to schedule (category: "test")
 
-LEARNING MODULES: Create learning modules for:
-- New diagnoses
-- Tests/procedures discussed
-- Medications
-- Provider communication issues
-- Contradictions/missing explanations
+LEARNING MODULES: Create DETAILED, comprehensive learning modules (not high-level) for new diagnoses, tests/procedures discussed, medications, provider communication issues, contradictions/missing explanations.
+
+Each learning module MUST follow this structure and be DETAILED:
+1. **What This Is (Simple Explanation)** - Clear, plain-language explanation
+2. **Why It Matters for Your Health** - Explain the "why" behind the "what" - why this matters, why it's important, what happens if ignored. Be detailed and specific.
+3. **What to Expect** - Step-by-step, detailed guidance on what will happen
+4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts the mother can use
+5. **Risks, Options, and Alternatives** - Balanced, non-fearful information
+6. **When to Seek Medical Help** - Clear guidance on when to call provider
+7. **How This Connects to Your Empowerment** - How this topic relates to self-advocacy and empowerment
+8. **Key Points** - 3-5 key takeaways
+9. **Your Rights** - 2-3 specific rights related to this topic
+10. **Insurance Notes** - ${userProfile?.insuranceType ? `Tailor information for ${userProfile.insuranceType} insurance. Include coverage considerations, what's typically covered, and any cost considerations.` : "Provide insurance-agnostic guidance that applies regardless of insurance type."}
+
+TONE & VOICE REQUIREMENTS:
+- Warm, supportive, nonjudgmental language
+- Sound like: "Here's what this test means and why it matters. You deserve clear explanations and the chance to ask questions."
+- Trauma-informed (acknowledge possible fears, past negative experiences)
+- Emphasize: Your rights, Your choices, Your voice
+- Cultural responsiveness (acknowledge mistrust, bias, communication issues Black mothers may face)
+- Avoid: Fear-based language, provider-blaming, cultural stereotypes, overly technical explanations, long paragraphs
+- Use: Short paragraphs, bulleted lists, defined terms
+
+Brand Voice: "Your Health. Your Voice. Your Empowerment."
 
 Use trauma-informed, culturally affirming language throughout. Make all explanations accessible at ${readingLevel} reading level.`,
-      },
-    ],
-    temperature: 0.7,
-    max_tokens: 4000,
-    response_format: { type: "json_object" },
-  });
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 4000,
+      });
 
-  if (!response.choices || response.choices.length === 0 || !response.choices[0].message.content) {
+      if (!response.choices || response.choices.length === 0 || !response.choices[0].message.content) {
     throw new Error("❌ OpenAI API returned an invalid response");
-  }
+      }
 
-  const responseContent = response.choices[0].message.content;
-  let parsedResponse;
-  
-  try {
-    parsedResponse = JSON.parse(responseContent);
-  } catch (parseError) {
+      const responseContent = response.choices[0].message.content;
+      let parsedResponse;
+      
+      try {
+        parsedResponse = JSON.parse(responseContent);
+      } catch (parseError) {
     console.error("❌ JSON parse error:", parseError);
     throw new Error("❌ Failed to parse AI response");
   }
 
   // Save to Firestore
-  const summaryRef = await admin.firestore()
-    .collection("users")
+      const summaryRef = await admin.firestore()
+          .collection("users")
     .doc(userId)
-    .collection("visit_summaries")
-    .add({
-      appointmentDate: appointmentDate,
+          .collection("visit_summaries")
+          .add({
+        appointmentDate: appointmentDate,
       originalText: pdfText.substring(0, 10000),
-      summary: parsedResponse.summary,
-      todos: parsedResponse.todos || [],
-      learningModules: parsedResponse.learningModules || [],
-      redFlags: parsedResponse.redFlags || [],
-      readingLevel: readingLevel,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+        summary: parsedResponse.summary,
+        todos: parsedResponse.todos || [],
+        learningModules: parsedResponse.learningModules || [],
+        redFlags: parsedResponse.redFlags || [],
+        readingLevel: readingLevel,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
   // Create todos
-  if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
-    const todosBatch = admin.firestore().batch();
-    parsedResponse.todos.forEach((todo) => {
+      if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
+        const todosBatch = admin.firestore().batch();
+        parsedResponse.todos.forEach((todo) => {
       if (!todo || !todo.title) return;
       const todoRef = admin.firestore().collection("learning_tasks").doc();
       todosBatch.set(todoRef, {
@@ -947,16 +977,17 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
     parsedResponse.learningModules.forEach((module) => {
       if (!module || !module.title) return;
       const moduleRef = admin.firestore().collection("learning_tasks").doc();
-      modulesBatch.set(moduleRef, {
-        userId: userId,
-        title: module.title.toString(),
-        description: (module.description || module.reason || "").toString(),
-        trimester: trimester,
-        isGenerated: true,
-        visitSummaryId: summaryRef.id,
-        moduleType: "visit_based",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+        modulesBatch.set(moduleRef, {
+          userId: userId,
+          title: module.title.toString(),
+          description: (module.description || module.reason || "").toString(),
+          content: module.content || null, // Store detailed content structure
+          trimester: trimester,
+          isGenerated: true,
+          visitSummaryId: summaryRef.id,
+          moduleType: "visit_based",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
     });
     await modulesBatch.commit();
   }
@@ -1006,6 +1037,7 @@ exports.analyzeVisitSummaryPDF = onCall(
     const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
     const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
     const learningStyle = (userProfile?.learningStyle || "visual").toString();
+    const insuranceType = (userProfile?.insuranceType || "").toString();
 
     // Determine reading level
     const getReadingLevel = (educationLevel) => {
@@ -1082,6 +1114,7 @@ User Context:
 - Birth Plan Preferences: ${birthPlanPreferences.join(", ") || "None specified"}
 - Cultural/Trauma-Informed Preferences: ${culturalPreferences.concat(traumaInformedPreferences).join(", ") || "None specified"}
 - Learning Style: ${learningStyle} (audio, visual, short summaries)
+- Insurance Type: ${insuranceType || "Not specified - use insurance-agnostic guidance"}
 
 Return a JSON object with this exact structure:
 {
@@ -1105,7 +1138,23 @@ Return a JSON object with this exact structure:
     {"title": "Todo title", "description": "Todo description", "category": "advocacy|followup|medication|test"}
   ],
   "learningModules": [
-    {"title": "Module title", "description": "Why this is relevant", "reason": "Based on visit content"}
+    {
+      "title": "Module title",
+      "description": "Why this is relevant",
+      "reason": "Based on visit content",
+      "content": {
+        "whatThisIs": "Simple explanation of what this is",
+        "whyItMatters": "Why this matters for your health - explain the 'why' behind the 'what' in detail",
+        "whatToExpect": "Step-by-step what to expect",
+        "whatYouCanAsk": ["Advocacy question 1", "Advocacy question 2", "Advocacy question 3"],
+        "risksOptionsAlternatives": "Balanced information about risks, options, and alternatives",
+        "whenToSeekHelp": "When to seek medical help",
+        "empowermentConnection": "How this connects to your empowerment",
+        "keyPoints": ["Key point 1", "Key point 2", "Key point 3"],
+        "yourRights": ["Your right 1", "Your right 2"],
+        "insuranceNotes": "Insurance-specific information if applicable, otherwise insurance-agnostic guidance"
+      }
+    }
   ],
   "redFlags": [
     {"type": "mistreatment|unclear|dismissive", "description": "What was flagged"}
@@ -1129,7 +1178,30 @@ CRITICAL REQUIREMENTS:
 
 TODOS: Create todos for empowerment/advocacy tips (category: "advocacy"), follow-up instructions (category: "followup"), medications to take (category: "medication"), tests to schedule (category: "test").
 
-LEARNING MODULES: Create learning modules for new diagnoses, tests/procedures discussed, medications, provider communication issues, contradictions/missing explanations.
+LEARNING MODULES: Create DETAILED, comprehensive learning modules (not high-level) for new diagnoses, tests/procedures discussed, medications, provider communication issues, contradictions/missing explanations.
+
+Each learning module MUST follow this structure and be DETAILED:
+1. **What This Is (Simple Explanation)** - Clear, plain-language explanation
+2. **Why It Matters for Your Health** - Explain the "why" behind the "what" - why this matters, why it's important, what happens if ignored. Be detailed and specific.
+3. **What to Expect** - Step-by-step, detailed guidance on what will happen
+4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts the mother can use
+5. **Risks, Options, and Alternatives** - Balanced, non-fearful information
+6. **When to Seek Medical Help** - Clear guidance on when to call provider
+7. **How This Connects to Your Empowerment** - How this topic relates to self-advocacy and empowerment
+8. **Key Points** - 3-5 key takeaways
+9. **Your Rights** - 2-3 specific rights related to this topic
+10. **Insurance Notes** - ${insuranceType ? `Tailor information for ${insuranceType} insurance. Include coverage considerations, what's typically covered, and any cost considerations.` : "Provide insurance-agnostic guidance that applies regardless of insurance type."}
+
+TONE & VOICE REQUIREMENTS:
+- Warm, supportive, nonjudgmental language
+- Sound like: "Here's what this test means and why it matters. You deserve clear explanations and the chance to ask questions."
+- Trauma-informed (acknowledge possible fears, past negative experiences)
+- Emphasize: Your rights, Your choices, Your voice
+- Cultural responsiveness (acknowledge mistrust, bias, communication issues Black mothers may face)
+- Avoid: Fear-based language, provider-blaming, cultural stereotypes, overly technical explanations, long paragraphs
+- Use: Short paragraphs, bulleted lists, defined terms
+
+Brand Voice: "Your Health. Your Voice. Your Empowerment."
 
 Use trauma-informed, culturally affirming language throughout. Make all explanations accessible at ${readingLevel} reading level. Return ONLY valid JSON.`,
         attachments: [
@@ -1232,6 +1304,7 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
             userId: request.auth.uid,
             title: module.title.toString(),
             description: (module.description || module.reason || "").toString(),
+          content: module.content || null, // Store detailed content structure
             trimester: trimester,
             isGenerated: true,
             visitSummaryId: summaryRef.id,
@@ -1243,7 +1316,7 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
       }
 
       return {
-        success: true,
+        success: true, 
         summaryId: summaryRef.id,
         summary: formattedSummary,
         todos: parsedResponse.todos || [],

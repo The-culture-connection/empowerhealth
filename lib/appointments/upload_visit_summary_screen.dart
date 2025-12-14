@@ -843,53 +843,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
-            ] else if (!_isLoading && _generatedSummary == null && _selectedPDF == null) ...[
-              // Upload Success Message (when no summary yet)
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.green, width: 2),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.green, size: 48),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'File Uploaded Successfully!',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Your visit summary PDF has been uploaded to Firebase Storage.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _selectedPDF = null;
-                          _pdfFileName = null;
-                          _selectedDate = null;
-                        });
-                      },
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Upload Another File'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.brandPurple,
-                        side: const BorderSide(color: AppTheme.brandPurple),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ],
         ),

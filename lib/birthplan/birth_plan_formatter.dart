@@ -27,8 +27,13 @@ class BirthPlanFormatter {
     
     // Section 1: Labor Preferences
     buffer.writeln('1. My Labor Preferences');
-    if (plan.environmentPreferences.isNotEmpty) {
-      buffer.writeln('I prefer ${plan.environmentPreferences.join(', ').toLowerCase()}');
+    if (plan.lightingPreference != null || plan.noisePreference != null) {
+      if (plan.lightingPreference != null) {
+        buffer.writeln('Lighting preference: ${plan.lightingPreference!.toLowerCase()}');
+      }
+      if (plan.noisePreference != null) {
+        buffer.writeln('Noise preference: ${plan.noisePreference!.toLowerCase()}');
+      }
     }
     if (plan.movementFreedom) {
       buffer.writeln('I want to move freely during labor');
@@ -44,8 +49,8 @@ class BirthPlanFormatter {
         buffer.writeln('${isSelected ? '☑' : '☐'} $option${isSelected ? ' (my preference)' : ''}');
       }
     }
-    if (plan.membraneSweepingPreference != null) {
-      buffer.writeln('I prefer ${plan.membraneSweepingPreference!.toLowerCase()} unless medically indicated');
+    if (plan.augmentationPreference != null) {
+      buffer.writeln('Augmentation preference: ${plan.augmentationPreference!.toLowerCase()}');
     }
     if (plan.traumaInformedCare || plan.communicationStyle != null) {
       buffer.writeln('I want everything explained before exams or procedures');
@@ -54,8 +59,8 @@ class BirthPlanFormatter {
     
     // Section 2: Pushing & Delivery
     buffer.writeln('2. Pushing & Delivery');
-    if (plan.pushingStyle != null) {
-      buffer.writeln('Pushing preference: ${plan.pushingStyle!.toLowerCase()} pushing unless guidance needed');
+    if (plan.coachingStyle != null) {
+      buffer.writeln('Coaching style: ${plan.coachingStyle!.toLowerCase()}');
     }
     if (plan.preferredPushingPositions.isNotEmpty) {
       buffer.writeln('Preferred positions: ${plan.preferredPushingPositions.join(', ').toLowerCase()}');
@@ -63,9 +68,7 @@ class BirthPlanFormatter {
     if (plan.episiotomyPreference != null) {
       buffer.writeln('Please avoid episiotomy unless absolutely necessary');
     }
-    if (plan.tearingPreference != null) {
-      buffer.writeln('${plan.tearingPreference} preferred');
-    }
+    // tearingPreference removed
     if (plan.whoCatchesBaby != null) {
       buffer.writeln('Cord cutting: ${plan.whoCatchesBaby!.toLowerCase()} would like to cut');
     }
@@ -81,10 +84,10 @@ class BirthPlanFormatter {
     }
     buffer.writeln('Newborn procedures:');
     buffer.writeln('Vitamin K: ${plan.vitaminK == true ? 'Yes' : plan.vitaminK == false ? 'No' : 'Not specified'}');
-    buffer.writeln('Eye ointment: ${plan.eyeOintment == true ? 'Yes' : plan.eyeOintment == false ? 'No (if legal in state)' : 'Not specified'}');
+    // eyeOintment removed
     buffer.writeln('Hep B vaccine: ${plan.hepBVaccine == true ? 'Yes' : plan.hepBVaccine == false ? 'No' : 'Not specified'}');
-    if (plan.babyStaysWithParent) {
-      buffer.writeln('Please do newborn assessments on my chest when possible');
+    if (plan.delayedNewbornProcedures == true) {
+      buffer.writeln('Please delay newborn procedures (weight, eye ointment, bath) when possible');
     }
     buffer.writeln();
     buffer.writeln('Feeding preference:');
@@ -104,13 +107,13 @@ class BirthPlanFormatter {
     if (plan.roomingIn != null) {
       buffer.writeln('Baby rooming-in: ${plan.roomingIn == true ? 'Yes' : 'No'}');
     }
-    if (plan.visitorPreference != null) {
-      buffer.writeln('Visitor preference: ${plan.visitorPreference}');
+    if (plan.visitorsAfterBirth != null) {
+      buffer.writeln('Visitors after birth: ${plan.visitorsAfterBirth}');
     }
-    if (plan.postpartumPainManagement != null) {
-      buffer.writeln('Pain management preference: ${plan.postpartumPainManagement}');
+    if (plan.postpartumPainControlPlan != null) {
+      buffer.writeln('Pain control plan: ${plan.postpartumPainControlPlan}');
     }
-    if (plan.mentalHealthSupport == true) {
+    if (plan.mentalHealthScreeningPreference == true) {
       buffer.writeln('Please check in for mental health support if I seem overwhelmed');
     }
     buffer.writeln();
@@ -118,24 +121,20 @@ class BirthPlanFormatter {
     // Section 5: Cesarean Birth Preferences
     buffer.writeln('5. Cesarean Birth Preferences (Planned or Emergency)');
     buffer.writeln('(This section should still be included even if planning a vaginal birth.)');
-    if (plan.partnerInOR == true) {
-      buffer.writeln('Partner present in OR');
+    if (plan.supportPersonInOR == true) {
+      buffer.writeln('Support person present in OR');
     }
-    if (plan.drapePreference == 'Clear drape') {
+    if (plan.cesareanDrapePreference != null && plan.cesareanDrapePreference!.toLowerCase().contains('clear')) {
       buffer.writeln('Clear drape if available (to watch baby born)');
     }
-    if (plan.babyOnChestImmediately == true) {
+    if (plan.immediateSkinToSkinInOR == true) {
       buffer.writeln('Baby placed on chest immediately if safe');
     }
-    if (plan.delayedCordClampingPreference != null) {
+    if (plan.delayCordClampingInCesarean == true) {
       buffer.writeln('Delayed cord clamping, even in C-section, if possible');
     }
-    if (plan.surgicalClosurePreference != null) {
-      buffer.writeln('I prefer ${plan.surgicalClosurePreference!.toLowerCase()} instead of staples');
-    }
-    if (plan.photosAllowedInOR == true) {
-      buffer.writeln('Photos allowed unless restricted by staff');
-    }
+    // surgicalClosurePreference removed
+    // photosAllowedInOR removed
     buffer.writeln();
     
     // Section 6: Special Considerations

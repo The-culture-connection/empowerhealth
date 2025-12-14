@@ -4,94 +4,121 @@ class BirthPlan {
   final String? id;
   final String userId;
   
-  // Section 1: Parent Information
+  // Section 1: Basic Information
   final String fullName;
   final DateTime? dueDate;
   final String? supportPersonName;
   final String? supportPersonRelationship;
-  final String? contactInfo;
+  final String? doulaName;
+  final String? preferredHospital;
+  final String? providerName; // OB/midwife provider name
+  final String? emergencyContact;
   final List<String> allergies;
   final List<String> medicalConditions;
   final List<String> pregnancyComplications;
   
-  // Section 2: Labor & Delivery Environment
-  final List<String> environmentPreferences; // calm/quiet, music, low light, etc.
+  // Section 2: Labor Preferences - Environment
+  final String? lightingPreference; // dim, bright
+  final String? noisePreference; // quiet, music, affirmations
+  final bool? visitorsAllowed;
   final bool? photographyAllowed;
   final bool? videographyAllowed;
   final String? preferredLanguage;
   final bool traumaInformedCare; // "Please tell me before touching/exams"
   
-  // Section 3: Labor Preferences
+  // Section 3: Labor Preferences - Comfort & Pain Management
   final List<String> preferredLaborPositions;
+  final List<String> naturalComfortMeasures; // massage, counter-pressure, hydrotherapy
+  final String? painManagementPreference; // none, epidural, nitrous oxide, etc.
+  final String? whenToOfferPainMedication; // only if requested / whenever appropriate
   final bool movementFreedom;
   final String? monitoringPreference; // intermittent, continuous, wireless
-  final String? painManagementPreference; // unmedicated, epidural, nitrous, IV, comfort only
+  final String? ivFluidsPreference; // saline lock vs continuous fluids
   final bool useDoula;
   final bool? waterLaborAvailable;
-  final String? membraneSweepingPreference;
-  final String? inductionPreference;
   final String? communicationStyle;
   
-  // Section 4: Pushing & Birth
-  final List<String> preferredPushingPositions;
-  final String? pushingStyle; // guided vs spontaneous
-  final bool? mirrorDuringPushing;
+  // Section 4: Medical Interventions (Prefer / Open to if needed / Do not want unless medically necessary)
+  final String? inductionMethodsPreference;
+  final String? augmentationPreference; // Pitocin, membrane sweep, breaking water
+  final String? vaginalExamsPreference; // frequency, consent each time
+  final String? membraneRupturePreference; // AROM
   final String? episiotomyPreference;
-  final String? tearingPreference;
+  final String? vacuumForcepsPreference;
+  final String? cesareanPreference;
+  
+  // Section 5: Delivery Preferences
+  final List<String> preferredPushingPositions;
+  final String? coachingStyle; // quiet, guided, minimal talking
+  final bool? seeTouchBabyHeadDuringCrowning;
+  final bool? mirrorDuringPushing;
   final String? whoCatchesBaby;
+  final String? cordCuttingPreference; // immediate vs delayed (golden minute, 60-120 seconds)
+  final String? whoCutsCord;
   final bool? delayedPushingWithEpidural;
   
-  // Section 5: Immediate Newborn Care
-  final String? delayedCordClampingPreference; // how long
-  final String? whoCutsCord;
+  // Section 6: After Birth (Immediate Postpartum) - Baby Care
   final bool immediateSkinToSkin;
-  final bool babyStaysWithParent;
+  final String? delayedCordClampingPreference; // golden minute, 60-120 seconds
+  final bool? delayedNewbornProcedures; // weight, eye ointment, bath
   final bool? vitaminK;
-  final bool? eyeOintment;
   final bool? hepBVaccine;
-  final bool? cordBloodBanking;
-  final String? cordBloodCompany;
+  final String? nicuTransferInstructions; // partner goes with baby, no decisions without mom
   
-  // Section 6: Feeding Preferences
-  final String? feedingPreference; // breastfeeding, formula, combo
+  // Placenta
+  final String? placentaPreference; // save (encapsulation or cultural reasons), hospital disposal
+  
+  // Section 7: Feeding
+  final String? feedingPreference; // breastfeeding only, breastfeeding + formula, formula feeding
   final bool lactationConsultantRequested;
   final bool? noPacifierUntilBreastfeeding;
   final bool? consentForDonorMilk;
   
-  // Section 7: Postpartum Care
+  // Section 8: Cesarean Birth Preferences
+  final String? cesareanDrapePreference; // clear drape / viewing option
+  final bool? immediateSkinToSkinInOR;
+  final bool? supportPersonInOR;
+  final bool? gentleCesarean; // slow delivery of baby
+  final bool? musicAllowedInOR;
+  final bool? delayCordClampingInCesarean;
+  final bool? partnerCutsCordInCesarean;
+  final bool? goldenHourHonoredIfStable;
+  
+  // Section 9: Cultural, Personal, & Safety Preferences
+  final String? culturalReligiousRituals;
+  final String? traumaInformedCareNotes; // history of loss, assault → want consent before touch
+  final String? preferredCommunicationStyle; // explain first, ask before touching, etc.
+  final String? genderPreferenceForProviders;
+  final String? racialBiasConcerns;
+  final String? stopWordOrPhrase; // signaling patient feels unsafe
+  final String? advocacyPreferences; // e.g., "Please include my doula in decisions"
+  
+  // Section 10: Postpartum Care Preferences
   final bool? roomingIn;
-  final bool? mentalHealthSupport;
-  final String? visitorPreference;
+  final String? postpartumPainControlPlan;
+  final String? visitorsAfterBirth;
+  final bool? mentalHealthScreeningPreference;
+  final bool? socialWorkConsultIfNeeded;
   final String? dietaryPreferences;
-  final String? postpartumPainManagement;
   
-  // Section 8: Cesarean Preferences
-  final String? drapePreference; // clear vs standard
-  final bool? partnerInOR;
-  final bool? photosAllowedInOR;
-  final bool? babyOnChestImmediately;
-  final bool? delayNewbornCareUntilHolding;
-  final String? anesthesiaPreference;
-  final String? surgicalClosurePreference;
-  
-  // Section 9: Special Considerations
-  final String? religiousConsiderations;
-  final String? culturalConsiderations;
+  // Section 11: Special Considerations
+  final String? highRiskPregnancyNotes;
+  final List<String> chronicHealthConditions;
+  final List<String> medications;
+  final String? pastBirthTraumaOrComplications;
   final String? accessibilityNeeds;
-  final String? traumaHistory; // only if they choose
   final List<String> anxietyTriggers;
   final bool consentBasedCare;
   final String? preferredBadNewsDelivery;
   final List<String> fearReductionRequests;
   
-  // Section 10: In My Own Words
+  // Section 12: In My Own Words
   final String? inMyOwnWords;
   
   // Generated content
   final String? formattedPlan;
   final DateTime createdAt;
   final DateTime? updatedAt;
-  final String? providerName;
 
   BirthPlan({
     this.id,
@@ -100,60 +127,82 @@ class BirthPlan {
     this.dueDate,
     this.supportPersonName,
     this.supportPersonRelationship,
-    this.contactInfo,
+    this.doulaName,
+    this.preferredHospital,
+    this.providerName,
+    this.emergencyContact,
     this.allergies = const [],
     this.medicalConditions = const [],
     this.pregnancyComplications = const [],
-    this.environmentPreferences = const [],
+    this.lightingPreference,
+    this.noisePreference,
+    this.visitorsAllowed,
     this.photographyAllowed,
     this.videographyAllowed,
     this.preferredLanguage,
     this.traumaInformedCare = false,
     this.preferredLaborPositions = const [],
+    this.naturalComfortMeasures = const [],
+    this.painManagementPreference,
+    this.whenToOfferPainMedication,
     this.movementFreedom = true,
     this.monitoringPreference,
-    this.painManagementPreference,
+    this.ivFluidsPreference,
     this.useDoula = false,
     this.waterLaborAvailable,
-    this.membraneSweepingPreference,
-    this.inductionPreference,
     this.communicationStyle,
-    this.preferredPushingPositions = const [],
-    this.pushingStyle,
-    this.mirrorDuringPushing,
+    this.inductionMethodsPreference,
+    this.augmentationPreference,
+    this.vaginalExamsPreference,
+    this.membraneRupturePreference,
     this.episiotomyPreference,
-    this.tearingPreference,
+    this.vacuumForcepsPreference,
+    this.cesareanPreference,
+    this.preferredPushingPositions = const [],
+    this.coachingStyle,
+    this.seeTouchBabyHeadDuringCrowning,
+    this.mirrorDuringPushing,
     this.whoCatchesBaby,
-    this.delayedPushingWithEpidural,
-    this.delayedCordClampingPreference,
+    this.cordCuttingPreference,
     this.whoCutsCord,
+    this.delayedPushingWithEpidural,
     this.immediateSkinToSkin = true,
-    this.babyStaysWithParent = true,
+    this.delayedCordClampingPreference,
+    this.delayedNewbornProcedures,
     this.vitaminK,
-    this.eyeOintment,
     this.hepBVaccine,
-    this.cordBloodBanking,
-    this.cordBloodCompany,
+    this.nicuTransferInstructions,
+    this.placentaPreference,
     this.feedingPreference,
     this.lactationConsultantRequested = false,
     this.noPacifierUntilBreastfeeding,
     this.consentForDonorMilk,
+    this.cesareanDrapePreference,
+    this.immediateSkinToSkinInOR,
+    this.supportPersonInOR,
+    this.gentleCesarean,
+    this.musicAllowedInOR,
+    this.delayCordClampingInCesarean,
+    this.partnerCutsCordInCesarean,
+    this.goldenHourHonoredIfStable,
+    this.culturalReligiousRituals,
+    this.traumaInformedCareNotes,
+    this.preferredCommunicationStyle,
+    this.genderPreferenceForProviders,
+    this.racialBiasConcerns,
+    this.stopWordOrPhrase,
+    this.advocacyPreferences,
     this.roomingIn,
-    this.mentalHealthSupport,
-    this.visitorPreference,
+    this.postpartumPainControlPlan,
+    this.visitorsAfterBirth,
+    this.mentalHealthScreeningPreference,
+    this.socialWorkConsultIfNeeded,
     this.dietaryPreferences,
-    this.postpartumPainManagement,
-    this.drapePreference,
-    this.partnerInOR,
-    this.photosAllowedInOR,
-    this.babyOnChestImmediately,
-    this.delayNewbornCareUntilHolding,
-    this.anesthesiaPreference,
-    this.surgicalClosurePreference,
-    this.religiousConsiderations,
-    this.culturalConsiderations,
+    this.highRiskPregnancyNotes,
+    this.chronicHealthConditions = const [],
+    this.medications = const [],
+    this.pastBirthTraumaOrComplications,
     this.accessibilityNeeds,
-    this.traumaHistory,
     this.anxietyTriggers = const [],
     this.consentBasedCare = false,
     this.preferredBadNewsDelivery,
@@ -162,7 +211,6 @@ class BirthPlan {
     this.formattedPlan,
     DateTime? createdAt,
     this.updatedAt,
-    this.providerName,
   }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toFirestore() {
@@ -172,60 +220,82 @@ class BirthPlan {
       'dueDate': dueDate?.toIso8601String(),
       'supportPersonName': supportPersonName,
       'supportPersonRelationship': supportPersonRelationship,
-      'contactInfo': contactInfo,
+      'doulaName': doulaName,
+      'preferredHospital': preferredHospital,
+      'providerName': providerName,
+      'emergencyContact': emergencyContact,
       'allergies': allergies,
       'medicalConditions': medicalConditions,
       'pregnancyComplications': pregnancyComplications,
-      'environmentPreferences': environmentPreferences,
+      'lightingPreference': lightingPreference,
+      'noisePreference': noisePreference,
+      'visitorsAllowed': visitorsAllowed,
       'photographyAllowed': photographyAllowed,
       'videographyAllowed': videographyAllowed,
       'preferredLanguage': preferredLanguage,
       'traumaInformedCare': traumaInformedCare,
       'preferredLaborPositions': preferredLaborPositions,
+      'naturalComfortMeasures': naturalComfortMeasures,
+      'painManagementPreference': painManagementPreference,
+      'whenToOfferPainMedication': whenToOfferPainMedication,
       'movementFreedom': movementFreedom,
       'monitoringPreference': monitoringPreference,
-      'painManagementPreference': painManagementPreference,
+      'ivFluidsPreference': ivFluidsPreference,
       'useDoula': useDoula,
       'waterLaborAvailable': waterLaborAvailable,
-      'membraneSweepingPreference': membraneSweepingPreference,
-      'inductionPreference': inductionPreference,
       'communicationStyle': communicationStyle,
-      'preferredPushingPositions': preferredPushingPositions,
-      'pushingStyle': pushingStyle,
-      'mirrorDuringPushing': mirrorDuringPushing,
+      'inductionMethodsPreference': inductionMethodsPreference,
+      'augmentationPreference': augmentationPreference,
+      'vaginalExamsPreference': vaginalExamsPreference,
+      'membraneRupturePreference': membraneRupturePreference,
       'episiotomyPreference': episiotomyPreference,
-      'tearingPreference': tearingPreference,
+      'vacuumForcepsPreference': vacuumForcepsPreference,
+      'cesareanPreference': cesareanPreference,
+      'preferredPushingPositions': preferredPushingPositions,
+      'coachingStyle': coachingStyle,
+      'seeTouchBabyHeadDuringCrowning': seeTouchBabyHeadDuringCrowning,
+      'mirrorDuringPushing': mirrorDuringPushing,
       'whoCatchesBaby': whoCatchesBaby,
-      'delayedPushingWithEpidural': delayedPushingWithEpidural,
-      'delayedCordClampingPreference': delayedCordClampingPreference,
+      'cordCuttingPreference': cordCuttingPreference,
       'whoCutsCord': whoCutsCord,
+      'delayedPushingWithEpidural': delayedPushingWithEpidural,
       'immediateSkinToSkin': immediateSkinToSkin,
-      'babyStaysWithParent': babyStaysWithParent,
+      'delayedCordClampingPreference': delayedCordClampingPreference,
+      'delayedNewbornProcedures': delayedNewbornProcedures,
       'vitaminK': vitaminK,
-      'eyeOintment': eyeOintment,
       'hepBVaccine': hepBVaccine,
-      'cordBloodBanking': cordBloodBanking,
-      'cordBloodCompany': cordBloodCompany,
+      'nicuTransferInstructions': nicuTransferInstructions,
+      'placentaPreference': placentaPreference,
       'feedingPreference': feedingPreference,
       'lactationConsultantRequested': lactationConsultantRequested,
       'noPacifierUntilBreastfeeding': noPacifierUntilBreastfeeding,
       'consentForDonorMilk': consentForDonorMilk,
+      'cesareanDrapePreference': cesareanDrapePreference,
+      'immediateSkinToSkinInOR': immediateSkinToSkinInOR,
+      'supportPersonInOR': supportPersonInOR,
+      'gentleCesarean': gentleCesarean,
+      'musicAllowedInOR': musicAllowedInOR,
+      'delayCordClampingInCesarean': delayCordClampingInCesarean,
+      'partnerCutsCordInCesarean': partnerCutsCordInCesarean,
+      'goldenHourHonoredIfStable': goldenHourHonoredIfStable,
+      'culturalReligiousRituals': culturalReligiousRituals,
+      'traumaInformedCareNotes': traumaInformedCareNotes,
+      'preferredCommunicationStyle': preferredCommunicationStyle,
+      'genderPreferenceForProviders': genderPreferenceForProviders,
+      'racialBiasConcerns': racialBiasConcerns,
+      'stopWordOrPhrase': stopWordOrPhrase,
+      'advocacyPreferences': advocacyPreferences,
       'roomingIn': roomingIn,
-      'mentalHealthSupport': mentalHealthSupport,
-      'visitorPreference': visitorPreference,
+      'postpartumPainControlPlan': postpartumPainControlPlan,
+      'visitorsAfterBirth': visitorsAfterBirth,
+      'mentalHealthScreeningPreference': mentalHealthScreeningPreference,
+      'socialWorkConsultIfNeeded': socialWorkConsultIfNeeded,
       'dietaryPreferences': dietaryPreferences,
-      'postpartumPainManagement': postpartumPainManagement,
-      'drapePreference': drapePreference,
-      'partnerInOR': partnerInOR,
-      'photosAllowedInOR': photosAllowedInOR,
-      'babyOnChestImmediately': babyOnChestImmediately,
-      'delayNewbornCareUntilHolding': delayNewbornCareUntilHolding,
-      'anesthesiaPreference': anesthesiaPreference,
-      'surgicalClosurePreference': surgicalClosurePreference,
-      'religiousConsiderations': religiousConsiderations,
-      'culturalConsiderations': culturalConsiderations,
+      'highRiskPregnancyNotes': highRiskPregnancyNotes,
+      'chronicHealthConditions': chronicHealthConditions,
+      'medications': medications,
+      'pastBirthTraumaOrComplications': pastBirthTraumaOrComplications,
       'accessibilityNeeds': accessibilityNeeds,
-      'traumaHistory': traumaHistory,
       'anxietyTriggers': anxietyTriggers,
       'consentBasedCare': consentBasedCare,
       'preferredBadNewsDelivery': preferredBadNewsDelivery,
@@ -234,7 +304,6 @@ class BirthPlan {
       'formattedPlan': formattedPlan,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
-      'providerName': providerName,
     };
   }
 
@@ -247,60 +316,82 @@ class BirthPlan {
       dueDate: data['dueDate'] != null ? DateTime.parse(data['dueDate']) : null,
       supportPersonName: data['supportPersonName'],
       supportPersonRelationship: data['supportPersonRelationship'],
-      contactInfo: data['contactInfo'],
+      doulaName: data['doulaName'],
+      preferredHospital: data['preferredHospital'],
+      providerName: data['providerName'],
+      emergencyContact: data['emergencyContact'],
       allergies: List<String>.from(data['allergies'] ?? []),
       medicalConditions: List<String>.from(data['medicalConditions'] ?? []),
       pregnancyComplications: List<String>.from(data['pregnancyComplications'] ?? []),
-      environmentPreferences: List<String>.from(data['environmentPreferences'] ?? []),
+      lightingPreference: data['lightingPreference'],
+      noisePreference: data['noisePreference'],
+      visitorsAllowed: data['visitorsAllowed'],
       photographyAllowed: data['photographyAllowed'],
       videographyAllowed: data['videographyAllowed'],
       preferredLanguage: data['preferredLanguage'],
       traumaInformedCare: data['traumaInformedCare'] ?? false,
       preferredLaborPositions: List<String>.from(data['preferredLaborPositions'] ?? []),
+      naturalComfortMeasures: List<String>.from(data['naturalComfortMeasures'] ?? []),
+      painManagementPreference: data['painManagementPreference'],
+      whenToOfferPainMedication: data['whenToOfferPainMedication'],
       movementFreedom: data['movementFreedom'] ?? true,
       monitoringPreference: data['monitoringPreference'],
-      painManagementPreference: data['painManagementPreference'],
+      ivFluidsPreference: data['ivFluidsPreference'],
       useDoula: data['useDoula'] ?? false,
       waterLaborAvailable: data['waterLaborAvailable'],
-      membraneSweepingPreference: data['membraneSweepingPreference'],
-      inductionPreference: data['inductionPreference'],
       communicationStyle: data['communicationStyle'],
-      preferredPushingPositions: List<String>.from(data['preferredPushingPositions'] ?? []),
-      pushingStyle: data['pushingStyle'],
-      mirrorDuringPushing: data['mirrorDuringPushing'],
+      inductionMethodsPreference: data['inductionMethodsPreference'],
+      augmentationPreference: data['augmentationPreference'],
+      vaginalExamsPreference: data['vaginalExamsPreference'],
+      membraneRupturePreference: data['membraneRupturePreference'],
       episiotomyPreference: data['episiotomyPreference'],
-      tearingPreference: data['tearingPreference'],
+      vacuumForcepsPreference: data['vacuumForcepsPreference'],
+      cesareanPreference: data['cesareanPreference'],
+      preferredPushingPositions: List<String>.from(data['preferredPushingPositions'] ?? []),
+      coachingStyle: data['coachingStyle'],
+      seeTouchBabyHeadDuringCrowning: data['seeTouchBabyHeadDuringCrowning'],
+      mirrorDuringPushing: data['mirrorDuringPushing'],
       whoCatchesBaby: data['whoCatchesBaby'],
-      delayedPushingWithEpidural: data['delayedPushingWithEpidural'],
-      delayedCordClampingPreference: data['delayedCordClampingPreference'],
+      cordCuttingPreference: data['cordCuttingPreference'],
       whoCutsCord: data['whoCutsCord'],
+      delayedPushingWithEpidural: data['delayedPushingWithEpidural'],
       immediateSkinToSkin: data['immediateSkinToSkin'] ?? true,
-      babyStaysWithParent: data['babyStaysWithParent'] ?? true,
+      delayedCordClampingPreference: data['delayedCordClampingPreference'],
+      delayedNewbornProcedures: data['delayedNewbornProcedures'],
       vitaminK: data['vitaminK'],
-      eyeOintment: data['eyeOintment'],
       hepBVaccine: data['hepBVaccine'],
-      cordBloodBanking: data['cordBloodBanking'],
-      cordBloodCompany: data['cordBloodCompany'],
+      nicuTransferInstructions: data['nicuTransferInstructions'],
+      placentaPreference: data['placentaPreference'],
       feedingPreference: data['feedingPreference'],
       lactationConsultantRequested: data['lactationConsultantRequested'] ?? false,
       noPacifierUntilBreastfeeding: data['noPacifierUntilBreastfeeding'],
       consentForDonorMilk: data['consentForDonorMilk'],
+      cesareanDrapePreference: data['cesareanDrapePreference'],
+      immediateSkinToSkinInOR: data['immediateSkinToSkinInOR'],
+      supportPersonInOR: data['supportPersonInOR'],
+      gentleCesarean: data['gentleCesarean'],
+      musicAllowedInOR: data['musicAllowedInOR'],
+      delayCordClampingInCesarean: data['delayCordClampingInCesarean'],
+      partnerCutsCordInCesarean: data['partnerCutsCordInCesarean'],
+      goldenHourHonoredIfStable: data['goldenHourHonoredIfStable'],
+      culturalReligiousRituals: data['culturalReligiousRituals'],
+      traumaInformedCareNotes: data['traumaInformedCareNotes'],
+      preferredCommunicationStyle: data['preferredCommunicationStyle'],
+      genderPreferenceForProviders: data['genderPreferenceForProviders'],
+      racialBiasConcerns: data['racialBiasConcerns'],
+      stopWordOrPhrase: data['stopWordOrPhrase'],
+      advocacyPreferences: data['advocacyPreferences'],
       roomingIn: data['roomingIn'],
-      mentalHealthSupport: data['mentalHealthSupport'],
-      visitorPreference: data['visitorPreference'],
+      postpartumPainControlPlan: data['postpartumPainControlPlan'],
+      visitorsAfterBirth: data['visitorsAfterBirth'],
+      mentalHealthScreeningPreference: data['mentalHealthScreeningPreference'],
+      socialWorkConsultIfNeeded: data['socialWorkConsultIfNeeded'],
       dietaryPreferences: data['dietaryPreferences'],
-      postpartumPainManagement: data['postpartumPainManagement'],
-      drapePreference: data['drapePreference'],
-      partnerInOR: data['partnerInOR'],
-      photosAllowedInOR: data['photosAllowedInOR'],
-      babyOnChestImmediately: data['babyOnChestImmediately'],
-      delayNewbornCareUntilHolding: data['delayNewbornCareUntilHolding'],
-      anesthesiaPreference: data['anesthesiaPreference'],
-      surgicalClosurePreference: data['surgicalClosurePreference'],
-      religiousConsiderations: data['religiousConsiderations'],
-      culturalConsiderations: data['culturalConsiderations'],
+      highRiskPregnancyNotes: data['highRiskPregnancyNotes'],
+      chronicHealthConditions: List<String>.from(data['chronicHealthConditions'] ?? []),
+      medications: List<String>.from(data['medications'] ?? []),
+      pastBirthTraumaOrComplications: data['pastBirthTraumaOrComplications'],
       accessibilityNeeds: data['accessibilityNeeds'],
-      traumaHistory: data['traumaHistory'],
       anxietyTriggers: List<String>.from(data['anxietyTriggers'] ?? []),
       consentBasedCare: data['consentBasedCare'] ?? false,
       preferredBadNewsDelivery: data['preferredBadNewsDelivery'],
@@ -309,8 +400,6 @@ class BirthPlan {
       formattedPlan: data['formattedPlan'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
-      providerName: data['providerName'],
     );
   }
 }
-

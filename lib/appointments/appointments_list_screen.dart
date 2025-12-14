@@ -105,7 +105,9 @@ class AppointmentsListScreen extends StatelessWidget {
               final doc = snapshot.data!.docs[index];
               final data = doc.data() as Map<String, dynamic>;
               final appointmentDate = data['appointmentDate'];
-              final summary = data['summary'] as String?;
+              // Handle summary as either String or Map
+              final summaryData = data['summary'];
+              final summary = summaryData is String ? summaryData : (summaryData is Map ? summaryData.toString() : null);
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -339,6 +341,39 @@ class AppointmentsListScreen extends StatelessWidget {
                           final module = entry.value as Map<String, dynamic>;
                           final title = module['title'] ?? 'Learning Topic';
                           final reason = module['reason'] ?? module['description'] ?? 'This is important based on your visit.';
+                          final hasContent = module['content'] != null;
+                          
+                          // Show progress indicator if module content is still being generated
+                          if (!hasContent) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      '$index. $title (Generating...)',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        height: 1.6,
+                                        color: Colors.grey[600],
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Text(
@@ -347,6 +382,41 @@ class AppointmentsListScreen extends StatelessWidget {
                             ),
                           );
                         })),
+                      ] else if (data['summary'] != null && 
+                          (data['learningModules'] == null || (data['learningModules'] as List).isEmpty)) ...[
+                        // Show loading indicator if summary exists but modules are still being generated
+                        const Text(
+                          'Suggested Learning Topics',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.brandPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Generating personalized learning topics...',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: Colors.grey[600],
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                       
                       // Full Summary (if Actions To Take section not found)

@@ -128,18 +128,36 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
         .listen(
       (snapshot) {
         if (mounted) {
-          final loadedTasks = snapshot.docs.map((doc) {
-            final data = doc.data();
-            return LearningTask(
-              id: doc.id,
-              title: data['title'] ?? '',
-              description: data['description'] ?? '',
-              trimester: data['trimester'] ?? 'First',
-              isGenerated: data['isGenerated'] ?? false,
-              moduleId: data['moduleId'],
-              content: data['content'],
-            );
-          }).toList();
+      final loadedTasks = snapshot.docs.map((doc) {
+        final data = doc.data();
+        // Handle content as either String or Map
+        final contentData = data['content'];
+        final contentString = contentData is String 
+            ? contentData 
+            : (contentData is Map ? contentData.toString() : null);
+        
+        // Handle description as either String or Map
+        final descData = data['description'];
+        final descString = descData is String 
+            ? descData 
+            : (descData is Map ? descData.toString() : '');
+        
+        // Handle trimester as either String or dynamic
+        final trimData = data['trimester'];
+        final trimString = trimData is String 
+            ? trimData 
+            : (trimData?.toString() ?? 'First');
+        
+        return LearningTask(
+          id: doc.id,
+          title: (data['title'] ?? '').toString(),
+          description: descString,
+          trimester: trimString,
+          isGenerated: data['isGenerated'] ?? false,
+          moduleId: data['moduleId']?.toString(),
+          content: contentString,
+        );
+      }).toList();
 
           setState(() {
             _tasks = loadedTasks.isEmpty ? _generateSuggestedTasks() : loadedTasks;
@@ -178,14 +196,32 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
 
       final loadedTasks = tasksSnapshot.docs.map((doc) {
         final data = doc.data();
+        // Handle content as either String or Map
+        final contentData = data['content'];
+        final contentString = contentData is String 
+            ? contentData 
+            : (contentData is Map ? contentData.toString() : null);
+        
+        // Handle description as either String or Map
+        final descData = data['description'];
+        final descString = descData is String 
+            ? descData 
+            : (descData is Map ? descData.toString() : '');
+        
+        // Handle trimester as either String or dynamic
+        final trimData = data['trimester'];
+        final trimString = trimData is String 
+            ? trimData 
+            : (trimData?.toString() ?? 'First');
+        
         return LearningTask(
           id: doc.id,
-          title: data['title'] ?? '',
-          description: data['description'] ?? '',
-          trimester: data['trimester'] ?? 'First',
+          title: (data['title'] ?? '').toString(),
+          description: descString,
+          trimester: trimString,
           isGenerated: data['isGenerated'] ?? false,
-          moduleId: data['moduleId'],
-          content: data['content'],
+          moduleId: data['moduleId']?.toString(),
+          content: contentString,
         );
       }).toList();
 

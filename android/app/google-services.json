@@ -12,7 +12,20 @@
           "package_name": "com.example.empowerhealth"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "725364003316-53p712ulau8hd78l7utcrhdjgiu3p1ej.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.empowerhealth",
+            "certificate_hash": "36ccd5b6c8d4b009101eb52655daa7b0d8f39e8e"
+          }
+        },
+        {
+          "client_id": "725364003316-van2egmf2u2hkfmkatr7meb9qoa71t96.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyA2arGVVaRoFBJ8Bhpq6oPuvIbM8d5gzhM"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "725364003316-van2egmf2u2hkfmkatr7meb9qoa71t96.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "725364003316-ahiu005nk1ou1bmj50acorm0cf97rnjf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.empowerhealth"
+              }
+            }
+          ]
         }
       }
     }

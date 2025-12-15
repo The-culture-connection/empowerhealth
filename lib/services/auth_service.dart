@@ -84,8 +84,11 @@ class AuthService {
   // Sign in with Google
   Future<User?> signInWithGoogle() async {
     try {
+      // Use the web client ID from google-services.json
+      // This is the client_type: 3 (Web client) from the oauth_client array
       final GoogleSignIn googleSignIn = GoogleSignIn(
         scopes: ['email', 'profile'],
+        serverClientId: '725364003316-van2egmf2u2hkfmkatr7meb9qoa71t96.apps.googleusercontent.com',
       );
       
       // Sign out first to ensure clean state
@@ -99,6 +102,11 @@ class AuthService {
       }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      if (googleAuth.idToken == null) {
+        throw Exception('Failed to get ID token from Google Sign-In');
+      }
+      
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,

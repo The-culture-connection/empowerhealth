@@ -189,17 +189,77 @@ class AppointmentsListScreen extends StatelessWidget {
     if (date == null) return 'Unknown date';
     if (date is Timestamp) {
       final dt = date.toDate();
+      // Use local date to avoid timezone issues
       return '${dt.month}/${dt.day}/${dt.year}';
     }
     if (date is String) {
       try {
         final dt = DateTime.parse(date);
+        // If it's an ISO string with time, extract just the date part
+        // to avoid timezone conversion issues
+        if (date.contains('T')) {
+          final dateOnly = date.split('T')[0];
+          final parts = dateOnly.split('-');
+          if (parts.length == 3) {
+            return '${int.parse(parts[1])}/${int.parse(parts[2])}/${parts[0]}';
+          }
+        }
         return '${dt.month}/${dt.day}/${dt.year}';
       } catch (e) {
         return date;
       }
     }
     return date.toString();
+  }
+
+  String _formatSummaryFromMap(Map<String, dynamic> summaryMap) {
+    // Convert summary map to markdown string format
+    final buffer = StringBuffer();
+    
+    if (summaryMap['howBabyIsDoing'] != null) {
+      buffer.writeln('## How Your Baby Is Doing');
+      buffer.writeln(summaryMap['howBabyIsDoing']);
+      buffer.writeln();
+    }
+    
+    if (summaryMap['howYouAreDoing'] != null) {
+      buffer.writeln('## How You Are Doing');
+      buffer.writeln(summaryMap['howYouAreDoing']);
+      buffer.writeln();
+    }
+    
+    if (summaryMap['nextSteps'] != null) {
+      buffer.writeln('## Actions To Take');
+      buffer.writeln(summaryMap['nextSteps']);
+      buffer.writeln();
+    }
+    
+    if (summaryMap['followUpInstructions'] != null) {
+      buffer.writeln(summaryMap['followUpInstructions']);
+      buffer.writeln();
+    }
+    
+    if (summaryMap['keyMedicalTerms'] != null && 
+        summaryMap['keyMedicalTerms'] is List) {
+      buffer.writeln('## Key Medical Terms Explained');
+      for (final term in summaryMap['keyMedicalTerms'] as List) {
+        if (term is Map) {
+          buffer.writeln('**${term['term']}**: ${term['explanation']}');
+        }
+      }
+      buffer.writeln();
+    }
+    
+    if (summaryMap['questionsToAsk'] != null && 
+        summaryMap['questionsToAsk'] is List) {
+      buffer.writeln('## Questions to Ask at Your Next Visit');
+      for (int i = 0; i < (summaryMap['questionsToAsk'] as List).length; i++) {
+        buffer.writeln('${i + 1}. ${summaryMap['questionsToAsk'][i]}');
+      }
+      buffer.writeln();
+    }
+    
+    return buffer.toString();
   }
 
   String _extractActionsToTake(String? summary) {
@@ -255,6 +315,16 @@ class AppointmentsListScreen extends StatelessWidget {
   }
 
   void _showSummaryDialog(BuildContext context, Map<String, dynamic> data) {
+    // Handle summary as either String or Map
+    final summaryData = data['summary'];
+    final summaryString = summaryData is String 
+        ? summaryData 
+        : (summaryData is Map 
+            ? (data['summaryData'] is Map 
+                ? _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>)
+                : summaryData.toString())
+            : null);
+    
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -305,7 +375,7 @@ class AppointmentsListScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Actions To Take Section
-                      if (data['summary'] != null) ...[
+                      if (summaryString != null) ...[
                         const Text(
                           'Actions To Take',
                           style: TextStyle(
@@ -316,7 +386,7 @@ class AppointmentsListScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         MarkdownBody(
-                          data: _extractActionsToTake(data['summary']),
+                          data: _extractActionsToTake(summaryString),
                           styleSheet: MarkdownStyleSheet(
                             p: const TextStyle(fontSize: 15, height: 1.6),
                           ),
@@ -420,11 +490,11 @@ class AppointmentsListScreen extends StatelessWidget {
                       ],
                       
                       // Full Summary (if Actions To Take section not found)
-                      if (data['summary'] != null && 
-                          !_hasActionsToTake(data['summary'])) ...[
+                      if (summaryString != null && 
+                          !_hasActionsToTake(summaryString)) ...[
                         const SizedBox(height: 16),
                         MarkdownBody(
-                          data: data['summary'],
+                          data: summaryString,
                           styleSheet: MarkdownStyleSheet(
                             h2: const TextStyle(
                               fontSize: 18,

@@ -41,8 +41,7 @@ class AdvocacyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: 'EmpowerHealth',
         theme: AppTheme.light(),
-        darkTheme: AppTheme.dark(),
-        themeMode: ThemeMode.system,
+        themeMode: ThemeMode.light,
         onGenerateRoute: AppRouter.onGenerateRoute,
         home: StreamBuilder<User?>(
           stream: authService.authStateChanges,

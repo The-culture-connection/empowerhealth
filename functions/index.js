@@ -1010,7 +1010,7 @@ exports.analyzeVisitSummaryPDF = onCall(
   {secrets: [openaiApiKey]},
   async (request) => {
     if (!request.auth) {
-      throw new Error("User must be authenticated");
+      throw new HttpsError("unauthenticated", "🔒 User must be authenticated. Please log in.");
     }
 
     const data = request.data;
@@ -1023,11 +1023,11 @@ exports.analyzeVisitSummaryPDF = onCall(
     } = data;
 
     if (!storagePath && !downloadUrl) {
-      throw new Error("PDF file location is required");
+      throw new HttpsError("invalid-argument", "📄 PDF file location is required (storagePath or downloadUrl)");
     }
 
     if (!appointmentDate) {
-      throw new Error("Appointment date is required");
+      throw new HttpsError("invalid-argument", "📅 Appointment date is required");
     }
 
     // Extract user context
@@ -1055,55 +1055,70 @@ exports.analyzeVisitSummaryPDF = onCall(
 
     try {
       // Download PDF from Firebase Storage
+      console.log(`📥 Downloading PDF from storage: ${storagePath}`);
       const bucket = admin.storage().bucket();
       const file = bucket.file(storagePath);
       const [exists] = await file.exists();
       if (!exists) {
-        throw new Error(`PDF file not found at: ${storagePath}`);
+        throw new HttpsError("not-found", `📄 PDF file not found at: ${storagePath}`);
       }
       const [pdfBuffer] = await file.download();
+      console.log(`✅ Downloaded PDF: ${pdfBuffer.length} bytes`);
 
       // Upload PDF to OpenAI
+      console.log(`📤 Uploading PDF to OpenAI...`);
       const openai = getOpenAIClient(openaiApiKey.value());
-      let pdfFile;
-      try {
-        pdfFile = new File([pdfBuffer], "visit_summary.pdf", {type: "application/pdf"});
-      } catch (e) {
-        const { Readable } = require("stream");
-        const stream = Readable.from(pdfBuffer);
-        stream.name = "visit_summary.pdf";
-        pdfFile = stream;
-      }
+      
+      // Create File object - Node.js 20 has File API available
+      // The OpenAI SDK expects a File object with name, type, and stream/buffer
+      const pdfFile = new File([pdfBuffer], "visit_summary.pdf", {
+        type: "application/pdf",
+      });
+      console.log(`📄 Created File: ${pdfFile.name}, ${pdfFile.size} bytes, type: ${pdfFile.type}`);
       
       // Upload PDF to OpenAI for analysis
+      // Note: OpenAI SDK accepts File objects in Node.js 20+
       const fileUpload = await openai.files.create({
         file: pdfFile,
         purpose: "assistants",
       });
+      console.log(`✅ File uploaded to OpenAI: ${fileUpload.id}`);
 
       // Wait for file to be processed
+      console.log(`⏳ Waiting for file to be processed...`);
       let fileStatus = await openai.files.retrieve(fileUpload.id);
       let attempts = 0;
-      while (fileStatus.status !== "processed" && attempts < 30) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      while (fileStatus.status !== "processed" && attempts < 60) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
         fileStatus = await openai.files.retrieve(fileUpload.id);
         attempts++;
         if (fileStatus.status === "error") {
-          throw new Error("File processing failed");
+          throw new HttpsError("internal", "❌ OpenAI file processing failed. Please try again.");
+        }
+        if (attempts % 10 === 0) {
+          console.log(`⏳ Still processing... (attempt ${attempts}/60)`);
         }
       }
+      if (fileStatus.status !== "processed") {
+        throw new HttpsError("deadline-exceeded", "⏱️ File processing timed out. Please try again.");
+      }
+      console.log(`✅ File processed successfully`);
 
       // Use Assistants API - attach file to message correctly
+      console.log(`🤖 Creating OpenAI assistant...`);
       const assistant = await openai.beta.assistants.create({
         name: "Visit Summary Analyzer",
         instructions: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. Analyze the uploaded PDF visit summary and generate a comprehensive, plain-language summary at a ${readingLevel} reading level using professional clinical language. Avoid casual terms like "momma".`,
-        model: "gpt-4-turbo-preview",
+        model: "gpt-4o", // Use stable model name
         tools: [{ type: "code_interpreter" }],
       });
+      console.log(`✅ Assistant created: ${assistant.id}`);
 
       const thread = await openai.beta.threads.create();
+      console.log(`✅ Thread created: ${thread.id}`);
 
       // Add message with file attachment
+      console.log(`📝 Adding message with file attachment...`);
       await openai.beta.threads.messages.create(thread.id, {
         role: "user",
         content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary PDF. Explain medical terms clearly, outline next steps, offer advocacy questions the mother can ask, and provide supportive, trauma-informed language. Tailor the content to her trimester (${trimester}), stated concerns (${JSON.stringify(concerns)}), and birth preferences (${JSON.stringify(birthPlanPreferences)}). Include a short explanation, what to expect, questions to ask, and when to seek help.
@@ -1212,45 +1227,69 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
         ],
       });
 
+      console.log(`🚀 Starting analysis run...`);
       const run = await openai.beta.threads.runs.create(thread.id, {
         assistant_id: assistant.id,
       });
 
       let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
-      while (runStatus.status !== "completed") {
+      let runAttempts = 0;
+      while (runStatus.status !== "completed" && runAttempts < 120) {
         if (runStatus.status === "failed") {
-          throw new Error("OpenAI analysis failed");
+          const errorMsg = runStatus.last_error?.message || "Unknown error";
+          console.error(`❌ Run failed: ${errorMsg}`);
+          throw new HttpsError("internal", `🤖 OpenAI analysis failed: ${errorMsg}`);
         }
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (runStatus.status === "cancelled" || runStatus.status === "expired") {
+          throw new HttpsError("deadline-exceeded", "⏱️ Analysis was cancelled or expired. Please try again.");
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
         runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+        runAttempts++;
+        if (runAttempts % 15 === 0) {
+          console.log(`⏳ Analysis in progress... (${runAttempts * 2}s elapsed)`);
+        }
       }
+      if (runStatus.status !== "completed") {
+        throw new HttpsError("deadline-exceeded", "⏱️ Analysis timed out. Please try again with a smaller PDF.");
+      }
+      console.log(`✅ Analysis completed`);
 
+      console.log(`📥 Retrieving analysis results...`);
       const messages = await openai.beta.threads.messages.list(thread.id);
       const assistantMessage = messages.data.find(m => m.role === "assistant");
       
       if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
-        throw new Error("No response from OpenAI");
+        console.error("❌ No response from OpenAI assistant");
+        throw new HttpsError("internal", "🤖 No response received from AI. Please try again.");
       }
 
       const responseContent = assistantMessage.content[0].text.value;
+      console.log(`✅ Received response (${responseContent.length} chars)`);
       let parsedResponse;
       try {
         const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) || 
                          responseContent.match(/```\s*([\s\S]*?)\s*```/);
         const jsonString = jsonMatch ? jsonMatch[1] : responseContent;
         parsedResponse = JSON.parse(jsonString);
+        console.log(`✅ Parsed JSON response successfully`);
       } catch (parseError) {
-        throw new Error("Failed to parse AI response");
+        console.error("❌ JSON parse error:", parseError);
+        console.error("Response content:", responseContent.substring(0, 500));
+        throw new HttpsError("internal", `❌ Failed to parse AI response: ${parseError.message}`);
       }
 
-      // Clean up uploaded file
+      // Clean up uploaded file and assistant
       try {
         await openai.files.del(fileUpload.id);
+        await openai.beta.assistants.del(assistant.id);
+        console.log(`🧹 Cleaned up OpenAI resources`);
       } catch (e) {
-        console.warn("Failed to delete uploaded file:", e);
+        console.warn("⚠️ Failed to clean up OpenAI resources:", e);
       }
 
       // Save to Firestore
+      console.log(`💾 Saving results to Firestore...`);
       const appointmentTimestamp = admin.firestore.Timestamp.fromDate(new Date(appointmentDate));
       const formattedSummary = formatSummaryForDisplay(
         parsedResponse.summary,
@@ -1315,6 +1354,7 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
         await modulesBatch.commit();
       }
 
+      console.log(`✅ Analysis complete! Summary ID: ${summaryRef.id}`);
       return {
         success: true, 
         summaryId: summaryRef.id,
@@ -1324,8 +1364,27 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
         redFlags: parsedResponse.redFlags || [],
       };
     } catch (error) {
-      console.error("Error in analyzeVisitSummaryPDF:", error);
-      throw new Error(`Failed to analyze PDF: ${error.message || "Unknown error"}`);
+      console.error("❌ Error in analyzeVisitSummaryPDF:", error);
+      console.error("Error stack:", error.stack);
+      
+      // If it's already an HttpsError, rethrow it
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      
+      // Convert other errors to HttpsError
+      const errorMessage = error.message || "Unknown error";
+      if (errorMessage.includes("authentication") || errorMessage.includes("auth")) {
+        throw new HttpsError("unauthenticated", "🔒 Authentication error. Please log in again.");
+      } else if (errorMessage.includes("not found") || errorMessage.includes("not-found")) {
+        throw new HttpsError("not-found", `📄 ${errorMessage}`);
+      } else if (errorMessage.includes("timeout") || errorMessage.includes("deadline")) {
+        throw new HttpsError("deadline-exceeded", "⏱️ Analysis timed out. Please try again.");
+      } else if (errorMessage.includes("OpenAI") || errorMessage.includes("API")) {
+        throw new HttpsError("internal", `🤖 AI service error: ${errorMessage}`);
+      } else {
+        throw new HttpsError("internal", `❌ Failed to analyze PDF: ${errorMessage}`);
+      }
     }
   }
 );

@@ -577,7 +577,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
     return 'Third';
   }
 
-  Future<Map<String, dynamic>> _getProgressData() {
+  Map<String, dynamic> _getProgressData() {
     return {
       'supportPersonName': _supportPersonNameController.text,
       'supportPersonRelationship': _supportPersonRelationshipController.text,

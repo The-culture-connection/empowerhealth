@@ -59,9 +59,79 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
       if (mounted) {
         setState(() {
           _userName = profile?.name;
+          // Debug: print to see what we're getting
+          if (_userName == null || _userName!.isEmpty) {
+            print('User name is null or empty. Profile: ${profile?.name}');
+          }
         });
       }
     }
+  }
+
+  void _showTodoModal(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.5), // Grey overlay
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.brandPurple,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Learning Modules',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              // Scrollable content
+              Flexible(
+                child: SingleChildScrollView(
+                  child: const LearningTodoWidget(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -90,27 +160,17 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                           color: AppTheme.brandPurple,
                         ),
                       ),
-                      if (_userName != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          _userName!,
-                          style: TextStyle(
-                            fontFamily: 'Primary',
-                            fontSize: MediaQuery.of(context).size.width * 0.08,
-                            fontWeight: FontWeight.w400,
-                            color: AppTheme.brandPurple,
-                          ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _userName ?? 'User',
+                        style: TextStyle(
+                          fontFamily: 'Primary',
+                          fontSize: MediaQuery.of(context).size.width * 0.08,
+                          fontWeight: FontWeight.w400,
+                          color: AppTheme.brandPurple,
                         ),
-                      ],
+                      ),
                     ],
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    iconSize: 36,
-                    icon: const Icon(
-                      Icons.mic_none_rounded,
-                      color: AppTheme.brandPurple,
-                    ),
                   ),
                 ],
               ),
@@ -165,7 +225,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                     child: _SquareButton(
                       icon: Icons.checklist,
                       label: 'Todo',
-                      onTap: () => Navigator.pushNamed(context, Routes.learning),
+                      onTap: () => _showTodoModal(context),
                     ),
                   ),
                 ],

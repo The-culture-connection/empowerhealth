@@ -434,7 +434,7 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'To Do',
+                'Learning Modules',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,

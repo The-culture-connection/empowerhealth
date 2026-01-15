@@ -153,12 +153,38 @@ class BirthPlansListScreen extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(
-                                    _formatDate(birthPlan.createdAt),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        _formatDate(birthPlan.createdAt),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                      if (birthPlan.status != null) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: birthPlan.status == 'complete' 
+                                                ? Colors.green.withOpacity(0.2)
+                                                : Colors.orange.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            birthPlan.status == 'complete' ? 'Complete' : 'Incomplete',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color: birthPlan.status == 'complete' 
+                                                  ? Colors.green[700]
+                                                  : Colors.orange[700],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ],
                               ),

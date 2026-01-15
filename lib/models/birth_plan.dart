@@ -119,6 +119,10 @@ class BirthPlan {
   final String? formattedPlan;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  
+  // Status tracking
+  final String? status; // 'complete' or 'incomplete'
+  final Map<String, dynamic>? progressData; // Store form data for incomplete plans
 
   BirthPlan({
     this.id,
@@ -211,6 +215,8 @@ class BirthPlan {
     this.formattedPlan,
     DateTime? createdAt,
     this.updatedAt,
+    this.status,
+    this.progressData,
   }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toFirestore() {
@@ -304,6 +310,8 @@ class BirthPlan {
       'formattedPlan': formattedPlan,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'status': status,
+      'progressData': progressData,
     };
   }
 
@@ -400,6 +408,8 @@ class BirthPlan {
       formattedPlan: data['formattedPlan'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      status: data['status'],
+      progressData: data['progressData'] != null ? Map<String, dynamic>.from(data['progressData']) : null,
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/profile_creation_provider.dart';
 import '../../cors/ui_theme.dart';
 
@@ -211,14 +212,20 @@ class WellnessAccessStep extends StatelessWidget {
             child: const Text('Not Now'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              // TODO: Implement referral system
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('We\'ll help you find $resourceType resources. This feature is coming soon!'),
-                ),
-              );
+              final url = Uri.parse('https://211.org/about-us/your-local-211');
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              } else {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Could not open 211.org. Please visit https://211.org/about-us/your-local-211'),
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Yes, Get Referrals'),
           ),

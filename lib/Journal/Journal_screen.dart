@@ -79,20 +79,39 @@ class JournalScreen extends StatelessWidget {
                 moduleTitle: data['moduleTitle'],
                 highlightedText: data['highlightedText'],
                 createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+                prompt: data['prompt'],
+                isFeelingPrompt: data['isFeelingPrompt'] ?? false,
               );
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => const NotesDialog(),
-          );
-        },
-        backgroundColor: AppTheme.brandPurple,
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: 'feeling',
+            onPressed: () {
+              _showFeelingPrompt(context);
+            },
+            backgroundColor: AppTheme.brandPurple.withOpacity(0.8),
+            child: const Icon(Icons.favorite, color: Colors.white),
+            tooltip: 'How are you feeling?',
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton(
+            heroTag: 'note',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => const NotesDialog(),
+              );
+            },
+            backgroundColor: AppTheme.brandPurple,
+            child: const Icon(Icons.add, color: Colors.white),
+            tooltip: 'Add Note',
+          ),
+        ],
       ),
     );
   }
@@ -105,6 +124,8 @@ class _EntryCard extends StatelessWidget {
   final String? moduleTitle;
   final String? highlightedText;
   final DateTime? createdAt;
+  final String? prompt;
+  final bool isFeelingPrompt;
 
   const _EntryCard({
     required this.entryId,
@@ -113,6 +134,8 @@ class _EntryCard extends StatelessWidget {
     this.moduleTitle,
     this.highlightedText,
     this.createdAt,
+    this.prompt,
+    this.isFeelingPrompt = false,
   });
 
   String _getTagIcon(String tag) {
@@ -203,6 +226,32 @@ class _EntryCard extends StatelessWidget {
                     ),
                 ],
               ),
+              if (isFeelingPrompt && prompt != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.pink.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.psychology, size: 16, color: Colors.pink),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          prompt!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.pink,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (moduleTitle != null) ...[
                 const SizedBox(height: 12),
                 Container(
@@ -327,6 +376,34 @@ class _EntryCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (isFeelingPrompt && prompt != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.pink.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.psychology, size: 16, color: Colors.pink),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  prompt!,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.pink,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       if (moduleTitle != null) ...[
                         Container(
                           padding: const EdgeInsets.all(8),

@@ -6,7 +6,15 @@ class AppointmentsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Appointments')),
+      appBar: AppBar(
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: const Text(
+            'Appointments',
+            style: TextStyle(fontSize: 20),
+          ),
+        ),
+      ),
       body: Stack(
         fit: StackFit.expand,
         children: [

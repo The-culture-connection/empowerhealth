@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../app_router.dart';
 import '../cors/ui_theme.dart';
+import '../services/database_service.dart';
+import '../birthplan/birth_plans_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,175 +14,286 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final List<_TodoItem> _todos = [
-    _TodoItem('First Trimester Module'),
-    _TodoItem('First Trimester Module'),
-    _TodoItem('First Trimester Module'),
-    _TodoItem('First Trimester Module'),
-  ];
+  final DatabaseService _databaseService = DatabaseService();
+  String? _userName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null) {
+      final profile = await _databaseService.getUserProfile(userId);
+      if (mounted) {
+        setState(() {
+          _userName = profile?.name;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset('assets/homescreen.jpeg', fit: BoxFit.cover),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+      backgroundColor: const Color(0xFFE8E2F6), // #e8e2f6
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Welcome and User Name
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Welcome',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Primary',
-                          fontSize: 70,
+                          fontSize: MediaQuery.of(context).size.width * 0.12,
                           fontWeight: FontWeight.w500,
-                          color: AppTheme.brandGold,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {},
-                        iconSize: 36,
-                        icon: const Icon(
-                          Icons.mic_none_rounded,
                           color: AppTheme.brandPurple,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _GlassCard(
-                          onTap: () => Navigator.pushNamed(context, Routes.appointments),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              _CardTitle('Appointments:'),
-                              SizedBox(height: 8),
-                              Text('Nov, 29\n6:00pm\n\nFirst Trimester\nCheck-up',
-                                  style: TextStyle(color: Colors.white)),
-                            ],
+                      if (_userName != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _userName!,
+                          style: TextStyle(
+                            fontFamily: 'Primary',
+                            fontSize: MediaQuery.of(context).size.width * 0.08,
+                            fontWeight: FontWeight.w400,
+                            color: AppTheme.brandPurple,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _GlassCard(
-                          onTap: () => Navigator.pushNamed(context, Routes.messages),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              _CardTitle('Messages:'),
-                              SizedBox(height: 8),
-                              Text('PHP: Hey How\nis it going', style: TextStyle(color: Colors.white)),
-                            ],
-                          ),
-                        ),
-                      ),
+                      ],
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: _GlassCard(
-                      onTap: () => Navigator.pushNamed(context, Routes.learning),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const _CardTitle('To do:'),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: ListView.separated(
-                              itemBuilder: (context, index) {
-                                final item = _todos[index];
-                                return GestureDetector(
-                                  onTap: () => setState(() => item.done = !item.done),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        item.done ? Icons.check_circle : Icons.circle_outlined,
-                                        color: Colors.white,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          item.title,
-                                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              separatorBuilder: (_, __) => const SizedBox(height: 10),
-                              itemCount: _todos.length,
-                            ),
-                          )
-                        ],
-                      ),
+                  IconButton(
+                    onPressed: () {},
+                    iconSize: 36,
+                    icon: const Icon(
+                      Icons.mic_none_rounded,
+                      color: AppTheme.brandPurple,
                     ),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: 24),
+              
+              // Square Buttons Section
+              Row(
+                children: [
+                  Expanded(
+                    child: _SquareButton(
+                      icon: Icons.calendar_today,
+                      label: 'Appointments',
+                      onTap: () => Navigator.pushNamed(context, Routes.appointments),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _SquareButton(
+                      icon: Icons.favorite,
+                      label: 'Birthplan',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const BirthPlansListScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SquareButton(
+                      icon: Icons.book,
+                      label: 'Journal',
+                      onTap: () => Navigator.pushNamed(context, Routes.journal),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _SquareButton(
+                      icon: Icons.checklist,
+                      label: 'Todo',
+                      onTap: () => Navigator.pushNamed(context, Routes.learning),
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Community Notifications Section
+              Text(
+                'Community Notifications',
+                style: TextStyle(
+                  fontFamily: 'Primary',
+                  fontSize: MediaQuery.of(context).size.width * 0.06,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.brandPurple,
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              Expanded(
+                child: _CommunityNotificationsList(),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _CardTitle extends StatelessWidget {
-  final String text;
-  const _CardTitle(this.text);
+class _SquareButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SquareButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontFamily: 'Primary',
-        color: AppTheme.brandGold,
-        fontSize: 30,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-}
-
-class _GlassCard extends StatelessWidget {
-  final Widget child;
-  final VoidCallback? onTap;
-  const _GlassCard({required this.child, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final card = Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.brandPurple.withOpacity(0.65),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: child,
-    );
-    if (onTap == null) return card;
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
       onTap: onTap,
-      child: card,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: MediaQuery.of(context).size.width * 0.4,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 48,
+              color: AppTheme.brandPurple,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.brandPurple,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _TodoItem {
-  final String title;
-  bool done;
-  _TodoItem(this.title, {this.done = false});
+class _CommunityNotificationsList extends StatelessWidget {
+  final List<Map<String, String>> _mockNotifications = [
+    {
+      'title': 'New Community Event',
+      'message': 'Join us for a virtual support group meeting this Friday at 6 PM',
+      'time': '2 hours ago',
+    },
+    {
+      'title': 'Resource Update',
+      'message': 'New prenatal care resources are now available in your area',
+      'time': '1 day ago',
+    },
+    {
+      'title': 'Community Tip',
+      'message': 'Remember to stay hydrated and take breaks throughout the day',
+      'time': '2 days ago',
+    },
+    {
+      'title': 'Welcome Message',
+      'message': 'Welcome to the EmpowerHealth Watch community!',
+      'time': '3 days ago',
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemCount: _mockNotifications.length,
+      itemBuilder: (context, index) {
+        final notification = _mockNotifications[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      notification['title']!,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.brandPurple,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    notification['time']!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                notification['message']!,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
+

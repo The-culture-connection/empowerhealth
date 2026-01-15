@@ -341,10 +341,12 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         providerName: birthPlan.providerName,
       );
 
-      // Save to Firestore
+      // Save to Firestore with complete status
+      final planData = updatedPlan.toFirestore();
+      planData['status'] = 'complete';
       final docRef = await FirebaseFirestore.instance
           .collection('birth_plans')
-          .add(updatedPlan.toFirestore());
+          .add(planData);
 
       // Generate and save todos
       await _generateTodos(updatedPlan);
@@ -575,15 +577,132 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
     return 'Third';
   }
 
+  Future<Map<String, dynamic>> _getProgressData() {
+    return {
+      'supportPersonName': _supportPersonNameController.text,
+      'supportPersonRelationship': _supportPersonRelationshipController.text,
+      'contactInfo': _contactInfoController.text,
+      'allergy': _allergyController.text,
+      'medicalCondition': _medicalConditionController.text,
+      'complication': _complicationController.text,
+      'dueDate': _dueDate?.toIso8601String(),
+      'allergies': _allergies,
+      'medicalConditions': _medicalConditions,
+      'pregnancyComplications': _pregnancyComplications,
+      'environmentPreferences': _environmentPreferences,
+      'photographyAllowed': _photographyAllowed,
+      'videographyAllowed': _videographyAllowed,
+      'preferredLanguage': _preferredLanguage,
+      'traumaInformedCare': _traumaInformedCare,
+      'preferredLaborPositions': _preferredLaborPositions,
+      'movementFreedom': _movementFreedom,
+      'monitoringPreference': _monitoringPreference,
+      'painManagementPreference': _painManagementPreference,
+      'useDoula': _useDoula,
+      'waterLaborAvailable': _waterLaborAvailable,
+      'membraneSweepingPreference': _membraneSweepingPreference,
+      'inductionPreference': _inductionPreference,
+      'communicationStyle': _communicationStyle,
+      'preferredPushingPositions': _preferredPushingPositions,
+      'pushingStyle': _pushingStyle,
+      'mirrorDuringPushing': _mirrorDuringPushing,
+      'episiotomyPreference': _episiotomyPreference,
+      'tearingPreference': _tearingPreference,
+      'whoCatchesBaby': _whoCatchesBaby,
+      'delayedPushingWithEpidural': _delayedPushingWithEpidural,
+      'delayedCordClampingPreference': _delayedCordClampingPreference,
+      'whoCutsCord': _whoCutsCord,
+      'immediateSkinToSkin': _immediateSkinToSkin,
+      'babyStaysWithParent': _babyStaysWithParent,
+      'vitaminK': _vitaminK,
+      'eyeOintment': _eyeOintment,
+      'hepBVaccine': _hepBVaccine,
+      'cordBloodBanking': _cordBloodBanking,
+      'cordBloodCompany': _cordBloodCompanyController.text,
+      'feedingPreference': _feedingPreference,
+      'lactationConsultantRequested': _lactationConsultantRequested,
+      'noPacifierUntilBreastfeeding': _noPacifierUntilBreastfeeding,
+      'consentForDonorMilk': _consentForDonorMilk,
+      'roomingIn': _roomingIn,
+      'mentalHealthSupport': _mentalHealthSupport,
+      'visitorPreference': _visitorPreferenceController.text,
+      'dietaryPreferences': _dietaryPreferencesController.text,
+      'postpartumPainManagement': _postpartumPainManagementController.text,
+      'drapePreference': _drapePreference,
+      'partnerInOR': _partnerInOR,
+      'photosAllowedInOR': _photosAllowedInOR,
+      'babyOnChestImmediately': _babyOnChestImmediately,
+      'delayNewbornCareUntilHolding': _delayNewbornCareUntilHolding,
+      'anesthesiaPreference': _anesthesiaPreference,
+      'surgicalClosurePreference': _surgicalClosurePreference,
+      'religiousConsiderations': _religiousConsiderationsController.text,
+      'culturalConsiderations': _culturalConsiderationsController.text,
+      'accessibilityNeeds': _accessibilityNeedsController.text,
+      'traumaHistory': _traumaHistoryController.text,
+      'anxietyTrigger': _anxietyTriggerController.text,
+      'anxietyTriggers': _anxietyTriggers,
+      'consentBasedCare': _consentBasedCare,
+      'preferredBadNewsDelivery': _preferredBadNewsDelivery,
+      'fearReduction': _fearReductionController.text,
+      'fearReductionRequests': _fearReductionRequests,
+      'inMyOwnWords': _inMyOwnWordsController.text,
+    };
+  }
+
+  Future<void> _saveProgress() async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+
+      final progressData = _getProgressData();
+      
+      // Check if there's any meaningful data
+      bool hasData = false;
+      for (var value in progressData.values) {
+        if (value != null && value != '' && value != false) {
+          if (value is List && value.isNotEmpty) {
+            hasData = true;
+            break;
+          } else if (value is! List) {
+            hasData = true;
+            break;
+          }
+        }
+      }
+
+      if (!hasData) return; // Don't save if no data
+
+      // Save as incomplete birth plan draft
+      await FirebaseFirestore.instance.collection('birth_plans').add({
+        'userId': userId,
+        'status': 'incomplete',
+        'progressData': progressData,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      if (mounted) {
+        debugPrint('Error saving progress: $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Birth Plan'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-      ),
-      body: Form(
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) async {
+        if (didPop) {
+          await _saveProgress();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Create Birth Plan'),
+          backgroundColor: AppTheme.brandPurple,
+          foregroundColor: Colors.white,
+        ),
+        body: Form(
         key: _formKey,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -673,6 +792,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             ],
           ),
         ),
+      ),
       ),
     );
   }

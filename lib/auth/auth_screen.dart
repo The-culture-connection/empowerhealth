@@ -33,29 +33,50 @@ class AuthScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Logo/title at top in cursive-like style - responsive
+                  const SizedBox(height: 40),
+                  // Logo/title at top - responsive and eye-catching
                   FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(
-                      'EmpowerHealth',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        // Use the provided Primary font for titles
-                        fontFamily: 'Primary',
-                        fontSize: MediaQuery.of(context).size.width * 0.18,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.brandPurple,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Your Pregnancy Journey,\nYour Way',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w400,
-                      color: AppTheme.brandPurple,
+                    child: Column(
+                      children: [
+                        Text(
+                          'EMPOWERHEALTH',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Primary',
+                            fontSize: MediaQuery.of(context).size.width * 0.12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.brandPurple,
+                            letterSpacing: 2,
+                            shadows: [
+                              Shadow(
+                                color: AppTheme.brandPurple.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'WATCH',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Primary',
+                            fontSize: MediaQuery.of(context).size.width * 0.12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.brandPurple,
+                            letterSpacing: 2,
+                            shadows: [
+                              Shadow(
+                                color: AppTheme.brandPurple.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const Spacer(),

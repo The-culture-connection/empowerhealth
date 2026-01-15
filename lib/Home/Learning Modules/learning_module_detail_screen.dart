@@ -64,11 +64,7 @@ class LearningModuleDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Content display
-            _MarkdownStyleText(content: content),
-            
-            const SizedBox(height: 16),
-            // Selectable text for highlighting
+            // Selectable text for highlighting (removed duplicate display)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -94,55 +90,7 @@ class LearningModuleDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  SelectableText(
-                    content,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      height: 1.6,
-                      color: Colors.black87,
-                    ),
-                    onSelectionChanged: (selection, cause) {
-                      if (selection.isValid && cause == SelectionChangedCause.longPress) {
-                        final selectedText = content.substring(
-                          selection.start.clamp(0, content.length),
-                          selection.end.clamp(0, content.length),
-                        ).trim();
-                        if (selectedText.length > 3) {
-                          ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'Selected: ${selectedText.length > 40 ? selectedText.substring(0, 40) + "..." : selectedText}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) => NotesDialog(
-                                          preFilledText: selectedText,
-                                          moduleTitle: title,
-                                        ),
-                                      );
-                                    },
-                                    child: const Text('Add Note', style: TextStyle(color: Colors.white)),
-                                  ),
-                                ],
-                              ),
-                              duration: const Duration(seconds: 5),
-                              backgroundColor: AppTheme.brandPurple,
-                            ),
-                          );
-                        }
-                      }
-                    },
-                  ),
+                  _MarkdownStyleText(content: content, moduleTitle: title),
                 ],
               ),
             ),
@@ -412,14 +360,23 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
   }
 }
 
-class _MarkdownStyleText extends StatelessWidget {
+class _MarkdownStyleText extends StatefulWidget {
   final String content;
+  final String moduleTitle;
 
-  const _MarkdownStyleText({required this.content});
+  const _MarkdownStyleText({required this.content, required this.moduleTitle});
+
+  @override
+  State<_MarkdownStyleText> createState() => _MarkdownStyleTextState();
+}
+
+class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
 
   @override
   Widget build(BuildContext context) {
-    final lines = content.split('\n');
+    // Fix $1 formatting issue - replace $1 with proper section breaks first
+    final cleanedContent = widget.content.replaceAll('\$1', '\n\n---\n\n');
+    final lines = cleanedContent.split('\n');
     final widgets = <Widget>[];
 
     for (var line in lines) {
@@ -427,7 +384,7 @@ class _MarkdownStyleText extends StatelessWidget {
         widgets.add(const SizedBox(height: 8));
         continue;
       }
-
+      
       if (line.startsWith('## ')) {
         widgets.add(
           Padding(
@@ -473,13 +430,65 @@ class _MarkdownStyleText extends StatelessWidget {
             ),
           ),
         );
+      } else if (line.trim() == '---' || line.trim().startsWith('---')) {
+        // Section divider
+        widgets.add(
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(
+              thickness: 2,
+              color: AppTheme.brandPurple,
+            ),
+          ),
+        );
       } else {
         widgets.add(
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
+            child: SelectableText(
               line,
               style: const TextStyle(fontSize: 16, height: 1.5),
+              onSelectionChanged: (selection, cause) {
+                if (selection.isValid && cause == SelectionChangedCause.longPress) {
+                  final selectedText = line.substring(
+                    selection.start.clamp(0, line.length),
+                    selection.end.clamp(0, line.length),
+                  ).trim();
+                  if (selectedText.length > 3) {
+                    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Selected: ${selectedText.length > 40 ? selectedText.substring(0, 40) + "..." : selectedText}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => NotesDialog(
+                                    preFilledText: selectedText,
+                                    moduleTitle: widget.moduleTitle,
+                                  ),
+                                );
+                              },
+                              child: const Text('Add Note', style: TextStyle(color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                        duration: const Duration(seconds: 5),
+                        backgroundColor: AppTheme.brandPurple,
+                      ),
+                    );
+                  }
+                }
+              },
             ),
           ),
         );

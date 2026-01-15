@@ -10,7 +10,14 @@ import 'birth_plan_display_screen.dart';
 import 'birth_plan_formatter.dart';
 
 class ComprehensiveBirthPlanScreen extends StatefulWidget {
-  const ComprehensiveBirthPlanScreen({super.key});
+  final String? incompletePlanId; // For resuming incomplete plans
+  final Map<String, dynamic>? savedProgress; // Saved progress data
+
+  const ComprehensiveBirthPlanScreen({
+    super.key,
+    this.incompletePlanId,
+    this.savedProgress,
+  });
 
   @override
   State<ComprehensiveBirthPlanScreen> createState() => _ComprehensiveBirthPlanScreenState();
@@ -118,6 +125,9 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   void initState() {
     super.initState();
     _loadUserProfile();
+    if (widget.savedProgress != null) {
+      _loadSavedProgress();
+    }
   }
 
   Future<void> _loadUserProfile() async {
@@ -133,6 +143,85 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         _useDoula = profile.hasDoula;
       });
     }
+  }
+
+  void _loadSavedProgress() {
+    if (widget.savedProgress == null) return;
+    final progress = widget.savedProgress!;
+    
+    setState(() {
+      _supportPersonNameController.text = progress['supportPersonName'] ?? '';
+      _supportPersonRelationshipController.text = progress['supportPersonRelationship'] ?? '';
+      _contactInfoController.text = progress['contactInfo'] ?? '';
+      _allergyController.text = progress['allergy'] ?? '';
+      _medicalConditionController.text = progress['medicalCondition'] ?? '';
+      _complicationController.text = progress['complication'] ?? '';
+      
+      if (progress['dueDate'] != null) {
+        _dueDate = DateTime.parse(progress['dueDate']);
+      }
+      
+      _allergies = List<String>.from(progress['allergies'] ?? []);
+      _medicalConditions = List<String>.from(progress['medicalConditions'] ?? []);
+      _pregnancyComplications = List<String>.from(progress['pregnancyComplications'] ?? []);
+      _environmentPreferences = List<String>.from(progress['environmentPreferences'] ?? []);
+      _photographyAllowed = progress['photographyAllowed'];
+      _videographyAllowed = progress['videographyAllowed'];
+      _preferredLanguage = progress['preferredLanguage'];
+      _traumaInformedCare = progress['traumaInformedCare'] ?? false;
+      _preferredLaborPositions = List<String>.from(progress['preferredLaborPositions'] ?? []);
+      _movementFreedom = progress['movementFreedom'] ?? true;
+      _monitoringPreference = progress['monitoringPreference'];
+      _painManagementPreference = progress['painManagementPreference'];
+      _useDoula = progress['useDoula'] ?? false;
+      _waterLaborAvailable = progress['waterLaborAvailable'];
+      _membraneSweepingPreference = progress['membraneSweepingPreference'];
+      _inductionPreference = progress['inductionPreference'];
+      _communicationStyle = progress['communicationStyle'];
+      _preferredPushingPositions = List<String>.from(progress['preferredPushingPositions'] ?? []);
+      _pushingStyle = progress['pushingStyle'];
+      _mirrorDuringPushing = progress['mirrorDuringPushing'];
+      _episiotomyPreference = progress['episiotomyPreference'];
+      _tearingPreference = progress['tearingPreference'];
+      _whoCatchesBaby = progress['whoCatchesBaby'];
+      _delayedPushingWithEpidural = progress['delayedPushingWithEpidural'];
+      _delayedCordClampingPreference = progress['delayedCordClampingPreference'];
+      _whoCutsCord = progress['whoCutsCord'];
+      _immediateSkinToSkin = progress['immediateSkinToSkin'] ?? true;
+      _babyStaysWithParent = progress['babyStaysWithParent'] ?? true;
+      _vitaminK = progress['vitaminK'];
+      _eyeOintment = progress['eyeOintment'];
+      _hepBVaccine = progress['hepBVaccine'];
+      _cordBloodBanking = progress['cordBloodBanking'];
+      _cordBloodCompanyController.text = progress['cordBloodCompany'] ?? '';
+      _feedingPreference = progress['feedingPreference'];
+      _lactationConsultantRequested = progress['lactationConsultantRequested'] ?? false;
+      _noPacifierUntilBreastfeeding = progress['noPacifierUntilBreastfeeding'];
+      _consentForDonorMilk = progress['consentForDonorMilk'];
+      _roomingIn = progress['roomingIn'];
+      _mentalHealthSupport = progress['mentalHealthSupport'];
+      _visitorPreferenceController.text = progress['visitorPreference'] ?? '';
+      _dietaryPreferencesController.text = progress['dietaryPreferences'] ?? '';
+      _postpartumPainManagementController.text = progress['postpartumPainManagement'] ?? '';
+      _drapePreference = progress['drapePreference'];
+      _partnerInOR = progress['partnerInOR'];
+      _photosAllowedInOR = progress['photosAllowedInOR'];
+      _babyOnChestImmediately = progress['babyOnChestImmediately'];
+      _delayNewbornCareUntilHolding = progress['delayNewbornCareUntilHolding'];
+      _anesthesiaPreference = progress['anesthesiaPreference'];
+      _surgicalClosurePreference = progress['surgicalClosurePreference'];
+      _religiousConsiderationsController.text = progress['religiousConsiderations'] ?? '';
+      _culturalConsiderationsController.text = progress['culturalConsiderations'] ?? '';
+      _accessibilityNeedsController.text = progress['accessibilityNeeds'] ?? '';
+      _traumaHistoryController.text = progress['traumaHistory'] ?? '';
+      _anxietyTriggerController.text = progress['anxietyTrigger'] ?? '';
+      _anxietyTriggers = List<String>.from(progress['anxietyTriggers'] ?? []);
+      _consentBasedCare = progress['consentBasedCare'] ?? false;
+      _preferredBadNewsDelivery = progress['preferredBadNewsDelivery'];
+      _fearReductionController.text = progress['fearReduction'] ?? '';
+      _fearReductionRequests = List<String>.from(progress['fearReductionRequests'] ?? []);
+      _inMyOwnWordsController.text = progress['inMyOwnWords'] ?? '';
+    });
   }
 
   @override
@@ -672,14 +761,24 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
 
       if (!hasData) return; // Don't save if no data
 
-      // Save as incomplete birth plan draft
-      await FirebaseFirestore.instance.collection('birth_plans').add({
-        'userId': userId,
-        'status': 'incomplete',
-        'progressData': progressData,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      // Save as incomplete birth plan draft (update existing or create new)
+      if (widget.incompletePlanId != null) {
+        await FirebaseFirestore.instance
+            .collection('birth_plans')
+            .doc(widget.incompletePlanId)
+            .update({
+          'progressData': progressData,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        await FirebaseFirestore.instance.collection('birth_plans').add({
+          'userId': userId,
+          'status': 'incomplete',
+          'progressData': progressData,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
     } catch (e) {
       if (mounted) {
         debugPrint('Error saving progress: $e');

@@ -7,6 +7,9 @@ import '../models/birth_plan.dart';
 import 'birth_plan_display_screen.dart';
 import 'comprehensive_birth_plan_screen.dart';
 
+// Need to access private constructor, so we'll make it public temporarily
+// or create a factory method
+
 class BirthPlansListScreen extends StatelessWidget {
   const BirthPlansListScreen({super.key});
 
@@ -112,16 +115,30 @@ class BirthPlansListScreen extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => BirthPlanDisplayScreen(birthPlan: birthPlan),
-                      ),
-                    );
-                  },
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      if (birthPlan.status == 'incomplete' && birthPlan.progressData != null) {
+                        // Resume incomplete plan
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ComprehensiveBirthPlanScreen(
+                              incompletePlanId: birthPlan.id,
+                              savedProgress: birthPlan.progressData,
+                            ),
+                          ),
+                        );
+                      } else {
+                        // View complete plan
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => BirthPlanDisplayScreen(birthPlan: birthPlan),
+                          ),
+                        );
+                      }
+                    },
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(

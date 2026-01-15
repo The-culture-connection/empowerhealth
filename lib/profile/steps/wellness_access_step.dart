@@ -215,9 +215,9 @@ class WellnessAccessStep extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(context);
               final url = Uri.parse('https://211.org/about-us/your-local-211');
-              if (await canLaunchUrl(url)) {
+              try {
                 await launchUrl(url, mode: LaunchMode.externalApplication);
-              } else {
+              } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

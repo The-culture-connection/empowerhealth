@@ -502,12 +502,14 @@ class _SelectableMarkdownWidgetState extends State<_SelectableMarkdownWidget> {
                 children: [
                   Icon(Icons.highlight, size: 18, color: AppTheme.brandPurple),
                   const SizedBox(width: 8),
-                  Text(
-                    'Long-press text below to highlight and add a note',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.brandPurple,
+                  Expanded(
+                    child: Text(
+                      'Long-press text below to highlight and add a note',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.brandPurple,
+                      ),
                     ),
                   ),
                 ],

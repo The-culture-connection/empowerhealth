@@ -33,7 +33,7 @@ class AuthScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
                   // Logo/title at top - responsive and eye-catching
                   FittedBox(
                     fit: BoxFit.scaleDown,

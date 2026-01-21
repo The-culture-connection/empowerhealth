@@ -210,7 +210,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
@@ -231,7 +231,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                 ],
               ),
               
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               
               // Community Notifications Section
               Text(
@@ -516,7 +516,7 @@ class _SquareButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        height: MediaQuery.of(context).size.width * 0.4,
+        height: MediaQuery.of(context).size.width * 0.32,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -533,14 +533,14 @@ class _SquareButton extends StatelessWidget {
           children: [
             Icon(
               icon,
-              size: 48,
+              size: 40,
               color: AppTheme.brandPurple,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               label,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.brandPurple,
               ),

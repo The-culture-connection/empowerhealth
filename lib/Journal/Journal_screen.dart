@@ -13,88 +13,346 @@ class JournalScreen extends StatelessWidget {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Journal'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: userId != null
-            ? FirebaseFirestore.instance
-                .collection('users')
-                .doc(userId)
-                .collection('notes')
-                .orderBy('createdAt', descending: true)
-                .snapshots()
-            : null,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(20),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.book_outlined,
-                      size: 80,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No Journal Entries Yet',
-                      style: AppTheme.responsiveTitleStyle(
-                        context,
-                        baseSize: 20,
+                    const Text(
+                      'Your Journal',
+                      style: TextStyle(
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Add notes from learning modules or create entries here',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
+                    const SizedBox(height: 4),
+                    Text(
+                      'A safe space for your thoughts and feelings',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),
               ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: snapshot.data!.docs.length,
-            itemBuilder: (context, index) {
-              final doc = snapshot.data!.docs[index];
-              final data = doc.data() as Map<String, dynamic>;
               
-              return _EntryCard(
-                entryId: doc.id,
-                content: data['content'] ?? '',
-                tag: data['tag'] ?? 'Untagged',
-                moduleTitle: data['moduleTitle'],
-                highlightedText: data['highlightedText'],
-                createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-                prompt: data['prompt'],
-                isFeelingPrompt: data['isFeelingPrompt'] ?? false,
-              );
-            },
-          );
-        },
+              // Content
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: userId != null
+                      ? FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(userId)
+                          .collection('notes')
+                          .orderBy('createdAt', descending: true)
+                          .limit(10)
+                          .snapshots()
+                      : null,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final entries = snapshot.hasData ? snapshot.data!.docs : [];
+
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Today's Entry Section
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.red.shade50, Colors.pink.shade50],
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.pink.shade100),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.auto_awesome, color: Colors.red.shade500, size: 20),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      "Today's Entry",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Not sure where to start? Try a prompt:',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    'How are you feeling today?',
+                                    'What brought you peace this week?',
+                                    'What concerns are on your mind?',
+                                  ].map((prompt) => _PromptChip(
+                                    text: prompt,
+                                    onTap: () => _showFeelingPrompt(context, prompt),
+                                  )).toList(),
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.grey.shade200),
+                                  ),
+                                  child: TextField(
+                                    maxLines: 6,
+                                    decoration: InputDecoration(
+                                      hintText: "What's on your mind today?",
+                                      border: InputBorder.none,
+                                      contentPadding: const EdgeInsets.all(16),
+                                      hintStyle: TextStyle(color: Colors.grey[400]),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) => const NotesDialog(),
+                                          );
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF663399),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 16),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                        ),
+                                        child: const Text('Save Entry'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    OutlinedButton(
+                                      onPressed: () {},
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.grey[700],
+                                        side: BorderSide(color: Colors.grey.shade200!),
+                                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                      ),
+                                      child: const Text('Cancel'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Mood Check Section
+                          const Text(
+                            'How are you feeling today?',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.grey.shade100),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _MoodButton(emoji: '😊', label: 'Joyful'),
+                                _MoodButton(emoji: '😌', label: 'Calm'),
+                                _MoodButton(emoji: '😐', label: 'Okay'),
+                                _MoodButton(emoji: '😟', label: 'Worried'),
+                                _MoodButton(emoji: '😢', label: 'Tearful'),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Recent Reflections Section
+                          const Text(
+                            'Recent Reflections',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          if (entries.isEmpty)
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(32.0),
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.book_outlined, size: 64, color: Colors.grey[400]),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No Journal Entries Yet',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Add notes from learning modules or create entries here',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: Colors.grey[500]),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            ...entries.map((doc) {
+                              final data = doc.data() as Map<String, dynamic>;
+                              return _EntryCard(
+                                entryId: doc.id,
+                                content: data['content'] ?? '',
+                                tag: data['tag'] ?? 'Untagged',
+                                moduleTitle: data['moduleTitle'],
+                                highlightedText: data['highlightedText'],
+                                createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+                                prompt: data['prompt'],
+                                isFeelingPrompt: data['isFeelingPrompt'] ?? false,
+                              );
+                            }).toList(),
+                          
+                          const SizedBox(height: 24),
+
+                          // Privacy Note
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.blue.shade50, Colors.purple.shade50],
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.blue.shade100),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade100,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Icon(Icons.cloud_done, color: Colors.blue.shade600, size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Your Private Space',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "Your journal entries are private and encrypted. They're for you, and you can choose if you want to share specific entries with your care team.",
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 100), // Space for FABs
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           FloatingActionButton(
             heroTag: 'feeling',
-            onPressed: () {
-              _showFeelingPrompt(context);
-            },
-            backgroundColor: AppTheme.brandPurple.withOpacity(0.8),
+            onPressed: () => _showFeelingPrompt(context),
+            backgroundColor: const Color(0xFF663399).withOpacity(0.8),
             child: const Icon(Icons.favorite, color: Colors.white),
             tooltip: 'How are you feeling?',
           ),
@@ -107,7 +365,7 @@ class JournalScreen extends StatelessWidget {
                 builder: (context) => const NotesDialog(),
               );
             },
-            backgroundColor: AppTheme.brandPurple,
+            backgroundColor: const Color(0xFF663399),
             child: const Icon(Icons.add, color: Colors.white),
             tooltip: 'Add Note',
           ),
@@ -116,7 +374,7 @@ class JournalScreen extends StatelessWidget {
     );
   }
 
-  void _showFeelingPrompt(BuildContext context) {
+  void _showFeelingPrompt(BuildContext context, [String? customPrompt]) {
     final feelingPrompts = [
       'How are you feeling today?',
       'What emotions are you experiencing right now?',
@@ -128,11 +386,72 @@ class JournalScreen extends StatelessWidget {
       'What are you looking forward to?',
     ];
 
-    final randomPrompt = feelingPrompts[(DateTime.now().millisecondsSinceEpoch % feelingPrompts.length)];
+    final prompt = customPrompt ?? feelingPrompts[(DateTime.now().millisecondsSinceEpoch % feelingPrompts.length)];
 
     showDialog(
       context: context,
-      builder: (context) => _FeelingPromptDialog(prompt: randomPrompt),
+      builder: (context) => _FeelingPromptDialog(prompt: prompt),
+    );
+  }
+}
+
+class _PromptChip extends StatelessWidget {
+  final String text;
+  final VoidCallback onTap;
+
+  const _PromptChip({required this.text, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[700],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MoodButton extends StatelessWidget {
+  final String emoji;
+  final String label;
+
+  const _MoodButton({required this.emoji, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {},
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Column(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 32)),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -158,186 +477,90 @@ class _EntryCard extends StatelessWidget {
     this.isFeelingPrompt = false,
   });
 
-  String _getTagIcon(String tag) {
-    switch (tag) {
-      case 'Question for provider':
-        return '❓';
-      case 'Update birth plan':
-        return '📋';
-      case 'Track a symptom':
-        return '📊';
-      case 'Emotional reflection':
-        return '💭';
-      default:
-        return '📝';
-    }
-  }
-
-  Color _getTagColor(String tag) {
-    switch (tag) {
-      case 'Question for provider':
-        return Colors.blue;
-      case 'Update birth plan':
-        return Colors.purple;
-      case 'Track a symptom':
-        return Colors.orange;
-      case 'Emotional reflection':
-        return Colors.pink;
-      default:
-        return Colors.grey;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          _showEntryDetail(context);
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Tag and date row
-              Row(
+        onTap: () => _showEntryDetail(context),
+        borderRadius: BorderRadius.circular(24),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF663399), Color(0xFFCBBEC9)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.favorite, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _getTagColor(tag).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _getTagColor(tag).withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today, size: 14, color: Colors.grey[400]),
+                      const SizedBox(width: 4),
+                      if (createdAt != null)
                         Text(
-                          _getTagIcon(tag),
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          tag,
+                          DateFormat('MMMM d, yyyy').format(createdAt!),
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _getTagColor(tag),
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      if (isFeelingPrompt && prompt != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'feeling',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.purple.shade700,
+                            ),
                           ),
                         ),
                       ],
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    content,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.black87,
                     ),
                   ),
-                  const Spacer(),
-                  if (createdAt != null)
-                    Text(
-                      DateFormat('MMM d, yyyy • h:mm a').format(createdAt!),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
                 ],
               ),
-              if (isFeelingPrompt && prompt != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.pink.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.psychology, size: 16, color: Colors.pink),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          prompt!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.pink,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              if (moduleTitle != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.brandPurple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.school, size: 16, color: AppTheme.brandPurple),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'From: $moduleTitle',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.brandPurple,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              if (highlightedText != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.yellow.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.yellow.withOpacity(0.4)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.format_quote, size: 16, color: Colors.orange),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          highlightedText!,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Text(
-                content,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -346,183 +569,210 @@ class _EntryCard extends StatelessWidget {
   void _showEntryDetail(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: AppTheme.brandPurple,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
+      builder: (context) => _EntryDetailDialog(
+        entryId: entryId,
+        content: content,
+        tag: tag,
+        moduleTitle: moduleTitle,
+        highlightedText: highlightedText,
+        createdAt: createdAt,
+        prompt: prompt,
+        isFeelingPrompt: isFeelingPrompt,
+      ),
+    );
+  }
+}
+
+class _EntryDetailDialog extends StatelessWidget {
+  final String entryId;
+  final String content;
+  final String tag;
+  final String? moduleTitle;
+  final String? highlightedText;
+  final DateTime? createdAt;
+  final String? prompt;
+  final bool isFeelingPrompt;
+
+  const _EntryDetailDialog({
+    required this.entryId,
+    required this.content,
+    required this.tag,
+    this.moduleTitle,
+    this.highlightedText,
+    this.createdAt,
+    this.prompt,
+    this.isFeelingPrompt = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF663399), Color(0xFF8855BB)],
                 ),
-                child: Row(
-                  children: [
-                    Text(
-                      _getTagIcon(tag),
-                      style: const TextStyle(fontSize: 24),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Text(
+                    'Journal Entry',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        tag,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isFeelingPrompt && prompt != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.pink.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.psychology, size: 16, color: Colors.pink.shade600),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                prompt!,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.pink.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (moduleTitle != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF663399).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.school, size: 16, color: Color(0xFF663399)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'From: $moduleTitle',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF663399),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (highlightedText != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.yellow.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.yellow.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.format_quote, size: 16, color: Colors.orange.shade600),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Highlighted Text:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.orange.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              highlightedText!,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontStyle: FontStyle.italic,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    const Text(
+                      'Your Notes:',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
+                    const SizedBox(height: 8),
+                    Text(
+                      content,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.6,
+                      ),
                     ),
+                    if (createdAt != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Created: ${DateFormat('MMMM d, yyyy at h:mm a').format(createdAt!)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              // Content
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (isFeelingPrompt && prompt != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.pink.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.psychology, size: 16, color: Colors.pink),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  prompt!,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.pink,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 2,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      if (moduleTitle != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.brandPurple.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.school, size: 16, color: AppTheme.brandPurple),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'From: $moduleTitle',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.brandPurple,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 2,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      if (highlightedText != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.yellow.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.yellow.withOpacity(0.4)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.format_quote, size: 16, color: Colors.orange),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Highlighted Text:',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.orange,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                highlightedText!,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontStyle: FontStyle.italic,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      const Text(
-                        'Your Notes:',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        content,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          height: 1.6,
-                        ),
-                      ),
-                      if (createdAt != null) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          'Created: ${DateFormat('MMMM d, yyyy at h:mm a').format(createdAt!)}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[700],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -606,7 +856,7 @@ class _FeelingPromptDialogState extends State<_FeelingPromptDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.7,
@@ -615,22 +865,24 @@ class _FeelingPromptDialogState extends State<_FeelingPromptDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: AppTheme.brandPurple,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
                 ),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.favorite, color: Colors.white),
                   const SizedBox(width: 12),
-                  Expanded(
+                  const Expanded(
                     child: Text(
                       'How are you feeling?',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -646,97 +898,87 @@ class _FeelingPromptDialogState extends State<_FeelingPromptDialog> {
             ),
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.pink.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.pink.withOpacity(0.3)),
+                        gradient: LinearGradient(
+                          colors: [Colors.red.shade50, Colors.pink.shade50],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.pink.shade100),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.psychology, size: 20, color: Colors.pink),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              widget.prompt,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.pink,
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        widget.prompt,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _responseController,
-                      decoration: InputDecoration(
-                        labelText: 'Share your thoughts...',
-                        hintText: 'Take a moment to reflect...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppTheme.brandPurple, width: 2),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Share your thoughts:',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: TextField(
+                        controller: _responseController,
+                        maxLines: 8,
+                        decoration: InputDecoration(
+                          hintText: 'Write your response here...',
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.all(16),
+                          hintStyle: TextStyle(color: Colors.grey[400]),
                         ),
                       ),
-                      maxLines: 8,
-                      minLines: 4,
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _saveFeelingEntry,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF663399),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: _isSaving
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Text(
+                                'Save Entry',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.grey[300]!),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.brandPurple,
-                        side: const BorderSide(color: AppTheme.brandPurple),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _isSaving ? null : _saveFeelingEntry,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.brandPurple,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: _isSaving
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Text('Save to Journal'),
-                    ),
-                  ),
-                ],
               ),
             ),
           ],

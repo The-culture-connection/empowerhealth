@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../app_router.dart';
 import '../cors/ui_theme.dart';
 import '../birthplan/birth_plans_list_screen.dart';
 import '../appointments/appointments_list_screen.dart';
 import '../services/database_service.dart';
 import '../services/firebase_functions_service.dart';
+import '../utils/pregnancy_utils.dart';
 import 'learning_todo_widget.dart';
 
 class HomeScreenV2 extends StatefulWidget {
@@ -20,6 +22,43 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
   final DatabaseService _databaseService = DatabaseService();
   final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  String? _userName;
+  dynamic _userProfile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final userId = _auth.currentUser?.uid;
+    if (userId != null) {
+      final profile = await _databaseService.getUserProfile(userId);
+      if (mounted) {
+        setState(() {
+          _userName = profile?.name;
+          _userProfile = profile;
+        });
+      }
+    }
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  String _getInitials(String? name) {
+    if (name == null || name.isEmpty) return 'U';
+    final parts = name.split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name[0].toUpperCase();
+  }
 
   Future<void> _showGenerateModulesDialog(BuildContext context) async {
     final userId = _auth.currentUser?.uid;
@@ -39,39 +78,15 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
       builder: (context) => _ModuleGenerationDialog(profile: profile),
     );
     
-    // Refresh the learning widget after generation
     if (mounted) {
       setState(() {});
-    }
-  }
-  String? _userName;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserName();
-  }
-
-  Future<void> _loadUserName() async {
-    final userId = _auth.currentUser?.uid;
-    if (userId != null) {
-      final profile = await _databaseService.getUserProfile(userId);
-      if (mounted) {
-        setState(() {
-          _userName = profile?.name;
-          // Debug: print to see what we're getting
-          if (_userName == null || _userName!.isEmpty) {
-            print('User name is null or empty. Profile: ${profile?.name}');
-          }
-        });
-      }
     }
   }
 
   void _showTodoModal(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.5), // Grey overlay
+      barrierColor: Colors.black.withOpacity(0.5),
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.all(16),
@@ -81,7 +96,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
           ),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.3),
@@ -93,14 +108,17 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.brandPurple,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
                   ),
                 ),
                 child: Row(
@@ -121,7 +139,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                   ],
                 ),
               ),
-              // Scrollable content
               Flexible(
                 child: SingleChildScrollView(
                   child: const LearningTodoWidget(),
@@ -136,119 +153,348 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
 
   @override
   Widget build(BuildContext context) {
+    final dueDate = _userProfile?.dueDate;
+    final weeksPregnant = PregnancyUtils.calculateWeeksPregnant(dueDate);
+    final trimester = PregnancyUtils.calculateTrimester(dueDate);
+    final progress = weeksPregnant > 0 ? (weeksPregnant / 40) : 0.0;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFE8E2F6), // #e8e2f6
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Welcome and User Name
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Welcome',
-                        style: TextStyle(
-                          fontFamily: 'Primary',
-                          fontSize: MediaQuery.of(context).size.width * 0.12,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.brandPurple,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with Avatar and Greeting
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF663399), Color(0xFFCBBEC9)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _getInitials(_userName),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _userName ?? 'User',
-                        style: TextStyle(
-                          fontFamily: 'Primary',
-                          fontSize: MediaQuery.of(context).size.width * 0.08,
-                          fontWeight: FontWeight.w400,
-                          color: AppTheme.brandPurple,
-                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_getGreeting()},',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          Text(
+                            _userName ?? 'User',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Search Bar
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              
-              // Square Buttons Section
-              Row(
-                children: [
-                  Expanded(
-                    child: _SquareButton(
-                      icon: Icons.calendar_today,
-                      label: 'Appointments',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AppointmentsListScreen(),
-                          ),
-                        );
-                      },
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Search topics, providers, or questions',
+                      prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SquareButton(
-                      icon: Icons.favorite,
-                      label: 'Birthplan',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const BirthPlansListScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _SquareButton(
-                      icon: Icons.book,
-                      label: 'Journal',
-                      onTap: () => Navigator.pushNamed(context, Routes.journal),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SquareButton(
-                      icon: Icons.checklist,
-                      label: 'Todo',
-                      onTap: () => _showTodoModal(context),
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Community Notifications Section
-              Text(
-                'Community Notifications',
-                style: TextStyle(
-                  fontFamily: 'Primary',
-                  fontSize: MediaQuery.of(context).size.width * 0.06,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.brandPurple,
                 ),
-              ),
-              const SizedBox(height: 12),
-              
-              Expanded(
-                child: _CommunityNotificationsList(),
-              ),
-            ],
+                const SizedBox(height: 24),
+
+                // Pregnancy Journey Card
+                if (dueDate != null && weeksPregnant > 0) ...[
+                  const Text(
+                    'Your Pregnancy Journey',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF663399).withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Week $weeksPregnant of 40',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '$trimester Trimester',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    "You're doing beautifully",
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(32),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  '🤰',
+                                  style: TextStyle(fontSize: 32),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: progress.clamp(0.0, 1.0),
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                            minHeight: 8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Today's Support Section
+                const Text(
+                  "Today's Support",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                // Appointment Reminder Card
+                _SupportCard(
+                  icon: Icons.calendar_today,
+                  iconColor: const Color(0xFF663399),
+                  iconBg: const Color(0xFF663399).withOpacity(0.1),
+                  title: 'Prenatal Appointment',
+                  subtitle: 'Tomorrow at 2:00 PM',
+                  description: 'Dr. Johnson • Valley Health Center',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AppointmentsListScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // Emotional Check-in Card
+                _SupportCard(
+                  icon: Icons.favorite,
+                  iconColor: Colors.red.shade500,
+                  iconBg: Colors.red.shade50,
+                  title: 'How are you feeling?',
+                  subtitle: 'Take a moment to check in with yourself',
+                  gradient: LinearGradient(
+                    colors: [Colors.red.shade50, Colors.pink.shade50],
+                  ),
+                  borderColor: Colors.pink.shade100,
+                  onTap: () => Navigator.pushNamed(context, Routes.journal),
+                ),
+                const SizedBox(height: 24),
+
+                // Learning Modules Section
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Learning Modules',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pushNamed(context, Routes.learning),
+                      child: const Text(
+                        'See all',
+                        style: TextStyle(
+                          color: Color(0xFF663399),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ModuleCard(
+                        icon: Icons.book_outlined,
+                        iconColor: Colors.blue.shade500,
+                        iconBg: Colors.blue.shade50,
+                        title: weeksPregnant > 0 ? 'Week $weeksPregnant Guide' : 'Week Guide',
+                        subtitle: "Your baby this week",
+                        onTap: () => _showTodoModal(context),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ModuleCard(
+                        icon: Icons.description_outlined,
+                        iconColor: const Color(0xFF663399),
+                        iconBg: const Color(0xFF663399).withOpacity(0.1),
+                        title: 'Know Your Rights',
+                        subtitle: 'Healthcare advocacy',
+                        onTap: () => Navigator.pushNamed(context, Routes.learning),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Quick Tools Section
+                const Text(
+                  'Quick Tools',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _QuickToolCard(
+                  icon: Icons.assignment,
+                  iconColor: const Color(0xFF663399),
+                  iconBg: const Color(0xFF663399).withOpacity(0.1),
+                  title: 'Birth Plan Builder',
+                  subtitle: 'Create your preferences',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const BirthPlansListScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                _QuickToolCard(
+                  icon: Icons.description,
+                  iconColor: Colors.green.shade600,
+                  iconBg: Colors.green.shade50,
+                  title: 'After Visit Summary',
+                  subtitle: 'Understand your visit',
+                  onTap: () {
+                    // Navigate to visit summary screen
+                  },
+                ),
+                const SizedBox(height: 12),
+                _QuickToolCard(
+                  icon: Icons.favorite,
+                  iconColor: Colors.amber.shade600,
+                  iconBg: Colors.amber.shade50,
+                  title: 'Journal Entry',
+                  subtitle: 'Reflect on today',
+                  onTap: () => Navigator.pushNamed(context, Routes.journal),
+                ),
+                const SizedBox(height: 80), // Space for bottom nav
+              ],
+            ),
           ),
         ),
       ),
@@ -256,16 +502,26 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
   }
 }
 
-class _ToolButton extends StatelessWidget {
+class _SupportCard extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final String description;
+  final Color iconColor;
+  final Color iconBg;
+  final String title;
+  final String subtitle;
+  final String? description;
+  final Gradient? gradient;
+  final Color? borderColor;
   final VoidCallback onTap;
 
-  const _ToolButton({
+  const _SupportCard({
     required this.icon,
-    required this.label,
-    required this.description,
+    required this.iconColor,
+    required this.iconBg,
+    required this.title,
+    required this.subtitle,
+    this.description,
+    this.gradient,
+    this.borderColor,
     required this.onTap,
   });
 
@@ -273,40 +529,71 @@ class _ToolButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(24),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(12),
+          gradient: gradient,
+          color: gradient == null ? Colors.white : null,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: borderColor ?? Colors.grey.shade100,
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            Icon(icon, color: Colors.white, size: 28),
-            const SizedBox(width: 12),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    label,
+                    title,
                     style: const TextStyle(
-                      color: Colors.white,
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
                     ),
                   ),
+                  const SizedBox(height: 4),
                   Text(
-                    description,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
                     ),
                   ),
+                  if (description != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      description!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
+            Icon(Icons.chevron_right, color: Colors.grey[400]),
           ],
         ),
       ),
@@ -314,19 +601,152 @@ class _ToolButton extends StatelessWidget {
   }
 }
 
-class _CardTitle extends StatelessWidget {
-  final String text;
-  const _CardTitle(this.text);
+class _ModuleCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ModuleCard({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontFamily: 'Primary',
-        color: AppTheme.brandGold,
-        fontSize: 30,
-        fontWeight: FontWeight.w600,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.grey.shade100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickToolCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _QuickToolCard({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.grey.shade100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey[400]),
+          ],
+        ),
       ),
     );
   }
@@ -354,10 +774,9 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
   }
 
   Future<void> _generateModules() async {
-    final trimester = _calculateTrimester(widget.profile.dueDate);
+    final trimester = PregnancyUtils.calculateTrimester(widget.profile.dueDate);
     final userId = widget.profile.userId;
 
-    // Prepare profile data
     final profileData = {
       'chronicConditions': widget.profile.chronicConditions ?? [],
       'healthLiteracyGoals': widget.profile.healthLiteracyGoals ?? [],
@@ -366,7 +785,6 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
       'educationLevel': widget.profile.educationLevel ?? '',
     };
 
-    // Define modules to generate
     final modules = [
       {'title': 'Your $trimester Trimester Guide', 'description': 'Essential information for your stage'},
       {'title': 'Nutrition & Wellness', 'description': 'What to eat and how to stay healthy'},
@@ -374,7 +792,6 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
       {'title': 'Preparing for Appointments', 'description': 'Making the most of your visits'},
     ];
 
-    // Add condition-specific module if needed
     if (widget.profile.chronicConditions != null && widget.profile.chronicConditions.isNotEmpty) {
       modules.add({
         'title': 'Managing ${widget.profile.chronicConditions.first}',
@@ -399,7 +816,6 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
           userProfile: profileData,
         );
 
-        // Save to learning tasks
         await FirebaseFirestore.instance.collection('learning_tasks').add({
           'userId': userId,
           'title': module['title'],
@@ -415,11 +831,9 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
           _progress = ((i + 1) / modules.length);
         });
 
-        // Small delay for better UX
         await Future.delayed(const Duration(milliseconds: 500));
       } catch (e) {
         print('Error generating module: $e');
-        // Continue with other modules even if one fails
       }
     }
 
@@ -435,23 +849,10 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
     }
   }
 
-  String _calculateTrimester(DateTime? dueDate) {
-    if (dueDate == null) return 'First';
-    
-    final now = DateTime.now();
-    final daysUntilDue = dueDate.difference(now).inDays;
-    final weeksPregnant = 40 - (daysUntilDue / 7).floor();
-    
-    if (weeksPregnant <= 0) return 'First';
-    if (weeksPregnant <= 13) return 'First';
-    if (weeksPregnant <= 27) return 'Second';
-    return 'Third';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -460,26 +861,27 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
             const Icon(
               Icons.auto_awesome,
               size: 48,
-              color: AppTheme.brandPurple,
+              color: Color(0xFF663399),
             ),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'Creating Your Learning Plan',
-              style: AppTheme.responsiveTitleStyle(
-                context,
-                baseSize: 20,
+              style: TextStyle(
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.brandPurple,
+                color: Color(0xFF663399),
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            LinearProgressIndicator(
-              value: _progress,
-              backgroundColor: Colors.grey[200],
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
-              minHeight: 8,
+            ClipRRect(
               borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: _progress,
+                backgroundColor: Colors.grey[200],
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF663399)),
+                minHeight: 8,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
@@ -498,141 +900,3 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
     );
   }
 }
-
-class _SquareButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _SquareButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: MediaQuery.of(context).size.width * 0.4,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 48,
-              color: AppTheme.brandPurple,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.brandPurple,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CommunityNotificationsList extends StatelessWidget {
-  final List<Map<String, String>> _mockNotifications = [
-    {
-      'title': 'New Community Event',
-      'message': 'Join us for a virtual support group meeting this Friday at 6 PM',
-      'time': '2 hours ago',
-    },
-    {
-      'title': 'Resource Update',
-      'message': 'New prenatal care resources are now available in your area',
-      'time': '1 day ago',
-    },
-    {
-      'title': 'Community Tip',
-      'message': 'Remember to stay hydrated and take breaks throughout the day',
-      'time': '2 days ago',
-    },
-    {
-      'title': 'Welcome Message',
-      'message': 'Welcome to the EmpowerHealth Watch community!',
-      'time': '3 days ago',
-    },
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: _mockNotifications.length,
-      itemBuilder: (context, index) {
-        final notification = _mockNotifications[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      notification['title']!,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.brandPurple,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    notification['time']!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                notification['message']!,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-

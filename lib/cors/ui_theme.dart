@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Brand palette from brand guidelines
+  // Brand palette from brand guidelines - Updated to match NewUI
   static const Color brandTurquoise = Color(0xFF23C0C2); // #23C0C2
-  static const Color brandPurple = Color(0xFF663398); // #663398
+  static const Color brandPurple = Color(0xFF663399); // #663399 (NewUI primary)
+  static const Color brandPurpleLight = Color(0xFF8855BB); // #8855BB (NewUI gradient end)
   static const Color brandBlack = Color(0xFF0C0A0A); // #0C0A0A
   static const Color brandGold = Color(0xFFDCB85E); // #DCB85E
   static const Color brandWhite = Color(0xFFF4F4F4); // #F4F4F4
+  static const Color backgroundGradientStart = Color(0xFFFFFFFF); // White
+  static const Color backgroundGradientEnd = Color(0xFFF8F6F8); // #f8f6f8 (NewUI background)
 
   // Backwards-compatible names used in code
   static const Color _primary = brandPurple;
@@ -100,7 +103,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: brandWhite,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), // rounded-3xl
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         type: BottomNavigationBarType.fixed,

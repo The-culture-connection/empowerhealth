@@ -625,7 +625,6 @@ class _EntryDetailDialog extends StatelessWidget {
                   topLeft: Radius.circular(24),
                   topRight: Radius.circular(24),
                 ),
-                ),
               ),
               child: Row(
                 children: [

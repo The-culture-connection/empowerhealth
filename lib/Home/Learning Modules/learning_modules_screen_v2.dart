@@ -272,7 +272,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                       Colors.green.shade600,
                       Colors.amber.shade600,
                       const Color(0xFF663399),
-                      Colors.rose.shade600,
+                      Colors.pink.shade600,
                       Colors.pink.shade600,
                     ];
                     final colorIndex = index % iconColors.length;
@@ -304,13 +304,9 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => LearningModuleDetailScreen(
-                                  module: LearningModule(
-                                    id: module['title']!,
-                                    title: module['title']!,
-                                    description: module['topic']!,
-                                    content: '',
-                                    trimester: module['trimester']!,
-                                  ),
+                                  title: module['title']!,
+                                  content: 'Content for ${module['topic']!}',
+                                  icon: module['icon']!,
                                 ),
                               ),
                             );

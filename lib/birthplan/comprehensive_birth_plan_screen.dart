@@ -1023,56 +1023,56 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-        ListTile(
-          title: const Text('Due Date'),
-          subtitle: Text(_dueDate != null ? DateFormat('MMMM d, yyyy').format(_dueDate!) : 'Tap to select'),
-          trailing: const Icon(Icons.calendar_today),
-          onTap: () async {
-            final date = await showDatePicker(
-              context: context,
-              initialDate: _dueDate ?? DateTime.now().add(const Duration(days: 180)),
-              firstDate: DateTime.now(),
-              lastDate: DateTime.now().add(const Duration(days: 365)),
-            );
-            if (date != null) setState(() => _dueDate = date);
-          },
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _supportPersonNameController,
-          decoration: const InputDecoration(labelText: 'Support Person(s) Name', prefixIcon: Icon(Icons.people)),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _supportPersonRelationshipController,
-          decoration: const InputDecoration(labelText: 'Relationship', prefixIcon: Icon(Icons.family_restroom)),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _contactInfoController,
-          decoration: const InputDecoration(labelText: 'Contact Info (for emergencies)', prefixIcon: Icon(Icons.phone)),
-        ),
-        const SizedBox(height: 16),
-        _buildListInput('Allergies', _allergyController, _allergies, (item) {
-          setState(() => _allergies.add(item));
-          _allergyController.clear();
-        }, (index) {
-          setState(() => _allergies.removeAt(index));
-        }),
-        const SizedBox(height: 16),
-        _buildListInput('Medical Conditions', _medicalConditionController, _medicalConditions, (item) {
-          setState(() => _medicalConditions.add(item));
-          _medicalConditionController.clear();
-        }, (index) {
-          setState(() => _medicalConditions.removeAt(index));
-        }),
-        const SizedBox(height: 16),
-        _buildListInput('Pregnancy Complications', _complicationController, _pregnancyComplications, (item) {
-          setState(() => _pregnancyComplications.add(item));
-          _complicationController.clear();
-        }, (index) {
-          setState(() => _pregnancyComplications.removeAt(index));
-        }),
+                ListTile(
+                  title: const Text('Due Date'),
+                  subtitle: Text(_dueDate != null ? DateFormat('MMMM d, yyyy').format(_dueDate!) : 'Tap to select'),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: _dueDate ?? DateTime.now().add(const Duration(days: 180)),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null) setState(() => _dueDate = date);
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _supportPersonNameController,
+                  decoration: const InputDecoration(labelText: 'Support Person(s) Name', prefixIcon: Icon(Icons.people)),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _supportPersonRelationshipController,
+                  decoration: const InputDecoration(labelText: 'Relationship', prefixIcon: Icon(Icons.family_restroom)),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _contactInfoController,
+                  decoration: const InputDecoration(labelText: 'Contact Info (for emergencies)', prefixIcon: Icon(Icons.phone)),
+                ),
+                const SizedBox(height: 16),
+                _buildListInput('Allergies', _allergyController, _allergies, (item) {
+                  setState(() => _allergies.add(item));
+                  _allergyController.clear();
+                }, (index) {
+                  setState(() => _allergies.removeAt(index));
+                }),
+                const SizedBox(height: 16),
+                _buildListInput('Medical Conditions', _medicalConditionController, _medicalConditions, (item) {
+                  setState(() => _medicalConditions.add(item));
+                  _medicalConditionController.clear();
+                }, (index) {
+                  setState(() => _medicalConditions.removeAt(index));
+                }),
+                const SizedBox(height: 16),
+                _buildListInput('Pregnancy Complications', _complicationController, _pregnancyComplications, (item) {
+                  setState(() => _pregnancyComplications.add(item));
+                  _complicationController.clear();
+                }, (index) {
+                  setState(() => _pregnancyComplications.removeAt(index));
+                }),
       ],
     );
   }
@@ -1110,24 +1110,24 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                   ['Calm/quiet', 'Music', 'Low light', 'Minimal staff interruptions'],
                   _environmentPreferences,
                 ),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Photography Allowed'),
-          value: _photographyAllowed ?? false,
-          onChanged: (v) => setState(() => _photographyAllowed = v),
-        ),
-        SwitchListTile(
-          title: const Text('Videography Allowed'),
-          value: _videographyAllowed ?? false,
-          onChanged: (v) => setState(() => _videographyAllowed = v),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Preferred Language'),
-          items: ['English', 'Spanish', 'Other'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _preferredLanguage = v),
-        ),
-        const SizedBox(height: 16),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Photography Allowed'),
+                  value: _photographyAllowed ?? false,
+                  onChanged: (v) => setState(() => _photographyAllowed = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Videography Allowed'),
+                  value: _videographyAllowed ?? false,
+                  onChanged: (v) => setState(() => _videographyAllowed = v),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Preferred Language'),
+                  items: ['English', 'Spanish', 'Other'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _preferredLanguage = v),
+                ),
+                const SizedBox(height: 16),
                 SwitchListTile(
                   title: const Text('Trauma-informed preferences'),
                   subtitle: const Text('Please tell me before touching/exams'),
@@ -1170,57 +1170,57 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-        _buildMultiSelectChips(
-          'Preferred Labor Positions',
-          ['Walking', 'Birthing ball', 'Tub', 'Bed', 'Squatting', 'Hands and knees', 'Side-lying'],
-          _preferredLaborPositions,
-        ),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Movement Freedom'),
-          subtitle: const Text('Do you want to move freely?'),
-          value: _movementFreedom,
-          onChanged: (v) => setState(() => _movementFreedom = v),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Monitoring Preference'),
-          items: ['Intermittent', 'Continuous', 'Wireless if available'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _monitoringPreference = v),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Pain Management Preference'),
-          items: ['Unmedicated', 'Epidural', 'Nitrous oxide', 'IV pain meds', 'Comfort measures only'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _painManagementPreference = v),
-        ),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Use of Doula'),
-          value: _useDoula,
-          onChanged: (v) => setState(() => _useDoula = v),
-        ),
-        SwitchListTile(
-          title: const Text('Water Labor Available'),
-          value: _waterLaborAvailable ?? false,
-          onChanged: (v) => setState(() => _waterLaborAvailable = v),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Membrane Sweeping Preference'),
-          items: ['Yes, if offered', 'No', 'Only if medically indicated'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _membraneSweepingPreference = v),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Induction Preference if Necessary'),
-          items: ['Natural methods first', 'Open to medical induction', 'Prefer to avoid'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _inductionPreference = v),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          decoration: const InputDecoration(labelText: 'Preferred Communication Style', hintText: 'e.g., "explain options first", "keep me calm"'),
-          onChanged: (v) => setState(() => _communicationStyle = v),
+                _buildMultiSelectChips(
+                  'Preferred Labor Positions',
+                  ['Walking', 'Birthing ball', 'Tub', 'Bed', 'Squatting', 'Hands and knees', 'Side-lying'],
+                  _preferredLaborPositions,
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Movement Freedom'),
+                  subtitle: const Text('Do you want to move freely?'),
+                  value: _movementFreedom,
+                  onChanged: (v) => setState(() => _movementFreedom = v),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Monitoring Preference'),
+                  items: ['Intermittent', 'Continuous', 'Wireless if available'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _monitoringPreference = v),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Pain Management Preference'),
+                  items: ['Unmedicated', 'Epidural', 'Nitrous oxide', 'IV pain meds', 'Comfort measures only'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _painManagementPreference = v),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Use of Doula'),
+                  value: _useDoula,
+                  onChanged: (v) => setState(() => _useDoula = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Water Labor Available'),
+                  value: _waterLaborAvailable ?? false,
+                  onChanged: (v) => setState(() => _waterLaborAvailable = v),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Membrane Sweeping Preference'),
+                  items: ['Yes, if offered', 'No', 'Only if medically indicated'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _membraneSweepingPreference = v),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Induction Preference if Necessary'),
+                  items: ['Natural methods first', 'Open to medical induction', 'Prefer to avoid'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _inductionPreference = v),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Preferred Communication Style', hintText: 'e.g., "explain options first", "keep me calm"'),
+                  onChanged: (v) => setState(() => _communicationStyle = v),
                 ),
               ],
             ),
@@ -1258,43 +1258,43 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-        _buildMultiSelectChips(
-          'Preferred Pushing Positions',
-          ['Hands and knees', 'Side-lying', 'Squatting', 'Semi-reclined', 'Whatever feels right'],
-          _preferredPushingPositions,
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Pushing Style'),
-          items: ['Guided', 'Spontaneous', 'Either'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _pushingStyle = v),
-        ),
-        SwitchListTile(
-          title: const Text('Mirror during pushing?'),
-          value: _mirrorDuringPushing ?? false,
-          onChanged: (v) => setState(() => _mirrorDuringPushing = v),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Episiotomy Preference'),
-          items: ['Avoid unless absolutely necessary', 'Open to if needed', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _episiotomyPreference = v),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          decoration: const InputDecoration(labelText: 'Tearing Preference', hintText: 'e.g., warm compresses, perineal support'),
-          onChanged: (v) => setState(() => _tearingPreference = v),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Who Catches the Baby'),
-          items: ['Partner', 'Doctor', 'Midwife', 'Myself'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _whoCatchesBaby = v),
-        ),
-        SwitchListTile(
-          title: const Text('Preference for delayed pushing if epidural present'),
-          value: _delayedPushingWithEpidural ?? false,
-          onChanged: (v) => setState(() => _delayedPushingWithEpidural = v),
+                _buildMultiSelectChips(
+                  'Preferred Pushing Positions',
+                  ['Hands and knees', 'Side-lying', 'Squatting', 'Semi-reclined', 'Whatever feels right'],
+                  _preferredPushingPositions,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Pushing Style'),
+                  items: ['Guided', 'Spontaneous', 'Either'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _pushingStyle = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Mirror during pushing?'),
+                  value: _mirrorDuringPushing ?? false,
+                  onChanged: (v) => setState(() => _mirrorDuringPushing = v),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Episiotomy Preference'),
+                  items: ['Avoid unless absolutely necessary', 'Open to if needed', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _episiotomyPreference = v),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Tearing Preference', hintText: 'e.g., warm compresses, perineal support'),
+                  onChanged: (v) => setState(() => _tearingPreference = v),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Who Catches the Baby'),
+                  items: ['Partner', 'Doctor', 'Midwife', 'Myself'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _whoCatchesBaby = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Preference for delayed pushing if epidural present'),
+                  value: _delayedPushingWithEpidural ?? false,
+                  onChanged: (v) => setState(() => _delayedPushingWithEpidural = v),
                 ),
               ],
             ),
@@ -1332,59 +1332,63 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Delayed Cord Clamping Preference'),
-          items: ['1-3 minutes', '3-5 minutes', 'Until cord stops pulsing', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _delayedCordClampingPreference = v),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Who Cuts the Cord'),
-          items: ['Partner', 'Myself', 'Doctor', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _whoCutsCord = v),
-        ),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Immediate Skin-to-Skin'),
-          value: _immediateSkinToSkin,
-          onChanged: (v) => setState(() => _immediateSkinToSkin = v),
-        ),
-        SwitchListTile(
-          title: const Text('Baby Stays with Parent for Assessments'),
-          subtitle: const Text('vs. moved to warmer'),
-          value: _babyStaysWithParent,
-          onChanged: (v) => setState(() => _babyStaysWithParent = v),
-        ),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Vitamin K Shot'),
-          value: _vitaminK ?? true,
-          onChanged: (v) => setState(() => _vitaminK = v),
-        ),
-        SwitchListTile(
-          title: const Text('Erythromycin Eye Ointment'),
-          value: _eyeOintment ?? true,
-          onChanged: (v) => setState(() => _eyeOintment = v),
-        ),
-        SwitchListTile(
-          title: const Text('Hepatitis B Vaccine'),
-          value: _hepBVaccine ?? true,
-          onChanged: (v) => setState(() => _hepBVaccine = v),
-        ),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Cord Blood Banking'),
-          value: _cordBloodBanking ?? false,
-          onChanged: (v) => setState(() => _cordBloodBanking = v),
-        ),
-        if (_cordBloodBanking == true) ...[
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _cordBloodCompanyController,
-            decoration: const InputDecoration(labelText: 'Cord Blood Company'),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Delayed Cord Clamping Preference'),
+                  items: ['1-3 minutes', '3-5 minutes', 'Until cord stops pulsing', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _delayedCordClampingPreference = v),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Who Cuts the Cord'),
+                  items: ['Partner', 'Myself', 'Doctor', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _whoCutsCord = v),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Immediate Skin-to-Skin'),
+                  value: _immediateSkinToSkin,
+                  onChanged: (v) => setState(() => _immediateSkinToSkin = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Baby Stays with Parent for Assessments'),
+                  subtitle: const Text('vs. moved to warmer'),
+                  value: _babyStaysWithParent,
+                  onChanged: (v) => setState(() => _babyStaysWithParent = v),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Vitamin K Shot'),
+                  value: _vitaminK ?? true,
+                  onChanged: (v) => setState(() => _vitaminK = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Erythromycin Eye Ointment'),
+                  value: _eyeOintment ?? true,
+                  onChanged: (v) => setState(() => _eyeOintment = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Hepatitis B Vaccine'),
+                  value: _hepBVaccine ?? true,
+                  onChanged: (v) => setState(() => _hepBVaccine = v),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Cord Blood Banking'),
+                  value: _cordBloodBanking ?? false,
+                  onChanged: (v) => setState(() => _cordBloodBanking = v),
+                ),
+                if (_cordBloodBanking == true) ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _cordBloodCompanyController,
+                    decoration: const InputDecoration(labelText: 'Cord Blood Company'),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
-      ],
+      ),
     );
   }
 
@@ -1416,28 +1420,32 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Feeding Preference'),
-          items: ['Breastfeeding', 'Formula feeding', 'Combo feeding'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _feedingPreference = v),
-        ),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Lactation Consultant Requested'),
-          value: _lactationConsultantRequested,
-          onChanged: (v) => setState(() => _lactationConsultantRequested = v),
-        ),
-        SwitchListTile(
-          title: const Text('No Pacifier Until Breastfeeding Established'),
-          value: _noPacifierUntilBreastfeeding ?? false,
-          onChanged: (v) => setState(() => _noPacifierUntilBreastfeeding = v),
-        ),
-        SwitchListTile(
-          title: const Text('Consent for Donor Milk if Needed'),
-          value: _consentForDonorMilk ?? false,
-          onChanged: (v) => setState(() => _consentForDonorMilk = v),
-        ),
-      ],
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Feeding Preference'),
+                  items: ['Breastfeeding', 'Formula feeding', 'Combo feeding'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _feedingPreference = v),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Lactation Consultant Requested'),
+                  value: _lactationConsultantRequested,
+                  onChanged: (v) => setState(() => _lactationConsultantRequested = v),
+                ),
+                SwitchListTile(
+                  title: const Text('No Pacifier Until Breastfeeding Established'),
+                  value: _noPacifierUntilBreastfeeding ?? false,
+                  onChanged: (v) => setState(() => _noPacifierUntilBreastfeeding = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Consent for Donor Milk if Needed'),
+                  value: _consentForDonorMilk ?? false,
+                  onChanged: (v) => setState(() => _consentForDonorMilk = v),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1469,33 +1477,37 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-        SwitchListTile(
-          title: const Text('Rooming-In Preference'),
-          subtitle: const Text('Baby stays in room vs nursery use'),
-          value: _roomingIn ?? true,
-          onChanged: (v) => setState(() => _roomingIn = v),
-        ),
-        SwitchListTile(
-          title: const Text('Mental Health Support Needs'),
-          value: _mentalHealthSupport ?? false,
-          onChanged: (v) => setState(() => _mentalHealthSupport = v),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _visitorPreferenceController,
-          decoration: const InputDecoration(labelText: 'Visitors Allowed? Times?', hintText: 'e.g., partner only for first 24 hours'),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _dietaryPreferencesController,
-          decoration: const InputDecoration(labelText: 'Dietary Preferences', hintText: 'e.g., vegetarian, etc.'),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _postpartumPainManagementController,
-          decoration: const InputDecoration(labelText: 'Pain Management Preferences Postpartum', hintText: 'e.g., ibuprofen first, then stronger meds if needed'),
-        ),
-      ],
+                SwitchListTile(
+                  title: const Text('Rooming-In Preference'),
+                  subtitle: const Text('Baby stays in room vs nursery use'),
+                  value: _roomingIn ?? true,
+                  onChanged: (v) => setState(() => _roomingIn = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Mental Health Support Needs'),
+                  value: _mentalHealthSupport ?? false,
+                  onChanged: (v) => setState(() => _mentalHealthSupport = v),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _visitorPreferenceController,
+                  decoration: const InputDecoration(labelText: 'Visitors Allowed? Times?', hintText: 'e.g., partner only for first 24 hours'),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _dietaryPreferencesController,
+                  decoration: const InputDecoration(labelText: 'Dietary Preferences', hintText: 'e.g., vegetarian, etc.'),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _postpartumPainManagementController,
+                  decoration: const InputDecoration(labelText: 'Pain Management Preferences Postpartum', hintText: 'e.g., ibuprofen first, then stronger meds if needed'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1535,46 +1547,50 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Drape Preference'),
-          items: ['Clear drape', 'Standard drape', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _drapePreference = v),
-        ),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Partner Presence in OR'),
-          value: _partnerInOR ?? true,
-          onChanged: (v) => setState(() => _partnerInOR = v),
-        ),
-        SwitchListTile(
-          title: const Text('Photos Allowed?'),
-          value: _photosAllowedInOR ?? true,
-          onChanged: (v) => setState(() => _photosAllowedInOR = v),
-        ),
-        SwitchListTile(
-          title: const Text('Baby Placed on Chest Immediately'),
-          subtitle: const Text('Gentle cesarean'),
-          value: _babyOnChestImmediately ?? true,
-          onChanged: (v) => setState(() => _babyOnChestImmediately = v),
-        ),
-        SwitchListTile(
-          title: const Text('Delay Routine Newborn Care Until Parent Holding Baby'),
-          value: _delayNewbornCareUntilHolding ?? false,
-          onChanged: (v) => setState(() => _delayNewbornCareUntilHolding = v),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Preferred Anesthesia Type'),
-          items: ['Spinal', 'Epidural', 'General (if emergency)', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _anesthesiaPreference = v),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Surgical Closure Preference'),
-          items: ['Staples', 'Sutures', 'Dissolvable', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _surgicalClosurePreference = v),
-        ),
-      ],
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Drape Preference'),
+                  items: ['Clear drape', 'Standard drape', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _drapePreference = v),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Partner Presence in OR'),
+                  value: _partnerInOR ?? true,
+                  onChanged: (v) => setState(() => _partnerInOR = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Photos Allowed?'),
+                  value: _photosAllowedInOR ?? true,
+                  onChanged: (v) => setState(() => _photosAllowedInOR = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Baby Placed on Chest Immediately'),
+                  subtitle: const Text('Gentle cesarean'),
+                  value: _babyOnChestImmediately ?? true,
+                  onChanged: (v) => setState(() => _babyOnChestImmediately = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Delay Routine Newborn Care Until Parent Holding Baby'),
+                  value: _delayNewbornCareUntilHolding ?? false,
+                  onChanged: (v) => setState(() => _delayNewbornCareUntilHolding = v),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Preferred Anesthesia Type'),
+                  items: ['Spinal', 'Epidural', 'General (if emergency)', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _anesthesiaPreference = v),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Surgical Closure Preference'),
+                  items: ['Staples', 'Sutures', 'Dissolvable', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _surgicalClosurePreference = v),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1643,19 +1659,23 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           onChanged: (v) => setState(() => _consentBasedCare = v),
         ),
         const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Preferred Ways to Receive Bad News'),
-          items: ['Private conversation', 'With partner present', 'Written first, then discussion', 'Direct and clear'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _preferredBadNewsDelivery = v),
-        ),
-        const SizedBox(height: 16),
-        _buildListInput('Things That Reduce Fear/Panic', _fearReductionController, _fearReductionRequests, (item) {
-          setState(() => _fearReductionRequests.add(item));
-          _fearReductionController.clear();
-        }, (index) {
-          setState(() => _fearReductionRequests.removeAt(index));
-        }),
-      ],
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Preferred Ways to Receive Bad News'),
+                  items: ['Private conversation', 'With partner present', 'Written first, then discussion', 'Direct and clear'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _preferredBadNewsDelivery = v),
+                ),
+                const SizedBox(height: 16),
+                _buildListInput('Things That Reduce Fear/Panic', _fearReductionController, _fearReductionRequests, (item) {
+                  setState(() => _fearReductionRequests.add(item));
+                  _fearReductionController.clear();
+                }, (index) {
+                  setState(() => _fearReductionRequests.removeAt(index));
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

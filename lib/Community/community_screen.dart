@@ -225,7 +225,7 @@ class CommunityScreen extends StatelessWidget {
                             ),
                             child: Center(
                               child: Text(
-                                discussion['author']!.substring(0, 1),
+                                (discussion['author'] as String).substring(0, 1),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -247,7 +247,7 @@ class CommunityScreen extends StatelessWidget {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        discussion['category']!,
+                                        discussion['category'] as String,
                                         style: TextStyle(
                                           fontSize: 10,
                                           color: Colors.grey[700],
@@ -282,7 +282,7 @@ class CommunityScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  discussion['title']!,
+                                  discussion['title'] as String,
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -293,7 +293,7 @@ class CommunityScreen extends StatelessWidget {
                                 Row(
                                   children: [
                                     Text(
-                                      discussion['author']!,
+                                      discussion['author'] as String,
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey[600],
@@ -317,7 +317,7 @@ class CommunityScreen extends StatelessWidget {
                                       style: TextStyle(color: Colors.grey[400]),
                                     ),
                                     Text(
-                                      discussion['time']!,
+                                      discussion['time'] as String,
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey[500],

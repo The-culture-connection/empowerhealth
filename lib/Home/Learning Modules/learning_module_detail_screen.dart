@@ -90,9 +90,9 @@ class LearningModuleDetailScreen extends StatelessWidget {
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   // Selectable text for highlighting
                   Container(
                     padding: const EdgeInsets.all(20),
@@ -183,13 +183,15 @@ class LearningModuleDetailScreen extends StatelessWidget {
                   const Divider(),
                   const SizedBox(height: 16),
                   
-                  // Review Section
-                  _ModuleReviewSection(moduleTitle: title),
-                  const SizedBox(height: 24),
-                ],
+                      // Review Section
+                      _ModuleReviewSection(moduleTitle: title),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

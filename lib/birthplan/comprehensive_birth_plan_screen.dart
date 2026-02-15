@@ -796,33 +796,96 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Create Birth Plan'),
-          backgroundColor: AppTheme.brandPurple,
-          foregroundColor: Colors.white,
-        ),
-        body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Birth Plan Creator',
-                style: AppTheme.responsiveTitleStyle(
-                  context,
-                  baseSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.brandPurple,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Create a comprehensive birth plan that shares your wishes with your healthcare team',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-              const SizedBox(height: 24),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
+            ),
+          ),
+          child: SafeArea(
+            child: Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Birth Plan Builder',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Share your preferences with your care team',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Intro Card
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF663399).withOpacity(0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Your Voice Matters',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'This plan helps you communicate your wishes. Remember: plans can change, and that\'s okay. This is about starting a conversation with your care team.',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
               
               // Section 1: Parent Information
               _buildSection1(),
@@ -864,43 +927,97 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
               _buildSection10(),
               const SizedBox(height: 32),
               
-              // Generate Button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _generateBirthPlan,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    // Generate Button
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              // TODO: Download PDF
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('PDF download coming soon!')),
+                              );
+                            },
+                            icon: const Icon(Icons.download),
+                            label: const Text('Download PDF'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF663399),
+                              side: const BorderSide(color: Color(0xFF663399)),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
                         ),
-                      )
-                    : const Text(
-                        'Generate Birth Plan',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _isLoading ? null : _generateBirthPlan,
+                            icon: const Icon(Icons.share),
+                            label: const Text('Save Plan'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF663399),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
 
   Widget _buildSection1() {
-    return ExpansionTile(
-      title: const Text('Section 1: Parent Information', style: TextStyle(fontWeight: FontWeight.bold)),
-      initiallyExpanded: true,
-      children: [
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.people, color: const Color(0xFF663399), size: 20),
+            const SizedBox(width: 8),
+            const Text('My Support Team', style: TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        initiallyExpanded: true,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
         ListTile(
           title: const Text('Due Date'),
           subtitle: Text(_dueDate != null ? DateFormat('MMMM d, yyyy').format(_dueDate!) : 'Tap to select'),
@@ -956,9 +1073,33 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   }
 
   Widget _buildSection2() {
-    return ExpansionTile(
-      title: const Text('Section 2: Labor & Delivery Environment', style: TextStyle(fontWeight: FontWeight.bold)),
-      children: [
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.home, color: const Color(0xFF663399), size: 20),
+            const SizedBox(width: 8),
+            const Text('My Birth Environment', style: TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
         _buildMultiSelectChips(
           'Preferred Environment',
           ['Calm/quiet', 'Music', 'Low light', 'Minimal staff interruptions'],

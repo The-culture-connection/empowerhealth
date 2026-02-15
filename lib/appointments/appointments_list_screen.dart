@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
 import 'upload_visit_summary_screen.dart';
 
@@ -13,66 +14,46 @@ class AppointmentsListScreen extends StatelessWidget {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Appointment Visits'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const UploadVisitSummaryScreen(),
-                ),
-              );
-            },
-            tooltip: 'Add Visit Summary',
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
           ),
-        ],
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .collection('visit_summaries')
-            .orderBy('appointmentDate', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(
-                      Icons.medical_information_outlined,
-                      size: 80,
-                      color: Colors.grey,
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'After Visit Summary',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Your visit explained in simple terms',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No Visit Summaries Yet',
-                      style: AppTheme.responsiveTitleStyle(
-                        context,
-                        baseSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Upload your first appointment summary to get started',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -81,106 +62,192 @@ class AppointmentsListScreen extends StatelessWidget {
                           ),
                         );
                       },
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add Visit Summary'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.brandPurple,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
+                      tooltip: 'Add Visit Summary',
                     ),
                   ],
                 ),
               ),
-            );
-          }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: snapshot.data!.docs.length,
-            itemBuilder: (context, index) {
-              final doc = snapshot.data!.docs[index];
-              final data = doc.data() as Map<String, dynamic>;
-              final appointmentDate = data['appointmentDate'];
-              // Handle summary as either String or Map
-              final summaryData = data['summary'];
-              final summary = summaryData is String ? summaryData : (summaryData is Map ? summaryData.toString() : null);
+              // Content
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(userId)
+                      .collection('visit_summaries')
+                      .orderBy('appointmentDate', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () {
-                    _showSummaryDialog(context, data);
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppTheme.brandPurple.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.medical_information,
-                                color: AppTheme.brandPurple,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Visit on ${_formatDate(appointmentDate)}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF663399), Color(0xFF8855BB)],
                                   ),
-                                  const SizedBox(height: 4),
+                                  borderRadius: BorderRadius.circular(40),
+                                ),
+                                child: const Icon(
+                                  Icons.medical_information_outlined,
+                                  size: 40,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              const Text(
+                                'No Visit Summaries Yet',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Upload your first appointment summary to get started',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const UploadVisitSummaryScreen(),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.add),
+                                label: const Text('Add Visit Summary'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF663399),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: snapshot.data!.docs.length,
+                      itemBuilder: (context, index) {
+                        final doc = snapshot.data!.docs[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final appointmentDate = data['appointmentDate'];
+                        final summaryData = data['summary'];
+                        final summary = summaryData is String ? summaryData : (summaryData is Map ? summaryData.toString() : null);
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: Colors.grey.shade100),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(24),
+                            onTap: () {
+                              _showSummaryDialog(context, data);
+                            },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade50,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Icon(
+                                        Icons.medical_information,
+                                        color: Colors.blue.shade500,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Visit on ${_formatDate(appointmentDate)}',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            data['readingLevel'] ?? '6th grade level',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[500],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(Icons.chevron_right, color: Colors.grey[400]),
+                                  ],
+                                ),
+                                if (summary != null) ...[
+                                  const SizedBox(height: 12),
                                   Text(
-                                    data['readingLevel'] ?? '6th grade level',
+                                    _extractPreviewText(summary),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
+                                      fontSize: 14,
+                                      color: Colors.grey[700],
                                     ),
                                   ),
                                 ],
-                              ),
+                              ],
                             ),
-                            const Icon(Icons.arrow_forward_ios, size: 16),
-                          ],
-                        ),
-                        if (summary != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            _extractPreviewText(summary),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.black87),
                           ),
-                        ],
-                      ],
-                    ),
-                  ),
+                        );
+                      },
+                    );
+                  },
                 ),
-              );
-            },
-          );
-        },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -189,22 +256,19 @@ class AppointmentsListScreen extends StatelessWidget {
     if (date == null) return 'Unknown date';
     if (date is Timestamp) {
       final dt = date.toDate();
-      // Use local date to avoid timezone issues
-      return '${dt.month}/${dt.day}/${dt.year}';
+      return DateFormat('MMMM d, yyyy').format(dt);
     }
     if (date is String) {
       try {
         final dt = DateTime.parse(date);
-        // If it's an ISO string with time, extract just the date part
-        // to avoid timezone conversion issues
         if (date.contains('T')) {
           final dateOnly = date.split('T')[0];
           final parts = dateOnly.split('-');
           if (parts.length == 3) {
-            return '${int.parse(parts[1])}/${int.parse(parts[2])}/${parts[0]}';
+            return DateFormat('MMMM d, yyyy').format(DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2])));
           }
         }
-        return '${dt.month}/${dt.day}/${dt.year}';
+        return DateFormat('MMMM d, yyyy').format(dt);
       } catch (e) {
         return date;
       }
@@ -213,7 +277,6 @@ class AppointmentsListScreen extends StatelessWidget {
   }
 
   String _formatSummaryFromMap(Map<String, dynamic> summaryMap) {
-    // Convert summary map to markdown string format
     final buffer = StringBuffer();
     
     if (summaryMap['howBabyIsDoing'] != null) {
@@ -265,7 +328,6 @@ class AppointmentsListScreen extends StatelessWidget {
   String _extractActionsToTake(String? summary) {
     if (summary == null) return 'No actions available';
     
-    // Extract the "Actions To Take" section from markdown
     final actionsMatch = RegExp(r'## Actions To Take\n(.*?)(?=\n## |$)', dotAll: true)
         .firstMatch(summary);
     
@@ -273,7 +335,6 @@ class AppointmentsListScreen extends StatelessWidget {
       return actionsMatch.group(1)?.trim() ?? 'No actions available';
     }
     
-    // Fallback: return first paragraph or section
     final lines = summary.split('\n');
     final firstSection = lines.takeWhile((line) => 
       !line.startsWith('##') || line.startsWith('## Actions To Take')
@@ -290,12 +351,10 @@ class AppointmentsListScreen extends StatelessWidget {
   String _extractPreviewText(String? summary) {
     if (summary == null) return '';
     
-    // Try to extract "How Your Baby Is Doing" section (shown on card in image)
     final babyMatch = RegExp(r'## How Your Baby Is Doing\n(.*?)(?=\n## |$)', dotAll: true)
         .firstMatch(summary);
     if (babyMatch != null) {
       final content = babyMatch.group(1)?.trim() ?? '';
-      // Return first sentence or first 100 characters
       final firstSentence = content.split('.').first;
       if (firstSentence.length > 0 && firstSentence.length < 100) {
         return firstSentence + '.';
@@ -303,7 +362,6 @@ class AppointmentsListScreen extends StatelessWidget {
       return content.length > 100 ? content.substring(0, 100) + '...' : content;
     }
     
-    // Fallback: get first non-header line
     final lines = summary.split('\n');
     for (final line in lines) {
       if (line.trim().isNotEmpty && !line.startsWith('#')) {
@@ -315,7 +373,6 @@ class AppointmentsListScreen extends StatelessWidget {
   }
 
   void _showSummaryDialog(BuildContext context, Map<String, dynamic> data) {
-    // Handle summary as either String or Map
     final summaryData = data['summary'];
     final summaryString = summaryData is String 
         ? summaryData 
@@ -328,7 +385,7 @@ class AppointmentsListScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.8,
@@ -336,14 +393,15 @@ class AppointmentsListScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
               Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: AppTheme.brandPurple,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
                   ),
                 ),
                 child: Row(
@@ -367,21 +425,19 @@ class AppointmentsListScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              // Content
               Flexible(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Actions To Take Section
                       if (summaryString != null) ...[
                         const Text(
                           'Actions To Take',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.brandPurple,
+                            color: Color(0xFF663399),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -394,7 +450,6 @@ class AppointmentsListScreen extends StatelessWidget {
                         const SizedBox(height: 24),
                       ],
                       
-                      // Suggested Learning Topics Section
                       if (data['learningModules'] != null && 
                           (data['learningModules'] as List).isNotEmpty) ...[
                         const Text(
@@ -402,7 +457,7 @@ class AppointmentsListScreen extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.brandPurple,
+                            color: Color(0xFF663399),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -413,7 +468,6 @@ class AppointmentsListScreen extends StatelessWidget {
                           final reason = module['reason'] ?? module['description'] ?? 'This is important based on your visit.';
                           final hasContent = module['content'] != null;
                           
-                          // Show progress indicator if module content is still being generated
                           if (!hasContent) {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
@@ -424,7 +478,7 @@ class AppointmentsListScreen extends StatelessWidget {
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF663399)),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -454,13 +508,12 @@ class AppointmentsListScreen extends StatelessWidget {
                         })),
                       ] else if (data['summary'] != null && 
                           (data['learningModules'] == null || (data['learningModules'] as List).isEmpty)) ...[
-                        // Show loading indicator if summary exists but modules are still being generated
                         const Text(
                           'Suggested Learning Topics',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.brandPurple,
+                            color: Color(0xFF663399),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -471,7 +524,7 @@ class AppointmentsListScreen extends StatelessWidget {
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF663399)),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -489,7 +542,6 @@ class AppointmentsListScreen extends StatelessWidget {
                         ),
                       ],
                       
-                      // Full Summary (if Actions To Take section not found)
                       if (summaryString != null && 
                           !_hasActionsToTake(summaryString)) ...[
                         const SizedBox(height: 16),
@@ -499,7 +551,7 @@ class AppointmentsListScreen extends StatelessWidget {
                             h2: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.brandPurple,
+                              color: Color(0xFF663399),
                             ),
                             h3: const TextStyle(
                               fontSize: 16,
@@ -508,7 +560,7 @@ class AppointmentsListScreen extends StatelessWidget {
                             p: const TextStyle(fontSize: 15, height: 1.6),
                             listBullet: const TextStyle(
                               fontSize: 15,
-                              color: AppTheme.brandPurple,
+                              color: Color(0xFF663399),
                             ),
                           ),
                         ),
@@ -524,4 +576,3 @@ class AppointmentsListScreen extends StatelessWidget {
     );
   }
 }
-

@@ -20,124 +20,175 @@ class LearningModuleDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Text(icon),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(fontSize: 18),
-              ),
-            ),
-          ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
+          ),
         ),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.note_add),
-            tooltip: 'Add Note',
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => NotesDialog(
-                  moduleTitle: title,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Learning Module',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.note_add),
+                      tooltip: 'Add Note',
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => NotesDialog(
+                            moduleTitle: title,
+                          ),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.share),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: content));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Copied to clipboard!')),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: content));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Copied to clipboard!')),
-              );
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Selectable text for highlighting (removed duplicate display)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                  // Selectable text for highlighting
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.grey.shade100),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.auto_awesome, size: 18, color: const Color(0xFF663399)),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Long-press text to highlight and add a note',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF663399),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _MarkdownStyleText(content: content, moduleTitle: title),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Action buttons
                   Row(
                     children: [
-                      Icon(Icons.highlight, size: 18, color: AppTheme.brandPurple),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Long-press text below to highlight and add a note',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.brandPurple,
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Saved to favorites!')),
+                            );
+                          },
+                          icon: const Icon(Icons.bookmark_outline),
+                          label: const Text('Save'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF663399),
+                            side: const BorderSide(color: Color(0xFF663399)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: content));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Copied to clipboard!')),
+                            );
+                          },
+                          icon: const Icon(Icons.copy),
+                          label: const Text('Copy'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF663399),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  _MarkdownStyleText(content: content, moduleTitle: title),
+                  
+                  const SizedBox(height: 32),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  
+                  // Review Section
+                  _ModuleReviewSection(moduleTitle: title),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
-            
-            const SizedBox(height: 32),
-            
-            // Action buttons
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      // TODO: Save to favorites
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Saved to favorites!')),
-                      );
-                    },
-                    icon: const Icon(Icons.bookmark_outline),
-                    label: const Text('Save'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: content));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Copied to clipboard!')),
-                      );
-                    },
-                    icon: const Icon(Icons.copy),
-                    label: const Text('Copy'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.brandPurple,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 16),
-            
-            // Review Section
-            _ModuleReviewSection(moduleTitle: title),
           ],
         ),
       ),

@@ -349,36 +349,6 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
 
               // Generated Learning Modules List
               Expanded(
-<<<<<<< HEAD
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: _bankedModules.where((m) => 
-                    _selectedTrimester == 'general' || m['trimester'] == _selectedTrimester
-                  ).length,
-                  itemBuilder: (context, index) {
-                    final filteredModules = _bankedModules.where((m) => 
-                      _selectedTrimester == 'general' || m['trimester'] == _selectedTrimester
-                    ).toList();
-                    final module = filteredModules[index];
-                    
-                    final iconColors = [
-                      Colors.blue.shade50,
-                      Colors.green.shade50,
-                      Colors.amber.shade50,
-                      Colors.purple.shade50,
-                      Colors.red.shade50,
-                      Colors.pink.shade50,
-                    ];
-                    final iconColorValues = [
-                      Colors.blue.shade500,
-                      Colors.green.shade600,
-                      Colors.amber.shade600,
-                      const Color(0xFF663399),
-                      Colors.pink.shade600,
-                      Colors.pink.shade600,
-                    ];
-                    final colorIndex = index % iconColors.length;
-=======
                 child: StreamBuilder<QuerySnapshot>(
                   stream: userId != null
                       ? FirebaseFirestore.instance
@@ -392,7 +362,6 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
->>>>>>> da20be50d161b236c5960b08988daaadcad8b2a2
 
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return Center(

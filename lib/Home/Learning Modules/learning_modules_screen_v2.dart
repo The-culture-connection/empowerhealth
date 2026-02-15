@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/learning_module.dart';
 import '../../services/ai_service.dart';
 import '../../cors/ui_theme.dart';
@@ -15,7 +16,8 @@ class LearningModulesScreenV2 extends StatefulWidget {
 
 class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
   final AIService _aiService = AIService();
-  String _selectedTrimester = 'first';
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  String _selectedTrimester = 'general';
   bool _isGenerating = false;
 
   final List<Map<String, String>> _bankedModules = [
@@ -69,8 +71,52 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
     },
   ];
 
+  // Helper to get icon for module
+  IconData _getModuleIcon(String title) {
+    final lowerTitle = title.toLowerCase();
+    if (lowerTitle.contains('right') || lowerTitle.contains('advocacy')) return Icons.scale;
+    if (lowerTitle.contains('nutrition') || lowerTitle.contains('food') || lowerTitle.contains('eat')) return Icons.restaurant;
+    if (lowerTitle.contains('medication') || lowerTitle.contains('medicine')) return Icons.medication;
+    if (lowerTitle.contains('mental') || lowerTitle.contains('emotional') || lowerTitle.contains('wellbeing')) return Icons.favorite;
+    if (lowerTitle.contains('birth') || lowerTitle.contains('labor') || lowerTitle.contains('delivery')) return Icons.child_care;
+    if (lowerTitle.contains('risk') || lowerTitle.contains('prenatal')) return Icons.shield;
+    return Icons.book_outlined;
+  }
+
+  // Helper to get color for module
+  Map<String, Color> _getModuleColors(String title) {
+    final lowerTitle = title.toLowerCase();
+    if (lowerTitle.contains('right') || lowerTitle.contains('advocacy')) {
+      return {'bg': Colors.red.shade50, 'icon': Colors.red.shade600};
+    }
+    if (lowerTitle.contains('nutrition') || lowerTitle.contains('food')) {
+      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
+    }
+    if (lowerTitle.contains('medication')) {
+      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
+    }
+    if (lowerTitle.contains('mental') || lowerTitle.contains('emotional')) {
+      return {'bg': Colors.purple.shade50, 'icon': const Color(0xFF663399)};
+    }
+    if (lowerTitle.contains('risk') || lowerTitle.contains('prenatal')) {
+      return {'bg': Colors.amber.shade50, 'icon': Colors.amber.shade600};
+    }
+    return {'bg': Colors.blue.shade50, 'icon': Colors.blue.shade500};
+  }
+
+  String _normalizeTrimester(String? trimester) {
+    if (trimester == null) return 'general';
+    final lower = trimester.toLowerCase();
+    if (lower.contains('first') || lower.contains('1')) return 'first';
+    if (lower.contains('second') || lower.contains('2')) return 'second';
+    if (lower.contains('third') || lower.contains('3')) return 'third';
+    return 'general';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final userId = _auth.currentUser?.uid;
+    
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(

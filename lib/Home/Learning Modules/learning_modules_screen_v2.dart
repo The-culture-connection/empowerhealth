@@ -150,82 +150,189 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
               ),
               const SizedBox(height: 20),
 
-              // Quick access to Know Your Rights
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const RightsScreen()),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF663399).withOpacity(0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(16),
+              // Continue Learning Section - Show most recent module
+              StreamBuilder<QuerySnapshot>(
+                stream: userId != null
+                    ? FirebaseFirestore.instance
+                        .collection('learning_tasks')
+                        .where('userId', isEqualTo: userId)
+                        .where('isGenerated', isEqualTo: true)
+                        .orderBy('createdAt', descending: true)
+                        .limit(1)
+                        .snapshots()
+                    : null,
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                    final doc = snapshot.data!.docs.first;
+                    final data = doc.data() as Map<String, dynamic>;
+                    final title = (data['title'] ?? '').toString();
+                    final description = (data['description'] ?? '').toString();
+                    final content = data['content'];
+                    final contentString = content is String ? content : (content is Map ? content.toString() : '');
+                    final colors = _getModuleColors(title);
+                    final icon = _getModuleIcon(title);
+                    
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF663399), Color(0xFF8855BB)],
                           ),
-                          child: const Center(
-                            child: Text('⚖️', style: TextStyle(fontSize: 24)),
-                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF663399).withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        child: InkWell(
+                          onTap: () {
+                            if (contentString.isNotEmpty) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => LearningModuleDetailScreen(
+                                    title: title,
+                                    content: contentString,
+                                    icon: '📚',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          child: Row(
                             children: [
-                              Text(
-                                'IN PROGRESS',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Icon(icon, color: Colors.white, size: 24),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'IN PROGRESS',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      title,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      description.isNotEmpty ? description : 'Continue your learning journey',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Know Your Rights',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Healthcare advocacy and informed consent',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                              ),
+                              const Icon(Icons.chevron_right, color: Colors.white),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: Colors.white),
-                      ],
+                      ),
+                    );
+                  }
+                  // Fallback to Know Your Rights if no modules
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const RightsScreen()),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF663399).withOpacity(0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Center(
+                                child: Text('⚖️', style: TextStyle(fontSize: 24)),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'IN PROGRESS',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Know Your Rights',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Healthcare advocacy and informed consent',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right, color: Colors.white),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
               const SizedBox(height: 24),
 
@@ -246,8 +353,9 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
               ),
               const SizedBox(height: 12),
 
-              // Modules List
+              // Generated Learning Modules List
               Expanded(
+<<<<<<< HEAD
                 child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: _bankedModules.where((m) => 
@@ -276,93 +384,266 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                       Colors.pink.shade600,
                     ];
                     final colorIndex = index % iconColors.length;
+=======
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: userId != null
+                      ? FirebaseFirestore.instance
+                          .collection('learning_tasks')
+                          .where('userId', isEqualTo: userId)
+                          .where('isGenerated', isEqualTo: true)
+                          .orderBy('createdAt', descending: true)
+                          .snapshots()
+                      : null,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+>>>>>>> da20be50d161b236c5960b08988daaadcad8b2a2
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.grey.shade100),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(24),
-                        onTap: () {
-                          if (module['title'] == 'Know Your Rights') {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const RightsScreen()),
-                            );
-                          } else {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => LearningModuleDetailScreen(
-                                  title: module['title']!,
-                                  content: 'Content for ${module['topic']!}',
-                                  icon: module['icon']!,
-                                ),
-                              ),
-                            );
-                          }
-                        },
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return Center(
                         child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Row(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Container(
-                                width: 48,
-                                height: 48,
+                                width: 80,
+                                height: 80,
                                 decoration: BoxDecoration(
-                                  color: iconColors[colorIndex],
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    module['icon']!,
-                                    style: const TextStyle(fontSize: 24),
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF663399), Color(0xFF8855BB)],
                                   ),
+                                  borderRadius: BorderRadius.circular(40),
+                                ),
+                                child: const Icon(
+                                  Icons.book_outlined,
+                                  size: 40,
+                                  color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      module['title']!,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      module['topic']!,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
+                              const SizedBox(height: 24),
+                              const Text(
+                                'No Learning Modules Yet',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
                                 ),
                               ),
-                              Icon(Icons.chevron_right, color: Colors.grey[400]),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Generate personalized learning modules from the Home screen',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
                             ],
                           ),
                         ),
-                      ),
+                      );
+                    }
+
+                    final tasks = snapshot.data!.docs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final taskTrimester = _normalizeTrimester(data['trimester']?.toString());
+                      return _selectedTrimester == 'general' || taskTrimester == _selectedTrimester;
+                    }).toList();
+
+                    if (tasks.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Text(
+                            'No modules for selected trimester',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: tasks.length,
+                      itemBuilder: (context, index) {
+                        final doc = tasks[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        final title = (data['title'] ?? '').toString();
+                        final description = (data['description'] ?? '').toString();
+                        final content = data['content'];
+                        final contentString = content is String ? content : (content is Map ? content.toString() : '');
+                        final colors = _getModuleColors(title);
+                        final icon = _getModuleIcon(title);
+
+                        // Check if completed
+                        final isCompleted = data['isCompleted'] ?? false;
+                        final progress = isCompleted ? 100 : (data['progress'] ?? 0);
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: Colors.grey.shade100),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(24),
+                            onTap: () {
+                              if (contentString.isNotEmpty) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => LearningModuleDetailScreen(
+                                      title: title,
+                                      content: contentString,
+                                      icon: '📚',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: colors['bg']!,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Icon(
+                                      icon,
+                                      color: colors['icon']!,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          title,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          description.isNotEmpty ? description : 'Learning module',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                        if (progress > 0) ...[
+                                          const SizedBox(height: 12),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(2),
+                                            child: LinearProgressIndicator(
+                                              value: progress / 100,
+                                              backgroundColor: Colors.grey.shade100,
+                                              valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF663399)),
+                                              minHeight: 6,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '$progress% complete',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[500],
+                                            ),
+                                          ),
+                                        ],
+                                        if (progress == 0 && contentString.isEmpty) ...[
+                                          const SizedBox(height: 8),
+                                          TextButton(
+                                            onPressed: () {
+                                              // Generate module - could trigger generation
+                                            },
+                                            style: TextButton.styleFrom(
+                                              padding: EdgeInsets.zero,
+                                              minimumSize: Size.zero,
+                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            ),
+                                            child: const Text(
+                                              'Start learning →',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Color(0xFF663399),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(Icons.chevron_right, color: Colors.grey[400]),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
               ),
+
+              // Resources Section
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.red.shade50, Colors.pink.shade50],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.pink.shade100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Plain Language Promise',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'All our content is written at a 6th grade reading level. No confusing medical jargon—just clear, supportive guidance that helps you understand your care.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),

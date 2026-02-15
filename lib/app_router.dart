@@ -11,7 +11,7 @@ import 'Community/community_screen.dart';
 import 'assistant/assistant_screen.dart';
 import 'editprofile/edit_profile_screen.dart';
 import 'Home/Appointments/appointments_screen.dart';
-import 'Home/Learning Modules/Learning_modules_screen.dart';
+import 'Home/Learning Modules/learning_modules_screen_v2.dart';
 import 'Home/Messages/Messages_screen.dart';
 import 'profile/profile_creation_screen.dart';
 
@@ -70,7 +70,7 @@ class AppRouter {
       case Routes.appointments:
         return _page(const AppointmentsScreen());
       case Routes.learning:
-        return _page(const LearningModulesScreen());
+        return _page(const LearningModulesScreenV2());
       case Routes.messages:
         return _page(const MessagesScreen());
       default:

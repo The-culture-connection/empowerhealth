@@ -952,10 +952,8 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: ElevatedButton.icon(
+                          child: ElevatedButton(
                             onPressed: _isLoading ? null : _generateBirthPlan,
-                            icon: const Icon(Icons.share),
-                            label: const Text('Save Plan'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF663399),
                               foregroundColor: Colors.white,
@@ -973,7 +971,14 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                     ),
                                   )
-                                : null,
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.share, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Save Plan'),
+                                    ],
+                                  ),
                           ),
                         ),
                       ],
@@ -1100,11 +1105,11 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-        _buildMultiSelectChips(
-          'Preferred Environment',
-          ['Calm/quiet', 'Music', 'Low light', 'Minimal staff interruptions'],
-          _environmentPreferences,
-        ),
+                _buildMultiSelectChips(
+                  'Preferred Environment',
+                  ['Calm/quiet', 'Music', 'Low light', 'Minimal staff interruptions'],
+                  _environmentPreferences,
+                ),
         const SizedBox(height: 16),
         SwitchListTile(
           title: const Text('Photography Allowed'),
@@ -1123,20 +1128,48 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           onChanged: (v) => setState(() => _preferredLanguage = v),
         ),
         const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Trauma-informed preferences'),
-          subtitle: const Text('Please tell me before touching/exams'),
-          value: _traumaInformedCare,
-          onChanged: (v) => setState(() => _traumaInformedCare = v),
-        ),
-      ],
+                SwitchListTile(
+                  title: const Text('Trauma-informed preferences'),
+                  subtitle: const Text('Please tell me before touching/exams'),
+                  value: _traumaInformedCare,
+                  onChanged: (v) => setState(() => _traumaInformedCare = v),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildSection3() {
-    return ExpansionTile(
-      title: const Text('Section 3: Labor Preferences', style: TextStyle(fontWeight: FontWeight.bold)),
-      children: [
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.favorite, color: const Color(0xFF663399), size: 20),
+            const SizedBox(width: 8),
+            const Text('Pain Management Preferences', style: TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
         _buildMultiSelectChips(
           'Preferred Labor Positions',
           ['Walking', 'Birthing ball', 'Tub', 'Bed', 'Squatting', 'Hands and knees', 'Side-lying'],
@@ -1188,15 +1221,43 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         TextFormField(
           decoration: const InputDecoration(labelText: 'Preferred Communication Style', hintText: 'e.g., "explain options first", "keep me calm"'),
           onChanged: (v) => setState(() => _communicationStyle = v),
-        ),
-      ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildSection4() {
-    return ExpansionTile(
-      title: const Text('Section 4: Pushing & Birth Preferences', style: TextStyle(fontWeight: FontWeight.bold)),
-      children: [
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.child_care, color: const Color(0xFF663399), size: 20),
+            const SizedBox(width: 8),
+            const Text('After Baby Arrives', style: TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
         _buildMultiSelectChips(
           'Preferred Pushing Positions',
           ['Hands and knees', 'Side-lying', 'Squatting', 'Semi-reclined', 'Whatever feels right'],
@@ -1234,15 +1295,43 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           title: const Text('Preference for delayed pushing if epidural present'),
           value: _delayedPushingWithEpidural ?? false,
           onChanged: (v) => setState(() => _delayedPushingWithEpidural = v),
-        ),
-      ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildSection5() {
-    return ExpansionTile(
-      title: const Text('Section 5: Immediate Newborn Care', style: TextStyle(fontWeight: FontWeight.bold)),
-      children: [
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.child_care, color: const Color(0xFF663399), size: 20),
+            const SizedBox(width: 8),
+            const Text('Newborn Care', style: TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
         DropdownButtonFormField<String>(
           decoration: const InputDecoration(labelText: 'Delayed Cord Clamping Preference'),
           items: ['1-3 minutes', '3-5 minutes', 'Until cord stops pulsing', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
@@ -1300,9 +1389,33 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   }
 
   Widget _buildSection6() {
-    return ExpansionTile(
-      title: const Text('Section 6: Feeding Preferences', style: TextStyle(fontWeight: FontWeight.bold)),
-      children: [
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.restaurant, color: const Color(0xFF663399), size: 20),
+            const SizedBox(width: 8),
+            const Text('Feeding Preferences', style: TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
         DropdownButtonFormField<String>(
           decoration: const InputDecoration(labelText: 'Feeding Preference'),
           items: ['Breastfeeding', 'Formula feeding', 'Combo feeding'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
@@ -1329,9 +1442,33 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   }
 
   Widget _buildSection7() {
-    return ExpansionTile(
-      title: const Text('Section 7: Postpartum Care Preferences', style: TextStyle(fontWeight: FontWeight.bold)),
-      children: [
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.healing, color: const Color(0xFF663399), size: 20),
+            const SizedBox(width: 8),
+            const Text('Postpartum Care', style: TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
         SwitchListTile(
           title: const Text('Rooming-In Preference'),
           subtitle: const Text('Baby stays in room vs nursery use'),
@@ -1363,10 +1500,41 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   }
 
   Widget _buildSection8() {
-    return ExpansionTile(
-      title: const Text('Section 8: Cesarean Birth Preferences', style: TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: const Text('Important even if planning vaginal birth'),
-      children: [
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.medical_services, color: const Color(0xFF663399), size: 20),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Cesarean Preferences', style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text('Important even if planning vaginal birth', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
         DropdownButtonFormField<String>(
           decoration: const InputDecoration(labelText: 'Drape Preference'),
           items: ['Clear drape', 'Standard drape', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
@@ -1411,9 +1579,33 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   }
 
   Widget _buildSection9() {
-    return ExpansionTile(
-      title: const Text('Section 9: Special Considerations', style: TextStyle(fontWeight: FontWeight.bold)),
-      children: [
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber, color: Colors.amber.shade600, size: 20),
+            const SizedBox(width: 8),
+            const Text('If Things Change', style: TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
         TextFormField(
           controller: _religiousConsiderationsController,
           decoration: const InputDecoration(labelText: 'Religious Considerations'),
@@ -1468,19 +1660,47 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   }
 
   Widget _buildSection10() {
-    return ExpansionTile(
-      title: const Text('Section 10: In My Own Words', style: TextStyle(fontWeight: FontWeight.bold)),
-      initiallyExpanded: true,
-      children: [
-        TextFormField(
-          controller: _inMyOwnWordsController,
-          decoration: const InputDecoration(
-            labelText: 'Things I want my care team to know about me',
-            hintText: 'What helps me feel safe during labor?',
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-          maxLines: 5,
+        ],
+      ),
+      child: ExpansionTile(
+        title: Row(
+          children: [
+            Icon(Icons.edit_note, color: const Color(0xFF663399), size: 20),
+            const SizedBox(width: 8),
+            const Text('Additional Notes', style: TextStyle(fontWeight: FontWeight.w600)),
+          ],
         ),
-      ],
+        initiallyExpanded: true,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _inMyOwnWordsController,
+                  decoration: const InputDecoration(
+                    labelText: 'Things I want my care team to know about me',
+                    hintText: 'What helps me feel safe during labor?',
+                  ),
+                  maxLines: 5,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

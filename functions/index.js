@@ -611,6 +611,8 @@ exports.uploadVisitSummaryFile = onCall(
 );
 
 // 8. Storage trigger: Automatically process uploaded PDFs
+// DISABLED: We're using direct function calls from the app instead to avoid duplicates
+// This trigger is kept for reference but will not process files
 exports.processUploadedVisitSummary = onObjectFinalized(
   {
     secrets: [openaiApiKey],
@@ -632,6 +634,12 @@ exports.processUploadedVisitSummary = onObjectFinalized(
       console.log(`⏭️ Skipping non-PDF file: ${filePath}`);
       return;
     }
+
+    // DISABLED: Skip all processing to prevent duplicates
+    // The app now calls analyzeVisitSummaryPDF directly, so this trigger is not needed
+    console.log(`⏭️ [DEBUG] Storage trigger DISABLED - file processing handled by direct function call: ${filePath}`);
+    console.log(`⏭️ [DEBUG] Storage trigger would have processed: ${filePath}, but returning early to prevent duplicates`);
+    return;
 
     console.log(`📄 Processing uploaded file: ${filePath}`);
 
@@ -714,6 +722,21 @@ exports.processUploadedVisitSummary = onObjectFinalized(
         }
       }
 
+      // Check if this file has already been processed by checking file_uploads status
+      const uploadDocs = await admin.firestore()
+        .collection("users")
+        .doc(userId)
+        .collection("file_uploads")
+        .where("storagePath", "==", filePath)
+        .where("status", "in", ["completed", "analyzed"])
+        .limit(1)
+        .get();
+      
+      if (!uploadDocs.empty) {
+        console.log(`⏭️ File ${filePath} has already been processed, skipping duplicate analysis`);
+        return;
+      }
+
       // Call the analysis function
       console.log(`🤖 Starting AI analysis...`);
       const analysisResult = await analyzeVisitSummaryPDF({
@@ -771,6 +794,16 @@ exports.processUploadedVisitSummary = onObjectFinalized(
 
 // Helper function to analyze PDF (extracted from summarizeAfterVisitPDF)
 async function analyzeVisitSummaryPDF({pdfText, appointmentDate, educationLevel, userProfile, userId}) {
+      console.log(`🟢 [DEBUG] analyzeVisitSummaryPDF HELPER function called`);
+      console.log(`🟢 [DEBUG] Helper function params:`, {
+        userId: userId,
+        appointmentDate: appointmentDate,
+        appointmentDateType: typeof appointmentDate,
+        pdfTextLength: pdfText?.length || 0,
+        hasEducationLevel: !!educationLevel,
+        hasUserProfile: !!userProfile,
+      });
+      
       // Extract user context with safe defaults
       const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
       const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
@@ -935,21 +968,217 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
     throw new Error("❌ Failed to parse AI response");
   }
 
+  // Check for existing summary with same appointment date to prevent duplicates
+      // Normalize appointment date to start of day for comparison
+      // Parse the date string consistently - handle ISO 8601 format
+      console.log(`🟢 [DEBUG] Helper: Starting duplicate check`);
+      let appointmentDateObj;
+      if (typeof appointmentDate === 'string') {
+        console.log(`🟢 [DEBUG] Helper: Parsing date string: ${appointmentDate}`);
+        // Parse ISO 8601 date string (e.g., "2026-02-12T00:00:00.000Z" or "2026-02-12")
+        const dateStr = appointmentDate.split('T')[0]; // Get just the date part
+        console.log(`🟢 [DEBUG] Helper: Extracted date part: ${dateStr}`);
+        const [year, month, day] = dateStr.split('-').map(Number);
+        console.log(`🟢 [DEBUG] Helper: Parsed components: year=${year}, month=${month}, day=${day}`);
+        appointmentDateObj = new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed
+        console.log(`🟢 [DEBUG] Helper: Created Date object: ${appointmentDateObj.toISOString()}`);
+      } else if (appointmentDate instanceof Date) {
+        console.log(`🟢 [DEBUG] Helper: Date is already a Date object: ${appointmentDate.toISOString()}`);
+        appointmentDateObj = appointmentDate;
+      } else {
+        console.log(`🟢 [DEBUG] Helper: Date is unknown type, using current date`);
+        appointmentDateObj = new Date();
+      }
+      
+      // Normalize to start of day in UTC to avoid timezone issues
+      const normalizedDate = new Date(Date.UTC(
+        appointmentDateObj.getUTCFullYear(),
+        appointmentDateObj.getUTCMonth(),
+        appointmentDateObj.getUTCDate(),
+        0, 0, 0, 0 // Set to midnight UTC
+      ));
+      const appointmentTimestamp = admin.firestore.Timestamp.fromDate(normalizedDate);
+      
+      console.log(`📅 Normalized appointment date (helper): ${normalizedDate.toISOString()} (original: ${appointmentDate})`);
+      console.log(`🟢 [DEBUG] Helper: Normalized date components: year=${normalizedDate.getUTCFullYear()}, month=${normalizedDate.getUTCMonth() + 1}, day=${normalizedDate.getUTCDate()}`);
+      console.log(`🟢 [DEBUG] Helper: Firestore Timestamp: ${appointmentTimestamp.toDate().toISOString()}`);
+      
+      // Check if summary already exists for this date using range query to catch timezone variations
+      const dayStart = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
+        normalizedDate.getUTCFullYear(),
+        normalizedDate.getUTCMonth(),
+        normalizedDate.getUTCDate(),
+        0, 0, 0, 0
+      )));
+      const dayEnd = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
+        normalizedDate.getUTCFullYear(),
+        normalizedDate.getUTCMonth(),
+        normalizedDate.getUTCDate(),
+        23, 59, 59, 999
+      )));
+      
+      console.log(`🟢 [DEBUG] Helper: Checking for existing summaries between ${dayStart.toDate().toISOString()} and ${dayEnd.toDate().toISOString()}`);
+      console.log(`🟢 [DEBUG] Helper: Query path: users/${userId}/visit_summaries`);
+      
+      // DEBUG: List ALL summaries for this user to see what exists
+      let allSummaries;
+      try {
+        allSummaries = await admin.firestore()
+          .collection("users")
+          .doc(userId)
+          .collection("visit_summaries")
+          .orderBy("createdAt", "desc")
+          .limit(10)
+          .get();
+      } catch (e) {
+        // If orderBy fails (no index), just get without ordering
+        console.log(`🟢 [DEBUG] Helper: orderBy failed, getting without order: ${e.message}`);
+        allSummaries = await admin.firestore()
+          .collection("users")
+          .doc(userId)
+          .collection("visit_summaries")
+          .limit(10)
+          .get();
+      }
+      console.log(`🟢 [DEBUG] Helper: Total summaries for user: ${allSummaries.size}`);
+      allSummaries.docs.forEach((doc, idx) => {
+        const data = doc.data();
+        // Safely extract appointmentDate - handle Timestamp, Date, or string
+        let appointmentDateStr = 'unknown';
+        if (data.appointmentDate) {
+          if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
+            appointmentDateStr = data.appointmentDate.toDate().toISOString();
+          } else if (data.appointmentDate instanceof Date) {
+            appointmentDateStr = data.appointmentDate.toISOString();
+          } else if (typeof data.appointmentDate === 'string') {
+            appointmentDateStr = data.appointmentDate;
+          } else {
+            appointmentDateStr = String(data.appointmentDate);
+          }
+        }
+        
+        let createdAtStr = 'unknown';
+        if (data.createdAt) {
+          if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
+            createdAtStr = data.createdAt.toDate().toISOString();
+          } else if (data.createdAt instanceof Date) {
+            createdAtStr = data.createdAt.toISOString();
+          } else if (typeof data.createdAt === 'string') {
+            createdAtStr = data.createdAt;
+          }
+        }
+        
+        console.log(`🟢 [DEBUG] Helper: Summary ${idx + 1}:`, {
+          id: doc.id,
+          appointmentDate: appointmentDateStr,
+          appointmentDateTimestamp: data.appointmentDate?.seconds,
+          createdAt: createdAtStr,
+        });
+      });
+      
+      // Try exact match first
+      let existingSummaries = await admin.firestore()
+        .collection("users")
+        .doc(userId)
+        .collection("visit_summaries")
+        .where("appointmentDate", "==", appointmentTimestamp)
+        .limit(1)
+        .get();
+      
+      console.log(`🟢 [DEBUG] Helper: Exact match query found: ${existingSummaries.size} summaries`);
+      
+      // If no exact match, try range query
+      if (existingSummaries.empty) {
+        existingSummaries = await admin.firestore()
+          .collection("users")
+          .doc(userId)
+          .collection("visit_summaries")
+          .where("appointmentDate", ">=", dayStart)
+          .where("appointmentDate", "<=", dayEnd)
+          .limit(1)
+          .get();
+        console.log(`🟢 [DEBUG] Helper: Range query found: ${existingSummaries.size} summaries`);
+      }
+      
+      console.log(`🟢 [DEBUG] Helper: Existing summaries found: ${existingSummaries.size}`);
+      if (existingSummaries.size > 0) {
+        existingSummaries.docs.forEach((doc, idx) => {
+          const data = doc.data();
+          // Safely extract appointmentDate - handle Timestamp, Date, or string
+          let appointmentDateStr = 'unknown';
+          if (data.appointmentDate) {
+            if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
+              appointmentDateStr = data.appointmentDate.toDate().toISOString();
+            } else if (data.appointmentDate instanceof Date) {
+              appointmentDateStr = data.appointmentDate.toISOString();
+            } else if (typeof data.appointmentDate === 'string') {
+              appointmentDateStr = data.appointmentDate;
+            } else {
+              appointmentDateStr = String(data.appointmentDate);
+            }
+          }
+          
+          let createdAtStr = 'unknown';
+          if (data.createdAt) {
+            if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
+              createdAtStr = data.createdAt.toDate().toISOString();
+            } else if (data.createdAt instanceof Date) {
+              createdAtStr = data.createdAt.toISOString();
+            } else if (typeof data.createdAt === 'string') {
+              createdAtStr = data.createdAt;
+            }
+          }
+          
+          console.log(`🟢 [DEBUG] Helper: Existing summary ${idx + 1}:`, {
+            id: doc.id,
+            appointmentDate: appointmentDateStr,
+            createdAt: createdAtStr,
+            hasSummary: !!data.summary,
+          });
+        });
+      }
+      
+      if (!existingSummaries.empty) {
+        console.log(`⚠️ Summary already exists for appointment date ${normalizedDate.toISOString()}, skipping duplicate creation`);
+        console.log(`🟢 [DEBUG] Helper: Returning existing summary ID: ${existingSummaries.docs[0].id}`);
+        return {
+          summaryId: existingSummaries.docs[0].id,
+          summary: formatSummaryForDisplay(
+            parsedResponse.summary,
+            parsedResponse.learningModules || []
+          ),
+          todos: parsedResponse.todos || [],
+          learningModules: parsedResponse.learningModules || [],
+          redFlags: parsedResponse.redFlags || [],
+        };
+      }
+      
+      console.log(`🟢 [DEBUG] Helper: No existing summary found, will create new one`);
+
   // Save to Firestore
+      const formattedSummary = formatSummaryForDisplay(
+        parsedResponse.summary,
+        parsedResponse.learningModules || []
+      );
+      
+      console.log(`🟢 [DEBUG] Helper: Creating new summary document`);
       const summaryRef = await admin.firestore()
           .collection("users")
     .doc(userId)
           .collection("visit_summaries")
           .add({
-        appointmentDate: appointmentDate,
+        appointmentDate: appointmentTimestamp,
       originalText: pdfText.substring(0, 10000),
-        summary: parsedResponse.summary,
+        summary: formattedSummary,
+        summaryData: parsedResponse.summary,
         todos: parsedResponse.todos || [],
         learningModules: parsedResponse.learningModules || [],
         redFlags: parsedResponse.redFlags || [],
         readingLevel: readingLevel,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      console.log(`🟢 [DEBUG] Helper: Created new summary with ID: ${summaryRef.id}`);
+      console.log(`🟢 [DEBUG] Helper: New summary appointmentDate: ${appointmentTimestamp.toDate().toISOString()}`);
 
   // Create todos
       if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
@@ -992,12 +1221,10 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
     await modulesBatch.commit();
   }
 
+  console.log(`🟢 [DEBUG] Helper: Returning from analyzeVisitSummaryPDF helper function`);
   return {
     summaryId: summaryRef.id,
-    summary: formatSummaryForDisplay(
-      parsedResponse.summary,
-      parsedResponse.learningModules || []
-    ),
+    summary: formattedSummary,
     todos: parsedResponse.todos || [],
     learningModules: parsedResponse.learningModules || [],
     redFlags: parsedResponse.redFlags || [],
@@ -1009,6 +1236,9 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
 exports.analyzeVisitSummaryPDF = onCall(
   {secrets: [openaiApiKey]},
   async (request) => {
+    console.log(`🔵 [DEBUG] analyzeVisitSummaryPDF Cloud Function called`);
+    console.log(`🔵 [DEBUG] User ID: ${request.auth?.uid || 'NOT AUTHENTICATED'}`);
+    
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "🔒 User must be authenticated. Please log in.");
     }
@@ -1021,6 +1251,15 @@ exports.analyzeVisitSummaryPDF = onCall(
       educationLevel,
       userProfile,
     } = data;
+    
+    console.log(`🔵 [DEBUG] Input data:`, {
+      storagePath: storagePath?.substring(0, 50) + '...',
+      downloadUrl: downloadUrl ? 'present' : 'missing',
+      appointmentDate: appointmentDate,
+      appointmentDateType: typeof appointmentDate,
+      hasEducationLevel: !!educationLevel,
+      hasUserProfile: !!userProfile,
+    });
 
     if (!storagePath && !downloadUrl) {
       throw new HttpsError("invalid-argument", "📄 PDF file location is required (storagePath or downloadUrl)");
@@ -1290,18 +1529,225 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
 
       // Save to Firestore
       console.log(`💾 Saving results to Firestore...`);
-      const appointmentTimestamp = admin.firestore.Timestamp.fromDate(new Date(appointmentDate));
+      console.log(`🔵 [DEBUG] Starting duplicate check process`);
+      
+      // Normalize appointment date to start of day in UTC to avoid timezone issues
+      // Parse the date string consistently - handle ISO 8601 format
+      let appointmentDateObj;
+      if (typeof appointmentDate === 'string') {
+        console.log(`🔵 [DEBUG] Parsing date string: ${appointmentDate}`);
+        // Parse ISO 8601 date string (e.g., "2026-02-12T00:00:00.000Z" or "2026-02-12")
+        const dateStr = appointmentDate.split('T')[0]; // Get just the date part
+        console.log(`🔵 [DEBUG] Extracted date part: ${dateStr}`);
+        const [year, month, day] = dateStr.split('-').map(Number);
+        console.log(`🔵 [DEBUG] Parsed components: year=${year}, month=${month}, day=${day}`);
+        appointmentDateObj = new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed
+        console.log(`🔵 [DEBUG] Created Date object: ${appointmentDateObj.toISOString()}`);
+      } else if (appointmentDate instanceof Date) {
+        console.log(`🔵 [DEBUG] Date is already a Date object: ${appointmentDate.toISOString()}`);
+        appointmentDateObj = appointmentDate;
+      } else {
+        console.log(`🔵 [DEBUG] Date is unknown type, using current date`);
+        appointmentDateObj = new Date();
+      }
+      
+      // Normalize to start of day in UTC (ensure we're using UTC to avoid timezone shifts)
+      const normalizedDate = new Date(Date.UTC(
+        appointmentDateObj.getUTCFullYear(),
+        appointmentDateObj.getUTCMonth(),
+        appointmentDateObj.getUTCDate(),
+        0, 0, 0, 0 // Set to midnight UTC
+      ));
+      const appointmentTimestamp = admin.firestore.Timestamp.fromDate(normalizedDate);
+      
+      console.log(`📅 Normalized appointment date: ${normalizedDate.toISOString()} (original: ${appointmentDate})`);
+      console.log(`🔵 [DEBUG] Normalized date components: year=${normalizedDate.getUTCFullYear()}, month=${normalizedDate.getUTCMonth() + 1}, day=${normalizedDate.getUTCDate()}`);
+      console.log(`🔵 [DEBUG] Firestore Timestamp: ${appointmentTimestamp.toDate().toISOString()}`);
+      
+      // Check if summary already exists for this date to prevent duplicates
+      // Use a range query to catch any timezone-related variations (within 24 hours)
+      const dayStart = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
+        normalizedDate.getUTCFullYear(),
+        normalizedDate.getUTCMonth(),
+        normalizedDate.getUTCDate(),
+        0, 0, 0, 0
+      )));
+      const dayEnd = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
+        normalizedDate.getUTCFullYear(),
+        normalizedDate.getUTCMonth(),
+        normalizedDate.getUTCDate(),
+        23, 59, 59, 999
+      )));
+      
+      console.log(`🔵 [DEBUG] Checking for existing summaries between ${dayStart.toDate().toISOString()} and ${dayEnd.toDate().toISOString()}`);
+      console.log(`🔵 [DEBUG] Normalized timestamp to match: ${appointmentTimestamp.toDate().toISOString()}`);
+      console.log(`🔵 [DEBUG] Query path: users/${request.auth.uid}/visit_summaries`);
+      
+      // DEBUG: List ALL summaries for this user to see what exists
+      let allSummaries;
+      try {
+        allSummaries = await admin.firestore()
+          .collection("users")
+          .doc(request.auth.uid)
+          .collection("visit_summaries")
+          .orderBy("createdAt", "desc")
+          .limit(10)
+          .get();
+      } catch (e) {
+        // If orderBy fails (no index), just get without ordering
+        console.log(`🔵 [DEBUG] orderBy failed, getting without order: ${e.message}`);
+        allSummaries = await admin.firestore()
+          .collection("users")
+          .doc(request.auth.uid)
+          .collection("visit_summaries")
+          .limit(10)
+          .get();
+      }
+      console.log(`🔵 [DEBUG] Total summaries for user: ${allSummaries.size}`);
+      allSummaries.docs.forEach((doc, idx) => {
+        const data = doc.data();
+        // Safely extract appointmentDate - handle Timestamp, Date, or string
+        let appointmentDateStr = 'unknown';
+        let appointmentTimestampValue = null;
+        if (data.appointmentDate) {
+          if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
+            appointmentDateStr = data.appointmentDate.toDate().toISOString();
+            appointmentTimestampValue = data.appointmentDate;
+          } else if (data.appointmentDate instanceof Date) {
+            appointmentDateStr = data.appointmentDate.toISOString();
+          } else if (typeof data.appointmentDate === 'string') {
+            appointmentDateStr = data.appointmentDate;
+          } else {
+            appointmentDateStr = String(data.appointmentDate);
+          }
+        }
+        
+        let createdAtStr = 'unknown';
+        if (data.createdAt) {
+          if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
+            createdAtStr = data.createdAt.toDate().toISOString();
+          } else if (data.createdAt instanceof Date) {
+            createdAtStr = data.createdAt.toISOString();
+          } else if (typeof data.createdAt === 'string') {
+            createdAtStr = data.createdAt;
+          }
+        }
+        
+        // Check if this summary matches our date
+        let matchesDate = false;
+        if (appointmentTimestampValue && appointmentTimestampValue.seconds) {
+          const isInRange = appointmentTimestampValue.seconds >= dayStart.seconds && 
+                           appointmentTimestampValue.seconds <= dayEnd.seconds;
+          matchesDate = isInRange;
+          console.log(`🔵 [DEBUG] Summary ${idx + 1} date comparison:`, {
+            summaryTimestamp: appointmentTimestampValue.seconds,
+            dayStart: dayStart.seconds,
+            dayEnd: dayEnd.seconds,
+            matches: isInRange,
+          });
+        }
+        
+        console.log(`🔵 [DEBUG] Summary ${idx + 1}:`, {
+          id: doc.id,
+          appointmentDate: appointmentDateStr,
+          appointmentDateTimestamp: data.appointmentDate?.seconds,
+          createdAt: createdAtStr,
+          matchesOurDate: matchesDate,
+        });
+      });
+      
+      // Try exact match first
+      let existingSummaries = await admin.firestore()
+        .collection("users")
+        .doc(request.auth.uid)
+        .collection("visit_summaries")
+        .where("appointmentDate", "==", appointmentTimestamp)
+        .limit(1)
+        .get();
+      
+      console.log(`🔵 [DEBUG] Exact match query found: ${existingSummaries.size} summaries`);
+      
+      // If no exact match, try range query
+      if (existingSummaries.empty) {
+        existingSummaries = await admin.firestore()
+          .collection("users")
+          .doc(request.auth.uid)
+          .collection("visit_summaries")
+          .where("appointmentDate", ">=", dayStart)
+          .where("appointmentDate", "<=", dayEnd)
+          .limit(1)
+          .get();
+        console.log(`🔵 [DEBUG] Range query found: ${existingSummaries.size} summaries`);
+      }
+      
+      // Also check for summaries created in the last 30 seconds (race condition protection)
+      if (existingSummaries.empty) {
+        const thirtySecondsAgo = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 30000));
+        const recentSummaries = await admin.firestore()
+          .collection("users")
+          .doc(request.auth.uid)
+          .collection("visit_summaries")
+          .where("createdAt", ">=", thirtySecondsAgo)
+          .where("storagePath", "==", storagePath)
+          .limit(1)
+          .get();
+        if (!recentSummaries.empty) {
+          console.log(`🔵 [DEBUG] Found recent summary created in last 30 seconds with same storagePath, using that instead`);
+          existingSummaries = recentSummaries;
+        }
+      }
+      
+      console.log(`🔵 [DEBUG] Existing summaries found: ${existingSummaries.size}`);
+      if (existingSummaries.size > 0) {
+        existingSummaries.docs.forEach((doc, idx) => {
+          const data = doc.data();
+          // Safely extract appointmentDate - handle Timestamp, Date, or string
+          let appointmentDateStr = 'unknown';
+          if (data.appointmentDate) {
+            if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
+              appointmentDateStr = data.appointmentDate.toDate().toISOString();
+            } else if (data.appointmentDate instanceof Date) {
+              appointmentDateStr = data.appointmentDate.toISOString();
+            } else if (typeof data.appointmentDate === 'string') {
+              appointmentDateStr = data.appointmentDate;
+            } else {
+              appointmentDateStr = String(data.appointmentDate);
+            }
+          }
+          
+          let createdAtStr = 'unknown';
+          if (data.createdAt) {
+            if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
+              createdAtStr = data.createdAt.toDate().toISOString();
+            } else if (data.createdAt instanceof Date) {
+              createdAtStr = data.createdAt.toISOString();
+            } else if (typeof data.createdAt === 'string') {
+              createdAtStr = data.createdAt;
+            }
+          }
+          
+          console.log(`🔵 [DEBUG] Existing summary ${idx + 1}:`, {
+            id: doc.id,
+            appointmentDate: appointmentDateStr,
+            createdAt: createdAtStr,
+            hasSummary: !!data.summary,
+          });
+        });
+      }
+      
+      // Format summary before using it (needed for both update and create paths)
       const formattedSummary = formatSummaryForDisplay(
         parsedResponse.summary,
         parsedResponse.learningModules || []
       );
       
-      const summaryRef = await admin.firestore()
-        .collection("users")
-        .doc(request.auth.uid)
-        .collection("visit_summaries")
-        .add({
-          appointmentDate: appointmentTimestamp,
+      let summaryRef;
+      if (!existingSummaries.empty) {
+        console.log(`⚠️ Summary already exists for appointment date ${normalizedDate.toISOString()}, updating existing entry`);
+        console.log(`🔵 [DEBUG] Updating existing summary ID: ${existingSummaries.docs[0].id}`);
+        summaryRef = existingSummaries.docs[0].ref;
+        await summaryRef.update({
+          appointmentDate: appointmentTimestamp, // Update to normalized date
           storagePath: storagePath,
           downloadUrl: downloadUrl,
           summary: formattedSummary,
@@ -1310,8 +1756,31 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
           learningModules: parsedResponse.learningModules || [],
           redFlags: parsedResponse.redFlags || [],
           readingLevel: readingLevel,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+        console.log(`🔵 [DEBUG] Successfully updated existing summary`);
+      } else {
+        console.log(`🔵 [DEBUG] No existing summary found, creating new one`);
+        
+        summaryRef = await admin.firestore()
+          .collection("users")
+          .doc(request.auth.uid)
+          .collection("visit_summaries")
+          .add({
+            appointmentDate: appointmentTimestamp,
+            storagePath: storagePath,
+            downloadUrl: downloadUrl,
+            summary: formattedSummary,
+            summaryData: parsedResponse.summary,
+            todos: parsedResponse.todos || [],
+            learningModules: parsedResponse.learningModules || [],
+            redFlags: parsedResponse.redFlags || [],
+            readingLevel: readingLevel,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        console.log(`🔵 [DEBUG] Created new summary with ID: ${summaryRef.id}`);
+        console.log(`🔵 [DEBUG] New summary appointmentDate: ${appointmentTimestamp.toDate().toISOString()}`);
+      }
 
       // Create todos
       if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
@@ -1355,6 +1824,7 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
       }
 
       console.log(`✅ Analysis complete! Summary ID: ${summaryRef.id}`);
+      console.log(`🔵 [DEBUG] Returning from analyzeVisitSummaryPDF Cloud Function`);
       return {
         success: true, 
         summaryId: summaryRef.id,

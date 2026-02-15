@@ -156,8 +156,12 @@ class AppointmentsListScreen extends StatelessWidget {
                         final doc = snapshot.data!.docs[index];
                         final data = doc.data() as Map<String, dynamic>;
                         final appointmentDate = data['appointmentDate'];
-                        final summaryData = data['summary'];
-                        final summary = summaryData is String ? summaryData : (summaryData is Map ? summaryData.toString() : null);
+                        // Prefer formatted summary string, fallback to summaryData if needed
+                        final summary = data['summary'] is String && (data['summary'] as String).isNotEmpty
+                            ? data['summary'] as String
+                            : (data['summaryData'] is Map
+                                ? _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>)
+                                : (data['summary']?.toString() ?? null));
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
@@ -227,7 +231,13 @@ class AppointmentsListScreen extends StatelessWidget {
                                 if (summary != null) ...[
                                   const SizedBox(height: 12),
                                   Text(
-                                    _extractPreviewText(summary),
+                                    _extractPreviewText(
+                                      summary is String 
+                                          ? summary 
+                                          : (data['summaryData'] is Map
+                                              ? _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>)
+                                              : summary.toString())
+                                    ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
@@ -373,14 +383,22 @@ class AppointmentsListScreen extends StatelessWidget {
   }
 
   void _showSummaryDialog(BuildContext context, Map<String, dynamic> data) {
-    final summaryData = data['summary'];
-    final summaryString = summaryData is String 
-        ? summaryData 
-        : (summaryData is Map 
-            ? (data['summaryData'] is Map 
-                ? _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>)
-                : summaryData.toString())
-            : null);
+    // Prefer formatted summary string, fallback to formatting summaryData if needed
+    String? summaryString;
+    
+    if (data['summary'] is String && (data['summary'] as String).isNotEmpty) {
+      // Use the formatted summary string
+      summaryString = data['summary'] as String;
+    } else if (data['summaryData'] is Map) {
+      // Format the raw summaryData Map
+      summaryString = _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>);
+    } else if (data['summary'] is Map) {
+      // Format if summary itself is a Map
+      summaryString = _formatSummaryFromMap(data['summary'] as Map<String, dynamic>);
+    } else if (data['summary'] != null) {
+      // Fallback to string representation
+      summaryString = data['summary'].toString();
+    }
     
     showDialog(
       context: context,

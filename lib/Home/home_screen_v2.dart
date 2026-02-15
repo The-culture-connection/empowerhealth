@@ -10,6 +10,7 @@ import '../services/database_service.dart';
 import '../services/firebase_functions_service.dart';
 import '../utils/pregnancy_utils.dart';
 import 'learning_todo_widget.dart';
+import 'Learning Modules/learning_module_detail_screen.dart';
 
 class HomeScreenV2 extends StatefulWidget {
   const HomeScreenV2({super.key});
@@ -361,20 +362,109 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                 ),
                 const SizedBox(height: 12),
                 
-                // Appointment Reminder Card
-                _SupportCard(
-                  icon: Icons.calendar_today,
-                  iconColor: const Color(0xFF663399),
-                  iconBg: const Color(0xFF663399).withOpacity(0.1),
-                  title: 'Prenatal Appointment',
-                  subtitle: 'Tomorrow at 2:00 PM',
-                  description: 'Dr. Johnson • Valley Health Center',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AppointmentsListScreen(),
-                      ),
+                // Most Recent Appointment Analysis
+                StreamBuilder<QuerySnapshot>(
+                  stream: _auth.currentUser != null
+                      ? FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(_auth.currentUser!.uid)
+                          .collection('visit_summaries')
+                          .orderBy('appointmentDate', descending: true)
+                          .limit(1)
+                          .snapshots()
+                      : null,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return _SupportCard(
+                        icon: Icons.calendar_today,
+                        iconColor: const Color(0xFF663399),
+                        iconBg: const Color(0xFF663399).withOpacity(0.1),
+                        title: 'Loading...',
+                        subtitle: 'Loading appointment',
+                        onTap: () {},
+                      );
+                    }
+
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return _SupportCard(
+                        icon: Icons.calendar_today,
+                        iconColor: const Color(0xFF663399),
+                        iconBg: const Color(0xFF663399).withOpacity(0.1),
+                        title: 'No appointments yet',
+                        subtitle: 'Upload your first visit summary',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AppointmentsListScreen(),
+                            ),
+                          );
+                        },
+                      );
+                    }
+
+                    final doc = snapshot.data!.docs.first;
+                    final data = doc.data() as Map<String, dynamic>;
+                    final appointmentDate = data['appointmentDate'];
+                    final summary = data['summary'];
+                    final summaryString = summary is String 
+                        ? summary 
+                        : (summary is Map 
+                            ? (data['summaryData'] is Map 
+                                ? _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>)
+                                : summary.toString())
+                            : null);
+                    
+                    String dateText = 'Recent appointment';
+                    if (appointmentDate != null) {
+                      if (appointmentDate is Timestamp) {
+                        dateText = DateFormat('MMMM d, yyyy').format(appointmentDate.toDate());
+                      } else if (appointmentDate is String) {
+                        try {
+                          final dt = DateTime.parse(appointmentDate);
+                          dateText = DateFormat('MMMM d, yyyy').format(dt);
+                        } catch (e) {
+                          dateText = 'Recent appointment';
+                        }
+                      }
+                    }
+
+                    String previewText = 'View your visit summary';
+                    if (summaryString != null) {
+                      final babyMatch = RegExp(r'## How Your Baby Is Doing\n(.*?)(?=\n## |$)', dotAll: true)
+                          .firstMatch(summaryString);
+                      if (babyMatch != null) {
+                        final content = babyMatch.group(1)?.trim() ?? '';
+                        previewText = content.length > 80 ? content.substring(0, 80) + '...' : content;
+                      } else {
+                        final lines = summaryString.split('\n');
+                        for (final line in lines) {
+                          if (line.trim().isNotEmpty && !line.startsWith('#')) {
+                            previewText = line.trim();
+                            if (previewText.length > 80) {
+                              previewText = previewText.substring(0, 80) + '...';
+                            }
+                            break;
+                          }
+                        }
+                      }
+                    }
+
+                    return _SupportCard(
+                      icon: Icons.medical_information,
+                      iconColor: const Color(0xFF663399),
+                      iconBg: const Color(0xFF663399).withOpacity(0.1),
+                      title: 'Visit on $dateText',
+                      subtitle: previewText,
+                      description: data['readingLevel'] ?? '8th grade',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AppointmentsListScreen(),
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -420,30 +510,166 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ModuleCard(
-                        icon: Icons.book_outlined,
-                        iconColor: Colors.blue.shade500,
-                        iconBg: Colors.blue.shade50,
-                        title: weeksPregnant > 0 ? 'Week $weeksPregnant Guide' : 'Week Guide',
-                        subtitle: "Your baby this week",
-                        onTap: () => _showTodoModal(context),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ModuleCard(
-                        icon: Icons.description_outlined,
-                        iconColor: const Color(0xFF663399),
-                        iconBg: const Color(0xFF663399).withOpacity(0.1),
-                        title: 'Know Your Rights',
-                        subtitle: 'Healthcare advocacy',
-                        onTap: () => Navigator.pushNamed(context, Routes.learning),
-                      ),
-                    ),
-                  ],
+                
+                // Active Learning Modules Widget
+                StreamBuilder<QuerySnapshot>(
+                  stream: _auth.currentUser != null
+                      ? FirebaseFirestore.instance
+                          .collection('learning_tasks')
+                          .where('userId', isEqualTo: _auth.currentUser!.uid)
+                          .where('isGenerated', isEqualTo: true)
+                          .orderBy('createdAt', descending: true)
+                          .snapshots()
+                      : null,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Row(
+                        children: [
+                          Expanded(child: _ModuleCard(
+                            icon: Icons.book_outlined,
+                            iconColor: Colors.blue.shade500,
+                            iconBg: Colors.blue.shade50,
+                            title: 'Loading...',
+                            subtitle: 'Loading modules',
+                            onTap: () {},
+                          )),
+                          const SizedBox(width: 12),
+                          Expanded(child: _ModuleCard(
+                            icon: Icons.book_outlined,
+                            iconColor: Colors.blue.shade500,
+                            iconBg: Colors.blue.shade50,
+                            title: 'Loading...',
+                            subtitle: 'Loading modules',
+                            onTap: () {},
+                          )),
+                        ],
+                      );
+                    }
+
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: _ModuleCard(
+                              icon: Icons.book_outlined,
+                              iconColor: Colors.blue.shade500,
+                              iconBg: Colors.blue.shade50,
+                              title: 'No modules yet',
+                              subtitle: 'Generate modules to get started',
+                              onTap: () => Navigator.pushNamed(context, Routes.learning),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _ModuleCard(
+                              icon: Icons.add_circle_outline,
+                              iconColor: const Color(0xFF663399),
+                              iconBg: const Color(0xFF663399).withOpacity(0.1),
+                              title: 'Get started',
+                              subtitle: 'Create your first module',
+                              onTap: () => Navigator.pushNamed(context, Routes.learning),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    // Filter out archived modules and get first 2 active ones
+                    final activeModules = snapshot.data!.docs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final isArchived = data['isArchived'] ?? false;
+                      return isArchived != true;
+                    }).take(2).toList();
+                    
+                    final module1 = activeModules.length > 0 ? activeModules[0] : null;
+                    final module2 = activeModules.length > 1 ? activeModules[1] : null;
+
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: module1 != null
+                              ? _buildModuleCardFromData(
+                                  module1.data() as Map<String, dynamic>,
+                                  (title) {
+                                    final lower = title.toLowerCase();
+                                    if (lower.contains('right') || lower.contains('advocacy')) return Icons.scale;
+                                    if (lower.contains('nutrition') || lower.contains('food')) return Icons.restaurant;
+                                    if (lower.contains('medication')) return Icons.medication;
+                                    if (lower.contains('mental') || lower.contains('emotional')) return Icons.favorite;
+                                    if (lower.contains('birth') || lower.contains('labor')) return Icons.child_care;
+                                    return Icons.book_outlined;
+                                  },
+                                  (title) {
+                                    final lower = title.toLowerCase();
+                                    if (lower.contains('right') || lower.contains('advocacy')) {
+                                      return {'bg': Colors.red.shade50, 'icon': Colors.red.shade600};
+                                    }
+                                    if (lower.contains('nutrition') || lower.contains('food')) {
+                                      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
+                                    }
+                                    if (lower.contains('medication')) {
+                                      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
+                                    }
+                                    if (lower.contains('mental') || lower.contains('emotional')) {
+                                      return {'bg': Colors.purple.shade50, 'icon': const Color(0xFF663399)};
+                                    }
+                                    return {'bg': Colors.blue.shade50, 'icon': Colors.blue.shade500};
+                                  },
+                                  context,
+                                )
+                              : _ModuleCard(
+                                  icon: Icons.book_outlined,
+                                  iconColor: Colors.blue.shade500,
+                                  iconBg: Colors.blue.shade50,
+                                  title: 'No modules',
+                                  subtitle: 'Get started',
+                                  onTap: () => Navigator.pushNamed(context, Routes.learning),
+                                ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: module2 != null
+                              ? _buildModuleCardFromData(
+                                  module2.data() as Map<String, dynamic>,
+                                  (title) {
+                                    final lower = title.toLowerCase();
+                                    if (lower.contains('right') || lower.contains('advocacy')) return Icons.scale;
+                                    if (lower.contains('nutrition') || lower.contains('food')) return Icons.restaurant;
+                                    if (lower.contains('medication')) return Icons.medication;
+                                    if (lower.contains('mental') || lower.contains('emotional')) return Icons.favorite;
+                                    if (lower.contains('birth') || lower.contains('labor')) return Icons.child_care;
+                                    return Icons.book_outlined;
+                                  },
+                                  (title) {
+                                    final lower = title.toLowerCase();
+                                    if (lower.contains('right') || lower.contains('advocacy')) {
+                                      return {'bg': Colors.red.shade50, 'icon': Colors.red.shade600};
+                                    }
+                                    if (lower.contains('nutrition') || lower.contains('food')) {
+                                      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
+                                    }
+                                    if (lower.contains('medication')) {
+                                      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
+                                    }
+                                    if (lower.contains('mental') || lower.contains('emotional')) {
+                                      return {'bg': Colors.purple.shade50, 'icon': const Color(0xFF663399)};
+                                    }
+                                    return {'bg': Colors.blue.shade50, 'icon': Colors.blue.shade500};
+                                  },
+                                  context,
+                                )
+                              : _ModuleCard(
+                                  icon: Icons.add_circle_outline,
+                                  iconColor: const Color(0xFF663399),
+                                  iconBg: const Color(0xFF663399).withOpacity(0.1),
+                                  title: 'Add module',
+                                  subtitle: 'Create new',
+                                  onTap: () => Navigator.pushNamed(context, Routes.learning),
+                                ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
 
@@ -499,6 +725,117 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
         ),
       ),
     );
+  }
+
+  // Helper functions for home screen
+  Widget _buildModuleCardFromData(
+    Map<String, dynamic> data,
+    IconData Function(String) getIcon,
+    Map<String, Color> Function(String) getColors,
+    BuildContext context,
+  ) {
+    final title = (data['title'] ?? '').toString();
+    final description = (data['description'] ?? '').toString();
+    final content = data['content'];
+    final contentString = content is String 
+        ? content 
+        : (content is Map ? content.toString() : '');
+    final colors = getColors(title);
+    final icon = getIcon(title);
+
+    return InkWell(
+      onTap: () {
+        if (contentString.isNotEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => LearningModuleDetailScreen(
+                title: title,
+                content: contentString,
+                icon: '📚',
+              ),
+            ),
+          );
+        } else {
+          Navigator.pushNamed(context, Routes.learning);
+        }
+      },
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.grey.shade100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colors['bg']!,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: colors['icon']!, size: 20),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description.isNotEmpty ? description : 'Learning module',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[500],
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatSummaryFromMap(Map<String, dynamic> summaryMap) {
+    final buffer = StringBuffer();
+    
+    if (summaryMap['howBabyIsDoing'] != null) {
+      buffer.writeln('## How Your Baby Is Doing');
+      buffer.writeln(summaryMap['howBabyIsDoing']);
+      buffer.writeln();
+    }
+    
+    if (summaryMap['howYouAreDoing'] != null) {
+      buffer.writeln('## How You Are Doing');
+      buffer.writeln(summaryMap['howYouAreDoing']);
+      buffer.writeln();
+    }
+    
+    if (summaryMap['nextSteps'] != null) {
+      buffer.writeln('## Actions To Take');
+      buffer.writeln(summaryMap['nextSteps']);
+      buffer.writeln();
+    }
+    
+    return buffer.toString();
   }
 }
 

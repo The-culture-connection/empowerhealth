@@ -5,7 +5,6 @@ import '../../models/learning_module.dart';
 import '../../services/ai_service.dart';
 import '../../cors/ui_theme.dart';
 import 'learning_module_detail_screen.dart';
-import 'rights_screen.dart';
 
 class LearningModulesScreenV2 extends StatefulWidget {
   const LearningModulesScreenV2({super.key});
@@ -17,7 +16,7 @@ class LearningModulesScreenV2 extends StatefulWidget {
 class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
   final AIService _aiService = AIService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  String _selectedTrimester = 'general';
+  String _filterType = 'all'; // 'all' or 'archived'
 
   // Helper to get icon for module
   IconData _getModuleIcon(String title) {
@@ -52,13 +51,46 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
     return {'bg': Colors.blue.shade50, 'icon': Colors.blue.shade500};
   }
 
-  String _normalizeTrimester(String? trimester) {
-    if (trimester == null) return 'general';
-    final lower = trimester.toLowerCase();
-    if (lower.contains('first') || lower.contains('1')) return 'first';
-    if (lower.contains('second') || lower.contains('2')) return 'second';
-    if (lower.contains('third') || lower.contains('3')) return 'third';
-    return 'general';
+  String _formatMapContentToMarkdown(Map<String, dynamic> contentMap) {
+    final buffer = StringBuffer();
+    final sections = [
+      {'key': 'whatThisIs', 'title': 'What This Is'},
+      {'key': 'whyItMatters', 'title': 'Why It Matters for Your Health'},
+      {'key': 'whatToExpect', 'title': 'What to Expect'},
+      {'key': 'whatYouCanAsk', 'title': 'What You Can Ask or Say'},
+      {'key': 'risksOptionsAlternatives', 'title': 'Risks, Options, and Alternatives'},
+      {'key': 'whenToSeekHelp', 'title': 'When to Seek Medical Help'},
+      {'key': 'empowermentConnection', 'title': 'How This Connects to Your Empowerment'},
+      {'key': 'keyPoints', 'title': 'Key Points'},
+      {'key': 'yourRights', 'title': 'Your Rights'},
+      {'key': 'insuranceNotes', 'title': 'Insurance Notes'},
+    ];
+
+    for (final section in sections) {
+      final key = section['key']!;
+      final title = section['title']!;
+      final value = contentMap[key];
+      
+      if (value != null) {
+        String valueStr = '';
+        if (value is String) {
+          valueStr = value;
+        } else if (value is List) {
+          valueStr = value.map((e) => e.toString()).join('\n• ');
+          if (valueStr.isNotEmpty) valueStr = '• $valueStr';
+        } else {
+          valueStr = value.toString();
+        }
+        
+        if (valueStr.trim().isNotEmpty) {
+          buffer.writeln('## $title');
+          buffer.writeln(valueStr);
+          buffer.writeln();
+        }
+      }
+    }
+
+    return buffer.toString().isEmpty ? contentMap.toString() : buffer.toString();
   }
 
   @override
@@ -103,232 +135,26 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                 ),
               ),
 
-              // Trimester selector
+              // Filter Buttons
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey.shade100),
-                  ),
-                  child: Row(
-                    children: [
-                      _TrimesterChip(
-                        label: '1st',
-                        isSelected: _selectedTrimester == 'first',
-                        onTap: () => setState(() => _selectedTrimester = 'first'),
-                      ),
-                      const SizedBox(width: 8),
-                      _TrimesterChip(
-                        label: '2nd',
-                        isSelected: _selectedTrimester == 'second',
-                        onTap: () => setState(() => _selectedTrimester = 'second'),
-                      ),
-                      const SizedBox(width: 8),
-                      _TrimesterChip(
-                        label: '3rd',
-                        isSelected: _selectedTrimester == 'third',
-                        onTap: () => setState(() => _selectedTrimester = 'third'),
-                      ),
-                      const SizedBox(width: 8),
-                      _TrimesterChip(
-                        label: 'All',
-                        isSelected: _selectedTrimester == 'general',
-                        onTap: () => setState(() => _selectedTrimester = 'general'),
-                      ),
-                    ],
-                  ),
+                child: Row(
+                  children: [
+                    _FilterChip(
+                      label: 'All',
+                      isSelected: _filterType == 'all',
+                      onTap: () => setState(() => _filterType = 'all'),
+                    ),
+                    const SizedBox(width: 8),
+                    _FilterChip(
+                      label: 'Archived',
+                      isSelected: _filterType == 'archived',
+                      onTap: () => setState(() => _filterType = 'archived'),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
-
-              // Continue Learning Section - Show most recent module
-              StreamBuilder<QuerySnapshot>(
-                stream: userId != null
-                    ? FirebaseFirestore.instance
-                        .collection('learning_tasks')
-                        .where('userId', isEqualTo: userId)
-                        .where('isGenerated', isEqualTo: true)
-                        .orderBy('createdAt', descending: true)
-                        .limit(1)
-                        .snapshots()
-                    : null,
-                builder: (context, snapshot) {
-                  if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                    final doc = snapshot.data!.docs.first;
-                    final data = doc.data() as Map<String, dynamic>;
-                    final title = (data['title'] ?? '').toString();
-                    final description = (data['description'] ?? '').toString();
-                    final content = data['content'];
-                    final contentString = content is String ? content : (content is Map ? content.toString() : '');
-                    final colors = _getModuleColors(title);
-                    final icon = _getModuleIcon(title);
-                    
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                          ),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF663399).withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: InkWell(
-                          onTap: () {
-                            if (contentString.isNotEmpty) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => LearningModuleDetailScreen(
-                                    title: title,
-                                    content: contentString,
-                                    icon: '📚',
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Icon(icon, color: Colors.white, size: 24),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'IN PROGRESS',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      title,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      description.isNotEmpty ? description : 'Continue your learning journey',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Icon(Icons.chevron_right, color: Colors.white),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                  // Fallback to Know Your Rights if no modules
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const RightsScreen()),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                          ),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF663399).withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Center(
-                                child: Text('⚖️', style: TextStyle(fontSize: 24)),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'IN PROGRESS',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Know Your Rights',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Healthcare advocacy and informed consent',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(Icons.chevron_right, color: Colors.white),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
 
               // All Modules Section
               Padding(
@@ -408,8 +234,11 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
 
                     final tasks = snapshot.data!.docs.where((doc) {
                       final data = doc.data() as Map<String, dynamic>;
-                      final taskTrimester = _normalizeTrimester(data['trimester']?.toString());
-                      return _selectedTrimester == 'general' || taskTrimester == _selectedTrimester;
+                      final isArchived = data['isArchived'] ?? false;
+                      if (_filterType == 'archived') {
+                        return isArchived == true;
+                      }
+                      return isArchived != true;
                     }).toList();
 
                     if (tasks.isEmpty) {
@@ -417,7 +246,9 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                         child: Padding(
                           padding: const EdgeInsets.all(24.0),
                           child: Text(
-                            'No modules for selected trimester',
+                            _filterType == 'archived' 
+                                ? 'No archived modules'
+                                : 'No learning modules yet',
                             style: TextStyle(color: Colors.grey[600]),
                           ),
                         ),
@@ -437,16 +268,19 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                         final colors = _getModuleColors(title);
                         final icon = _getModuleIcon(title);
 
-                        // Check if completed
+                        // Check if completed and archived
                         final isCompleted = data['isCompleted'] ?? false;
-                        final progress = isCompleted ? 100 : (data['progress'] ?? 0);
+                        final isArchived = data['isArchived'] ?? false;
+                        final taskId = doc.id;
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: Colors.grey.shade100),
+                            border: Border.all(
+                              color: isArchived ? Colors.grey.shade300 : Colors.grey.shade100,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.05),
@@ -455,105 +289,162 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                               ),
                             ],
                           ),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(24),
-                            onTap: () {
-                              if (contentString.isNotEmpty) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => LearningModuleDetailScreen(
-                                      title: title,
-                                      content: contentString,
-                                      icon: '📚',
+                          child: Opacity(
+                            opacity: isArchived ? 0.6 : 1.0,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(24),
+                              onTap: () {
+                                if (contentString.isNotEmpty) {
+                                  // Convert Map content to formatted string if needed
+                                  String formattedContent = contentString;
+                                  if (content is Map) {
+                                    formattedContent = _formatMapContentToMarkdown(content as Map<String, dynamic>);
+                                  } else if (contentString.startsWith('{') || contentString.contains('whatThisIs')) {
+                                    // Already handled in detail screen
+                                    formattedContent = contentString;
+                                  }
+                                  
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => LearningModuleDetailScreen(
+                                        title: title,
+                                        content: formattedContent,
+                                        icon: '📚',
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: colors['bg']!,
-                                      borderRadius: BorderRadius.circular(16),
+                                  );
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Row(
+                                  children: [
+                                    // Checkbox
+                                    Checkbox(
+                                      value: isCompleted,
+                                      onChanged: isArchived ? null : (value) async {
+                                        if (value == true) {
+                                          // When checked, mark as completed and archive
+                                          await doc.reference.update({
+                                            'isCompleted': true,
+                                            'isArchived': true,
+                                          });
+                                        } else {
+                                          // When unchecked, unmark as completed and unarchive
+                                          await doc.reference.update({
+                                            'isCompleted': false,
+                                            'isArchived': false,
+                                          });
+                                        }
+                                      },
+                                      activeColor: const Color(0xFF663399),
                                     ),
-                                    child: Icon(
-                                      icon,
-                                      color: colors['icon']!,
-                                      size: 24,
+                                    const SizedBox(width: 12),
+                                    Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        color: colors['bg']!,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Icon(
+                                        icon,
+                                        color: colors['icon']!,
+                                        size: 24,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          title,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          description.isNotEmpty ? description : 'Learning module',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                        if (progress > 0) ...[
-                                          const SizedBox(height: 12),
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(2),
-                                            child: LinearProgressIndicator(
-                                              value: progress / 100,
-                                              backgroundColor: Colors.grey.shade100,
-                                              valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF663399)),
-                                              minHeight: 6,
-                                            ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  title,
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: isArchived ? Colors.grey[500] : Colors.black87,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (isArchived)
+                                                const Icon(
+                                                  Icons.archive,
+                                                  size: 16,
+                                                  color: Colors.grey,
+                                                ),
+                                            ],
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            '$progress% complete',
+                                            description.isNotEmpty ? description : 'Learning module',
                                             style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey[500],
+                                              fontSize: 14,
+                                              color: isArchived ? Colors.grey[400] : Colors.grey[600],
                                             ),
                                           ),
-                                        ],
-                                        if (progress == 0 && contentString.isEmpty) ...[
-                                          const SizedBox(height: 8),
-                                          TextButton(
-                                            onPressed: () {
-                                              // Generate module - could trigger generation
-                                            },
-                                            style: TextButton.styleFrom(
-                                              padding: EdgeInsets.zero,
-                                              minimumSize: Size.zero,
-                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                            ),
-                                            child: const Text(
-                                              'Start learning →',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Color(0xFF663399),
+                                          if (!isArchived && !isCompleted)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 8),
+                                              child: Align(
+                                                alignment: Alignment.centerRight,
+                                                child: TextButton(
+                                                  onPressed: () async {
+                                                    await doc.reference.update({
+                                                      'isCompleted': true,
+                                                      'isArchived': true,
+                                                    });
+                                                  },
+                                                  style: TextButton.styleFrom(
+                                                    padding: EdgeInsets.zero,
+                                                    minimumSize: Size.zero,
+                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                  ),
+                                                  child: const Text(
+                                                    'Mark Done & Archive',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Color(0xFF663399),
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ),
                                               ),
                                             ),
-                                          ),
+                                          if (isCompleted && !isArchived)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 8),
+                                              child: Align(
+                                                alignment: Alignment.centerRight,
+                                                child: TextButton(
+                                                  onPressed: () async {
+                                                    await doc.reference.update({'isArchived': true});
+                                                  },
+                                                  style: TextButton.styleFrom(
+                                                    padding: EdgeInsets.zero,
+                                                    minimumSize: Size.zero,
+                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                  ),
+                                                  child: Text(
+                                                    'Archive',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
                                         ],
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                  Icon(Icons.chevron_right, color: Colors.grey[400]),
-                                ],
+                                    Icon(Icons.chevron_right, color: Colors.grey[400]),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -563,50 +454,6 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                   },
                 ),
               ),
-
-              // Resources Section
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.red.shade50, Colors.pink.shade50],
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.pink.shade100),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Plain Language Promise',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'All our content is written at a 6th grade reading level. No confusing medical jargon—just clear, supportive guidance that helps you understand your care.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -615,12 +462,12 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
   }
 }
 
-class _TrimesterChip extends StatelessWidget {
+class _FilterChip extends StatelessWidget {
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _TrimesterChip({
+  const _FilterChip({
     required this.label,
     required this.isSelected,
     required this.onTap,

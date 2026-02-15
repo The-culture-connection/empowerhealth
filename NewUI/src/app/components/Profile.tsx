@@ -1,6 +1,58 @@
 import { User, Calendar, Heart, Users, FileText, Shield, Bell, LogOut } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
+import { authService } from "../../services/authService";
+import { databaseService, UserProfile } from "../../services/databaseService";
+import { calculateWeeksPregnant, calculateTrimester } from "../../utils/pregnancyUtils";
+import { format } from "date-fns";
 
 export function Profile() {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const user = authService.currentUser;
+    if (!user) {
+      navigate('/');
+      return;
+    }
+
+    const unsubscribe = databaseService.streamUserProfile(user.uid, (profileData) => {
+      setProfile(profileData);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
+
+  const handleSignOut = async () => {
+    try {
+      await authService.signOut();
+      navigate('/');
+    } catch (error: any) {
+      alert(`Error signing out: ${error.message}`);
+    }
+  };
+
+  const user = authService.currentUser;
+  const userName = profile?.name || user?.displayName || user?.email?.split('@')[0] || 'User';
+  const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
+  const dueDate = profile?.dueDate ? new Date(profile.dueDate) : null;
+  const weeksPregnant = calculateWeeksPregnant(dueDate);
+  const trimester = calculateTrimester(dueDate);
+
+  if (loading) {
+    return (
+      <div className="p-5">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-5">
       {/* Header */}
@@ -14,14 +66,23 @@ export function Profile() {
         <div className="bg-gradient-to-br from-[#663399] to-[#8855bb] rounded-3xl p-6 text-white shadow-md">
           <div className="flex items-start gap-4 mb-4">
             <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-2xl">
-              S
+              {initials}
             </div>
             <div className="flex-1">
-              <h2 className="text-xl mb-1">Sarah Mitchell</h2>
-              <p className="text-white/80 text-sm">sarah.mitchell@email.com</p>
-              <p className="text-white/80 text-sm mt-2">Due Date: June 15, 2026</p>
+              <h2 className="text-xl mb-1">{userName}</h2>
+              <p className="text-white/80 text-sm">{user?.email}</p>
+              {dueDate && (
+                <p className="text-white/80 text-sm mt-2">
+                  Due Date: {format(dueDate, "MMMM d, yyyy")}
+                </p>
+              )}
             </div>
-            <button className="text-white/90 text-sm">Edit</button>
+            <button
+              onClick={() => setEditing(!editing)}
+              className="text-white/90 text-sm hover:text-white transition-colors"
+            >
+              {editing ? "Save" : "Edit"}
+            </button>
           </div>
         </div>
       </section>
@@ -31,27 +92,37 @@ export function Profile() {
         <h2 className="mb-3">Pregnancy Details</h2>
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Current Week</p>
-                <p className="text-sm">Week 24 of 40</p>
+            {weeksPregnant > 0 && (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Current Week</p>
+                    <p className="text-sm">Week {weeksPregnant} of 40</p>
+                  </div>
+                  <Calendar className="w-5 h-5 text-gray-400" />
+                </div>
+                <div className="h-px bg-gray-100"></div>
+              </>
+            )}
+            {dueDate && (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Due Date</p>
+                    <p className="text-sm">{format(dueDate, "MMMM d, yyyy")}</p>
+                  </div>
+                </div>
+                <div className="h-px bg-gray-100"></div>
+              </>
+            )}
+            {trimester && (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Trimester</p>
+                  <p className="text-sm">{trimester} Trimester</p>
+                </div>
               </div>
-              <Calendar className="w-5 h-5 text-gray-400" />
-            </div>
-            <div className="h-px bg-gray-100"></div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Due Date</p>
-                <p className="text-sm">June 15, 2026</p>
-              </div>
-            </div>
-            <div className="h-px bg-gray-100"></div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Trimester</p>
-                <p className="text-sm">Second Trimester</p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -181,7 +252,10 @@ export function Profile() {
             <Shield className="w-5 h-5 text-gray-600" />
             <span className="text-sm text-gray-700">Privacy & Data</span>
           </button>
-          <button className="w-full bg-white rounded-3xl p-4 shadow-sm border border-gray-100 hover:border-red-200 transition-colors flex items-center gap-3 text-red-600">
+          <button
+            onClick={handleSignOut}
+            className="w-full bg-white rounded-3xl p-4 shadow-sm border border-gray-100 hover:border-red-200 transition-colors flex items-center gap-3 text-red-600"
+          >
             <LogOut className="w-5 h-5" />
             <span className="text-sm">Sign Out</span>
           </button>

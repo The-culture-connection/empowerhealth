@@ -1073,7 +1073,11 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                 }, (index) {
                   setState(() => _pregnancyComplications.removeAt(index));
                 }),
-      ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -264,7 +264,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                       Colors.green.shade50,
                       Colors.amber.shade50,
                       Colors.purple.shade50,
-                      Colors.rose.shade50,
+                      Colors.red.shade50,
                       Colors.pink.shade50,
                     ];
                     final iconColorValues = [

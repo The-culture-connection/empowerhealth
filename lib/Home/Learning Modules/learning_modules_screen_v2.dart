@@ -18,58 +18,6 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
   final AIService _aiService = AIService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   String _selectedTrimester = 'general';
-  bool _isGenerating = false;
-
-  final List<Map<String, String>> _bankedModules = [
-    {
-      'title': 'Your First Trimester',
-      'topic': 'Early Pregnancy Changes',
-      'trimester': 'first',
-      'icon': '🌱',
-    },
-    {
-      'title': 'Nutrition in Pregnancy',
-      'topic': 'Eating Well for You and Baby',
-      'trimester': 'first',
-      'icon': '🥗',
-    },
-    {
-      'title': 'Know Your Rights',
-      'topic': 'Patient Rights in Maternity Care',
-      'trimester': 'general',
-      'icon': '⚖️',
-    },
-    {
-      'title': 'Your Growing Baby',
-      'topic': 'Second Trimester Development',
-      'trimester': 'second',
-      'icon': '👶',
-    },
-    {
-      'title': 'Staying Active',
-      'topic': 'Safe Exercise During Pregnancy',
-      'trimester': 'second',
-      'icon': '🏃‍♀️',
-    },
-    {
-      'title': 'Getting Ready for Baby',
-      'topic': 'Third Trimester Preparation',
-      'trimester': 'third',
-      'icon': '🎒',
-    },
-    {
-      'title': 'Labor and Delivery',
-      'topic': 'What to Expect During Birth',
-      'trimester': 'third',
-      'icon': '🏥',
-    },
-    {
-      'title': 'Your Mental Health',
-      'topic': 'Emotional Wellbeing',
-      'trimester': 'general',
-      'icon': '💚',
-    },
-  ];
 
   // Helper to get icon for module
   IconData _getModuleIcon(String title) {

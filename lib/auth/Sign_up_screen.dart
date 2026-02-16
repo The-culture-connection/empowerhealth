@@ -149,21 +149,45 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _name,
-                            decoration: const InputDecoration(labelText: 'Full name'),
+                            decoration: InputDecoration(
+                              labelText: 'Full name',
+                              suffixIcon: IconButton(
+                                icon: Icon(Icons.keyboard_hide, 
+                                    color: Colors.grey[400], size: 20),
+                                onPressed: () => FocusScope.of(context).unfocus(),
+                                tooltip: 'Dismiss keyboard',
+                              ),
+                            ),
                             validator: (v) => (v == null || v.isEmpty) ? 'Enter your name' : null,
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _email,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(labelText: 'Email'),
+                            decoration: InputDecoration(
+                              labelText: 'Email',
+                              suffixIcon: IconButton(
+                                icon: Icon(Icons.keyboard_hide, 
+                                    color: Colors.grey[400], size: 20),
+                                onPressed: () => FocusScope.of(context).unfocus(),
+                                tooltip: 'Dismiss keyboard',
+                              ),
+                            ),
                             validator: (v) => (v == null || v.isEmpty) ? 'Enter your email' : null,
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _password,
                             obscureText: true,
-                            decoration: const InputDecoration(labelText: 'Password'),
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              suffixIcon: IconButton(
+                                icon: Icon(Icons.keyboard_hide, 
+                                    color: Colors.grey[400], size: 20),
+                                onPressed: () => FocusScope.of(context).unfocus(),
+                                tooltip: 'Dismiss keyboard',
+                              ),
+                            ),
                             validator: (v) => (v == null || v.length < 6) ? 'Min 6 characters' : null,
                           ),
                           const SizedBox(height: 20),

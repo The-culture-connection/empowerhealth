@@ -26,8 +26,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
     });
 
     try {
-      final response = await _functionsService.simplifyText(text: userMessage);
-      final assistantResponse = response['simplifiedText'] ?? 
+      final response = await _functionsService.simplifyText(
+        text: userMessage,
+        context: 'You are a helpful AI assistant for EmpowerHealth, a maternal health app. Answer questions about pregnancy, maternal health, patient rights, and healthcare advocacy in a supportive, clear, and empowering way. Keep responses concise and at a 6th-8th grade reading level. Be warm, empathetic, and culturally sensitive.',
+      );
+      // The function returns {success: true, simplified: "..."}
+      final assistantResponse = response['simplified'] ?? 
+          response['simplifiedText'] ??
           "I'm here to help! How can I assist you today?";
 
       setState(() {
@@ -217,6 +222,12 @@ class _AssistantScreenState extends State<AssistantScreen> {
                               vertical: 12,
                             ),
                             hintStyle: TextStyle(color: Colors.grey[400]),
+                            suffixIcon: IconButton(
+                              icon: Icon(Icons.keyboard_hide, 
+                                  color: Colors.grey[400], size: 20),
+                              onPressed: () => FocusScope.of(context).unfocus(),
+                              tooltip: 'Dismiss keyboard',
+                            ),
                           ),
                           maxLines: null,
                           textInputAction: TextInputAction.send,

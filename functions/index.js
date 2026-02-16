@@ -480,19 +480,28 @@ exports.simplifyText = onCall(
 
     try {
       const openai = getOpenAIClient(openaiApiKey.value());
+      
+      // If context is provided, use it as a custom system prompt for general AI assistant
+      // Otherwise, use the default text simplification prompt
+      const systemPrompt = textContext || `You are a medical communication expert who translates complex medical information 
+into simple, clear language appropriate for a 6th grade reading level. Use short sentences, 
+common words, and avoid medical jargon. When medical terms are necessary, explain them simply. 
+Focus on what the person needs to know and do.`;
+
+      const userPrompt = textContext 
+        ? text 
+        : `Please simplify this to 6th grade reading level:\n\n${text}`;
+
       const response = await openai.chat.completions.create({
         model: "gpt-4",
         messages: [
           {
             role: "system",
-            content: `You are a medical communication expert who translates complex medical information 
-into simple, clear language appropriate for a 6th grade reading level. Use short sentences, 
-common words, and avoid medical jargon. When medical terms are necessary, explain them simply. 
-Focus on what the person needs to know and do.`,
+            content: systemPrompt,
           },
           {
             role: "user",
-            content: `${textContext ? textContext + "\n\n" : ""}Please simplify this to 6th grade reading level:\n\n${text}`,
+            content: userPrompt,
           },
         ],
         temperature: 0.7,

@@ -679,6 +679,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               horizontal: 16,
                               vertical: 12,
                             ),
+                            suffixIcon: IconButton(
+                              icon: Icon(Icons.keyboard_hide, 
+                                  color: Colors.grey[400], size: 20),
+                              onPressed: () => FocusScope.of(context).unfocus(),
+                              tooltip: 'Dismiss keyboard',
+                            ),
                           ),
                         ),
                       ),

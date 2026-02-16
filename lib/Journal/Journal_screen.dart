@@ -5,8 +5,125 @@ import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
 import '../learning/notes_dialog.dart';
 
-class JournalScreen extends StatelessWidget {
+class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
+
+  @override
+  State<JournalScreen> createState() => _JournalScreenState();
+}
+
+class _JournalScreenState extends State<JournalScreen> {
+  final TextEditingController _entryController = TextEditingController();
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _entryController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveEntry() async {
+    if (_entryController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('📝 Please enter some text before saving'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('notes')
+          .add({
+        'content': _entryController.text.trim(),
+        'tag': 'Journal entry',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        _entryController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Entry saved to journal!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error saving entry: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  Future<void> _saveFeelingEntry(String emoji, String label) async {
+    setState(() => _isSaving = true);
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('notes')
+          .add({
+        'content': '$emoji $label',
+        'tag': 'Feelings',
+        'prompt': 'How are you feeling today?',
+        'isFeelingPrompt': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Feeling entry saved: $emoji $label'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error saving feeling: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +243,15 @@ class JournalScreen extends StatelessWidget {
                                     'What concerns are on your mind?',
                                   ].map((prompt) => _PromptChip(
                                     text: prompt,
-                                    onTap: () => _showFeelingPrompt(context, prompt),
+                                    onTap: () {
+                                      // Populate text box with prompt and add newline for user to continue
+                                      _entryController.text = '$prompt\n\n';
+                                      // Move cursor to end
+                                      _entryController.selection = TextSelection.fromPosition(
+                                        TextPosition(offset: _entryController.text.length),
+                                      );
+                                    },
+                                    onLongPress: () => _showFeelingPrompt(context, prompt),
                                   )).toList(),
                                 ),
                                 const SizedBox(height: 16),
@@ -137,6 +262,7 @@ class JournalScreen extends StatelessWidget {
                                     border: Border.all(color: Colors.grey.shade200),
                                   ),
                                   child: TextField(
+                                    controller: _entryController,
                                     maxLines: 6,
                                     decoration: InputDecoration(
                                       hintText: "What's on your mind today?",
@@ -151,12 +277,7 @@ class JournalScreen extends StatelessWidget {
                                   children: [
                                     Expanded(
                                       child: ElevatedButton(
-                                        onPressed: () {
-                                          showDialog(
-                                            context: context,
-                                            builder: (context) => const NotesDialog(),
-                                          );
-                                        },
+                                        onPressed: _isSaving ? null : _saveEntry,
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: const Color(0xFF663399),
                                           foregroundColor: Colors.white,
@@ -165,12 +286,23 @@ class JournalScreen extends StatelessWidget {
                                             borderRadius: BorderRadius.circular(16),
                                           ),
                                         ),
-                                        child: const Text('Save Entry'),
+                                        child: _isSaving
+                                            ? const SizedBox(
+                                                height: 20,
+                                                width: 20,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                                ),
+                                              )
+                                            : const Text('Save Entry'),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
                                     OutlinedButton(
-                                      onPressed: () {},
+                                      onPressed: _isSaving ? null : () {
+                                        _entryController.clear();
+                                      },
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: Colors.grey[700],
                                         side: BorderSide(color: Colors.grey.shade200!),
@@ -179,7 +311,7 @@ class JournalScreen extends StatelessWidget {
                                           borderRadius: BorderRadius.circular(16),
                                         ),
                                       ),
-                                      child: const Text('Cancel'),
+                                      child: const Text('Clear'),
                                     ),
                                   ],
                                 ),
@@ -215,11 +347,31 @@ class JournalScreen extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
-                                _MoodButton(emoji: '😊', label: 'Joyful'),
-                                _MoodButton(emoji: '😌', label: 'Calm'),
-                                _MoodButton(emoji: '😐', label: 'Okay'),
-                                _MoodButton(emoji: '😟', label: 'Worried'),
-                                _MoodButton(emoji: '😢', label: 'Tearful'),
+                                _MoodButton(
+                                  emoji: '😊',
+                                  label: 'Joyful',
+                                  onTap: () => _saveFeelingEntry('😊', 'Joyful'),
+                                ),
+                                _MoodButton(
+                                  emoji: '😌',
+                                  label: 'Calm',
+                                  onTap: () => _saveFeelingEntry('😌', 'Calm'),
+                                ),
+                                _MoodButton(
+                                  emoji: '😐',
+                                  label: 'Okay',
+                                  onTap: () => _saveFeelingEntry('😐', 'Okay'),
+                                ),
+                                _MoodButton(
+                                  emoji: '😟',
+                                  label: 'Worried',
+                                  onTap: () => _saveFeelingEntry('😟', 'Worried'),
+                                ),
+                                _MoodButton(
+                                  emoji: '😢',
+                                  label: 'Tearful',
+                                  onTap: () => _saveFeelingEntry('😢', 'Tearful'),
+                                ),
                               ],
                             ),
                           ),
@@ -398,13 +550,15 @@ class JournalScreen extends StatelessWidget {
 class _PromptChip extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
-  const _PromptChip({required this.text, required this.onTap});
+  const _PromptChip({required this.text, required this.onTap, this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -428,13 +582,14 @@ class _PromptChip extends StatelessWidget {
 class _MoodButton extends StatelessWidget {
   final String emoji;
   final String label;
+  final VoidCallback onTap;
 
-  const _MoodButton({required this.emoji, required this.label});
+  const _MoodButton({required this.emoji, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),

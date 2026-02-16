@@ -16,7 +16,7 @@ class LearningModulesScreenV2 extends StatefulWidget {
 class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
   final AIService _aiService = AIService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  String _filterType = 'all'; // 'all' or 'archived'
+  String _filterType = 'all'; // 'all', 'todos', 'modules', or 'archived'
 
   // Helper to get icon for module
   IconData _getModuleIcon(String title) {
@@ -138,20 +138,35 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
               // Filter Buttons
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    _FilterChip(
-                      label: 'All',
-                      isSelected: _filterType == 'all',
-                      onTap: () => setState(() => _filterType = 'all'),
-                    ),
-                    const SizedBox(width: 8),
-                    _FilterChip(
-                      label: 'Archived',
-                      isSelected: _filterType == 'archived',
-                      onTap: () => setState(() => _filterType = 'archived'),
-                    ),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _FilterChip(
+                        label: 'All',
+                        isSelected: _filterType == 'all',
+                        onTap: () => setState(() => _filterType = 'all'),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Todos',
+                        isSelected: _filterType == 'todos',
+                        onTap: () => setState(() => _filterType = 'todos'),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Learning Modules',
+                        isSelected: _filterType == 'modules',
+                        onTap: () => setState(() => _filterType = 'modules'),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Archived',
+                        isSelected: _filterType == 'archived',
+                        onTap: () => setState(() => _filterType = 'archived'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -235,10 +250,36 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                     final tasks = snapshot.data!.docs.where((doc) {
                       final data = doc.data() as Map<String, dynamic>;
                       final isArchived = data['isArchived'] ?? false;
+                      final content = data['content'];
+                      final hasContent = content != null && 
+                                       content.toString().trim().isNotEmpty && 
+                                       content.toString() != 'null';
+                      final category = data['category'];
+                      final moduleType = data['moduleType'];
+                      
+                      // Determine if it's a todo (no content, has category, or from birth plan)
+                      final isTodo = !hasContent || 
+                                    category != null || 
+                                    data['birthPlanId'] != null ||
+                                    (moduleType == null && !hasContent);
+                      
+                      // Determine if it's a learning module (has content and moduleType or visitSummaryId)
+                      final isModule = hasContent && 
+                                      (moduleType != null || 
+                                       data['visitSummaryId'] != null ||
+                                       data['trimester'] != null);
+                      
+                      // Apply filters
                       if (_filterType == 'archived') {
                         return isArchived == true;
+                      } else if (_filterType == 'todos') {
+                        return isArchived != true && isTodo;
+                      } else if (_filterType == 'modules') {
+                        return isArchived != true && isModule;
+                      } else {
+                        // 'all' - show everything that's not archived
+                        return isArchived != true;
                       }
-                      return isArchived != true;
                     }).toList();
 
                     if (tasks.isEmpty) {
@@ -247,8 +288,12 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                           padding: const EdgeInsets.all(24.0),
                           child: Text(
                             _filterType == 'archived' 
-                                ? 'No archived modules'
-                                : 'No learning modules yet',
+                                ? 'No archived items'
+                                : _filterType == 'todos'
+                                    ? 'No todos yet'
+                                    : _filterType == 'modules'
+                                        ? 'No learning modules yet'
+                                        : 'No items yet',
                             style: TextStyle(color: Colors.grey[600]),
                           ),
                         ),
@@ -272,6 +317,17 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                         final isCompleted = data['isCompleted'] ?? false;
                         final isArchived = data['isArchived'] ?? false;
                         final taskId = doc.id;
+                        
+                        // Determine if it's a todo or module
+                        final hasContent = content != null && 
+                                         content.toString().trim().isNotEmpty && 
+                                         content.toString() != 'null';
+                        final category = data['category'];
+                        final isTodo = !hasContent || 
+                                      category != null || 
+                                      data['birthPlanId'] != null ||
+                                      (data['moduleType'] == null && !hasContent);
+                        final isBirthPlanTodo = data['birthPlanId'] != null;
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
@@ -294,7 +350,8 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(24),
                               onTap: () {
-                                if (contentString.isNotEmpty) {
+                                // Only navigate to detail screen if it has content (learning modules)
+                                if (contentString.isNotEmpty && !isTodo) {
                                   // Convert Map content to formatted string if needed
                                   String formattedContent = contentString;
                                   if (content is Map) {
@@ -314,13 +371,25 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                       ),
                                     ),
                                   );
+                                } else if (isTodo) {
+                                  // For todos without content, show a simple dialog or snackbar
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        isBirthPlanTodo 
+                                            ? 'This is a birth plan action item. Complete it in your birth plan.'
+                                            : 'This is a todo item. Mark it as done when completed.',
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
                                 }
                               },
                               child: Padding(
                                 padding: const EdgeInsets.all(20),
                                 child: Row(
                                   children: [
-                                    // Checkbox
+                                    // Checkbox - show for all items (todos and learning modules)
                                     Checkbox(
                                       value: isCompleted,
                                       onChanged: isArchived ? null : (value) async {
@@ -341,20 +410,23 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                       activeColor: const Color(0xFF663399),
                                     ),
                                     const SizedBox(width: 12),
-                                    Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        color: colors['bg']!,
-                                        borderRadius: BorderRadius.circular(16),
+                                    // Icon box - only show for learning modules, not todos
+                                    if (!isTodo) ...[
+                                      Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          color: colors['bg']!,
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        child: Icon(
+                                          icon,
+                                          color: colors['icon']!,
+                                          size: 24,
+                                        ),
                                       ),
-                                      child: Icon(
-                                        icon,
-                                        color: colors['icon']!,
-                                        size: 24,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
+                                      const SizedBox(width: 16),
+                                    ],
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,12 +452,42 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                             ],
                                           ),
                                           const SizedBox(height: 4),
-                                          Text(
-                                            description.isNotEmpty ? description : 'Learning module',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: isArchived ? Colors.grey[400] : Colors.grey[600],
-                                            ),
+                                          Row(
+                                            children: [
+                                              if (isTodo) ...[
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: isBirthPlanTodo 
+                                                        ? Colors.orange.shade100 
+                                                        : Colors.blue.shade100,
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Text(
+                                                    isBirthPlanTodo ? 'Birth Plan Todo' : 'Todo',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: isBirthPlanTodo 
+                                                          ? Colors.orange.shade700 
+                                                          : Colors.blue.shade700,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                              ],
+                                              Expanded(
+                                                child: Text(
+                                                  description.isNotEmpty 
+                                                      ? description 
+                                                      : (isTodo ? 'Action item' : 'Learning module'),
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: isArchived ? Colors.grey[400] : Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                           if (!isArchived && !isCompleted)
                                             Padding(
@@ -442,7 +544,8 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                         ],
                                       ),
                                     ),
-                                    Icon(Icons.chevron_right, color: Colors.grey[400]),
+                                    if (contentString.isNotEmpty && !isTodo)
+                                      Icon(Icons.chevron_right, color: Colors.grey[400]),
                                   ],
                                 ),
                               ),

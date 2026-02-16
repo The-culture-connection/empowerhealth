@@ -149,11 +149,133 @@ class AppointmentsListScreen extends StatelessWidget {
                       );
                     }
 
+                    // Filter out duplicates - keep only the most recent summary per appointment date
+                    final seenDates = <String>{};
+                    final uniqueDocs = <DocumentSnapshot>[];
+                    
+                    for (final doc in snapshot.data!.docs) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final appointmentDate = data['appointmentDate'];
+                      
+                      // Create a normalized date key for comparison
+                      String dateKey = 'unknown';
+                      if (appointmentDate != null) {
+                        try {
+                          DateTime dt;
+                          if (appointmentDate is Timestamp) {
+                            dt = appointmentDate.toDate();
+                          } else if (appointmentDate is String) {
+                            dt = DateTime.parse(appointmentDate);
+                          } else {
+                            continue; // Skip if we can't parse
+                          }
+                          // Normalize to start of day
+                          final normalized = DateTime(dt.year, dt.month, dt.day);
+                          dateKey = '${normalized.year}-${normalized.month}-${normalized.day}';
+                        } catch (e) {
+                          // If parsing fails, use document ID as key
+                          dateKey = doc.id;
+                        }
+                      } else {
+                        dateKey = doc.id;
+                      }
+                      
+                      // Only add if we haven't seen this date before
+                      // If we have, keep the one with the most recent createdAt
+                      if (!seenDates.contains(dateKey)) {
+                        seenDates.add(dateKey);
+                        uniqueDocs.add(doc);
+                      } else {
+                        // Find the existing doc with this date and compare createdAt
+                        final existingIndex = uniqueDocs.indexWhere((d) {
+                          final dData = d.data() as Map<String, dynamic>;
+                          final dDate = dData['appointmentDate'];
+                          String dDateKey = 'unknown';
+                          try {
+                            DateTime dt;
+                            if (dDate is Timestamp) {
+                              dt = dDate.toDate();
+                            } else if (dDate is String) {
+                              dt = DateTime.parse(dDate);
+                            } else {
+                              return false;
+                            }
+                            final normalized = DateTime(dt.year, dt.month, dt.day);
+                            dDateKey = '${normalized.year}-${normalized.month}-${normalized.day}';
+                          } catch (e) {
+                            return false;
+                          }
+                          return dDateKey == dateKey;
+                        });
+                        
+                        if (existingIndex >= 0) {
+                          final existingDoc = uniqueDocs[existingIndex];
+                          final existingData = existingDoc.data() as Map<String, dynamic>;
+                          final newData = data;
+                          
+                          // Compare createdAt - keep the most recent one
+                          final existingCreated = existingData['createdAt'];
+                          final newCreated = newData['createdAt'];
+                          
+                          DateTime? existingTime;
+                          DateTime? newTime;
+                          
+                          if (existingCreated is Timestamp) {
+                            existingTime = existingCreated.toDate();
+                          }
+                          if (newCreated is Timestamp) {
+                            newTime = newCreated.toDate();
+                          }
+                          
+                          // Replace if new one is more recent
+                          if (newTime != null && existingTime != null && newTime.isAfter(existingTime)) {
+                            uniqueDocs[existingIndex] = doc;
+                          }
+                        }
+                      }
+                    }
+                    
+                    // Sort by appointment date (most recent first)
+                    uniqueDocs.sort((a, b) {
+                      final aData = a.data() as Map<String, dynamic>;
+                      final bData = b.data() as Map<String, dynamic>;
+                      final aDate = aData['appointmentDate'];
+                      final bDate = bData['appointmentDate'];
+                      
+                      DateTime? aTime;
+                      DateTime? bTime;
+                      
+                      if (aDate is Timestamp) {
+                        aTime = aDate.toDate();
+                      } else if (aDate is String) {
+                        try {
+                          aTime = DateTime.parse(aDate);
+                        } catch (e) {
+                          aTime = DateTime(1970);
+                        }
+                      }
+                      
+                      if (bDate is Timestamp) {
+                        bTime = bDate.toDate();
+                      } else if (bDate is String) {
+                        try {
+                          bTime = DateTime.parse(bDate);
+                        } catch (e) {
+                          bTime = DateTime(1970);
+                        }
+                      }
+                      
+                      if (aTime == null && bTime == null) return 0;
+                      if (aTime == null) return 1;
+                      if (bTime == null) return -1;
+                      return bTime.compareTo(aTime); // Descending
+                    });
+                    
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: snapshot.data!.docs.length,
+                      itemCount: uniqueDocs.length,
                       itemBuilder: (context, index) {
-                        final doc = snapshot.data!.docs[index];
+                        final doc = uniqueDocs[index];
                         final data = doc.data() as Map<String, dynamic>;
                         final appointmentDate = data['appointmentDate'];
                         // Prefer formatted summary string, fallback to summaryData if needed

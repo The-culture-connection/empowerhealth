@@ -84,6 +84,21 @@ export interface VisitSummary {
   createdAt?: Date;
 }
 
+export interface LearningTask {
+  id?: string;
+  userId: string;
+  title: string;
+  description?: string;
+  content?: string | any;
+  trimester?: string;
+  week?: number;
+  isGenerated?: boolean;
+  isCompleted?: boolean;
+  progress?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export class DatabaseService {
   // User Profile
   async saveUserProfile(profile: UserProfile): Promise<void> {
@@ -269,6 +284,60 @@ export class DatabaseService {
       throw new Error(`Error getting visit summaries: ${error.message}`);
     }
   }
+
+  // Learning Tasks
+  async getLearningTasks(userId: string): Promise<LearningTask[]> {
+    try {
+      const tasksRef = collection(db, 'learning_tasks');
+      const q = query(
+        tasksRef,
+        where('userId', '==', userId),
+        where('isGenerated', '==', true),
+        orderBy('createdAt', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate(),
+        updatedAt: doc.data().updatedAt?.toDate(),
+      })) as LearningTask[];
+    } catch (error: any) {
+      throw new Error(`Error getting learning tasks: ${error.message}`);
+    }
+  }
+
+  streamLearningTasks(userId: string, callback: (tasks: LearningTask[]) => void) {
+    const tasksRef = collection(db, 'learning_tasks');
+    const q = query(
+      tasksRef,
+      where('userId', '==', userId),
+      where('isGenerated', '==', true),
+      orderBy('createdAt', 'desc')
+    );
+    return onSnapshot(q, (querySnapshot) => {
+      const tasks = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate(),
+        updatedAt: doc.data().updatedAt?.toDate(),
+      })) as LearningTask[];
+      callback(tasks);
+    });
+  }
+
+  async updateLearningTask(taskId: string, updates: Partial<LearningTask>): Promise<void> {
+    try {
+      const taskRef = doc(db, 'learning_tasks', taskId);
+      await updateDoc(taskRef, {
+        ...updates,
+        updatedAt: Timestamp.now(),
+      });
+    } catch (error: any) {
+      throw new Error(`Error updating learning task: ${error.message}`);
+    }
+  }
 }
 
 export const databaseService = new DatabaseService();
+export type { LearningTask };

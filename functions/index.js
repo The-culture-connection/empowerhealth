@@ -1076,29 +1076,57 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
         });
       });
       
-      // Try exact match first
-      let existingSummaries = await admin.firestore()
+      // Get ALL summaries and filter client-side to handle both Timestamp and string formats
+      const allUserSummaries = await admin.firestore()
         .collection("users")
         .doc(userId)
         .collection("visit_summaries")
-        .where("appointmentDate", "==", appointmentTimestamp)
-        .limit(1)
         .get();
       
-      console.log(`🟢 [DEBUG] Helper: Exact match query found: ${existingSummaries.size} summaries`);
+      console.log(`🟢 [DEBUG] Helper: Total summaries in collection: ${allUserSummaries.size}`);
       
-      // If no exact match, try range query
-      if (existingSummaries.empty) {
-        existingSummaries = await admin.firestore()
-          .collection("users")
-          .doc(userId)
-          .collection("visit_summaries")
-          .where("appointmentDate", ">=", dayStart)
-          .where("appointmentDate", "<=", dayEnd)
-          .limit(1)
-          .get();
-        console.log(`🟢 [DEBUG] Helper: Range query found: ${existingSummaries.size} summaries`);
-      }
+      // Filter client-side to find matches (handles both Timestamp and string formats)
+      const matchingSummaries = allUserSummaries.docs.filter((doc) => {
+        const data = doc.data();
+        const existingDate = data.appointmentDate;
+        
+        if (!existingDate) return false;
+        
+        // Try to normalize the existing date
+        let existingDateObj;
+        if (existingDate.toDate && typeof existingDate.toDate === 'function') {
+          // It's a Firestore Timestamp
+          existingDateObj = existingDate.toDate();
+        } else if (existingDate instanceof Date) {
+          existingDateObj = existingDate;
+        } else if (typeof existingDate === 'string') {
+          // It's a string - parse it
+          try {
+            const dateStr = existingDate.split('T')[0];
+            const [year, month, day] = dateStr.split('-').map(Number);
+            existingDateObj = new Date(Date.UTC(year, month - 1, day));
+          } catch (e) {
+            return false;
+          }
+        } else {
+          return false;
+        }
+        
+        // Normalize to start of day for comparison
+        const existingNormalized = new Date(Date.UTC(
+          existingDateObj.getUTCFullYear(),
+          existingDateObj.getUTCMonth(),
+          existingDateObj.getUTCDate(),
+          0, 0, 0, 0
+        ));
+        
+        // Compare normalized dates
+        return existingNormalized.getTime() === normalizedDate.getTime();
+      });
+      
+      console.log(`🟢 [DEBUG] Helper: Client-side filter found: ${matchingSummaries.length} matching summaries`);
+      
+      let existingSummaries = { empty: matchingSummaries.length === 0, docs: matchingSummaries, size: matchingSummaries.length };
       
       console.log(`🟢 [DEBUG] Helper: Existing summaries found: ${existingSummaries.size}`);
       if (existingSummaries.size > 0) {
@@ -1236,8 +1264,12 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
 exports.analyzeVisitSummaryPDF = onCall(
   {secrets: [openaiApiKey]},
   async (request) => {
+    const functionCallId = `CF-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    console.log(`🔵 [DEBUG] ========================================`);
     console.log(`🔵 [DEBUG] analyzeVisitSummaryPDF Cloud Function called`);
+    console.log(`🔵 [DEBUG] Function Call ID: ${functionCallId}`);
     console.log(`🔵 [DEBUG] User ID: ${request.auth?.uid || 'NOT AUTHENTICATED'}`);
+    console.log(`🔵 [DEBUG] Timestamp: ${new Date().toISOString()}`);
     
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "🔒 User must be authenticated. Please log in.");
@@ -1260,6 +1292,36 @@ exports.analyzeVisitSummaryPDF = onCall(
       hasEducationLevel: !!educationLevel,
       hasUserProfile: !!userProfile,
     });
+    
+    // Check for processing lock to prevent concurrent executions
+    const lockDocRef = admin.firestore()
+      .collection("users")
+      .doc(request.auth.uid)
+      .collection("processing_locks")
+      .doc(`visit_summary_${storagePath?.replace(/\//g, '_') || 'unknown'}`);
+    
+    const lockDoc = await lockDocRef.get();
+    if (lockDoc.exists) {
+      const lockData = lockDoc.data();
+      const lockTime = lockData.timestamp?.toDate();
+      const now = new Date();
+      const lockAge = now - lockTime;
+      
+      // If lock is less than 5 minutes old, another process is likely running
+      if (lockAge < 5 * 60 * 1000) {
+        console.log(`🔵 [DEBUG] Processing lock found - another process may be running`);
+        console.log(`🔵 [DEBUG] Lock age: ${lockAge}ms, Lock function: ${lockData.functionCallId}`);
+        // Don't throw error, just log - we'll check for duplicates later
+      }
+    }
+    
+    // Create processing lock
+    await lockDocRef.set({
+      functionCallId: functionCallId,
+      storagePath: storagePath,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`🔵 [DEBUG] Created processing lock: ${functionCallId}`);
 
     if (!storagePath && !downloadUrl) {
       throw new HttpsError("invalid-argument", "📄 PDF file location is required (storagePath or downloadUrl)");
@@ -1656,32 +1718,67 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
         });
       });
       
-      // Try exact match first
-      let existingSummaries = await admin.firestore()
+      // Get ALL summaries and filter client-side to handle both Timestamp and string formats
+      // This is necessary because older summaries may have appointmentDate as a string
+      const allUserSummaries = await admin.firestore()
         .collection("users")
         .doc(request.auth.uid)
         .collection("visit_summaries")
-        .where("appointmentDate", "==", appointmentTimestamp)
-        .limit(1)
         .get();
       
-      console.log(`🔵 [DEBUG] Exact match query found: ${existingSummaries.size} summaries`);
+      console.log(`🔵 [DEBUG] Total summaries in collection: ${allUserSummaries.size}`);
       
-      // If no exact match, try range query
-      if (existingSummaries.empty) {
-        existingSummaries = await admin.firestore()
-          .collection("users")
-          .doc(request.auth.uid)
-          .collection("visit_summaries")
-          .where("appointmentDate", ">=", dayStart)
-          .where("appointmentDate", "<=", dayEnd)
-          .limit(1)
-          .get();
-        console.log(`🔵 [DEBUG] Range query found: ${existingSummaries.size} summaries`);
-      }
+      // Filter client-side to find matches (handles both Timestamp and string formats)
+      const matchingSummaries = allUserSummaries.docs.filter((doc) => {
+        const data = doc.data();
+        const existingDate = data.appointmentDate;
+        
+        if (!existingDate) return false;
+        
+        // Try to normalize the existing date
+        let existingDateObj;
+        if (existingDate.toDate && typeof existingDate.toDate === 'function') {
+          // It's a Firestore Timestamp
+          existingDateObj = existingDate.toDate();
+        } else if (existingDate instanceof Date) {
+          existingDateObj = existingDate;
+        } else if (typeof existingDate === 'string') {
+          // It's a string - parse it
+          try {
+            const dateStr = existingDate.split('T')[0];
+            const [year, month, day] = dateStr.split('-').map(Number);
+            existingDateObj = new Date(Date.UTC(year, month - 1, day));
+          } catch (e) {
+            return false;
+          }
+        } else {
+          return false;
+        }
+        
+        // Normalize to start of day for comparison
+        const existingNormalized = new Date(Date.UTC(
+          existingDateObj.getUTCFullYear(),
+          existingDateObj.getUTCMonth(),
+          existingDateObj.getUTCDate(),
+          0, 0, 0, 0
+        ));
+        
+        // Compare normalized dates
+        const matches = existingNormalized.getTime() === normalizedDate.getTime();
+        
+        if (matches) {
+          console.log(`🔵 [DEBUG] Found matching summary: ${doc.id}, existing date: ${existingDateObj.toISOString()}, normalized: ${existingNormalized.toISOString()}`);
+        }
+        
+        return matches;
+      });
       
-      // Also check for summaries created in the last 30 seconds (race condition protection)
-      if (existingSummaries.empty) {
+      console.log(`🔵 [DEBUG] Client-side filter found: ${matchingSummaries.length} matching summaries`);
+      
+      let existingSummaries = { empty: matchingSummaries.length === 0, docs: matchingSummaries, size: matchingSummaries.length };
+      
+      // Also check for summaries created in the last 30 seconds with same storagePath (race condition protection)
+      if (existingSummaries.empty && storagePath) {
         const thirtySecondsAgo = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 30000));
         const recentSummaries = await admin.firestore()
           .collection("users")
@@ -1823,7 +1920,16 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
         await modulesBatch.commit();
       }
 
+      // Remove processing lock
+      try {
+        await lockDocRef.delete();
+        console.log(`🔵 [DEBUG] Removed processing lock: ${functionCallId}`);
+      } catch (e) {
+        console.log(`🔵 [DEBUG] Failed to remove lock (non-critical): ${e.message}`);
+      }
+      
       console.log(`✅ Analysis complete! Summary ID: ${summaryRef.id}`);
+      console.log(`🔵 [DEBUG] Function Call ID: ${functionCallId} - CREATED/UPDATED summary: ${summaryRef.id}`);
       console.log(`🔵 [DEBUG] Returning from analyzeVisitSummaryPDF Cloud Function`);
       return {
         success: true, 

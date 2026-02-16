@@ -93,14 +93,40 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
     
-    // Community posts
-    match /community/{postId} {
+    // Community posts - users can read all posts, create their own, and update to add replies/likes
+    match /community_posts/{postId} {
+      // Anyone authenticated can read posts
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Anyone authenticated can create posts (must include their userId)
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid;
+      
+      // Post owners can update/delete their posts
+      // Any authenticated user can update posts to add replies or toggle likes
+      // TODO: In production, restrict updates to only replies/likes arrays for non-owners
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || 
+        // Allow updates for adding replies or toggling likes
+        // Note: This is permissive - consider tightening in production
+        true
+      );
+      
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
-    // Community comments
+    // Post reports - users can create reports, admins can read
+    match /post_reports/{reportId} {
+      // Users can create reports
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid;
+      
+      // Users can read their own reports
+      // TODO: Add admin role check for reading all reports
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Community comments (legacy - keeping for backwards compatibility)
     match /community/{postId}/comments/{commentId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();

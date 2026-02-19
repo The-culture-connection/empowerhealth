@@ -55,7 +55,7 @@ exports.generateLearningContent = onCall(
   async (request) => {
     // Verify user is authenticated
     if (!request.auth) {
-      throw new Error("User must be authenticated");
+      throw new HttpsError("unauthenticated", "🔒 User must be authenticated.");
     }
 
     const data = request.data;
@@ -155,10 +155,10 @@ Keep everything at ${readingLevel} reading level. Make it personally relevant ba
     });
 
     return {success: true, content};
-  } catch (error) {
-    console.error("Error generating learning content:", error);
-    throw new Error("Failed to generate content");
-  }
+    } catch (error) {
+      safeLog("error", "Error generating learning content", {error: error.message});
+      throw new HttpsError("internal", "❌ Failed to generate content");
+    }
 });
 
 // 2. Summarize appointment/visit notes
@@ -473,10 +473,21 @@ exports.simplifyText = onCall(
   {secrets: [openaiApiKey]},
   async (request) => {
     if (!request.auth) {
-      throw new Error("User must be authenticated");
+      throw new HttpsError("unauthenticated", "🔒 User must be authenticated.");
     }
 
     const {text, context: textContext} = request.data;
+    
+    // Validate input
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      throw new HttpsError("invalid-argument", "📄 Text input is required");
+    }
+    
+    safeLog("log", "simplifyText called", {
+      userId: request.auth.uid,
+      textLength: text.length,
+      hasContext: !!textContext,
+    });
 
     try {
       const openai = getOpenAIClient(openaiApiKey.value());
@@ -511,8 +522,8 @@ Focus on what the person needs to know and do.`;
       const simplified = response.choices[0].message.content;
       return {success: true, simplified};
     } catch (error) {
-      console.error("Error simplifying text:", error);
-      throw new Error("Failed to simplify text");
+      safeLog("error", "Error simplifying text", {error: error.message});
+      throw new HttpsError("internal", "❌ Failed to simplify text");
     }
   }
 );
@@ -706,7 +717,7 @@ exports.processUploadedVisitSummary = onObjectFinalized(
         throw new Error("📄 No text extracted from PDF");
       }
 
-      console.log(`✅ Extracted ${pdfText.length} characters from PDF`);
+      safeLog("log", "PDF text extracted", {textLength: pdfText.length});
 
       // Parse user profile if available
       let userProfile = null;
@@ -1275,10 +1286,11 @@ exports.analyzeVisitSummaryPDF = onCall(
   async (request) => {
     const functionCallId = `CF-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     console.log(`🔵 [DEBUG] ========================================`);
-    console.log(`🔵 [DEBUG] analyzeVisitSummaryPDF Cloud Function called`);
-    console.log(`🔵 [DEBUG] Function Call ID: ${functionCallId}`);
-    console.log(`🔵 [DEBUG] User ID: ${request.auth?.uid || 'NOT AUTHENTICATED'}`);
-    console.log(`🔵 [DEBUG] Timestamp: ${new Date().toISOString()}`);
+      safeLog('log', 'analyzeVisitSummaryPDF called', {
+        functionCallId: functionCallId,
+        userId: request.auth?.uid || 'NOT AUTHENTICATED',
+        timestamp: new Date().toISOString(),
+      });
     
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "🔒 User must be authenticated. Please log in.");
@@ -1293,11 +1305,10 @@ exports.analyzeVisitSummaryPDF = onCall(
       userProfile,
     } = data;
     
-    console.log(`🔵 [DEBUG] Input data:`, {
-      storagePath: storagePath?.substring(0, 50) + '...',
-      downloadUrl: downloadUrl ? 'present' : 'missing',
-      appointmentDate: appointmentDate,
-      appointmentDateType: typeof appointmentDate,
+    safeLog('log', 'analyzeVisitSummaryPDF input received', {
+      storagePath: storagePath ? 'present' : 'missing',
+      hasDownloadUrl: !!downloadUrl,
+      hasAppointmentDate: !!appointmentDate,
       hasEducationLevel: !!educationLevel,
       hasUserProfile: !!userProfile,
     });
@@ -1937,9 +1948,10 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
         console.log(`🔵 [DEBUG] Failed to remove lock (non-critical): ${e.message}`);
       }
       
-      console.log(`✅ Analysis complete! Summary ID: ${summaryRef.id}`);
-      console.log(`🔵 [DEBUG] Function Call ID: ${functionCallId} - CREATED/UPDATED summary: ${summaryRef.id}`);
-      console.log(`🔵 [DEBUG] Returning from analyzeVisitSummaryPDF Cloud Function`);
+      safeLog('log', 'analyzeVisitSummaryPDF completed', {
+        summaryId: summaryRef.id,
+        functionCallId: functionCallId,
+      });
       return {
         success: true, 
         summaryId: summaryRef.id,
@@ -1949,8 +1961,10 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
         redFlags: parsedResponse.redFlags || [],
       };
     } catch (error) {
-      console.error("❌ Error in analyzeVisitSummaryPDF:", error);
-      console.error("Error stack:", error.stack);
+      safeLog('error', 'Error in analyzeVisitSummaryPDF', {
+        error: error.message,
+        stack: error.stack?.substring(0, 200), // Limit stack trace length
+      });
       
       // If it's already an HttpsError, rethrow it
       if (error instanceof HttpsError) {
@@ -2187,4 +2201,553 @@ function formatSummaryForDisplay(summary, learningModules = []) {
   
   return formatted;
 }
+
+// Safe logger that strips PHI from logs
+function safeLog(level, message, data = {}) {
+  // Remove sensitive fields from data
+  const sanitized = { ...data };
+  delete sanitized.text;
+  delete sanitized.pdfText;
+  delete sanitized.originalText;
+  delete sanitized.visitNotes;
+  delete sanitized.content;
+  delete sanitized.summary;
+  delete sanitized.userProfile;
+  delete sanitized.email;
+  delete sanitized.phone;
+  delete sanitized.address;
+  delete sanitized.mrn;
+  delete sanitized.medicalRecordNumber;
+  
+  // Log with sanitized data
+  if (level === 'error') {
+    console.error(message, sanitized);
+  } else if (level === 'warn') {
+    console.warn(message, sanitized);
+  } else {
+    console.log(message, sanitized);
+  }
+}
+
+// PHI Redaction middleware
+function redactPHI(text) {
+  if (!text || typeof text !== 'string') return text;
+  
+  let redacted = text;
+  const redactionFlags = [];
+  
+  // Redact email addresses
+  const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+  if (emailRegex.test(redacted)) {
+    redacted = redacted.replace(emailRegex, '[EMAIL_REDACTED]');
+    redactionFlags.push('email');
+  }
+  
+  // Redact phone numbers (US format)
+  const phoneRegex = /\b(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})\b/g;
+  if (phoneRegex.test(redacted)) {
+    redacted = redacted.replace(phoneRegex, '[PHONE_REDACTED]');
+    redactionFlags.push('phone');
+  }
+  
+  // Redact SSN (basic pattern)
+  const ssnRegex = /\b\d{3}-\d{2}-\d{4}\b/g;
+  if (ssnRegex.test(redacted)) {
+    redacted = redacted.replace(ssnRegex, '[SSN_REDACTED]');
+    redactionFlags.push('ssn');
+  }
+  
+  // Redact MRN/Medical Record Numbers (common patterns)
+  const mrnRegex = /\b(MRN|MR#|Record\s*#|Medical\s*Record\s*Number)[:\s]*[A-Z0-9-]+\b/gi;
+  if (mrnRegex.test(redacted)) {
+    redacted = redacted.replace(mrnRegex, '[MRN_REDACTED]');
+    redactionFlags.push('mrn');
+  }
+  
+  // Redact addresses (basic pattern - street numbers and common address words)
+  const addressRegex = /\b\d+\s+[A-Za-z\s]+(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Way|Circle|Cir)\b/gi;
+  if (addressRegex.test(redacted)) {
+    redacted = redacted.replace(addressRegex, '[ADDRESS_REDACTED]');
+    redactionFlags.push('address');
+  }
+  
+  // Redact full names (common name patterns - this is less reliable)
+  // Only redact if we're confident it's a name (capitalized, 2-3 words)
+  // Note: This is conservative to avoid false positives
+  
+  return {
+    redactedText: redacted,
+    redactionFlags: redactionFlags,
+    confidence: redactionFlags.length > 0 ? 'medium' : 'low',
+  };
+}
+
+// 11. Analyze manual text input (privacy-safe pathway with redaction)
+exports.analyzeVisitSummaryText = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "🔒 User must be authenticated.");
+    }
+
+    const {text, appointmentDate, educationLevel, userProfile, saveOriginalText = false} = request.data;
+
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      throw new HttpsError("invalid-argument", "📄 Text input is required and cannot be empty");
+    }
+
+    if (!appointmentDate) {
+      throw new HttpsError("invalid-argument", "📅 Appointment date is required");
+    }
+
+    safeLog('log', 'analyzeVisitSummaryText called', {
+      userId: request.auth.uid,
+      textLength: text.length,
+      hasAppointmentDate: !!appointmentDate,
+      saveOriginalText: saveOriginalText,
+    });
+
+    try {
+      // Redact PHI before processing
+      const redactionResult = redactPHI(text);
+      const redactedText = redactionResult.redactedText;
+      
+      safeLog('log', 'PHI redaction completed', {
+        redactionFlags: redactionResult.redactionFlags,
+        confidence: redactionResult.confidence,
+      });
+
+      // Warn user if redaction found potential PHI
+      const hasRedaction = redactionResult.redactionFlags.length > 0;
+
+      // Extract user context
+      const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
+      const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
+      const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
+      const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
+      const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
+      const learningStyle = (userProfile?.learningStyle || "visual").toString();
+      const insuranceType = (userProfile?.insuranceType || "").toString();
+
+      // Determine reading level
+      const getReadingLevel = (educationLevel) => {
+        if (!educationLevel) return "6th grade";
+        if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
+          return "8th grade";
+        }
+        if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
+          return "6th-7th grade";
+        }
+        return "5th-6th grade";
+      };
+
+      const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "6th grade";
+
+      // Call OpenAI with redacted text
+      const openai = getOpenAIClient(openaiApiKey.value());
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. 
+Generate a comprehensive, plain-language visit summary at a ${readingLevel} reading level using professional clinical language. 
+Avoid casual terms like "momma". Structure your response as a JSON object with specific sections.`,
+          },
+          {
+            role: "user",
+            content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary. 
+Explain medical terms clearly, outline next steps, offer advocacy questions the mother can ask, and provide supportive, trauma-informed language. 
+Tailor the content to her trimester (${trimester}), stated concerns (${JSON.stringify(concerns)}), and birth preferences (${JSON.stringify(birthPlanPreferences)}). 
+Include a short explanation, what to expect, questions to ask, and when to seek help.
+
+Visit Summary:
+${redactedText}
+
+User Context:
+- Trimester: ${trimester}
+- Stated Concerns: ${concerns.join(", ") || "None specified"}
+- Birth Plan Preferences: ${birthPlanPreferences.join(", ") || "None specified"}
+- Cultural/Trauma-Informed Preferences: ${culturalPreferences.concat(traumaInformedPreferences).join(", ") || "None specified"}
+- Learning Style: ${learningStyle}
+- Insurance Type: ${insuranceType || "Not specified"}
+
+Return a JSON object with the same structure as analyzeVisitSummaryPDF (summary, todos, learningModules, redFlags).`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 4000,
+      });
+
+      if (!response.choices || response.choices.length === 0 || !response.choices[0].message.content) {
+        throw new Error("❌ OpenAI API returned an invalid response");
+      }
+
+      const responseContent = response.choices[0].message.content;
+      let parsedResponse;
+      try {
+        const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) || 
+                         responseContent.match(/```\s*([\s\S]*?)\s*```/);
+        const jsonString = jsonMatch ? jsonMatch[1] : responseContent;
+        parsedResponse = JSON.parse(jsonString);
+      } catch (parseError) {
+        safeLog('error', 'JSON parse error in analyzeVisitSummaryText', {parseError: parseError.message});
+        throw new Error("❌ Failed to parse AI response");
+      }
+
+      // Normalize appointment date
+      let appointmentDateObj;
+      if (typeof appointmentDate === 'string') {
+        const dateStr = appointmentDate.split('T')[0];
+        const [year, month, day] = dateStr.split('-').map(Number);
+        appointmentDateObj = new Date(Date.UTC(year, month - 1, day));
+      } else if (appointmentDate instanceof Date) {
+        appointmentDateObj = appointmentDate;
+      } else {
+        appointmentDateObj = new Date();
+      }
+
+      const normalizedDate = new Date(Date.UTC(
+        appointmentDateObj.getUTCFullYear(),
+        appointmentDateObj.getUTCMonth(),
+        appointmentDateObj.getUTCDate(),
+        0, 0, 0, 0
+      ));
+      const appointmentTimestamp = admin.firestore.Timestamp.fromDate(normalizedDate);
+
+      // Check for duplicates
+      const allUserSummaries = await admin.firestore()
+        .collection("users")
+        .doc(request.auth.uid)
+        .collection("visit_summaries")
+        .get();
+
+      const matchingSummaries = allUserSummaries.docs.filter((doc) => {
+        const data = doc.data();
+        const existingDate = data.appointmentDate;
+        if (!existingDate) return false;
+        
+        let existingDateObj;
+        if (existingDate.toDate && typeof existingDate.toDate === 'function') {
+          existingDateObj = existingDate.toDate();
+        } else if (existingDate instanceof Date) {
+          existingDateObj = existingDate;
+        } else if (typeof existingDate === 'string') {
+          try {
+            const dateStr = existingDate.split('T')[0];
+            const [year, month, day] = dateStr.split('-').map(Number);
+            existingDateObj = new Date(Date.UTC(year, month - 1, day));
+          } catch (e) {
+            return false;
+          }
+        } else {
+          return false;
+        }
+        
+        const existingNormalized = new Date(Date.UTC(
+          existingDateObj.getUTCFullYear(),
+          existingDateObj.getUTCMonth(),
+          existingDateObj.getUTCDate(),
+          0, 0, 0, 0
+        ));
+        
+        return existingNormalized.getTime() === normalizedDate.getTime();
+      });
+
+      let summaryRef;
+      if (matchingSummaries.length > 0) {
+        summaryRef = matchingSummaries[0].ref;
+        await summaryRef.update({
+          appointmentDate: appointmentTimestamp,
+          summary: formatSummaryForDisplay(parsedResponse.summary, parsedResponse.learningModules || []),
+          summaryData: parsedResponse.summary,
+          todos: parsedResponse.todos || [],
+          learningModules: parsedResponse.learningModules || [],
+          redFlags: parsedResponse.redFlags || [],
+          readingLevel: readingLevel,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          // Only save original text if user explicitly opted in
+          ...(saveOriginalText ? {originalText: text.substring(0, 10000)} : {}),
+          redactionFlags: hasRedaction ? redactionResult.redactionFlags : [],
+        });
+      } else {
+        summaryRef = await admin.firestore()
+          .collection("users")
+          .doc(request.auth.uid)
+          .collection("visit_summaries")
+          .add({
+            appointmentDate: appointmentTimestamp,
+            summary: formatSummaryForDisplay(parsedResponse.summary, parsedResponse.learningModules || []),
+            summaryData: parsedResponse.summary,
+            todos: parsedResponse.todos || [],
+            learningModules: parsedResponse.learningModules || [],
+            redFlags: parsedResponse.redFlags || [],
+            readingLevel: readingLevel,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            // Only save original text if user explicitly opted in
+            ...(saveOriginalText ? {originalText: text.substring(0, 10000)} : {}),
+            redactionFlags: hasRedaction ? redactionResult.redactionFlags : [],
+            sourceType: 'manual_text',
+          });
+      }
+
+      // Create todos and learning modules (same as PDF analysis)
+      if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
+        const todosBatch = admin.firestore().batch();
+        parsedResponse.todos.forEach((todo) => {
+          if (!todo || !todo.title) return;
+          const todoRef = admin.firestore().collection("learning_tasks").doc();
+          todosBatch.set(todoRef, {
+            userId: request.auth.uid,
+            title: todo.title.toString(),
+            description: (todo.description || "").toString(),
+            category: (todo.category || "followup").toString(),
+            visitSummaryId: summaryRef.id,
+            isGenerated: true,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            completed: false,
+          });
+        });
+        await todosBatch.commit();
+      }
+
+      if (parsedResponse.learningModules && Array.isArray(parsedResponse.learningModules) && parsedResponse.learningModules.length > 0) {
+        const modulesBatch = admin.firestore().batch();
+        parsedResponse.learningModules.forEach((module) => {
+          if (!module || !module.title) return;
+          const moduleRef = admin.firestore().collection("learning_tasks").doc();
+          modulesBatch.set(moduleRef, {
+            userId: request.auth.uid,
+            title: module.title.toString(),
+            description: (module.description || module.reason || "").toString(),
+            content: module.content || null,
+            trimester: trimester,
+            isGenerated: true,
+            visitSummaryId: summaryRef.id,
+            moduleType: "visit_based",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        });
+        await modulesBatch.commit();
+      }
+
+      safeLog('log', 'analyzeVisitSummaryText completed', {
+        summaryId: summaryRef.id,
+        hasRedaction: hasRedaction,
+      });
+
+      return {
+        success: true,
+        summaryId: summaryRef.id,
+        summary: formatSummaryForDisplay(parsedResponse.summary, parsedResponse.learningModules || []),
+        todos: parsedResponse.todos || [],
+        learningModules: parsedResponse.learningModules || [],
+        redFlags: parsedResponse.redFlags || [],
+        hasRedaction: hasRedaction,
+        redactionFlags: hasRedaction ? redactionResult.redactionFlags : [],
+      };
+    } catch (error) {
+      safeLog('error', 'Error in analyzeVisitSummaryText', {error: error.message});
+      
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      
+      throw new HttpsError("internal", `❌ Failed to analyze text: ${error.message || "Unknown error"}`);
+    }
+  }
+);
+
+// 12. Export user data (GDPR/HIPAA compliance)
+exports.exportUserData = onCall(
+  {},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "🔒 User must be authenticated.");
+    }
+
+    const userId = request.auth.uid;
+    safeLog('log', 'exportUserData called', {userId: userId});
+
+    try {
+      const exportData = {
+        userId: userId,
+        exportedAt: new Date().toISOString(),
+        userProfile: null,
+        visitSummaries: [],
+        learningTasks: [],
+        notes: [],
+        birthPlans: [],
+        fileUploads: [],
+      };
+
+      // Export user profile
+      const userDoc = await admin.firestore().collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        // Remove sensitive fields that shouldn't be exported
+        const {password, ...safeUserData} = userData;
+        exportData.userProfile = safeUserData;
+      }
+
+      // Export visit summaries
+      const visitSummaries = await admin.firestore()
+        .collection('users')
+        .doc(userId)
+        .collection('visit_summaries')
+        .get();
+      exportData.visitSummaries = visitSummaries.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // Export learning tasks
+      const learningTasks = await admin.firestore()
+        .collection('learning_tasks')
+        .where('userId', '==', userId)
+        .get();
+      exportData.learningTasks = learningTasks.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // Export notes
+      const notes = await admin.firestore()
+        .collection('users')
+        .doc(userId)
+        .collection('notes')
+        .get();
+      exportData.notes = notes.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // Export birth plans
+      const birthPlans = await admin.firestore()
+        .collection('birth_plans')
+        .where('userId', '==', userId)
+        .get();
+      exportData.birthPlans = birthPlans.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // Export file upload metadata
+      const fileUploads = await admin.firestore()
+        .collection('users')
+        .doc(userId)
+        .collection('file_uploads')
+        .get();
+      exportData.fileUploads = fileUploads.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      safeLog('log', 'exportUserData completed', {
+        userId: userId,
+        visitSummariesCount: exportData.visitSummaries.length,
+        learningTasksCount: exportData.learningTasks.length,
+      });
+
+      return {
+        success: true,
+        data: exportData,
+        message: 'Data export completed. Download link will be sent via email.',
+      };
+    } catch (error) {
+      safeLog('error', 'Error in exportUserData', {error: error.message});
+      throw new HttpsError("internal", `❌ Failed to export data: ${error.message || "Unknown error"}`);
+    }
+  }
+);
+
+// 13. Delete user account and all data (GDPR/HIPAA compliance)
+exports.deleteUserAccount = onCall(
+  {},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "🔒 User must be authenticated.");
+    }
+
+    const userId = request.auth.uid;
+    safeLog('log', 'deleteUserAccount called', {userId: userId});
+
+    try {
+      // Delete Firestore documents
+      const batch = admin.firestore().batch();
+
+      // Delete user profile
+      const userRef = admin.firestore().collection('users').doc(userId);
+      batch.delete(userRef);
+
+      // Delete visit summaries
+      const visitSummaries = await admin.firestore()
+        .collection('users')
+        .doc(userId)
+        .collection('visit_summaries')
+        .get();
+      visitSummaries.docs.forEach(doc => batch.delete(doc.ref));
+
+      // Delete notes
+      const notes = await admin.firestore()
+        .collection('users')
+        .doc(userId)
+        .collection('notes')
+        .get();
+      notes.docs.forEach(doc => batch.delete(doc.ref));
+
+      // Delete learning tasks
+      const learningTasks = await admin.firestore()
+        .collection('learning_tasks')
+        .where('userId', '==', userId)
+        .get();
+      learningTasks.docs.forEach(doc => batch.delete(doc.ref));
+
+      // Delete birth plans
+      const birthPlans = await admin.firestore()
+        .collection('birth_plans')
+        .where('userId', '==', userId)
+        .get();
+      birthPlans.docs.forEach(doc => batch.delete(doc.ref));
+
+      // Delete file uploads metadata
+      const fileUploads = await admin.firestore()
+        .collection('users')
+        .doc(userId)
+        .collection('file_uploads')
+        .get();
+      fileUploads.docs.forEach(doc => batch.delete(doc.ref));
+
+      // Delete community posts (user's posts)
+      const userPosts = await admin.firestore()
+        .collection('community_posts')
+        .where('userId', '==', userId)
+        .get();
+      userPosts.docs.forEach(doc => batch.delete(doc.ref));
+
+      // Commit batch delete
+      await batch.commit();
+
+      // Delete Storage files
+      const bucket = admin.storage().bucket();
+      const [files] = await bucket.getFiles({
+        prefix: `visit_summaries/${userId}/`,
+      });
+      await Promise.all(files.map(file => file.delete()));
+
+      // Delete Firebase Auth user
+      await admin.auth().deleteUser(userId);
+
+      safeLog('log', 'deleteUserAccount completed', {userId: userId});
+
+      return {
+        success: true,
+        message: 'Account and all data deleted successfully.',
+      };
+    } catch (error) {
+      safeLog('error', 'Error in deleteUserAccount', {error: error.message});
+      throw new HttpsError("internal", `❌ Failed to delete account: ${error.message || "Unknown error"}`);
+    }
+  }
+);
 

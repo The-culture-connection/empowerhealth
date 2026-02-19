@@ -13,25 +13,73 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // DEVELOPMENT MODE: More permissive rules
-    // TODO: Tighten these before production
+    // Helper function to check admin role (for future use)
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.admin == true;
+    }
     
-    // User profiles - users can read/write their own profile
+    // HIPAA-ALIGNED SECURITY RULES
+    // Strict user isolation - users can only access their own data
+    
+    // User profiles - strict isolation: users can ONLY read/write their own profile
     match /users/{userId} {
       allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(userId) && 
+                              // Prevent userId tampering
+                              (!request.resource.diff(resource).affectedKeys().hasAny(['userId']));
       
-      // Subcollections under user profile
+      // Visit summaries subcollection - strict user isolation
       match /visit_summaries/{summaryId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isAuthenticated() && 
+                        request.resource.data.userId == request.auth.uid &&
+                        request.auth.uid == userId;
+        allow update, delete: if isOwner(userId);
       }
       
+      // Notes (journal entries) subcollection - strict user isolation
       match /notes/{noteId} {
+        allow read: if isOwner(userId);
+        allow create: if isAuthenticated() && 
+                        request.resource.data.userId == request.auth.uid &&
+                        request.auth.uid == userId;
+        allow update, delete: if isOwner(userId);
+      }
+      
+      // Learning tasks subcollection - strict user isolation
+      match /learning_tasks/{taskId} {
+        allow read: if isOwner(userId);
+        allow create: if isAuthenticated() && 
+                        request.resource.data.userId == request.auth.uid &&
+                        request.auth.uid == userId;
+        allow update, delete: if isOwner(userId);
+      }
+      
+      // File uploads subcollection - strict user isolation
+      match /file_uploads/{uploadId} {
+        allow read: if isOwner(userId);
+        allow create: if isAuthenticated() && 
+                        request.resource.data.userId == request.auth.uid &&
+                        request.auth.uid == userId;
+        allow update, delete: if isOwner(userId);
+      }
+      
+      // Processing locks subcollection - internal use only
+      match /processing_locks/{lockId} {
         allow read, write: if isOwner(userId);
       }
       
+      // Consents subcollection - strict user isolation
+      match /consents/{consentId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+      
+      // Catch-all for other subcollections - deny by default
       match /{document=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if false;
       }
     }
     
@@ -44,7 +92,7 @@ service cloud.firestore {
     // Learning tasks - users can manage their own tasks
     match /learning_tasks/{taskId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
@@ -65,15 +113,31 @@ service cloud.firestore {
     // Birth plans
     match /birth_plans/{planId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
-    // Visit summaries (top-level collection)
+    // Visit summaries (top-level collection) - DEPRECATED: Use users/{uid}/visit_summaries instead
     match /visit_summaries/{summaryId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // User-scoped visit summaries (preferred structure)
+    match /users/{userId}/visit_summaries/{summaryId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // User privacy settings and consents
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+      
+      // Ensure privacy settings can only be written by owner
+      allow update: if isOwner(userId) && 
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['consents', 'privacySettings']) ||
+                       isOwner(userId));
     }
     
     // Journal entries (top-level collection)
@@ -104,26 +168,31 @@ service cloud.firestore {
       
       // Post owners can update/delete their posts
       // Any authenticated user can update posts to add replies or toggle likes
-      // TODO: In production, restrict updates to only replies/likes arrays for non-owners
+      // Restrict updates: owners can update anything, others can only update likes/replies
       allow update: if isAuthenticated() && (
         resource.data.userId == request.auth.uid || 
-        // Allow updates for adding replies or toggling likes
-        // Note: This is permissive - consider tightening in production
-        true
+        // Non-owners can only update likes and replies arrays
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'replies']) &&
+         request.resource.data.title == resource.data.title &&
+         request.resource.data.content == resource.data.content &&
+         request.resource.data.category == resource.data.category)
       );
       
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
-    // Post reports - users can create reports, admins can read
+    // Post reports - users can create, admins can read all
     match /post_reports/{reportId} {
       // Users can create reports
       allow create: if isAuthenticated() && 
-                      request.resource.data.userId == request.auth.uid;
+                      request.resource.data.userId == request.auth.uid &&
+                      request.resource.data.keys().hasAll(['userId', 'postId', 'reason']) &&
+                      request.resource.data.reason is string &&
+                      request.resource.data.reason.size() <= 500;
       
-      // Users can read their own reports
-      // TODO: Add admin role check for reading all reports
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Users can read their own reports, admins can read all
+      allow read: if isAuthenticated() && 
+                    (resource.data.userId == request.auth.uid || isAdmin());
     }
     
     // Community comments (legacy - keeping for backwards compatibility)

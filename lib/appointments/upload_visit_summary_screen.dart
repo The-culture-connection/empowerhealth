@@ -36,11 +36,38 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   bool _isLoading = false;
   String? _currentStep; // Track current processing step
   double _uploadProgress = 0.0; // Track upload progress
+  int _inputMethod = 0; // 0 = PDF, 1 = Manual text
+  final TextEditingController _manualTextController = TextEditingController();
+  bool _saveOriginalText = false; // Default: privacy-minimizing
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
+    _loadPrivacySettings();
+  }
+
+  Future<void> _loadPrivacySettings() async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return;
+    
+    try {
+      final doc = await _firestore.collection('users').doc(userId).get();
+      if (doc.exists) {
+        final privacySettings = doc.data()?['privacySettings'] ?? {};
+        setState(() {
+          _saveOriginalText = privacySettings['saveOriginalDocuments'] ?? false;
+        });
+      }
+    } catch (e) {
+      // Silently fail - use default
+    }
+  }
+
+  @override
+  void dispose() {
+    _manualTextController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserProfile() async {
@@ -497,6 +524,127 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     }
   }
 
+  Future<void> _processManualText() async {
+    if (_manualTextController.text.trim().isEmpty || _selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('📅 Please enter text and select date'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🔒 Please log in to analyze visit notes'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _generatedSummary = null;
+      _currentStep = '🤖 Analyzing your notes...';
+    });
+
+    try {
+      final userText = _manualTextController.text.trim();
+      
+      // Prepare user profile data for context
+      final userProfileData = _userProfile != null ? {
+        'pregnancyStage': _userProfile!.pregnancyStage,
+        'trimester': _userProfile!.pregnancyStage,
+        'concerns': [],
+        'birthPlanPreferences': _userProfile!.birthPreference != null ? [_userProfile!.birthPreference!] : [],
+        'culturalPreferences': [],
+        'traumaInformedPreferences': [],
+        'learningStyle': 'visual',
+        'chronicConditions': _userProfile!.chronicConditions,
+        'healthLiteracyGoals': _userProfile!.healthLiteracyGoals,
+      } : null;
+
+      // Call Firebase Function to analyze manual text
+      // Note: The function will handle redaction and analysis
+      setState(() => _currentStep = '🔒 Securing your information...');
+      
+      final analysisResult = await _functionsService.analyzeVisitSummaryText(
+        text: userText,
+        appointmentDate: _selectedDate!.toIso8601String(),
+        educationLevel: _userProfile?.educationLevel,
+        userProfile: userProfileData,
+        saveOriginalText: _saveOriginalText,
+      );
+
+      print('✅ Text analysis completed successfully');
+
+      setState(() {
+        _generatedSummary = analysisResult['summary'];
+        _isLoading = false;
+        _currentStep = null;
+        // Clear text input to show success state
+        if (!_saveOriginalText) {
+          _manualTextController.clear();
+        }
+      });
+
+      // Show success message
+      final todosCount = (analysisResult['todos'] as List?)?.length ?? 0;
+      final modulesCount = (analysisResult['learningModules'] as List?)?.length ?? 0;
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '✅ Analysis complete! ${todosCount > 0 ? "📝 $todosCount todos added. " : ""}${modulesCount > 0 ? "📚 $modulesCount learning modules created." : ""}'
+            ),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _currentStep = null;
+      });
+      
+      if (mounted) {
+        final errorMessage = e.toString();
+        String userFriendlyMessage = errorMessage;
+        
+        final lowerMessage = errorMessage.toLowerCase();
+        if (lowerMessage.contains('network') || lowerMessage.contains('connection')) {
+          userFriendlyMessage = '🌐 Network connection error. Please check your internet connection and try again.';
+        } else if (lowerMessage.contains('permission') || lowerMessage.contains('unauthorized')) {
+          userFriendlyMessage = '🔒 Permission denied. Please ensure you are logged in and try again.';
+        } else {
+          userFriendlyMessage = '❌ Analysis failed: ${e.toString()}';
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(userFriendlyMessage),
+            duration: const Duration(seconds: 6),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _processManualText(),
+            ),
+          ),
+        );
+      }
+      
+      print('❌ Analysis error: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -524,6 +672,36 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
             const Text(
               'Get an easy-to-understand summary of your appointment',
               style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+
+            // Disclaimer banner
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, 
+                      color: Colors.blue, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This helps you understand your care. It doesn\'t replace a clinician. '
+                      'For emergencies, call 911 or contact your provider immediately.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue[900],
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
 
@@ -566,8 +744,85 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
             const SizedBox(height: 24),
 
+            // Input Method Selection
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'How would you like to add your visit summary?',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(
+                        value: 0,
+                        label: Text('Upload PDF'),
+                        icon: Icon(Icons.picture_as_pdf, size: 18),
+                      ),
+                      ButtonSegment(
+                        value: 1,
+                        label: Text('Type Notes'),
+                        icon: Icon(Icons.edit_note, size: 18),
+                      ),
+                    ],
+                    selected: {_inputMethod},
+                    onSelectionChanged: (Set<int> newSelection) {
+                      setState(() {
+                        _inputMethod = newSelection.first;
+                        _selectedPDF = null;
+                        _pdfFileName = null;
+                        _manualTextController.clear();
+                      });
+                    },
+                    style: SegmentedButton.styleFrom(
+                      selectedBackgroundColor: AppTheme.brandPurple,
+                      selectedForegroundColor: Colors.white,
+                    ),
+                  ),
+                  if (_inputMethod == 1) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, 
+                              color: Colors.blue, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Recommended for privacy. Your text won\'t be stored unless you choose to save it.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue[900],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
             // PDF Upload Section
-            if (_selectedPDF == null) ...[
+            if (_inputMethod == 0 && _selectedPDF == null) ...[
               GestureDetector(
                 onTap: _pickPDF,
                 child: Container(
@@ -607,7 +862,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                   ),
                 ),
               ),
-            ] else ...[
+            ] else if (_inputMethod == 0) ...[
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -653,11 +908,66 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                 ),
               ),
               const SizedBox(height: 24),
+            ] else if (_inputMethod == 1) ...[
+              // Manual Text Input Section
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Type or paste your visit notes',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _manualTextController,
+                      maxLines: 12,
+                      decoration: InputDecoration(
+                        hintText: 'Enter your visit summary, notes from your provider, test results, medications, or any other information from your appointment...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    CheckboxListTile(
+                      title: const Text('Save my original text'),
+                      subtitle: const Text(
+                        'By default, only the AI summary is saved. Check this to also store your original notes.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: _saveOriginalText,
+                      onChanged: (value) {
+                        setState(() {
+                          _saveOriginalText = value ?? false;
+                        });
+                      },
+                      activeColor: AppTheme.brandPurple,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
 
-              // Process Button
+            // Process Button (for both methods)
+            if ((_inputMethod == 0 && _selectedPDF != null) || 
+                (_inputMethod == 1 && _manualTextController.text.trim().isNotEmpty)) ...[
               ElevatedButton(
                 onPressed: (_selectedDate != null && !_isLoading)
-                    ? _processPDF
+                    ? () => _inputMethod == 0 ? _processPDF() : _processManualText()
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.brandPurple,

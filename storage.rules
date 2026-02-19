@@ -2,18 +2,25 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow authenticated users to upload visit summaries
+    // HIPAA-ALIGNED STORAGE RULES
+    // Strict user isolation - users can ONLY access their own files
+    
+    // Visit summaries - strict user isolation
     match /visit_summaries/{userId}/{allPaths=**} {
-      // Allow users to read/write their own files
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Users can read/write their own files only
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && 
+                     request.auth.uid == userId &&
+                     // Validate file type (PDF only)
+                     request.resource.contentType.matches('application/pdf') &&
+                     // Limit file size (10MB max)
+                     request.resource.size < 10 * 1024 * 1024;
       
-      // IMPORTANT: Admin SDK (Cloud Functions) bypasses security rules automatically
-      // But we allow service accounts (no request.auth) as a backup
-      // Service accounts are used by Cloud Functions and don't have request.auth
-      allow read: if request.auth == null; // Service account access
+      // Cloud Functions (Admin SDK) bypasses rules automatically
+      // No need for service account exception - Admin SDK has full access
     }
     
-    // Block everything else
+    // Block all other paths - deny by default
     match /{allPaths=**} {
       allow read, write: if false;
     }

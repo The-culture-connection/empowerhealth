@@ -857,6 +857,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               
                   const SizedBox(height: 24),
                   
+                  // Privacy Center Link
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.grey.shade100),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ListTile(
+                      leading: const Icon(Icons.privacy_tip, color: AppTheme.brandPurple),
+                      title: const Text(
+                        'Privacy & Trust',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Manage your privacy settings and data',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.pushNamed(context, '/privacy-center');
+                      },
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
                   // Sign Out Button
                   Container(
                     padding: const EdgeInsets.all(20),

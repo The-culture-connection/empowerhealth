@@ -259,6 +259,48 @@ class FirebaseFunctionsService {
     }
   }
 
+  // Analyze manual text input (privacy-safe pathway)
+  Future<Map<String, dynamic>> analyzeVisitSummaryText({
+    required String text,
+    required String appointmentDate,
+    String? educationLevel,
+    Map<String, dynamic>? userProfile,
+    bool saveOriginalText = false,
+  }) async {
+    try {
+      // Auth check
+      var user = _auth.currentUser;
+      if (user == null) {
+        user = await _auth.authStateChanges()
+            .firstWhere((u) => u != null)
+            .timeout(const Duration(seconds: 5));
+      }
+      
+      if (user == null) {
+        throw Exception('🔒 Not signed in. Please log in before analyzing text.');
+      }
+
+      final callable = _functions.httpsCallable(
+        'analyzeVisitSummaryText',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 300),
+        ),
+      );
+
+      final result = await callable.call({
+        'text': text,
+        'appointmentDate': appointmentDate,
+        'educationLevel': educationLevel,
+        'userProfile': userProfile,
+        'saveOriginalText': saveOriginalText,
+      });
+
+      return result.data as Map<String, dynamic>;
+    } catch (e) {
+      throw Exception('❌ Failed to analyze text: $e');
+    }
+  }
+
   // Upload file to Firebase Storage and trigger analysis
   Future<Map<String, dynamic>> uploadVisitSummaryFile({
     required String fileName,

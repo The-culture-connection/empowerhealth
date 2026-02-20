@@ -9,6 +9,7 @@ import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
+import '../widgets/ai_disclaimer_banner.dart';
 
 class VisitSummaryScreen extends StatefulWidget {
   const VisitSummaryScreen({super.key});
@@ -42,6 +43,22 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
   void initState() {
     super.initState();
     _loadUserProfile();
+    _checkConsentAndShowPrivacyScreen();
+  }
+
+  Future<void> _checkConsentAndShowPrivacyScreen() async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return;
+    
+    final hasConsent = await _databaseService.userHasConsent(userId);
+    if (!hasConsent && mounted) {
+      // Show consent screen (not first run, so it will pop back)
+      final result = await Navigator.of(context).pushNamed('/consent');
+      // If user accepted, refresh the screen state if needed
+      if (result == true && mounted) {
+        // User has now given consent, continue with the screen
+      }
+    }
   }
 
   Future<void> _loadUserProfile() async {
@@ -513,6 +530,12 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
 
             // Generated Summary
             if (_generatedSummary != null) ...[
+              // AI Disclaimer Banner
+              const AIDisclaimerBanner(
+                customMessage: 'This summary helps you understand your visit.',
+                customSubMessage: 'It does not replace medical advice from your provider.',
+              ),
+              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -767,7 +790,17 @@ class PastSummariesScreen extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: const Text('Visit Summary'),
         content: SingleChildScrollView(
-          child: MarkdownBody(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // AI Disclaimer Banner
+              const AIDisclaimerBanner(
+                customMessage: 'This summary helps you understand your visit.',
+                customSubMessage: 'It does not replace medical advice from your provider.',
+              ),
+              const SizedBox(height: 16),
+              MarkdownBody(
             data: data['summary'] ?? '',
             styleSheet: MarkdownStyleSheet(
               h2: const TextStyle(
@@ -777,6 +810,8 @@ class PastSummariesScreen extends StatelessWidget {
               ),
               p: const TextStyle(fontSize: 14, height: 1.5),
             ),
+              ),
+            ],
           ),
         ),
         actions: [

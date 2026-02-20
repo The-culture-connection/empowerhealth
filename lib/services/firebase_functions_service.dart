@@ -381,6 +381,54 @@ class FirebaseFunctionsService {
       throw Exception('❌ Failed to summarize PDF: $e');
     }
   }
+
+  // Analyze manual text input (with redaction)
+  Future<Map<String, dynamic>> analyzeVisitSummaryText({
+    required String visitText,
+    required String appointmentDate,
+    String? educationLevel,
+    Map<String, dynamic>? userProfile,
+    bool saveOriginalText = false,
+  }) async {
+    try {
+      print('🔵 Calling analyzeVisitSummaryText function...');
+      print('🔵 Visit text length: ${visitText.length}');
+      print('🔵 Appointment date: $appointmentDate');
+      print('🔵 Save original text: $saveOriginalText');
+      
+      final callable = _functions.httpsCallable(
+        'analyzeVisitSummaryText',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 300),
+        ),
+      );
+      
+      final result = await callable.call({
+        'visitText': visitText,
+        'appointmentDate': appointmentDate,
+        'educationLevel': educationLevel,
+        'userProfile': userProfile,
+        'saveOriginalText': saveOriginalText,
+      });
+      
+      print('✅ Function call successful');
+      return result.data as Map<String, dynamic>;
+    } catch (e, stackTrace) {
+      print('❌ Error calling analyzeVisitSummaryText: $e');
+      print('❌ Stack trace: $stackTrace');
+      
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('timeout') || errorString.contains('deadline exceeded')) {
+        throw Exception('⏱️ Request timed out. Please try again.');
+      } else if (errorString.contains('unavailable') || errorString.contains('unreachable')) {
+        throw Exception('🌐 Service temporarily unavailable. Please try again in a few moments.');
+      } else if (errorString.contains('permission') || errorString.contains('unauthorized')) {
+        throw Exception('🔒 Permission denied. Please ensure you are logged in.');
+      }
+      
+      throw Exception('❌ Failed to analyze visit notes: $e');
+    }
+  }
 }
 
 

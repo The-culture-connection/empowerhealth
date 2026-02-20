@@ -11,6 +11,7 @@ import '../services/firebase_functions_service.dart';
 import '../utils/pregnancy_utils.dart';
 import 'learning_todo_widget.dart';
 import 'Learning Modules/learning_module_detail_screen.dart';
+import '../widgets/ai_disclaimer_banner.dart';
 
 class HomeScreenV2 extends StatefulWidget {
   const HomeScreenV2({super.key});
@@ -1222,7 +1223,16 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            // AI Disclaimer Banner
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: AIDisclaimerBanner(
+                customMessage: 'This tool helps you understand your care.',
+                customSubMessage: 'It does not replace your provider.',
+              ),
+            ),
+            const SizedBox(height: 16),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(

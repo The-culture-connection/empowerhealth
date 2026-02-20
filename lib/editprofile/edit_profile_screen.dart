@@ -814,6 +814,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               
               const SizedBox(height: 24),
               
+              // Privacy & Settings Section
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Privacy & Settings',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      leading: const Icon(Icons.lock_outline, color: AppTheme.brandPurple),
+                      title: const Text('Privacy & Trust Center'),
+                      subtitle: const Text('Manage your privacy settings and data'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.of(context).pushNamed(Routes.privacyCenter);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              
               // Save Button
               ElevatedButton(
                 onPressed: _isSaving ? null : _saveProfile,

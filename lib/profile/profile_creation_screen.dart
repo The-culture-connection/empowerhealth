@@ -6,6 +6,7 @@ import '../providers/profile_creation_provider.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/firebase_functions_service.dart';
+import '../privacy/consent_screen.dart';
 import '../cors/ui_theme.dart';
 import 'steps/basic_info_step.dart';
 import 'steps/demographics_step.dart';
@@ -68,8 +69,20 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         // Start async module generation in background
         _generateModulesAsync(profile);
         
-        // Navigate immediately to main screen
-        Navigator.of(context).pushReplacementNamed('/main');
+        // Check if user has given consent
+        final hasConsent = await _databaseService.userHasConsent(userId);
+        
+        if (hasConsent) {
+          // If consent already given, go to main screen
+          Navigator.of(context).pushReplacementNamed('/main');
+        } else {
+          // If no consent, show consent screen after onboarding
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const ConsentScreen(isFirstRun: true),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

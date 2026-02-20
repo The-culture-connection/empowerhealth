@@ -21,13 +21,29 @@ service cloud.firestore {
       allow read: if isOwner(userId);
       allow write: if isOwner(userId);
       
-      // Subcollections under user profile
+      // Subcollections under user profile - strict isolation
       match /visit_summaries/{summaryId} {
         allow read, write: if isOwner(userId);
+        // Ensure userId matches on create
+        allow create: if isOwner(userId) && 
+                      request.resource.data.userId == userId;
       }
       
       match /notes/{noteId} {
         allow read, write: if isOwner(userId);
+        allow create: if isOwner(userId) && 
+                      request.resource.data.userId == userId;
+      }
+      
+      match /file_uploads/{uploadId} {
+        allow read, write: if isOwner(userId);
+        allow create: if isOwner(userId);
+      }
+      
+      match /learning_tasks/{taskId} {
+        allow read, write: if isOwner(userId);
+        allow create: if isOwner(userId) && 
+                      request.resource.data.userId == userId;
       }
       
       match /{document=**} {
@@ -44,7 +60,8 @@ service cloud.firestore {
     // Learning tasks - users can manage their own tasks
     match /learning_tasks/{taskId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
@@ -65,21 +82,24 @@ service cloud.firestore {
     // Birth plans
     match /birth_plans/{planId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
-    // Visit summaries (top-level collection)
+    // Visit summaries (top-level collection) - ensure userId matches
     match /visit_summaries/{summaryId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
     // Journal entries (top-level collection)
     match /journal_entries/{entryId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
@@ -100,7 +120,12 @@ service cloud.firestore {
       
       // Anyone authenticated can create posts (must include their userId)
       allow create: if isAuthenticated() && 
-                      request.resource.data.userId == request.auth.uid;
+                    request.resource.data.userId == request.auth.uid &&
+                    // Validate required fields
+                    request.resource.data.keys().hasAll(['userId', 'content', 'createdAt']) &&
+                    // Limit content length
+                    request.resource.data.content is string &&
+                    request.resource.data.content.size() <= 5000;
       
       // Post owners can update/delete their posts
       // Any authenticated user can update posts to add replies or toggle likes
@@ -119,11 +144,15 @@ service cloud.firestore {
     match /post_reports/{reportId} {
       // Users can create reports
       allow create: if isAuthenticated() && 
-                      request.resource.data.userId == request.auth.uid;
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['userId', 'postId', 'reason', 'createdAt']);
       
       // Users can read their own reports
       // TODO: Add admin role check for reading all reports
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // No updates or deletes allowed
+      allow update, delete: if false;
     }
     
     // Community comments (legacy - keeping for backwards compatibility)

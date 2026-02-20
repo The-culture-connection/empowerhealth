@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_functions_service.dart';
+import '../services/database_service.dart';
+import '../widgets/ai_disclaimer_banner.dart';
 
 class AssistantScreen extends StatefulWidget {
   const AssistantScreen({super.key});
@@ -11,11 +14,56 @@ class AssistantScreen extends StatefulWidget {
 class _AssistantScreenState extends State<AssistantScreen> {
   final TextEditingController _messageController = TextEditingController();
   final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
+  final DatabaseService _databaseService = DatabaseService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final List<Map<String, String>> _messages = [];
   bool _isLoading = false;
 
+  void _showAIDisabledDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing by tapping outside
+      builder: (context) => AlertDialog(
+        title: const Text('AI Features Disabled'),
+        content: const Text(
+          'AI features are disabled. Go to settings to enable this feature.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Navigate to main tab view
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/main',
+                (route) => false,
+              );
+            },
+            child: const Text('OK'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushNamed('/privacy-center');
+            },
+            child: const Text('Go to Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
+
+    // Check if AI features are enabled
+    final userId = _auth.currentUser?.uid;
+    if (userId != null) {
+      final aiEnabled = await _databaseService.areAIFeaturesEnabled(userId);
+      if (!aiEnabled) {
+        _showAIDisabledDialog();
+        return;
+      }
+    }
 
     final userMessage = _messageController.text.trim();
     _messageController.clear();
@@ -103,6 +151,16 @@ class _AssistantScreenState extends State<AssistantScreen> {
                   ],
                 ),
               ),
+
+              // AI Disclaimer Banner
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: const AIDisclaimerBanner(
+                  customMessage: 'This assistant helps you understand your care.',
+                  customSubMessage: 'It does not replace your provider.',
+                ),
+              ),
+              const SizedBox(height: 12),
 
               // Messages
               Expanded(

@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../services/firebase_functions_service.dart';
 import '../cors/ui_theme.dart';
+import '../widgets/ai_disclaimer_banner.dart';
 
 class BirthPlanCreatorScreen extends StatefulWidget {
   const BirthPlanCreatorScreen({super.key});
@@ -256,6 +257,13 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
               maxLines: 2,
             ),
             const SizedBox(height: 24),
+
+            // AI Disclaimer Banner
+            const AIDisclaimerBanner(
+              customMessage: 'This tool helps you create your birth plan.',
+              customSubMessage: 'It does not replace medical advice from your provider.',
+            ),
+            const SizedBox(height: 16),
 
             // Generate Button
             ElevatedButton(

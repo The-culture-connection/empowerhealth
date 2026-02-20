@@ -5,6 +5,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
 import 'upload_visit_summary_screen.dart';
+import '../widgets/ai_disclaimer_banner.dart';
 
 class AppointmentsListScreen extends StatelessWidget {
   const AppointmentsListScreen({super.key});
@@ -571,6 +572,12 @@ class AppointmentsListScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // AI Disclaimer Banner
+                      const AIDisclaimerBanner(
+                        customMessage: 'This summary helps you understand your visit.',
+                        customSubMessage: 'It does not replace medical advice from your provider.',
+                      ),
+                      const SizedBox(height: 16),
                       if (summaryString != null) ...[
                         const Text(
                           'Actions To Take',

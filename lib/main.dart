@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'cors/ui_theme.dart';
 import 'cors/main_navigation_scaffold.dart';
 import 'app_router.dart';
 import 'auth/auth_screen.dart';
 import 'profile/profile_creation_screen.dart';
+import 'privacy/consent_screen.dart';
 import 'services/firebase_service.dart';
 import 'services/auth_service.dart';
 import 'services/database_service.dart';
@@ -88,16 +90,66 @@ class _AuthWrapperState extends State<_AuthWrapper> {
 
   Future<void> _checkProfile() async {
     final hasProfile = await _databaseService.userProfileExists(widget.userId);
+    
     if (mounted) {
       setState(() {
         _isChecking = false;
-        // Determine target screen based on profile status
+        // Show profile creation first, then consent will be shown after onboarding
         if (hasProfile) {
-          _targetScreen = const MainNavigationScaffold();
+          // Check consent after profile exists
+          _checkConsentAndNavigate();
         } else {
           _targetScreen = const ProfileCreationScreen();
         }
       });
+    }
+  }
+
+  Future<void> _checkConsentAndNavigate() async {
+    final hasConsent = await _checkConsent(widget.userId);
+    
+    if (mounted) {
+      setState(() {
+        if (!hasConsent) {
+          // Show consent screen after onboarding
+          _targetScreen = ConsentScreen(
+            isFirstRun: true,
+            onConsentAccepted: _onConsentAccepted,
+          );
+        } else {
+          _targetScreen = const MainNavigationScaffold();
+        }
+      });
+    }
+  }
+
+  Future<void> _onConsentAccepted() async {
+    // After consent is accepted, navigate to main screen
+    // Profile already exists at this point
+    if (mounted) {
+      setState(() {
+        _targetScreen = const MainNavigationScaffold();
+      });
+    }
+  }
+
+  Future<bool> _checkConsent(String userId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      if (!doc.exists) return false;
+      
+      final consents = doc.data()?['consents'];
+      if (consents == null) return false;
+      
+      return consents['termsAccepted'] == true && 
+             consents['privacyAccepted'] == true;
+    } catch (e) {
+      debugPrint('Error checking consent: $e');
+      return false;
     }
   }
 

@@ -10,6 +10,8 @@ import 'Journal/Journal_screen.dart';
 import 'Community/community_screen.dart';
 import 'assistant/assistant_screen.dart';
 import 'editprofile/edit_profile_screen.dart';
+import 'privacy/privacy_center_screen.dart';
+import 'privacy/consent_screen.dart';
 import 'Home/Appointments/appointments_screen.dart';
 import 'Home/Learning Modules/learning_modules_screen_v2.dart';
 import 'Home/Messages/Messages_screen.dart';
@@ -30,6 +32,8 @@ class Routes {
   static const community = '/community';
   static const assistant = '/assistant';
   static const editProfile = '/edit-profile';
+  static const privacyCenter = '/privacy-center';
+  static const consent = '/consent';
 
   // Home subroutes
   static const appointments = '/appointments';
@@ -67,6 +71,10 @@ class AppRouter {
         return _page(const AssistantScreen());
       case Routes.editProfile:
         return _page(const EditProfileScreen());
+      case Routes.privacyCenter:
+        return _page(const PrivacyCenterScreen());
+      case Routes.consent:
+        return _page(const ConsentScreen());
 
       // Home subroutes
       case Routes.appointments:

@@ -141,6 +141,49 @@ class DatabaseService {
       rethrow;
     }
   }
+
+  // Check if user has given consent
+  Future<bool> userHasConsent(String userId) async {
+    try {
+      final doc = await _usersCollection.doc(userId).get();
+      if (!doc.exists) return false;
+      
+      final data = doc.data() as Map<String, dynamic>?;
+      if (data == null) return false;
+      
+      final consents = data['consents'] as Map<String, dynamic>?;
+      if (consents == null) return false;
+      
+      return consents['termsAccepted'] == true && 
+             consents['privacyAccepted'] == true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error checking consent: $e');
+      }
+      return false;
+    }
+  }
+
+  // Check if AI features are enabled
+  Future<bool> areAIFeaturesEnabled(String userId) async {
+    try {
+      final doc = await _usersCollection.doc(userId).get();
+      if (!doc.exists) return true; // Default to enabled
+      
+      final data = doc.data() as Map<String, dynamic>?;
+      if (data == null) return true; // Default to enabled
+      
+      final privacySettings = data['privacySettings'] as Map<String, dynamic>?;
+      if (privacySettings == null) return true; // Default to enabled
+      
+      return privacySettings['aiFeaturesEnabled'] as bool? ?? true; // Default to enabled
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error checking AI features: $e');
+      }
+      return true; // Default to enabled on error
+    }
+  }
 }
 
 

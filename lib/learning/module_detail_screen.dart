@@ -9,6 +9,7 @@ import '../services/database_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
 import 'notes_dialog.dart';
+import '../widgets/ai_disclaimer_banner.dart';
 
 class ModuleDetailScreen extends StatefulWidget {
   final String title;
@@ -211,6 +212,13 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+              ),
+              const SizedBox(height: 16),
+              
+              // AI Disclaimer Banner (for AI-generated content)
+              const AIDisclaimerBanner(
+                customMessage: 'This content helps you understand your care.',
+                customSubMessage: 'It does not replace medical advice from your provider.',
               ),
               const SizedBox(height: 16),
               

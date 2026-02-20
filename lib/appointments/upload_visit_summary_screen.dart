@@ -13,6 +13,7 @@ import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
+import '../widgets/ai_disclaimer_banner.dart';
 
 class UploadVisitSummaryScreen extends StatefulWidget {
   const UploadVisitSummaryScreen({super.key});
@@ -36,11 +37,69 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   bool _isLoading = false;
   String? _currentStep; // Track current processing step
   double _uploadProgress = 0.0; // Track upload progress
+  String _inputMethod = 'pdf'; // 'pdf' or 'text'
+  final TextEditingController _manualTextController = TextEditingController();
+  bool _saveOriginalText = false; // Default: don't save raw text
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
+    _checkConsentAndShowPrivacyScreen();
+  }
+
+  Future<void> _checkConsentAndShowPrivacyScreen() async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return;
+    
+    final hasConsent = await _databaseService.userHasConsent(userId);
+    if (!hasConsent && mounted) {
+      // Show consent screen (not first run, so it will pop back)
+      final result = await Navigator.of(context).pushNamed('/consent');
+      // If user accepted, refresh the screen state if needed
+      if (result == true && mounted) {
+        // User has now given consent, continue with the screen
+      }
+    }
+  }
+
+  void _showAIDisabledDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing by tapping outside
+      builder: (context) => AlertDialog(
+        title: const Text('AI Features Disabled'),
+        content: const Text(
+          'AI features are disabled. Go to settings to enable this feature.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Navigate to main tab view
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/main',
+                (route) => false,
+              );
+            },
+            child: const Text('OK'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushNamed('/privacy-center');
+            },
+            child: const Text('Go to Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _manualTextController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserProfile() async {
@@ -249,6 +308,18 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     }
   }
 
+  Future<bool> _checkAIFeaturesBeforeProcessing() async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return false;
+    
+    final aiEnabled = await _databaseService.areAIFeaturesEnabled(userId);
+    if (!aiEnabled) {
+      _showAIDisabledDialog();
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _processPDF() async {
     if (_selectedPDF == null || _selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -269,6 +340,12 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         ),
       );
       return;
+    }
+
+    // Check if AI features are enabled - this will show dialog and return false if disabled
+    final canProceed = await _checkAIFeaturesBeforeProcessing();
+    if (!canProceed) {
+      return; // Dialog already shown, stop processing
     }
 
     setState(() {
@@ -497,11 +574,116 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     }
   }
 
+  Future<void> _processManualText() async {
+    if (_selectedDate == null || _manualTextController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('📅 Please select date and enter visit notes'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🔒 Please log in to analyze visit notes'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Check if AI features are enabled - this will show dialog and return false if disabled
+    final canProceed = await _checkAIFeaturesBeforeProcessing();
+    if (!canProceed) {
+      return; // Dialog already shown, stop processing
+    }
+
+    setState(() {
+      _isLoading = true;
+      _generatedSummary = null;
+      _currentStep = '🤖 Analyzing visit notes...';
+    });
+
+    try {
+      final visitText = _manualTextController.text.trim();
+      
+      // Prepare user profile data for context
+      final userProfileData = _userProfile != null ? {
+        'pregnancyStage': _userProfile!.pregnancyStage,
+        'trimester': _userProfile!.pregnancyStage,
+        'concerns': [],
+        'birthPlanPreferences': _userProfile!.birthPreference != null ? [_userProfile!.birthPreference!] : [],
+        'culturalPreferences': [],
+        'traumaInformedPreferences': [],
+        'learningStyle': 'visual',
+        'chronicConditions': _userProfile!.chronicConditions,
+        'healthLiteracyGoals': _userProfile!.healthLiteracyGoals,
+      } : null;
+
+      // Call Firebase Function to analyze text (with redaction)
+      final analysisResult = await _functionsService.analyzeVisitSummaryText(
+        visitText: visitText,
+        appointmentDate: _selectedDate!.toIso8601String(),
+        educationLevel: _userProfile?.educationLevel,
+        userProfile: userProfileData,
+        saveOriginalText: _saveOriginalText,
+      );
+
+      // Save summary to Firestore (without raw text unless user opted in)
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('visit_summaries')
+          .add({
+        'summary': analysisResult['summary'],
+        'appointmentDate': Timestamp.fromDate(_selectedDate!),
+        'sourceType': 'manual_text',
+        'createdAt': FieldValue.serverTimestamp(),
+        // Only save original text if user explicitly opted in
+        if (_saveOriginalText) 'originalText': visitText,
+      });
+
+      setState(() {
+        _generatedSummary = analysisResult['summary'];
+        _isLoading = false;
+        _currentStep = null;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Analysis complete!'),
+            duration: Duration(seconds: 3),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _currentStep = null;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Upload Visit Summary'),
+        title: const Text('Understand Your Visit'),
         backgroundColor: AppTheme.brandPurple,
         foregroundColor: Colors.white,
       ),
@@ -512,7 +694,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
           children: [
             // Header
             Text(
-              'Upload Your Visit Summary',
+              'Understand Your Visit',
               style: AppTheme.responsiveTitleStyle(
                 context,
                 baseSize: 24,
@@ -522,7 +704,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Get an easy-to-understand summary of your appointment',
+              'Add notes from your appointment',
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 24),
@@ -566,8 +748,125 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
             const SizedBox(height: 24),
 
+            // Input Method Selector
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _inputMethod = 'pdf'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _inputMethod == 'pdf' 
+                              ? AppTheme.brandPurple 
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.picture_as_pdf,
+                              color: _inputMethod == 'pdf' 
+                                  ? Colors.white 
+                                  : Colors.grey[600],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Upload PDF',
+                              style: TextStyle(
+                                color: _inputMethod == 'pdf' 
+                                    ? Colors.white 
+                                    : Colors.grey[600],
+                                fontWeight: _inputMethod == 'pdf' 
+                                    ? FontWeight.w600 
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _inputMethod = 'text'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _inputMethod == 'text' 
+                              ? AppTheme.brandPurple 
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.text_fields,
+                              color: _inputMethod == 'text' 
+                                  ? Colors.white 
+                                  : Colors.grey[600],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Type Text',
+                              style: TextStyle(
+                                color: _inputMethod == 'text' 
+                                    ? Colors.white 
+                                    : Colors.grey[600],
+                                fontWeight: _inputMethod == 'text' 
+                                    ? FontWeight.w600 
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Privacy Note for Manual Text
+            if (_inputMethod == 'text')
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.lock_outline, color: Colors.blue.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Recommended for privacy: Your text won\'t be stored unless you choose to save it.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 16),
+
             // PDF Upload Section
-            if (_selectedPDF == null) ...[
+            if (_inputMethod == 'pdf' && _selectedPDF == null) ...[
               GestureDetector(
                 onTap: _pickPDF,
                 child: Container(
@@ -607,7 +906,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                   ),
                 ),
               ),
-            ] else ...[
+            ] else if (_inputMethod == 'pdf') ...[
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -694,6 +993,100 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                       )
                     : const Text(
                         'Upload Visit Summary',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600                      ),
+                    ),
+              ),
+            ] else ...[
+              // Manual Text Input Section
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Visit Notes',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _manualTextController,
+                      maxLines: 10,
+                      decoration: InputDecoration(
+                        hintText: 'Type or paste your visit notes here...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.all(12),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Save my original text',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      subtitle: const Text(
+                        'By default, only the summary is saved. Check this to also save your original notes.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: _saveOriginalText,
+                      onChanged: (value) => setState(() => _saveOriginalText = value ?? false),
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: (_selectedDate != null && 
+                           _manualTextController.text.trim().isNotEmpty && 
+                           !_isLoading)
+                    ? _processManualText
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.brandPurple,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: _isLoading
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                          if (_currentStep != null) ...[
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _currentStep!,
+                                style: const TextStyle(fontSize: 14),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      )
+                    : const Text(
+                        'Analyze Visit Notes',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                       ),
               ),
@@ -750,6 +1143,12 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
             // Generated Summary Display
             if (_generatedSummary != null) ...[
+              // AI Disclaimer Banner
+              const AIDisclaimerBanner(
+                customMessage: 'This summary helps you understand your visit.',
+                customSubMessage: 'It does not replace medical advice from your provider.',
+              ),
+              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(

@@ -173,5 +173,68 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
+    
+    // Provider Search Collections
+    
+    // Providers - all authenticated users can read, admins can write
+    match /providers/{providerId} {
+      allow read: if isAuthenticated();
+      // Only admins can create/update/delete providers
+      // TODO: Implement admin role check
+      allow write: if isAuthenticated();
+    }
+    
+    // Provider reviews - users can read all, create their own, update/delete their own
+    match /reviews/{reviewId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['providerId', 'userId', 'rating', 'createdAt']);
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Provider submissions - users can create, admins can read/update
+    match /provider_submissions/{submissionId} {
+      allow create: if isAuthenticated() && 
+                    request.resource.data.keys().hasAll(['provider', 'status', 'createdAt']);
+      // Users can read their own submissions
+      allow read: if isAuthenticated() && (
+        resource.data.submittedBy == request.auth.uid ||
+        // TODO: Add admin role check
+        true
+      );
+      // Only admins can update (for moderation)
+      // TODO: Implement admin role check
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
+    
+    // Saved providers - users can manage their own favorites
+    match /users/{userId}/saved_providers/{providerId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Identity tags - all authenticated users can read
+    match /identity_tags/{tagId} {
+      allow read: if isAuthenticated();
+      // Only admins can write
+      // TODO: Implement admin role check
+      allow write: if isAuthenticated();
+    }
+    
+    // Provider identity claims - users can create, read their own, admins can read all
+    match /provider_identity_claims/{claimId} {
+      allow create: if isAuthenticated() && 
+                    request.resource.data.keys().hasAll(['providerId', 'userId', 'tagId', 'status', 'createdAt']);
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        // TODO: Add admin role check
+        true
+      );
+      // Only admins can update (for verification)
+      // TODO: Implement admin role check
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
   }
 }

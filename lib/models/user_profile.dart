@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class UserProfile {
   // Basic Information
   final String userId;
-  final String name;
+  final String username;
   final int age;
   final bool isPregnant;
   final DateTime? dueDate;
@@ -52,7 +52,7 @@ class UserProfile {
 
   UserProfile({
     required this.userId,
-    required this.name,
+    required this.username,
     required this.age,
     required this.isPregnant,
     this.dueDate,
@@ -92,7 +92,7 @@ class UserProfile {
   Map<String, dynamic> toMap() {
     return {
       'userId': userId,
-      'name': name,
+      'username': username,
       'age': age,
       'isPregnant': isPregnant,
       'dueDate': dueDate?.toIso8601String(),
@@ -132,7 +132,7 @@ class UserProfile {
   factory UserProfile.fromMap(Map<String, dynamic> map) {
     return UserProfile(
       userId: map['userId'] ?? '',
-      name: map['name'] ?? '',
+      username: map['username'] ?? map['name'] ?? '', // Support legacy 'name' field
       age: map['age'] ?? 0,
       isPregnant: map['isPregnant'] ?? false,
       dueDate: map['dueDate'] != null ? DateTime.parse(map['dueDate']) : null,
@@ -171,7 +171,7 @@ class UserProfile {
   // Create a copy with updated fields
   UserProfile copyWith({
     String? userId,
-    String? name,
+    String? username,
     int? age,
     bool? isPregnant,
     DateTime? dueDate,
@@ -204,7 +204,7 @@ class UserProfile {
   }) {
     return UserProfile(
       userId: userId ?? this.userId,
-      name: name ?? this.name,
+      username: username ?? this.username,
       age: age ?? this.age,
       isPregnant: isPregnant ?? this.isPregnant,
       dueDate: dueDate ?? this.dueDate,

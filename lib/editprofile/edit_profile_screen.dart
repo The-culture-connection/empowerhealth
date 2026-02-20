@@ -143,7 +143,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final updatedProfile = UserProfile(
         userId: userId,
-        name: _userProfile!.name, // Name is not editable
+        username: _userProfile!.username, // Username is not editable
         age: int.parse(_ageController.text),
         isPregnant: _isPregnant,
         dueDate: _dueDate,
@@ -322,7 +322,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     final user = _auth.currentUser;
-    final userName = _userProfile?.name ?? user?.displayName ?? user?.email?.split('@')[0] ?? 'User';
+    final userName = _userProfile?.username ?? user?.displayName ?? user?.email?.split('@')[0] ?? 'User';
     final dueDate = _userProfile?.dueDate;
     final weeksPregnant = PregnancyUtils.calculateWeeksPregnant(dueDate);
     final trimester = PregnancyUtils.calculateTrimester(dueDate);

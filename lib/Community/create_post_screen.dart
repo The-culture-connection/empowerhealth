@@ -58,17 +58,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         throw Exception('User not authenticated');
       }
 
-      // Get user profile for author name
+      // Get user profile for username
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .get();
       final userData = userDoc.data();
-      final authorName = (userData != null && 
-                          userData['firstName'] != null && 
-                          userData['lastName'] != null)
-          ? '${userData['firstName']} ${(userData['lastName'] as String)[0]}.'
-          : 'Anonymous';
+      final authorName = userData?['username'] ?? 'Anonymous';
 
       await FirebaseFirestore.instance.collection('community_posts').add({
         'userId': userId,

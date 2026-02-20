@@ -75,11 +75,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           .doc(userId)
           .get();
       final userData = userDoc.data();
-      final authorName = (userData != null &&
-                          userData['firstName'] != null &&
-                          userData['lastName'] != null)
-          ? '${userData['firstName']} ${(userData['lastName'] as String)[0]}.'
-          : 'Anonymous';
+      final authorName = userData?['username'] ?? 'Anonymous';
 
       // Use Timestamp.now() instead of FieldValue.serverTimestamp() for array elements
       final replyData = {

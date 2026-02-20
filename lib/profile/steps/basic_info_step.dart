@@ -46,6 +46,37 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               ),
               const SizedBox(height: AppTheme.spacingXL),
 
+              // Username
+              TextFormField(
+                initialValue: provider.username,
+                decoration: const InputDecoration(
+                  labelText: 'Username',
+                  hintText: 'Choose a username',
+                  prefixIcon: Icon(Icons.person_outline),
+                  helperText: 'This will be displayed in the community and reviews',
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a username';
+                  }
+                  if (value.length < 3) {
+                    return 'Username must be at least 3 characters';
+                  }
+                  if (value.length > 20) {
+                    return 'Username must be 20 characters or less';
+                  }
+                  // Check for valid characters (alphanumeric, underscore, hyphen)
+                  if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(value)) {
+                    return 'Username can only contain letters, numbers, underscores, and hyphens';
+                  }
+                  return null;
+                },
+                onChanged: (value) {
+                  provider.updateBasicInfo(username: value.trim());
+                },
+              ),
+              const SizedBox(height: AppTheme.spacingXL),
+
               // Age
               TextFormField(
                 initialValue: provider.age.toString(),

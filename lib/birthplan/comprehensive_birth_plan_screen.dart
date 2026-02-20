@@ -268,7 +268,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       // Create birth plan object
       final birthPlan = BirthPlan(
         userId: userId,
-        fullName: profile.name,
+        fullName: profile.username,
         dueDate: _dueDate,
         supportPersonName: _supportPersonNameController.text.trim().isEmpty 
             ? null 

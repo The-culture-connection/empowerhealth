@@ -10,7 +10,7 @@ import { Profile } from "./components/Profile";
 import { ProviderSearch } from "./components/ProviderSearch";
 import { ProviderSearchEntry } from "./components/ProviderSearchEntry";
 import { ProviderSearchResults } from "./components/ProviderSearchResults";
-import { ProviderProfile } from "./components/ProviderProfile";
+import { ProviderDetailProfile } from "./components/ProviderDetailProfile";
 import { AddProvider } from "./components/AddProvider";
 import { PostDetail } from "./components/PostDetail";
 import { NewPost } from "./components/NewPost";
@@ -33,7 +33,7 @@ export const router = createBrowserRouter([
       { path: "providers/search", Component: ProviderSearchEntry },
       { path: "providers/results", Component: ProviderSearchResults },
       { path: "providers/add", Component: AddProvider },
-      { path: "providers/:providerId", Component: ProviderProfile },
+      { path: "providers/:providerId", Component: ProviderDetailProfile },
     ],
   },
 ]);

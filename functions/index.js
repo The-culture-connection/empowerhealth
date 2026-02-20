@@ -2188,6 +2188,11 @@ function formatSummaryForDisplay(summary, learningModules = []) {
   return formatted;
 }
 
+// ============================================================================
+// HIPAA COMPLIANCE UTILITIES
+// ============================================================================
+
+// PHI Redaction Utility - Remove PII/PHI before sending to AI
 function redactPHI(text) {
   if (!text || typeof text !== 'string') return text;
   
@@ -2243,6 +2248,9 @@ function safeLog(level, message, data = {}) {
   }
 }
 
+// ============================================================================
+// ANALYZE VISIT SUMMARY TEXT (Manual Input with Redaction)
+// ============================================================================
 
 exports.analyzeVisitSummaryText = onCall(
   {secrets: [openaiApiKey]},
@@ -2315,6 +2323,10 @@ exports.analyzeVisitSummaryText = onCall(
     }
   }
 );
+
+// ============================================================================
+// EXPORT USER DATA
+// ============================================================================
 
 exports.exportUserData = onCall(
   {secrets: [openaiApiKey]},
@@ -2534,3 +2546,4 @@ exports.deleteUserAccount = onCall(
     }
   }
 );
+

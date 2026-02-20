@@ -17,6 +17,10 @@ import 'Home/Learning Modules/learning_modules_screen_v2.dart';
 import 'Home/Messages/Messages_screen.dart';
 import 'profile/profile_creation_screen.dart';
 import 'providers/provider_search_screen.dart';
+import 'providers/provider_search_entry_screen.dart';
+import 'providers/provider_search_results_screen.dart';
+import 'providers/provider_profile_screen.dart';
+import 'providers/add_provider_screen.dart';
 
 class Routes {
   static const auth = '/auth';
@@ -40,6 +44,10 @@ class Routes {
   static const learning = '/learning';
   static const messages = '/messages';
   static const providers = '/providers';
+  static const providerSearch = '/providers/search';
+  static const providerResults = '/providers/results';
+  static const providerProfile = '/providers/profile';
+  static const addProvider = '/providers/add';
 }
 
 class AppRouter {
@@ -85,6 +93,10 @@ class AppRouter {
         return _page(const MessagesScreen());
       case Routes.providers:
         return _page(const ProviderSearchScreen());
+      case Routes.providerSearch:
+        return _page(const ProviderSearchEntryScreen());
+      case Routes.addProvider:
+        return _page(const AddProviderScreen());
       default:
         return _page(const AuthScreen());
     }

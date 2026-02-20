@@ -29,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final profile = await _databaseService.getUserProfile(userId);
       if (mounted) {
         setState(() {
-          _userName = profile?.name;
+          _userName = profile?.username;
         });
       }
     }

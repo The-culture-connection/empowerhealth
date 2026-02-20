@@ -5,7 +5,7 @@ class ProfileCreationProvider extends ChangeNotifier {
   int _currentStep = 0;
   
   // Basic Information
-  String name = '';
+  String username = '';
   int age = 18;
   bool isPregnant = false;
   DateTime? dueDate;
@@ -75,7 +75,7 @@ class ProfileCreationProvider extends ChangeNotifier {
 
   // Update methods
   void updateBasicInfo({
-    String? name,
+    String? username,
     int? age,
     bool? isPregnant,
     DateTime? dueDate,
@@ -85,7 +85,7 @@ class ProfileCreationProvider extends ChangeNotifier {
     String? zipCode,
     String? insuranceType,
   }) {
-    if (name != null) this.name = name;
+    if (username != null) this.username = username;
     if (age != null) this.age = age;
     if (isPregnant != null) {
       this.isPregnant = isPregnant;
@@ -206,7 +206,7 @@ class ProfileCreationProvider extends ChangeNotifier {
     
     return UserProfile(
       userId: userId,
-      name: name,
+      username: username,
       age: age,
       isPregnant: isPregnant,
       dueDate: dueDate,
@@ -242,7 +242,7 @@ class ProfileCreationProvider extends ChangeNotifier {
 
   void reset() {
     _currentStep = 0;
-    name = '';
+    username = '';
     age = 18;
     isPregnant = false;
     dueDate = null;

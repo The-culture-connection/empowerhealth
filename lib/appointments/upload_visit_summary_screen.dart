@@ -625,6 +625,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       } : null;
 
       // Call Firebase Function to analyze text (with redaction)
+      // The function already saves to Firestore, so we don't need to save again
       final analysisResult = await _functionsService.analyzeVisitSummaryText(
         visitText: visitText,
         appointmentDate: _selectedDate!.toIso8601String(),
@@ -633,19 +634,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         saveOriginalText: _saveOriginalText,
       );
 
-      // Save summary to Firestore (without raw text unless user opted in)
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('visit_summaries')
-          .add({
-        'summary': analysisResult['summary'],
-        'appointmentDate': Timestamp.fromDate(_selectedDate!),
-        'sourceType': 'manual_text',
-        'createdAt': FieldValue.serverTimestamp(),
-        // Only save original text if user explicitly opted in
-        if (_saveOriginalText) 'originalText': visitText,
-      });
+      // Note: The Cloud Function already saves the summary to Firestore
+      // We only need to handle the response for display
 
       setState(() {
         _generatedSummary = analysisResult['summary'];

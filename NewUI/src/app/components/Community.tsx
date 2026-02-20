@@ -1,8 +1,10 @@
 import { MessageCircle, Heart, Users, MapPin, Award, ThumbsUp, MessageSquare } from "lucide-react";
+import { Link } from "react-router";
 
 export function Community() {
   const discussions = [
     {
+      id: 1,
       title: "First time feeling movement - is this normal?",
       author: "Maya K.",
       replies: 12,
@@ -11,6 +13,7 @@ export function Community() {
       hasBlackMamaTag: false,
     },
     {
+      id: 2,
       title: "My unmedicated birth story - you CAN do this!",
       author: "Jennifer R.",
       replies: 45,
@@ -19,6 +22,7 @@ export function Community() {
       hasBlackMamaTag: true,
     },
     {
+      id: 3,
       title: "Anxiety about upcoming glucose test",
       author: "Sarah M.",
       replies: 8,
@@ -27,6 +31,7 @@ export function Community() {
       hasBlackMamaTag: false,
     },
     {
+      id: 4,
       title: "Finding a doula who looks like me",
       author: "Amara T.",
       replies: 23,
@@ -111,13 +116,14 @@ export function Community() {
       <section className="mb-8">
         <div className="flex items-center justify-between mb-3">
           <h2>Recent Discussions</h2>
-          <button className="text-sm text-[#663399]">New post</button>
+          <Link to="/community/new" className="text-sm text-[#663399]">New post</Link>
         </div>
         <div className="space-y-3">
           {discussions.map((discussion, index) => (
-            <div
+            <Link
               key={index}
-              className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:border-[#663399]/30 transition-colors cursor-pointer"
+              to={`/community/${discussion.id}`}
+              className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:border-[#663399]/30 transition-colors cursor-pointer block"
             >
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#663399] to-[#cbbec9] flex items-center justify-center flex-shrink-0 text-white text-sm">
@@ -148,7 +154,7 @@ export function Community() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>

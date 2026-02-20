@@ -1,15 +1,21 @@
 import { FileText, Calendar, Pill, Activity, AlertCircle, CheckCircle, Flag, Share2 } from "lucide-react";
 import { useState } from "react";
+import { PHIBoundaryNotice, SecureIndicator, EmergencyFooter } from "./PrivacyComponents";
 
 export function AfterVisit() {
   const [flagged, setFlagged] = useState(false);
 
   return (
-    <div className="p-5">
+    <div className="p-5 pb-24">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl mb-2">After Visit Summary</h1>
         <p className="text-gray-600">Your visit explained in simple terms</p>
+      </div>
+
+      {/* PHI Boundary Notice */}
+      <div className="mb-4">
+        <PHIBoundaryNotice />
       </div>
 
       {/* Visit Info */}
@@ -26,10 +32,12 @@ export function AfterVisit() {
           </button>
         </div>
 
-        <div className="flex items-center gap-2 p-3 bg-green-50 rounded-2xl">
+        <div className="flex items-center gap-2 p-3 bg-green-50 rounded-2xl mb-3">
           <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
           <p className="text-sm text-green-900">Everything looks great! You and baby are doing well.</p>
         </div>
+
+        <SecureIndicator />
       </div>
 
       {/* What We Checked */}
@@ -185,6 +193,11 @@ export function AfterVisit() {
           </button>
         </div>
       </section>
+
+      {/* Emergency Footer */}
+      <div className="mt-6">
+        <EmergencyFooter />
+      </div>
     </div>
   );
 }

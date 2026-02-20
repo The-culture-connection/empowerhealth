@@ -1,48 +1,7 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Search, Calendar, Heart, BookOpen, FileText, ClipboardList, MessageCircle, ChevronRight } from "lucide-react";
-import { authService } from "../../services/authService";
-import { databaseService, UserProfile } from "../../services/databaseService";
-import { calculateWeeksPregnant, calculateTrimester, getGreeting } from "../../utils/pregnancyUtils";
 
 export function Home() {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const user = authService.currentUser;
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const unsubscribe = databaseService.streamUserProfile(user.uid, (profileData) => {
-      setProfile(profileData);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const user = authService.currentUser;
-  const userName = profile?.name || user?.displayName || user?.email?.split('@')[0] || 'User';
-  const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
-  
-  const dueDate = profile?.dueDate ? new Date(profile.dueDate) : null;
-  const weeksPregnant = calculateWeeksPregnant(dueDate);
-  const trimester = calculateTrimester(dueDate);
-  const progress = (weeksPregnant / 40) * 100;
-
-  if (loading) {
-    return (
-      <div className="p-5">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading...</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-5">
       {/* Header */}
@@ -50,47 +9,48 @@ export function Home() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#663399] to-[#cbbec9] flex items-center justify-center text-white text-lg">
-              {initials}
+              S
             </div>
             <div>
-              <p className="text-gray-500 text-sm">{getGreeting()},</p>
-              <h1 className="text-xl">{userName}</h1>
+              <p className="text-gray-500 text-sm">Good morning,</p>
+              <h1 className="text-xl">Sarah</h1>
             </div>
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search topics, providers, or questions"
-            className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20"
-          />
-        </div>
+        {/* Search Bar - Provider Search */}
+        <Link to="/providers">
+          <div className="relative cursor-pointer">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Find trusted providers near you"
+              className="w-full pl-12 pr-4 py-3 rounded-2xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 cursor-pointer"
+              readOnly
+            />
+          </div>
+        </Link>
       </div>
 
       {/* Your Pregnancy Journey */}
-      {dueDate && (
-        <section className="mb-6">
-          <h2 className="mb-3">Your Pregnancy Journey</h2>
-          <div className="bg-gradient-to-br from-[#663399] to-[#8855bb] rounded-3xl p-6 text-white shadow-md">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <p className="text-white/90 text-sm mb-1">Week {weeksPregnant} of 40</p>
-                <h3 className="text-2xl mb-1">{trimester} Trimester</h3>
-                <p className="text-white/80 text-sm">You're doing beautifully</p>
-              </div>
-              <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
-                <span className="text-2xl">🤰</span>
-              </div>
+      <section className="mb-6">
+        <h2 className="mb-3">Your Pregnancy Journey</h2>
+        <div className="bg-gradient-to-br from-[#663399] to-[#8855bb] rounded-3xl p-6 text-white shadow-md">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <p className="text-white/90 text-sm mb-1">Week 24 of 40</p>
+              <h3 className="text-2xl mb-1">Second Trimester</h3>
+              <p className="text-white/80 text-sm">You're doing beautifully</p>
             </div>
-            <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
-              <div className="h-full bg-white rounded-full transition-all" style={{ width: `${Math.min(progress, 100)}%` }}></div>
+            <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-2xl">🤰</span>
             </div>
           </div>
-        </section>
-      )}
+          <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+            <div className="h-full bg-white rounded-full" style={{ width: "60%" }}></div>
+          </div>
+        </div>
+      </section>
 
       {/* Today's Support */}
       <section className="mb-6">
@@ -112,7 +72,7 @@ export function Home() {
         </div>
 
         {/* Emotional Check-in */}
-        <Link to="/journal" className="bg-gradient-to-br from-[#fef3f3] to-[#fff0f8] rounded-3xl p-5 shadow-sm border border-pink-100 hover:border-pink-200 transition-colors block">
+        <div className="bg-gradient-to-br from-[#fef3f3] to-[#fff0f8] rounded-3xl p-5 shadow-sm border border-pink-100">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-2xl bg-rose-100 flex items-center justify-center flex-shrink-0">
               <Heart className="w-6 h-6 text-rose-500" />
@@ -122,7 +82,7 @@ export function Home() {
               <p className="text-sm text-gray-600">Take a moment to check in with yourself</p>
             </div>
           </div>
-        </Link>
+        </div>
       </section>
 
       {/* Learning Modules */}
@@ -133,24 +93,22 @@ export function Home() {
             See all
           </Link>
         </div>
-          <div className="grid grid-cols-2 gap-3">
-          {weeksPregnant > 0 && (
-            <Link to="/learning" className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:border-[#663399]/30 transition-colors">
-              <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center mb-3">
-                <BookOpen className="w-5 h-5 text-blue-500" />
-              </div>
-              <h3 className="text-sm mb-1">Week {weeksPregnant} Guide</h3>
-              <p className="text-xs text-gray-500">Your baby this week</p>
-            </Link>
-          )}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+            <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center mb-3">
+              <BookOpen className="w-5 h-5 text-blue-500" />
+            </div>
+            <h3 className="text-sm mb-1">Week 24 Guide</h3>
+            <p className="text-xs text-gray-500">Your baby this week</p>
+          </div>
 
-          <Link to="/learning" className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:border-[#663399]/30 transition-colors">
+          <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
             <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center mb-3">
               <FileText className="w-5 h-5 text-[#663399]" />
             </div>
             <h3 className="text-sm mb-1">Know Your Rights</h3>
             <p className="text-xs text-gray-500">Healthcare advocacy</p>
-          </Link>
+          </div>
         </div>
       </section>
 

@@ -19,26 +19,4 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
-
-  // Production build optimizations
-  build: {
-    target: 'esnext',
-    minify: 'esbuild',
-    sourcemap: false,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router'],
-          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/functions'],
-          'vendor-ui': ['lucide-react', 'date-fns'],
-        },
-      },
-    },
-    chunkSizeWarningLimit: 1000,
-  },
-
-  // Optimize dependencies
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router', 'firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/functions'],
-  },
 })

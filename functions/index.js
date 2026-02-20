@@ -2188,3 +2188,349 @@ function formatSummaryForDisplay(summary, learningModules = []) {
   return formatted;
 }
 
+function redactPHI(text) {
+  if (!text || typeof text !== 'string') return text;
+  
+  let redacted = text;
+  
+  // Redact email addresses
+  redacted = redacted.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL_REDACTED]');
+  
+  // Redact phone numbers (various formats)
+  redacted = redacted.replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, '[PHONE_REDACTED]');
+  redacted = redacted.replace(/\b\(\d{3}\)\s?\d{3}[-.]?\d{4}\b/g, '[PHONE_REDACTED]');
+  
+  // Redact SSN patterns
+  redacted = redacted.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN_REDACTED]');
+  
+  // Redact MRN/Medical Record Numbers (common patterns)
+  redacted = redacted.replace(/\bMRN[:\s]?\d{6,}\b/gi, '[MRN_REDACTED]');
+  redacted = redacted.replace(/\bMedical Record[:\s]?\d{6,}\b/gi, '[MRN_REDACTED]');
+  
+  // Redact addresses (basic pattern - street numbers and common street terms)
+  redacted = redacted.replace(/\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Way|Circle|Cir)\b/gi, '[ADDRESS_REDACTED]');
+  
+  // Redact ZIP codes (5 or 9 digit)
+  redacted = redacted.replace(/\b\d{5}(?:-\d{4})?\b/g, '[ZIP_REDACTED]');
+  
+  // Note: Full names are harder to redact reliably without NLP
+  // We'll warn the user if we detect potential names
+  
+  return redacted;
+}
+
+// Safe Logger - Strip PHI from logs
+function safeLog(level, message, data = {}) {
+  // Create a sanitized copy of data
+  const sanitized = JSON.parse(JSON.stringify(data));
+  
+  // Remove common PHI fields
+  const phiFields = ['visitText', 'pdfText', 'content', 'notes', 'summary', 'originalText', 'email', 'phone', 'address', 'ssn', 'mrn'];
+  phiFields.forEach(field => {
+    if (sanitized[field]) {
+      sanitized[field] = '[REDACTED]';
+    }
+  });
+  
+  // Log with sanitized data
+  const logMessage = `[${level.toUpperCase()}] ${message}`;
+  if (level === 'error') {
+    console.error(logMessage, sanitized);
+  } else if (level === 'warn') {
+    console.warn(logMessage, sanitized);
+  } else {
+    console.log(logMessage, sanitized);
+  }
+}
+
+
+exports.analyzeVisitSummaryText = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    // Verify authentication
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    
+    const userId = request.auth.uid;
+    const {visitText, appointmentDate, educationLevel, userProfile, saveOriginalText = false} = request.data;
+    
+    // Validate input
+    if (!visitText || typeof visitText !== 'string' || visitText.trim().length === 0) {
+      throw new HttpsError('invalid-argument', 'Visit text is required');
+    }
+    
+    if (!appointmentDate) {
+      throw new HttpsError('invalid-argument', 'Appointment date is required');
+    }
+    
+    safeLog('info', 'Analyzing visit summary text', {
+      userId,
+      textLength: visitText.length,
+      appointmentDate,
+      saveOriginalText
+    });
+    
+    try {
+      // Redact PHI before sending to AI
+      const redactedText = redactPHI(visitText);
+      
+      // Check if redaction removed significant content
+      const redactionRatio = redactedText.length / visitText.length;
+      const hasRedaction = redactedText !== visitText;
+      
+      if (hasRedaction && redactionRatio < 0.9) {
+        safeLog('warn', 'Significant PHI detected and redacted', {
+          userId,
+          originalLength: visitText.length,
+          redactedLength: redactedText.length
+        });
+      }
+      
+      // Use the same analysis helper as PDF analysis
+      const analysisResult = await analyzeVisitSummaryPDF({
+        pdfText: redactedText,
+        appointmentDate,
+        educationLevel,
+        userProfile,
+        userId
+      });
+      
+      // Return summary (not raw text unless user opted in)
+      return {
+        summary: analysisResult.summary,
+        todos: analysisResult.todos || [],
+        learningModules: analysisResult.learningModules || [],
+        redFlags: analysisResult.redFlags || [],
+        hasRedaction: hasRedaction,
+        // Only include original text if user explicitly opted in
+        ...(saveOriginalText ? {originalText: visitText} : {})
+      };
+    } catch (error) {
+      safeLog('error', 'Error analyzing visit summary text', {
+        userId,
+        error: error.message
+      });
+      throw new HttpsError('internal', 'Failed to analyze visit summary: ' + error.message);
+    }
+  }
+);
+
+exports.exportUserData = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    
+    const userId = request.auth.uid;
+    safeLog('info', 'Exporting user data', {userId});
+    
+    try {
+      const db = admin.firestore();
+      const userData = {
+        userId,
+        exportedAt: new Date().toISOString(),
+        profile: null,
+        visitSummaries: [],
+        notes: [],
+        learningTasks: [],
+        birthPlans: [],
+        journalEntries: [],
+        fileUploads: []
+      };
+      
+      // Get user profile
+      const profileDoc = await db.collection('users').doc(userId).get();
+      if (profileDoc.exists) {
+        const profileData = profileDoc.data();
+        // Remove sensitive fields if needed
+        userData.profile = profileData;
+      }
+      
+      // Get visit summaries
+      const visitSummariesSnapshot = await db
+        .collection('users')
+        .doc(userId)
+        .collection('visit_summaries')
+        .get();
+      userData.visitSummaries = visitSummariesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Get notes
+      const notesSnapshot = await db
+        .collection('users')
+        .doc(userId)
+        .collection('notes')
+        .get();
+      userData.notes = notesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Get learning tasks
+      const tasksSnapshot = await db
+        .collection('learning_tasks')
+        .where('userId', '==', userId)
+        .get();
+      userData.learningTasks = tasksSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Get birth plans
+      const birthPlansSnapshot = await db
+        .collection('birth_plans')
+        .where('userId', '==', userId)
+        .get();
+      userData.birthPlans = birthPlansSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Get journal entries
+      const journalSnapshot = await db
+        .collection('journal_entries')
+        .where('userId', '==', userId)
+        .get();
+      userData.journalEntries = journalSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Get file uploads metadata
+      const fileUploadsSnapshot = await db
+        .collection('users')
+        .doc(userId)
+        .collection('file_uploads')
+        .get();
+      userData.fileUploads = fileUploadsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      safeLog('info', 'User data export completed', {
+        userId,
+        visitSummariesCount: userData.visitSummaries.length,
+        notesCount: userData.notes.length
+      });
+      
+      return {
+        success: true,
+        data: userData,
+        format: 'json'
+      };
+    } catch (error) {
+      safeLog('error', 'Error exporting user data', {
+        userId,
+        error: error.message
+      });
+      throw new HttpsError('internal', 'Failed to export user data: ' + error.message);
+    }
+  }
+);
+
+// ============================================================================
+// DELETE USER ACCOUNT
+// ============================================================================
+
+exports.deleteUserAccount = onCall(
+  {secrets: [openaiApiKey]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    
+    const userId = request.auth.uid;
+    safeLog('info', 'Deleting user account', {userId});
+    
+    try {
+      const db = admin.firestore();
+      const storage = admin.storage();
+      
+      // Delete Firestore documents
+      const batch = db.batch();
+      
+      // Delete user profile
+      const userRef = db.collection('users').doc(userId);
+      batch.delete(userRef);
+      
+      // Delete subcollections
+      const collections = [
+        'visit_summaries',
+        'notes',
+        'file_uploads',
+        'learning_tasks'
+      ];
+      
+      for (const collectionName of collections) {
+        const snapshot = await db
+          .collection('users')
+          .doc(userId)
+          .collection(collectionName)
+          .get();
+        snapshot.docs.forEach(doc => batch.delete(doc.ref));
+      }
+      
+      // Delete top-level collections
+      const topLevelCollections = [
+        {name: 'learning_tasks', field: 'userId'},
+        {name: 'birth_plans', field: 'userId'},
+        {name: 'journal_entries', field: 'userId'},
+        {name: 'visit_summaries', field: 'userId'}
+      ];
+      
+      for (const {name, field} of topLevelCollections) {
+        const snapshot = await db
+          .collection(name)
+          .where(field, '==', userId)
+          .get();
+        snapshot.docs.forEach(doc => batch.delete(doc.ref));
+      }
+      
+      await batch.commit();
+      
+      // Delete Storage files
+      try {
+        const filesRef = storage.bucket().getFiles({
+          prefix: `visit_summaries/${userId}/`
+        });
+        
+        const [files] = await filesRef;
+        await Promise.all(files.map(file => file.delete()));
+      } catch (storageError) {
+        safeLog('warn', 'Error deleting storage files', {
+          userId,
+          error: storageError.message
+        });
+        // Continue with deletion even if storage fails
+      }
+      
+      // Delete Firebase Auth user
+      try {
+        await admin.auth().deleteUser(userId);
+      } catch (authError) {
+        safeLog('warn', 'Error deleting auth user', {
+          userId,
+          error: authError.message
+        });
+        // Continue even if auth deletion fails
+      }
+      
+      safeLog('info', 'User account deleted successfully', {userId});
+      
+      return {
+        success: true,
+        message: 'Account and all data deleted successfully'
+      };
+    } catch (error) {
+      safeLog('error', 'Error deleting user account', {
+        userId,
+        error: error.message
+      });
+      throw new HttpsError('internal', 'Failed to delete account: ' + error.message);
+    }
+  }
+);

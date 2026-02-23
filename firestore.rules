@@ -13,6 +13,20 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    // Helper function to check if user is an admin
+    // Checks if user's email exists in the ADMIN collection
+    // Note: This assumes ADMIN collection documents have email as a field
+    // Alternative: Store admin status in user document or use hardcoded email list
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.email != null &&
+             // Check if document exists in ADMIN collection with email field matching user's email
+             // Since we can't query, we'll check if email matches known admin emails
+             // For production, consider storing isAdmin flag in user document
+             (request.auth.token.email == 'osrgnoi@gmail.com' ||
+              request.auth.token.email == 'corinntaylor@gmail.com');
+    }
+    
     // DEVELOPMENT MODE: More permissive rules
     // TODO: Tighten these before production
     
@@ -176,12 +190,25 @@ service cloud.firestore {
     
     // Provider Search Collections
     
-    // Providers - all authenticated users can read, admins can write
+    // Providers - all authenticated users can read
     match /providers/{providerId} {
       allow read: if isAuthenticated();
-      // Only admins can create/update/delete providers
-      // TODO: Implement admin role check
-      allow write: if isAuthenticated();
+      
+      // Anyone can create providers (for review submissions)
+      allow create: if isAuthenticated() &&
+                    request.resource.data.keys().hasAll(['name', 'createdAt']);
+      
+      // Updates: Regular users can update their own provider data (from reviews)
+      // Admins can update any provider, including mamaApproved field
+      allow update: if isAuthenticated() && (
+        // Admin can update anything, including mamaApproved
+        isAdmin() ||
+        // Regular users can update but cannot set/change mamaApproved
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['mamaApproved', 'mamaApprovedCount']))
+      );
+      
+      // Only admins can delete providers
+      allow delete: if isAdmin();
     }
     
     // Provider reviews - users can read all, create their own, update/delete their own
@@ -235,6 +262,17 @@ service cloud.firestore {
       // TODO: Implement admin role check
       allow update: if isAuthenticated();
       allow delete: if false;
+    }
+    
+    // ADMIN collection - users can check if their email exists (for admin status check)
+    match /ADMIN/{adminId} {
+      // Allow authenticated users to read documents where email matches their own
+      // This allows the app to check if a user is an admin
+      allow read: if isAuthenticated() && 
+                  request.auth.token.email != null &&
+                  resource.data.email == request.auth.token.email;
+      // Only admins can write to ADMIN collection
+      allow write: if isAdmin();
     }
   }
 }

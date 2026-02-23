@@ -98,46 +98,44 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
     final userId = _auth.currentUser?.uid;
     
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
-          ),
+          color: AppTheme.backgroundWarm,
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // Header
+              // Header (matching NewUI)
               Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Learning Center',
+                      'Learning center',
                       style: TextStyle(
                         fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        fontWeight: FontWeight.w400,
+                        color: AppTheme.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
+                    const SizedBox(height: 8),
+                    const Text(
                       'Knowledge that empowers your choices',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w300,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // Filter Buttons
+              // Filter Buttons (matching NewUI)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -169,24 +167,25 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-              // All Modules Section
+              // All Topics Section (matching NewUI)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'All Topics',
+                    'All topics',
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: AppTheme.textSecondary,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
               // Generated Learning Modules List
               Expanded(
@@ -301,7 +300,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                     }
 
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
                       itemCount: tasks.length,
                       itemBuilder: (context, index) {
                         final doc = tasks[index];
@@ -333,15 +332,15 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                           margin: const EdgeInsets.only(bottom: 12),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(28),
                             border: Border.all(
-                              color: isArchived ? Colors.grey.shade300 : Colors.grey.shade100,
+                              color: isArchived ? AppTheme.borderLighter : AppTheme.borderLight,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                                color: AppTheme.brandPurple.withOpacity(0.08),
+                                blurRadius: 20,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
@@ -580,21 +579,37 @@ class _FilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF663399) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          gradient: isSelected
+              ? const LinearGradient(
+                  colors: [AppTheme.gradientBeigeStart, AppTheme.textLightest],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected ? null : Colors.white.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFF663399) : Colors.grey.shade300,
+            color: isSelected
+                ? Colors.transparent
+                : AppTheme.borderLighter.withOpacity(0.5),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey[700],
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            color: isSelected ? Colors.white : AppTheme.textMuted,
+            fontWeight: FontWeight.w300,
             fontSize: 14,
           ),
         ),

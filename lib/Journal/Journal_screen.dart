@@ -130,37 +130,35 @@ class _JournalScreenState extends State<JournalScreen> {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
-          ),
+          color: AppTheme.backgroundWarm,
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // Header
+              // Header (matching NewUI)
               Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Your Journal',
+                      'Your journal',
                       style: TextStyle(
                         fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        fontWeight: FontWeight.w400,
+                        color: AppTheme.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
+                    const SizedBox(height: 8),
+                    const Text(
                       'A safe space for your thoughts and feelings',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        color: AppTheme.textLight,
+                        fontWeight: FontWeight.w300,
                       ),
                     ),
                   ],
@@ -187,23 +185,94 @@ class _JournalScreenState extends State<JournalScreen> {
                     final entries = snapshot.hasData ? snapshot.data!.docs : [];
 
                     return SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Today's Entry Section
+                          // Privacy Notice (matching NewUI)
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFFEBE4F3), // #ebe4f3
+                                  Color(0xFFF5F0F8), // #f5f0f8
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(
+                                color: AppTheme.borderLighter.withOpacity(0.5),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.6),
+                                    borderRadius: BorderRadius.circular(18),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.favorite,
+                                    color: AppTheme.textLightest,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Your journal is private. Only you can see what you write here.',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: AppTheme.textMuted,
+                                          fontWeight: FontWeight.w300,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          // Today's Entry Section (matching NewUI)
                           Container(
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.red.shade50, Colors.pink.shade50],
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFFFAF7FB), // #faf7fb
+                                  Color(0xFFF9F5FB), // #f9f5fb
+                                ],
                               ),
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: Colors.pink.shade100),
+                              borderRadius: BorderRadius.circular(32),
+                              border: Border.all(
+                                color: AppTheme.borderLightest.withOpacity(0.5),
+                              ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 4,
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 16,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
@@ -213,24 +282,29 @@ class _JournalScreenState extends State<JournalScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    Icon(Icons.auto_awesome, color: Colors.red.shade500, size: 20),
+                                    const Icon(
+                                      Icons.edit,
+                                      color: AppTheme.brandGold,
+                                      size: 20,
+                                    ),
                                     const SizedBox(width: 8),
                                     const Text(
-                                      "Today's Entry",
+                                      "Today's entry",
                                       style: TextStyle(
                                         fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black87,
+                                        fontWeight: FontWeight.w400,
+                                        color: AppTheme.textSecondary,
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 20),
                                 const Text(
                                   'Not sure where to start? Try a prompt:',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Colors.black87,
+                                    color: AppTheme.textLight,
+                                    fontWeight: FontWeight.w300,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -257,21 +331,40 @@ class _JournalScreenState extends State<JournalScreen> {
                                 const SizedBox(height: 16),
                                 Container(
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.grey.shade200),
+                                    color: Colors.white.withOpacity(0.8),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: AppTheme.borderLighter.withOpacity(0.5),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.03),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
                                   child: TextField(
                                     controller: _entryController,
                                     maxLines: 6,
+                                    style: const TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontWeight: FontWeight.w300,
+                                    ),
                                     decoration: InputDecoration(
                                       hintText: "What's on your mind today?",
+                                      hintStyle: const TextStyle(
+                                        color: AppTheme.textBarelyVisible,
+                                        fontWeight: FontWeight.w300,
+                                      ),
                                       border: InputBorder.none,
-                                      contentPadding: const EdgeInsets.all(16),
-                                      hintStyle: TextStyle(color: Colors.grey[400]),
+                                      contentPadding: const EdgeInsets.all(20),
                                       suffixIcon: IconButton(
-                                        icon: Icon(Icons.keyboard_hide, 
-                                            color: Colors.grey[400], size: 20),
+                                        icon: const Icon(
+                                          Icons.keyboard_hide,
+                                          color: AppTheme.textBarelyVisible,
+                                          size: 20,
+                                        ),
                                         onPressed: () => FocusScope.of(context).unfocus(),
                                         tooltip: 'Dismiss keyboard',
                                       ),
@@ -282,26 +375,50 @@ class _JournalScreenState extends State<JournalScreen> {
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: _isSaving ? null : _saveEntry,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF663399),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(16),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              AppTheme.gradientBeigeStart,
+                                              AppTheme.textLightest,
+                                            ],
                                           ),
+                                          borderRadius: BorderRadius.circular(24),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppTheme.textLightest.withOpacity(0.25),
+                                              blurRadius: 20,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
                                         ),
-                                        child: _isSaving
-                                            ? const SizedBox(
-                                                height: 20,
-                                                width: 20,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        child: ElevatedButton(
+                                          onPressed: _isSaving ? null : _saveEntry,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.transparent,
+                                            shadowColor: Colors.transparent,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(vertical: 14),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(24),
+                                            ),
+                                          ),
+                                          child: _isSaving
+                                              ? const SizedBox(
+                                                  height: 20,
+                                                  width: 20,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                                  ),
+                                                )
+                                              : const Text(
+                                                  'Save entry',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w300,
+                                                  ),
                                                 ),
-                                              )
-                                            : const Text('Save Entry'),
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -310,14 +427,24 @@ class _JournalScreenState extends State<JournalScreen> {
                                         _entryController.clear();
                                       },
                                       style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.grey[700],
-                                        side: BorderSide(color: Colors.grey.shade200!),
-                                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                                        foregroundColor: AppTheme.textLight,
+                                        side: BorderSide(
+                                          color: AppTheme.borderLighter.withOpacity(0.5),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                          horizontal: 20,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(24),
                                         ),
                                       ),
-                                      child: const Text('Clear'),
+                                      child: const Text(
+                                        'Cancel',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w300,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -326,26 +453,29 @@ class _JournalScreenState extends State<JournalScreen> {
                           ),
                           const SizedBox(height: 24),
 
-                          // Mood Check Section
+                          // Mood Check Section (matching NewUI)
                           const Text(
                             'How are you feeling today?',
                             style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                              color: AppTheme.textMuted,
+                              letterSpacing: 0.5,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: Colors.grey.shade100),
+                              color: Colors.white.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(
+                                color: AppTheme.borderLighter.withOpacity(0.5),
+                              ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 4,
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 16,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
@@ -383,16 +513,17 @@ class _JournalScreenState extends State<JournalScreen> {
                           ),
                           const SizedBox(height: 24),
 
-                          // Recent Reflections Section
+                          // Recent Reflections Section (matching NewUI)
                           const Text(
-                            'Recent Reflections',
+                            'Recent reflections',
                             style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                              color: AppTheme.textMuted,
+                              letterSpacing: 0.5,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           
                           if (entries.isEmpty)
                             Center(
@@ -437,23 +568,8 @@ class _JournalScreenState extends State<JournalScreen> {
                           
                           const SizedBox(height: 24),
 
-                          // Privacy Note
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.blue.shade50, Colors.purple.shade50],
-                              ),
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: Colors.blue.shade100),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
+                          // Privacy Note (removed - already shown at top)
+                          const SizedBox(height: 24),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -507,25 +623,64 @@ class _JournalScreenState extends State<JournalScreen> {
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          FloatingActionButton(
-            heroTag: 'feeling',
-            onPressed: () => _showFeelingPrompt(context),
-            backgroundColor: const Color(0xFF663399).withOpacity(0.8),
-            child: const Icon(Icons.favorite, color: Colors.white),
-            tooltip: 'How are you feeling?',
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.brandPurple.withOpacity(0.8),
+                  AppTheme.gradientPurpleEnd.withOpacity(0.8),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.brandPurple.withOpacity(0.3),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(28),
+                onTap: () => _showFeelingPrompt(context),
+                child: const Icon(Icons.favorite, color: Colors.white, size: 24),
+              ),
+            ),
           ),
           const SizedBox(height: 8),
-          FloatingActionButton(
-            heroTag: 'note',
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => const NotesDialog(),
-              );
-            },
-            backgroundColor: const Color(0xFF663399),
-            child: const Icon(Icons.add, color: Colors.white),
-            tooltip: 'Add Note',
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppTheme.gradientPurpleStart, AppTheme.gradientPurpleEnd],
+              ),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.brandPurple.withOpacity(0.3),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(28),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const NotesDialog(),
+                  );
+                },
+                child: const Icon(Icons.add, color: Colors.white, size: 24),
+              ),
+            ),
           ),
         ],
       ),
@@ -567,17 +722,27 @@ class _PromptChip extends StatelessWidget {
       onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          color: Colors.white.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppTheme.borderLighter.withOpacity(0.5),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Text(
           text,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 12,
-            color: Colors.grey[700],
+            color: AppTheme.textMuted,
+            fontWeight: FontWeight.w300,
           ),
         ),
       ),
@@ -605,9 +770,10 @@ class _MoodButton extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
-                color: Colors.grey[600],
+                color: AppTheme.textLightest,
+                fontWeight: FontWeight.w300,
               ),
             ),
           ],
@@ -644,13 +810,15 @@ class _EntryCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
+        color: Colors.white.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: AppTheme.borderLighter.withOpacity(0.5),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 16,
             offset: const Offset(0, 2),
           ),
         ],
@@ -662,13 +830,20 @@ class _EntryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF663399), Color(0xFFCBBEC9)],
+                  colors: [AppTheme.gradientBeigeStart, AppTheme.gradientBeigeEnd],
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: const Icon(Icons.favorite, color: Colors.white, size: 20),
             ),
@@ -684,9 +859,10 @@ class _EntryCard extends StatelessWidget {
                       if (createdAt != null)
                         Text(
                           DateFormat('MMMM d, yyyy').format(createdAt!),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[500],
+                            color: AppTheme.textLightest,
+                            fontWeight: FontWeight.w300,
                           ),
                         ),
                       if (isFeelingPrompt && prompt != null) ...[
@@ -715,7 +891,9 @@ class _EntryCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 14,
-                      color: Colors.black87,
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w300,
+                      height: 1.5,
                     ),
                   ),
                 ],

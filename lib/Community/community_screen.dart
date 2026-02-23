@@ -46,20 +46,17 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
-          ),
+          color: AppTheme.backgroundWarm,
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // Header
+              // Header (matching NewUI)
               Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -67,75 +64,123 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       'Community',
                       style: TextStyle(
                         fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        fontWeight: FontWeight.w400,
+                        color: AppTheme.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
+                    const SizedBox(height: 8),
+                    const Text(
                       'Connect with others on the same journey',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        color: AppTheme.textLight,
+                        fontWeight: FontWeight.w300,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // Safety Note
+              // Safety Note (matching NewUI)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                      colors: [
+                        Color(0xFFEBE4F3), // #ebe4f3
+                        Color(0xFFE0D5EB), // #e0d5eb
+                        Color(0xFFE8DFE8), // #e8dfe8
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(32),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF663399).withOpacity(0.3),
-                        blurRadius: 12,
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 24,
                         offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Stack(
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(16),
+                      // Subtle background pattern
+                      Positioned.fill(
+                        child: Opacity(
+                          opacity: 0.05,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                width: 128,
+                                height: 128,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              Container(
+                                width: 160,
+                                height: 160,
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.gradientBeigeStart,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: const Icon(Icons.favorite, color: Colors.white, size: 20),
                       ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'A Safe Space',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
+                      // Content
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Share your experiences, ask questions, and support others. All discussions are moderated to keep this space respectful and supportive.',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
+                            child: const Icon(Icons.favorite, color: AppTheme.textMuted, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'A safe space',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Share your experiences, ask questions, and support others. All discussions are moderated to keep this space respectful and supportive.',
+                                  style: TextStyle(
+                                    color: AppTheme.textMuted,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w300,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -143,9 +188,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Categories
+              // Categories (matching NewUI)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -185,18 +230,19 @@ class _CommunityScreenState extends State<CommunityScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Discussions Section
+              // Discussions Section (matching NewUI)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Recent Discussions',
+                      'Recent discussions',
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        color: AppTheme.textMuted,
+                        letterSpacing: 0.5,
                       ),
                     ),
                     TextButton(
@@ -211,8 +257,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       child: const Text(
                         'New post',
                         style: TextStyle(
-                          color: Color(0xFF663399),
+                          color: AppTheme.textLightest,
                           fontSize: 14,
+                          fontWeight: FontWeight.w300,
                         ),
                       ),
                     ),
@@ -241,20 +288,23 @@ class _CommunityScreenState extends State<CommunityScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.forum_outlined,
-                                  size: 64, color: Colors.grey[400]),
+                                  size: 64, color: AppTheme.textBarelyVisible),
                               const SizedBox(height: 16),
                               Text(
                                 'No posts yet',
                                 style: TextStyle(
                                   fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w400,
+                                  color: AppTheme.textMuted,
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Be the first to start a discussion!',
-                                style: TextStyle(color: Colors.grey[500]),
+                                style: TextStyle(
+                                  color: AppTheme.textLight,
+                                  fontWeight: FontWeight.w300,
+                                ),
                               ),
                             ],
                           ),
@@ -272,13 +322,16 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       return Center(
                         child: Text(
                           'No posts in this category yet',
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: TextStyle(
+                            color: AppTheme.textMuted,
+                            fontWeight: FontWeight.w300,
+                          ),
                         ),
                       );
                     }
 
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
                       itemCount: posts.length,
                       itemBuilder: (context, index) {
                         final doc = posts[index];
@@ -303,18 +356,18 @@ class _CommunityScreenState extends State<CommunityScreen> {
                               ),
                             );
                           },
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(28),
                           child: Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: Colors.grey.shade100),
+                              color: Colors.white.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(color: AppTheme.borderLighter.withOpacity(0.5)),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 4,
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 16,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
@@ -323,23 +376,31 @@ class _CommunityScreenState extends State<CommunityScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Container(
-                                  width: 40,
-                                  height: 40,
+                                  width: 44,
+                                  height: 44,
                                   decoration: BoxDecoration(
                                     gradient: const LinearGradient(
                                       colors: [
-                                        Color(0xFF663399),
-                                        Color(0xFFCBBEC9)
+                                        AppTheme.gradientBeigeStart,
+                                        AppTheme.gradientBeigeEnd,
                                       ],
                                     ),
-                                    borderRadius: BorderRadius.circular(20),
+                                    borderRadius: BorderRadius.circular(22),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
                                   child: Center(
                                     child: Text(
                                       authorName[0].toUpperCase(),
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontWeight: FontWeight.bold,
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 16,
                                       ),
                                     ),
                                   ),
@@ -353,19 +414,20 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                         children: [
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
+                                              horizontal: 12,
+                                              vertical: 6,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Colors.grey.shade100,
+                                              color: AppTheme.borderLighter.withOpacity(0.6),
                                               borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  BorderRadius.circular(14),
                                             ),
                                             child: Text(
                                               category,
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey[700],
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppTheme.textLight,
+                                                fontWeight: FontWeight.w300,
                                               ),
                                             ),
                                           ),
@@ -376,8 +438,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                         title,
                                         style: const TextStyle(
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.black87,
+                                          fontWeight: FontWeight.w400,
+                                          color: AppTheme.textSecondary,
                                         ),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
@@ -387,54 +449,61 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                         children: [
                                           Text(
                                             authorName,
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontSize: 12,
-                                              color: Colors.grey[600],
+                                              color: AppTheme.textLightest,
+                                              fontWeight: FontWeight.w300,
                                             ),
                                           ),
                                           Text(
                                             ' • ',
-                                            style:
-                                                TextStyle(color: Colors.grey[400]),
+                                            style: const TextStyle(
+                                              color: AppTheme.textBarelyVisible,
+                                            ),
                                           ),
                                           Icon(Icons.message,
-                                              size: 12,
-                                              color: Colors.grey[400]),
+                                              size: 14,
+                                              color: AppTheme.textBarelyVisible),
                                           const SizedBox(width: 4),
                                           Text(
                                             '${replies.length} replies',
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontSize: 12,
-                                              color: Colors.grey[500],
+                                              color: AppTheme.textLightest,
+                                              fontWeight: FontWeight.w300,
                                             ),
                                           ),
                                           Text(
                                             ' • ',
-                                            style:
-                                                TextStyle(color: Colors.grey[400]),
+                                            style: const TextStyle(
+                                              color: AppTheme.textBarelyVisible,
+                                            ),
                                           ),
                                           Icon(Icons.favorite,
-                                              size: 12,
-                                              color: Colors.grey[400]),
+                                              size: 14,
+                                              color: AppTheme.textBarelyVisible),
                                           const SizedBox(width: 4),
                                           Text(
                                             '${likes.length}',
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontSize: 12,
-                                              color: Colors.grey[500],
+                                              color: AppTheme.textLightest,
+                                              fontWeight: FontWeight.w300,
                                             ),
                                           ),
                                           if (createdAt != null) ...[
                                             Text(
                                               ' • ',
-                                              style: TextStyle(
-                                                  color: Colors.grey[400]),
+                                              style: const TextStyle(
+                                                color: AppTheme.textBarelyVisible,
+                                              ),
                                             ),
                                             Text(
                                               _formatDate(createdAt),
-                                              style: TextStyle(
+                                              style: const TextStyle(
                                                 fontSize: 12,
-                                                color: Colors.grey[500],
+                                                color: AppTheme.textLightest,
+                                                fontWeight: FontWeight.w300,
                                               ),
                                             ),
                                           ],
@@ -456,17 +525,39 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreatePostScreen(),
+      floatingActionButton: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppTheme.gradientPurpleStart, AppTheme.gradientPurpleEnd],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.brandPurple.withOpacity(0.3),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
-          );
-        },
-        backgroundColor: const Color(0xFF663399),
-        child: const Icon(Icons.edit, color: Colors.white),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(28),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CreatePostScreen(),
+                ),
+              );
+            },
+            child: const Icon(Icons.edit, color: Colors.white, size: 24),
+          ),
+        ),
       ),
     );
   }
@@ -510,21 +601,35 @@ class _CategoryChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF663399) : Colors.white,
+          gradient: isSelected
+              ? const LinearGradient(
+                  colors: [AppTheme.gradientBeigeStart, AppTheme.textLightest],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected ? null : Colors.white.withOpacity(0.8),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF663399)
-                : Colors.grey.shade200,
+                ? Colors.transparent
+                : AppTheme.borderLighter.withOpacity(0.5),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey[700],
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            color: isSelected ? Colors.white : AppTheme.textMuted,
+            fontWeight: FontWeight.w300,
             fontSize: 14,
           ),
         ),

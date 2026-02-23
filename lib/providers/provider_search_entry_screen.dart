@@ -394,67 +394,6 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 24), // mb-6
-                        // Search Bar (matching NewUI)
-                        InkWell(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ProviderSearchResultsScreen(
-                                  searchParams: {
-                                    'zip': _zipController.text,
-                                    'city': _cityController.text,
-                                    'radius': int.parse(_radius),
-                                    'healthPlan': _healthPlan,
-                                    'providerTypeIds': [],
-                                    'specialties': _selectedSpecialties,
-                                    'includeNPI': _includeNPI,
-                                    'telehealth': _telehealth,
-                                    'acceptsPregnant': _acceptsPregnant,
-                                    'acceptsNewborns': _acceptsNewborns,
-                                    'mamaApprovedOnly': _mamaApprovedOnly,
-                                    'identityTags': _selectedIdentityTags,
-                                    'languages': _selectedLanguages,
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(24),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.8),
-                              borderRadius: BorderRadius.circular(24),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.06),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.search,
-                                  color: Color(0xFFA89CB5),
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Search providers, specialties, or location',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFFA89CB5),
-                                    fontWeight: FontWeight.w300,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ],

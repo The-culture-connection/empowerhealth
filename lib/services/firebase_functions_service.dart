@@ -447,15 +447,12 @@ class FirebaseFunctionsService {
       print('🔵 [FirebaseFunctions] Calling searchProviders function...');
       print('🔵 [FirebaseFunctions] ZIP: $zip, City: $city, Health Plan: $healthPlan');
       print('🔵 [FirebaseFunctions] Provider type IDs: $providerTypeIds');
+      print('🔵 [FirebaseFunctions] Provider type IDs count: ${providerTypeIds.length}');
+      print('🔵 [FirebaseFunctions] ProviderTypeIDsDelimited (will be): "${providerTypeIds.join(',')}"');
+      print('🔵 [FirebaseFunctions] Radius: $radius, Include NPI: $includeNpi');
       
-      final callable = _functions.httpsCallable(
-        'searchProviders',
-        options: HttpsCallableOptions(
-          timeout: const Duration(seconds: 60),
-        ),
-      );
-      
-      final result = await callable.call({
+      // Build payload
+      final payload = {
         'zip': zip,
         'city': city,
         'healthPlan': healthPlan,
@@ -466,7 +463,21 @@ class FirebaseFunctionsService {
         if (acceptsPregnantWomen != null) 'acceptsPregnantWomen': acceptsPregnantWomen,
         if (acceptsNewborns != null) 'acceptsNewborns': acceptsNewborns,
         if (telehealth != null) 'telehealth': telehealth,
-      });
+      };
+      
+      print('🔵 [FirebaseFunctions] Full payload: ${payload.toString()}');
+      print('🔵 [FirebaseFunctions] Payload providerTypeIds type: ${providerTypeIds.runtimeType}');
+      print('🔵 [FirebaseFunctions] Payload providerTypeIds value: ${payload['providerTypeIds']}');
+      print('🔵 [FirebaseFunctions] ProviderTypeIDsDelimited in payload: "${(payload['providerTypeIds'] as List).join(',')}"');
+      
+      final callable = _functions.httpsCallable(
+        'searchProviders',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 60),
+        ),
+      );
+      
+      final result = await callable.call(payload);
       
       print('✅ [FirebaseFunctions] searchProviders call successful');
       print('✅ [FirebaseFunctions] Found ${result.data['count']} providers');
@@ -485,6 +496,64 @@ class FirebaseFunctionsService {
       }
       
       throw Exception('❌ Failed to search providers: $e');
+    }
+  }
+
+  // OhioMaximusSearch - Builds the correct Ohio Medicaid API URL from user inputs
+  Future<Map<String, dynamic>> ohioMaximusSearch({
+    required String zip,
+    required String radius,
+    String? city,
+    required String healthPlan,
+    required dynamic providerType, // Can be String or List<String>
+    String state = "OH",
+  }) async {
+    try {
+      print('🔵 [FirebaseFunctions] Calling OhioMaximusSearch function...');
+      print('🔵 [FirebaseFunctions] ZIP: $zip, Radius: $radius, City: $city');
+      print('🔵 [FirebaseFunctions] Health Plan: $healthPlan');
+      print('🔵 [FirebaseFunctions] Provider Type: $providerType');
+      print('🔵 [FirebaseFunctions] State: $state');
+      
+      final payload = {
+        'zip': zip,
+        'radius': radius.toString(),
+        if (city != null && city.isNotEmpty) 'city': city,
+        'healthPlan': healthPlan,
+        'providerType': providerType,
+        'state': state,
+      };
+      
+      print('🔵 [FirebaseFunctions] Full payload: ${payload.toString()}');
+      
+      final callable = _functions.httpsCallable(
+        'OhioMaximusSearch',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 30),
+        ),
+      );
+      
+      final result = await callable.call(payload);
+      
+      print('✅ [FirebaseFunctions] OhioMaximusSearch call successful');
+      print('✅ [FirebaseFunctions] Generated URL: ${result.data['url']}');
+      print('✅ [FirebaseFunctions] Parameters: ${result.data['parameters']}');
+      
+      return result.data as Map<String, dynamic>;
+    } catch (e, stackTrace) {
+      print('❌ [FirebaseFunctions] Error calling OhioMaximusSearch: $e');
+      print('❌ [FirebaseFunctions] Stack trace: $stackTrace');
+      
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('timeout') || errorString.contains('deadline exceeded')) {
+        throw Exception('⏱️ Request timed out. Please try again.');
+      } else if (errorString.contains('unavailable') || errorString.contains('unreachable')) {
+        throw Exception('🌐 Service temporarily unavailable. Please try again in a few moments.');
+      } else if (errorString.contains('permission') || errorString.contains('unauthorized')) {
+        throw Exception('🔒 Permission denied. Please ensure you are logged in.');
+      }
+      
+      throw Exception('❌ Failed to generate Ohio Maximus URL: $e');
     }
   }
 

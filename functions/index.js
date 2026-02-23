@@ -2588,25 +2588,685 @@ function getTaxonomyCode(specialty) {
   return null;
 }
 
-function inferTaxonomyFromProviderTypes(providerTypeIds) {
-  // Map provider type IDs to taxonomy codes
-  const typeIdMap = {
-    "09": "207V00000X", // OB-GYN
-    "01": "207V00000X", // Hospital (may have OB-GYN)
-    "71": "367A00000X", // Nurse Midwife Individual
-    "46": "367A00000X", // Certified Nurse Midwife
-    "44": "363L00000X", // Nurse Practitioner
-    "19": "207V00000X", // Osteopathic Physician
-    "20": "207V00000X", // Physician / Osteopath Individual
+// Reverse mapping: taxonomy code -> provider type IDs (many-to-many)
+function taxonomyCodeToProviderTypeIds(taxonomyCode) {
+  const taxonomyToTypeIds = {
+    "207V00000X": ["01", "09", "19", "20"], // OB-GYN, Hospital, Osteopathic Physician, Physician Individual
+    "367A00000X": ["46", "71"], // Certified Nurse Midwife, Nurse Midwife Individual
+    "363L00000X": ["44"], // Nurse Practitioner
+    "374J00000X": ["50", "36", "81"], // Doula, Postpartum Doula, Antepartum Doula
+    "122300000X": ["54"], // Dentist
+  };
+  return taxonomyToTypeIds[taxonomyCode] || [];
+}
+
+/**
+ * Get all taxonomy codes for given provider type IDs
+ * Returns an array of taxonomy codes (not just one)
+ */
+function taxonomyCodesForProviderTypeIds(providerTypeIds) {
+  // Map provider type IDs to arrays of taxonomy codes
+  // Based on NPI Registry taxonomy codes
+  // NOTE: Provider type IDs from API are single digits (1-9) WITH leading zeros ("01", "02", "09")
+  const typeIdToTaxonomies = {
+    "01": ["207V00000X"], // Hospital (with leading zero)
+    "02": ["2084P0800X"], // Psychiatric Hospital (with leading zero)
+    "03": ["2084P0800X"], // Psychiatric Residential Treatment Facility (with leading zero)
+    "04": ["261Q00000X"], // Outpatient Health Facility (with leading zero)
+    "05": ["261Q00000X"], // Rural Health Clinic (with leading zero)
+    "06": ["251E00000X"], // Help Me Grow (with leading zero)
+    "07": ["133V00000X", "133VN1004X"], // Registered Dietitian Nutritionist (with leading zero)
+    "08": ["251E00000X"], // Pace (with leading zero)
+    "09": [], // Doula - NOT in NPI Registry (with leading zero)
+    "11": ["261Q00000X"], // Free Standing Birth Center
+    "12": ["261Q00000X"], // Federally Qualified Health Center
+    "16": ["251E00000X"], // Other Accredited Home Health Agency
+    "19": ["207V00000X"], // Managed Care Organization Panel Provider Only
+    "20": ["207V00000X"], // Physician/osteopath Individual
+    "21": ["207V00000X"], // Professional Medical Group
+    "23": ["171100000X"], // Acupuncturist
+    "24": ["363A00000X"], // Physician Assistant
+    "25": ["171M00000X"], // Non-agency Personal Care Aide
+    "26": ["171M00000X"], // Non-agency Home Care Attendant
+    "27": ["111N00000X"], // Chiropractor Individual
+    "28": ["183500000X"], // Medicaid School Program
+    "30": ["122300000X"], // Dentist Individual
+    "31": ["122300000X"], // Professional Dental Group
+    "35": ["152W00000X"], // Optometrist Individual
+    "36": ["213E00000X"], // Podiatrist Individual
+    "37": ["1041C0700X"], // Social Work
+    "38": ["163W00000X"], // Non-agency Nurse -- Rn Or Lpn
+    "39": ["225100000X", "2251H0200X"], // Physical Therapist, Individual
+    "40": ["235Z00000X"], // Speech Language Pathologist Individual
+    "41": ["225X00000X"], // Occupational Therapist, Individual
+    "42": ["103T00000X"], // Psychology
+    "43": ["231H00000X"], // Audiologist Individual
+    "44": ["251E00000X"], // Hospice
+    "45": ["251E00000X"], // Waivered Services Organization
+    "46": ["261Q00000X"], // Ambulatory Surgery Center
+    "47": ["101YP2500X"], // Clinical Counseling
+    "50": ["261Q00000X"], // Clinic
+    "51": ["261QM0801X"], // Mental Health Clinic
+    "52": ["106H00000X"], // Marriage And Family Therapy
+    "53": ["103K00000X"], // Adaptive Behavior Service Provider
+    "54": ["101YA0400X"], // Chemical Dependency
+    "55": ["171M00000X"], // Waivered Services Individual
+    "59": ["261QE0800X"], // End-stage Renal Disease Clinic
+    "60": ["251E00000X"], // Medicare Certified Home Health Agency
+    "65": ["364S00000X"], // Clinical Nurse Specialist Individual
+    "68": ["367500000X"], // Anesthesia Assistant Individual
+    "69": ["183500000X"], // Pharmacist
+    "70": ["333600000X"], // Pharmacy
+    "71": ["367A00000X"], // Nurse Midwife Individual
+    "72": ["363L00000X"], // Nurse Practitioner Individual
+    "73": ["367500000X"], // Certified Registered Nurse Anesthetist Individual
+    "74": ["251E00000X"], // Home And Community Based Oda Assisted Living
+    "75": ["156F00000X"], // Optician/ocularist
+    "76": ["332B00000X"], // Durable Medical Equipment Supplier
+    "78": ["251E00000X"], // Enhanced Care Management
+    "79": ["261Q00000X"], // Independent Diagnostic Testing Facility
+    "80": ["291U00000X"], // Independent Laboratory
+    "81": ["247200000X"], // Portable X-ray Supplier
+    "82": ["341600000X"], // Ambulance
+    "83": ["171M00000X"], // Wheelchair Van
+    "84": ["251E00000X"], // Ohio Department Of Mental Health Provider
+    "85": ["251E00000X"], // Dodd Targeted Case Management
+    "86": ["314000000X"], // Nursing Facility
+    "88": ["314000000X"], // State Operated Icf-dd
+    "89": ["314000000X"], // Non-state Operated Icf-dd
+    "95": ["251E00000X"], // Omhas Certified/licensed Treatment Program
+    "96": ["171M00000X"], // Behavioral Health Para-professionals
   };
   
-  for (const typeId of providerTypeIds) {
-    if (typeIdMap[typeId]) {
-      return typeIdMap[typeId];
+  // Normalize IDs - API uses single digits (1-9) WITH leading zeros ("01", "02", "09")
+  // But we may receive them with or without leading zeros from frontend, so normalize to API format
+  const normalizedIds = providerTypeIds.map(id => {
+    // Add leading zeros for single digits (API format: "01", "02", "09")
+    const numId = parseInt(id, 10);
+    if (!isNaN(numId) && numId >= 1 && numId <= 9) {
+      return id.padStart(2, '0'); // Add leading zero (API format)
+    }
+    return id; // Return as-is for double digits
+  });
+  
+  console.log(`[taxonomyCodesForProviderTypeIds] Provider type IDs: ${JSON.stringify(normalizedIds)}`);
+  
+  const taxonomyCodes = new Set();
+  for (const typeId of normalizedIds) {
+    if (typeIdToTaxonomies[typeId]) {
+      typeIdToTaxonomies[typeId].forEach(code => taxonomyCodes.add(code));
+      console.log(`[taxonomyCodesForProviderTypeIds] Type ${typeId} maps to: ${JSON.stringify(typeIdToTaxonomies[typeId])}`);
     }
   }
   
-  return null;
+  const result = Array.from(taxonomyCodes);
+  console.log(`[taxonomyCodesForProviderTypeIds] Final taxonomy codes: ${JSON.stringify(result)}`);
+  return result;
+}
+
+/**
+ * Legacy function - returns first taxonomy code (for backward compatibility)
+ * @deprecated Use taxonomyCodesForProviderTypeIds instead
+ */
+function inferTaxonomyFromProviderTypes(providerTypeIds) {
+  const codes = taxonomyCodesForProviderTypeIds(providerTypeIds);
+  return codes.length > 0 ? codes[0] : null;
+}
+
+/**
+ * Check if provider type IDs are OB/maternity-related
+ * Used to determine if AcceptsPregnantWomen filter should be applied
+ */
+function isMaternityProviderType(providerTypeIds) {
+  const maternityTypes = ["01", "09", "11", "19", "20", "46", "71", "50", "36", "81", "24", "39"];
+  const normalizedIds = providerTypeIds.map(id => {
+    const numId = parseInt(id, 10);
+    if (!isNaN(numId) && numId < 10) {
+      return id.padStart(2, '0');
+    }
+    return id;
+  });
+  
+  return normalizedIds.some(id => maternityTypes.includes(id));
+}
+
+/**
+ * Build NPI Registry API URL with correct parameters
+ * Based on official NPI Registry API: https://npiregistry.cms.hhs.gov/demo-api
+ * 
+ * @param {Object} params - Search parameters
+ * @param {string} params.postal_code - ZIP code (REQUIRED - location must be included)
+ * @param {string} params.state - State code (REQUIRED - location must be included, e.g., "OH")
+ * @param {string} params.city - City name (REQUIRED - location must be included)
+ * @param {string} params.taxonomy_code - Taxonomy code (REQUIRED - each provider type gets separate endpoint)
+ * @param {number} params.limit - Results per page (default: 200)
+ * @param {number} params.skip - Skip N results for pagination (default: 0)
+ * @param {string} params.healthPlan - Health plan name (for logging context only - NPI API doesn't support this)
+ * @returns {string} Full NPI API URL
+ */
+function buildNpiUrl({ postal_code, state, city, taxonomy_code, limit = 200, skip = 0, healthPlan = null }) {
+  if (!taxonomy_code) {
+    throw new Error("taxonomy_code is required for NPI search");
+  }
+  
+  // Location parameters are REQUIRED for accurate NPI searches
+  if (!postal_code || !state) {
+    throw new Error("postal_code and state are required for NPI search (location must be included in all endpoints)");
+  }
+  
+  const npiUrl = new URL("https://npiregistry.cms.hhs.gov/api/");
+  const params = {
+    version: "2.1",
+    taxonomy_code: taxonomy_code, // Each provider type gets its own taxonomy_code
+    state: state, // REQUIRED - location must be included
+    limit: limit.toString(),
+  };
+  
+  // postal_code is REQUIRED - location must be included in all endpoints
+  params.postal_code = postal_code;
+  
+  // city is included if provided - location must be included in all endpoints
+  if (city) {
+    params.city = city;
+  }
+  
+  // Pagination
+  if (skip > 0) {
+    params.skip = skip.toString();
+  }
+  
+  // Note: healthPlan is NOT a valid NPI API parameter (that's Medicaid-specific)
+  // We log it for context but don't include it in the URL
+  if (healthPlan) {
+    console.log(`[buildNpiUrl] Note: healthPlan "${healthPlan}" is for context only - NPI API doesn't support health plan filtering`);
+  }
+  
+  Object.keys(params).forEach((key) => {
+    npiUrl.searchParams.append(key, params[key]);
+  });
+  
+  return npiUrl.toString();
+}
+
+/**
+ * Fetch NPI results with pagination
+ * Creates SEPARATE endpoints for each provider type (taxonomy code)
+ * Location parameters (postal_code, state, city) are included in ALL endpoints
+ * 
+ * Fetches pages until: 1) enough results, 2) no more results, or 3) max pages hit
+ * @param {Object} searchParams - Search parameters (must include zip, state, city)
+ * @param {Array<string>} taxonomyCodes - Taxonomy codes to search (each gets separate endpoint)
+ * @param {string} healthPlan - Health plan name (for logging context only)
+ * @param {number} maxPages - Maximum pages to fetch (default: 5)
+ * @param {number} targetResults - Target number of results (default: 200)
+ * @returns {Promise<Array>} Array of NPI providers
+ */
+async function fetchNpiWithPagination(searchParams, taxonomyCodes, healthPlan = null, maxPages = 5, targetResults = 200) {
+  const allProviders = [];
+  const urlsUsed = []; // Track URLs for final summary
+  
+  console.log(`[fetchNpiWithPagination] Creating SEPARATE endpoints for ${taxonomyCodes.length} provider type(s)`);
+  console.log(`[fetchNpiWithPagination] Location params (included in ALL endpoints): postal_code=${searchParams.zip}, state=${searchParams.state}, city=${searchParams.city}`);
+  if (healthPlan) {
+    console.log(`[fetchNpiWithPagination] Health plan context: ${healthPlan} (not used in NPI API - Medicaid only)`);
+  }
+  
+  // Each taxonomy code gets its own separate endpoint
+  for (const taxonomyCode of taxonomyCodes) {
+    console.log(`[fetchNpiWithPagination] ==========================================`);
+    console.log(`[fetchNpiWithPagination] Provider Type: ${taxonomyCode}`);
+    console.log(`[fetchNpiWithPagination] Creating separate endpoint for this provider type`);
+    console.log(`[fetchNpiWithPagination] ==========================================`);
+    
+    let page = 0;
+    let skip = 0;
+    const limit = 200;
+    let hasMore = true;
+    let firstPageUrl = null;
+    
+    while (hasMore && page < maxPages && allProviders.length < targetResults) {
+      page++;
+      skip = (page - 1) * limit;
+      
+      try {
+        // Build URL with location params ALWAYS included + this specific taxonomy_code
+        const npiUrl = buildNpiUrl({
+          postal_code: searchParams.zip,
+          state: searchParams.state || "OH",
+          city: searchParams.city,
+          taxonomy_code: taxonomyCode, // Separate endpoint per provider type
+          limit: limit,
+          skip: skip,
+          healthPlan: healthPlan, // For logging context only
+        });
+        
+        if (page === 1) {
+          firstPageUrl = npiUrl;
+          console.log(`[fetchNpiWithPagination] FINAL NPI URL (Page 1): ${npiUrl}`);
+        } else {
+          console.log(`[fetchNpiWithPagination] Page ${page} URL: ${npiUrl}`);
+        }
+        
+        urlsUsed.push(npiUrl);
+        
+        const npiResponse = await axios.get(npiUrl);
+        const npiData = npiResponse.data;
+        
+        if (npiData.results && Array.isArray(npiData.results)) {
+          const pageProviders = parseNpiResponse(npiData.results);
+          allProviders.push(...pageProviders);
+          
+          console.log(`[fetchNpiWithPagination] Page ${page}: ${npiData.results.length} results, ${pageProviders.length} parsed, total: ${allProviders.length}`);
+          
+          // Check if there are more results
+          if (npiData.results.length < limit) {
+            hasMore = false;
+            console.log(`[fetchNpiWithPagination] No more results for taxonomy ${taxonomyCode} (got ${npiData.results.length} < limit ${limit})`);
+          }
+        } else {
+          hasMore = false;
+          console.log(`[fetchNpiWithPagination] No results array in response for taxonomy ${taxonomyCode}`);
+        }
+      } catch (error) {
+        console.error(`[fetchNpiWithPagination] Error fetching page ${page} for taxonomy ${taxonomyCode}:`, error.message);
+        if (error.response) {
+          console.error(`[fetchNpiWithPagination] Response status: ${error.response.status}`);
+          console.error(`[fetchNpiWithPagination] Response data:`, JSON.stringify(error.response.data, null, 2));
+        }
+        hasMore = false; // Stop pagination on error
+      }
+    }
+    
+    console.log(`[fetchNpiWithPagination] Completed taxonomy ${taxonomyCode}: ${allProviders.length} total providers so far`);
+    if (firstPageUrl) {
+      console.log(`[fetchNpiWithPagination] Base URL for ${taxonomyCode}: ${firstPageUrl}`);
+    }
+  }
+  
+  console.log(`[fetchNpiWithPagination] Total URLs used: ${urlsUsed.length}`);
+  console.log(`[fetchNpiWithPagination] All URLs:`, urlsUsed);
+  
+  return allProviders;
+}
+
+/**
+ * Filter NPI providers by taxonomy codes (safety check only)
+ * Only keeps providers whose taxonomy list intersects with allowed taxonomy codes
+ * This should be a light filter since upstream queries are already constrained
+ */
+function filterByTaxonomy(npiProviders, allowedTaxonomyCodes) {
+  if (!allowedTaxonomyCodes || allowedTaxonomyCodes.length === 0) {
+    console.log(`[filterByTaxonomy] No taxonomy codes provided, returning empty array`);
+    return [];
+  }
+  
+  console.log(`[filterByTaxonomy] Safety filtering ${npiProviders.length} providers by taxonomy codes: ${JSON.stringify(allowedTaxonomyCodes)}`);
+  
+  const filtered = npiProviders.filter(provider => {
+    // Check if provider has any taxonomy codes that match allowed codes
+    if (!provider.providerTypes || !Array.isArray(provider.providerTypes)) {
+      console.log(`[filterByTaxonomy] Provider "${provider.name?.substring(0, 50)}" has no providerTypes, filtering out`);
+      return false;
+    }
+    
+    const hasMatchingTaxonomy = provider.providerTypes.some(providerTaxonomy => 
+      allowedTaxonomyCodes.includes(providerTaxonomy)
+    );
+    
+    if (!hasMatchingTaxonomy) {
+      console.log(`[filterByTaxonomy] Provider "${provider.name?.substring(0, 50)}" filtered out - taxonomies ${JSON.stringify(provider.providerTypes)} don't match ${JSON.stringify(allowedTaxonomyCodes)}`);
+    }
+    
+    return hasMatchingTaxonomy;
+  });
+  
+  const filteredCount = npiProviders.length - filtered.length;
+  if (filteredCount > 0) {
+    console.log(`[filterByTaxonomy] ⚠️ Filtered out ${filteredCount} providers (${npiProviders.length} -> ${filtered.length})`);
+    console.log(`[filterByTaxonomy] This suggests upstream query may not be correctly constrained`);
+  } else {
+    console.log(`[filterByTaxonomy] ✅ All ${filtered.length} providers match taxonomy codes (upstream filtering working correctly)`);
+  }
+  
+  return filtered;
+}
+
+/**
+ * Build Medicaid FHIR API URL with correct parameters
+ * Based on official Ohio Medicaid API: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
+ * 
+ * @param {Object} params - Search parameters
+ * @param {string} params.zip - ZIP code (REQUIRED - location must be included)
+ * @param {string} params.city - City name (REQUIRED - location must be included)
+ * @param {string} params.state - State code (REQUIRED, e.g., "OH")
+ * @param {string} params.healthplan - Health plan name (REQUIRED - included in all endpoints)
+ * @param {string} params.providerTypeId - Single provider type ID (REQUIRED - each provider type gets separate endpoint)
+ * @param {string} params.radius - Search radius (REQUIRED)
+ * @param {boolean} params.acceptsPregnantWomen - Accepts pregnant women filter (optional, only for maternity types)
+ * @param {boolean} params.acceptsNewborns - Accepts newborns filter (optional, only for maternity types)
+ * @param {boolean} params.telehealth - Telehealth filter (optional)
+ * @returns {string} Full Medicaid FHIR API URL
+ */
+/**
+ * Map frontend health plan names to API-expected format
+ * Based on Ohio Medicaid API documentation: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
+ */
+function normalizeHealthPlanName(healthplan) {
+  // Map common variations to API-expected format
+  const healthPlanMap = {
+    'UnitedHealthcare': 'United HealthCare', // Frontend uses one word, API expects two words with space
+    'United Healthcare': 'United HealthCare',
+    'UnitedHealthCare': 'United HealthCare',
+    'Buckeye': 'Buckeye',
+    'CareSource': 'CareSource',
+    'Molina': 'Molina',
+    'Anthem': 'Anthem',
+    'Aetna': 'Aetna',
+  };
+  
+  // Normalize: trim and check map
+  const normalized = healthplan.trim();
+  return healthPlanMap[normalized] || normalized; // Return mapped value or original if not found
+}
+
+/**
+ * Build Medicaid FHIR API URL with comma-delimited provider types
+ * Based on official Ohio Medicaid API: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
+ * 
+ * @param {Object} params - Search parameters
+ * @param {string} params.zip - ZIP code (REQUIRED)
+ * @param {string} params.state - State code (REQUIRED, e.g., "OH")
+ * @param {string} params.healthplan - Health plan name (REQUIRED)
+ * @param {Array<string>} params.providerTypeIds - Provider type IDs (REQUIRED, will be comma-delimited)
+ * @param {string|number} params.radius - Search radius in miles (REQUIRED)
+ * @param {boolean} params.acceptsPregnantWomen - Accepts pregnant women filter (optional, only if explicitly provided AND maternity type)
+ * @param {boolean} params.acceptsNewborns - Accepts newborns filter (optional, only if explicitly provided AND maternity type)
+ * @param {boolean} params.telehealth - Telehealth filter (optional)
+ * @returns {string} Full Medicaid FHIR API URL
+ */
+function buildMedicaidUrl({ zip, state, healthplan, providerTypeIds, radius, acceptsPregnantWomen, acceptsNewborns, telehealth }) {
+  if (!zip || !state || !healthplan || !providerTypeIds || !radius) {
+    throw new Error("zip, state, healthplan, providerTypeIds (array), and radius are required for Medicaid search");
+  }
+  
+  if (!Array.isArray(providerTypeIds) || providerTypeIds.length === 0) {
+    throw new Error("providerTypeIds must be a non-empty array");
+  }
+  
+  // Normalize health plan name to match API expectations
+  const normalizedHealthPlan = normalizeHealthPlanName(healthplan);
+  console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
+  console.log(`║  BUILDING MEDICAID URL                                           ║`);
+  console.log(`╚════════════════════════════════════════════════════════════════╝`);
+  console.log(`[buildMedicaidUrl] Health plan: "${healthplan}" → normalized to: "${normalizedHealthPlan}"`);
+  
+  // Join provider type IDs with commas (comma-delimited)
+  const providerTypeIDsDelimited = providerTypeIds.join(',');
+  
+  console.log(`[buildMedicaidUrl] Provider type IDs: ${JSON.stringify(providerTypeIds)}`);
+  console.log(`[buildMedicaidUrl] ProviderTypeIDsDelimited: "${providerTypeIDsDelimited}"`);
+  
+  const medicaidUrl = new URL("https://psapi.ohpnm.omes.maximus.com/fhir/PublicSearchFHIR");
+  const params = {
+    state: state, // REQUIRED
+    zip: zip, // REQUIRED
+    healthplan: normalizedHealthPlan, // REQUIRED - lowercase parameter name
+    ProviderTypeIDsDelimited: providerTypeIDsDelimited, // REQUIRED - comma-delimited provider type codes
+    radius: radius.toString(), // REQUIRED
+  };
+  
+  // Only add optional filters if explicitly provided
+  // IMPORTANT: Do not include AcceptsPregnantWomen/AcceptsNewborns unless user explicitly provides them
+  // These filters often eliminate non-OB providers
+  if (acceptsPregnantWomen !== undefined && acceptsPregnantWomen !== null) {
+    params.AcceptsPregnantWomen = acceptsPregnantWomen ? "1" : "0";
+  }
+  if (acceptsNewborns !== undefined && acceptsNewborns !== null) {
+    params.AcceptsNewborns = acceptsNewborns ? "1" : "0";
+  }
+  if (telehealth !== undefined && telehealth !== null) {
+    params.Telehealth = telehealth ? "1" : "0";
+  }
+  
+  // Build URL with all parameters
+  Object.keys(params).forEach((key) => {
+    medicaidUrl.searchParams.append(key, params[key]);
+  });
+  
+  const finalUrl = medicaidUrl.toString();
+  
+  // Log URL prominently (CRITICAL FOR DEBUGGING)
+  console.log(`\n\n\n`);
+  console.log(`================================================================================`);
+  console.log(`================================================================================`);
+  console.log(`🔗 FINAL MEDICAID URL BUILT (buildMedicaidUrl):`);
+  console.log(`${finalUrl}`);
+  console.log(`================================================================================`);
+  console.log(`================================================================================`);
+  console.log(`\n[buildMedicaidUrl] URL Parameters:`);
+  Object.keys(params).forEach(key => {
+    console.log(`   ${key}: ${params[key]}`);
+  });
+  console.log(`\n`);
+  
+  return finalUrl;
+}
+
+/**
+ * Fetch Medicaid FHIR results using a single endpoint with comma-delimited provider types
+ * Provider type is the PRIMARY constraint - results must change by provider type selection
+ * 
+ * @param {Object} searchParams - Search parameters (must include zip, state, healthplan, radius)
+ * @param {Array<string>} providerTypeIds - Provider type IDs (comma-delimited in URL)
+ * @param {boolean} acceptsPregnantWomen - Accepts pregnant women filter (optional, only if explicitly provided)
+ * @param {boolean} acceptsNewborns - Accepts newborns filter (optional, only if explicitly provided)
+ * @param {boolean} telehealth - Telehealth filter (optional)
+ * @param {number} maxPages - Maximum pages to fetch (default: 5)
+ * @returns {Promise<Array>} Array of Medicaid provider entries
+ */
+async function fetchMedicaidResults(searchParams, providerTypeIds, acceptsPregnantWomen, acceptsNewborns, telehealth, maxPages = 5) {
+  console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
+  console.log(`║  FETCHING MEDICAID RESULTS (SINGLE ENDPOINT)                  ║`);
+  console.log(`╚════════════════════════════════════════════════════════════════╝`);
+  console.log(`[fetchMedicaidResults] Provider type IDs: ${JSON.stringify(providerTypeIds)}`);
+  console.log(`[fetchMedicaidResults] ProviderTypeIDsDelimited will be: "${providerTypeIds.join(',')}"`);
+  
+  try {
+    // Build single URL with comma-delimited provider types
+    const medicaidUrl = buildMedicaidUrl({
+      zip: searchParams.zip,
+      state: searchParams.state || "OH",
+      healthplan: searchParams.healthplan,
+      providerTypeIds: providerTypeIds, // Array - will be comma-delimited in URL
+      radius: searchParams.radius,
+      acceptsPregnantWomen: acceptsPregnantWomen,
+      acceptsNewborns: acceptsNewborns,
+      telehealth: telehealth,
+    });
+    
+    // Log the URL prominently (CRITICAL FOR DEBUGGING)
+    console.log(`\n\n\n`);
+    console.log(`================================================================================`);
+    console.log(`================================================================================`);
+    console.log(`🔗 MEDICAID API URL - THIS IS THE URL BEING CALLED:`);
+    console.log(`${medicaidUrl}`);
+    console.log(`================================================================================`);
+    console.log(`================================================================================`);
+    console.log(`\n`);
+    
+    // Store URL in Firestore with timestamp
+    try {
+      const db = admin.firestore();
+      await db.collection('medicaid_api_logs').add({
+        url: medicaidUrl,
+        providerTypeIds: providerTypeIds,
+        zip: searchParams.zip,
+        state: searchParams.state || "OH",
+        healthplan: searchParams.healthplan,
+        radius: searchParams.radius,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: new Date().toISOString(),
+      });
+      console.log(`[fetchMedicaidResults] ✅ URL stored in Firestore collection 'medicaid_api_logs'`);
+    } catch (firestoreError) {
+      console.error(`[fetchMedicaidResults] ⚠️ Error storing URL in Firestore:`, firestoreError.message);
+      // Don't fail the request if Firestore logging fails
+    }
+    
+    // Fetch with pagination support
+    console.log(`[fetchMedicaidResults] Fetching entries from Medicaid API...`);
+    console.log(`[fetchMedicaidResults] URL: ${medicaidUrl}`);
+    const entries = await fetchFhirBundleWithPaging(medicaidUrl, maxPages);
+    
+    console.log(`[fetchMedicaidResults] Total entries collected: ${entries.length}`);
+    
+    if (entries.length === 0) {
+      console.log(`[fetchMedicaidResults] ⚠️ WARNING: No entries returned`);
+      console.log(`[fetchMedicaidResults] URL used: ${medicaidUrl}`);
+      console.log(`[fetchMedicaidResults] This may indicate: 1) No providers match criteria, 2) API parameter issue, 3) API error`);
+    } else {
+      // Log first 1-2 provider names to verify filtering
+      const sampleEntries = entries.slice(0, 2);
+      console.log(`[fetchMedicaidResults] Sample entries (first ${sampleEntries.length}):`);
+      sampleEntries.forEach((entry, idx) => {
+        if (entry.resource) {
+          const resource = entry.resource;
+          const name = resource.name?.[0] ? 
+            `${resource.name[0].given?.join(' ') || ''} ${resource.name[0].family || ''}`.trim() :
+            'N/A';
+          const providerTypes = resource.code?.map(c => c.coding?.[0]?.code).filter(Boolean) || [];
+          console.log(`[fetchMedicaidResults]   Entry ${idx + 1}: "${name}" - Provider Types: ${JSON.stringify(providerTypes)}`);
+        }
+      });
+    }
+    
+    return entries;
+    
+  } catch (error) {
+    console.error(`[fetchMedicaidResults] Error fetching Medicaid results:`, error.message);
+    console.error(`[fetchMedicaidResults] Error stack:`, error.stack);
+    if (error.response) {
+      console.error(`[fetchMedicaidResults] Response status: ${error.response.status}`);
+      console.error(`[fetchMedicaidResults] Response data:`, JSON.stringify(error.response.data, null, 2));
+    } else if (error.request) {
+      console.error(`[fetchMedicaidResults] Request was made but no response received`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Fetch FHIR Bundle with pagination support
+ * Handles cases where response has 'link' array instead of 'entry'
+ */
+async function fetchFhirBundleWithPaging(initialUrl, maxPages = 5) {
+  const allEntries = [];
+  let currentUrl = initialUrl;
+  let pageCount = 0;
+  
+  console.log(`[fetchFhirBundleWithPaging] Starting fetch from: ${currentUrl}`);
+  console.log(`\n\n\n`);
+  console.log(`================================================================================`);
+  console.log(`================================================================================`);
+  console.log(`🌐 FETCHING MEDICAID API - URL BEING CALLED:`);
+  console.log(`${currentUrl}`);
+  console.log(`================================================================================`);
+  console.log(`================================================================================`);
+  console.log(`\n`);
+  
+  while (currentUrl && pageCount < maxPages) {
+    pageCount++;
+    console.log(`[fetchFhirBundleWithPaging] Fetching page ${pageCount}...`);
+    console.log(`   Page ${pageCount}...`);
+    
+    try {
+      // Log URL right before making the HTTP request
+      console.log(`\n[fetchFhirBundleWithPaging] Making HTTP GET request to: ${currentUrl}`);
+      console.log(`[fetchFhirBundleWithPaging] This is the exact URL being fetched\n`);
+      
+      const response = await axios.get(currentUrl);
+      const bundle = response.data;
+      
+      const entryCount = bundle.entry && Array.isArray(bundle.entry) ? bundle.entry.length : 0;
+      console.log(`   ✅ Response Status: ${response.status}`);
+      console.log(`   📦 Resource Type: ${bundle.resourceType || 'N/A'}`);
+      console.log(`   📄 Has Entry: ${!!bundle.entry}`);
+      console.log(`   📄 Entry Count: ${entryCount}`);
+      console.log(`   🔗 Has Link: ${!!bundle.link}`);
+      
+      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} response status: ${response.status}`);
+      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} resourceType: ${bundle.resourceType || 'N/A'}`);
+      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} has entry: ${!!bundle.entry}`);
+      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} entry count: ${entryCount}`);
+      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} has link: ${!!bundle.link}`);
+      
+      if (bundle.link && Array.isArray(bundle.link)) {
+        console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} link array:`, JSON.stringify(bundle.link, null, 2));
+      }
+      
+      // If this bundle has entries, add them
+      if (bundle.entry && Array.isArray(bundle.entry)) {
+        const entryCount = bundle.entry.length;
+        console.log(`   📋 Entries in page ${pageCount}: ${entryCount}`);
+        console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} has ${entryCount} entries`);
+        allEntries.push(...bundle.entry);
+      } else if (bundle.entry && !Array.isArray(bundle.entry)) {
+        console.log(`   ⚠️ Entry is not an array, converting...`);
+        console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} entry is not an array, converting...`);
+        allEntries.push(bundle.entry);
+      } else {
+        console.log(`   ⚠️ No entries found in page ${pageCount}`);
+      }
+      
+      // Check for next page link
+      let nextUrl = null;
+      if (bundle.link && Array.isArray(bundle.link)) {
+        const nextLink = bundle.link.find(link => link.relation === "next");
+        if (nextLink && nextLink.url) {
+          nextUrl = nextLink.url;
+          console.log(`[fetchFhirBundleWithPaging] Found next page link: ${nextUrl}`);
+        } else {
+          console.log(`[fetchFhirBundleWithPaging] No 'next' link found in link array`);
+        }
+      }
+      
+      // If no next link, we're done
+      if (!nextUrl) {
+        console.log(`   ✅ No more pages. Total entries: ${allEntries.length}`);
+        console.log(`[fetchFhirBundleWithPaging] No more pages, total entries collected: ${allEntries.length}`);
+        break;
+      }
+      
+      currentUrl = nextUrl;
+      
+    } catch (error) {
+      console.log(`   ❌ ERROR fetching page ${pageCount}: ${error.message}`);
+      if (error.response) {
+        console.log(`   ❌ Response Status: ${error.response.status}`);
+        console.log(`   ❌ Response Data: ${JSON.stringify(error.response.data, null, 2)}`);
+        console.error(`[fetchFhirBundleWithPaging] Response status: ${error.response.status}`);
+        console.error(`[fetchFhirBundleWithPaging] Response data:`, JSON.stringify(error.response.data, null, 2));
+      } else if (error.request) {
+        console.log(`   ❌ No response received from server`);
+        console.log(`   ❌ Request URL: ${currentUrl}`);
+      }
+      console.error(`[fetchFhirBundleWithPaging] Error fetching page ${pageCount}:`, error.message);
+      // If we have some entries, return what we have; otherwise throw
+      if (allEntries.length > 0) {
+        console.log(`   ⚠️ Returning ${allEntries.length} entries despite error`);
+        console.log(`[fetchFhirBundleWithPaging] Returning ${allEntries.length} entries despite error`);
+        break;
+      }
+      throw error;
+    }
+  }
+  
+  if (pageCount >= maxPages) {
+    console.log(`[fetchFhirBundleWithPaging] Reached max page limit (${maxPages}), stopping`);
+  }
+  
+  console.log(`[fetchFhirBundleWithPaging] Final result: ${allEntries.length} entries from ${pageCount} page(s)`);
+  return allEntries;
 }
 
 exports.searchProviders = onCall(async (request) => {
@@ -2636,116 +3296,300 @@ exports.searchProviders = onCall(async (request) => {
     );
   }
 
+  // Normalize provider type IDs
+  // IMPORTANT: Ohio Medicaid API uses single digits (1-9) WITH leading zeros ("01", "02", "09")
+  // Frontend may send with or without leading zeros, so normalize to API format (with leading zeros for 1-9)
+  const normalizedProviderTypeIds = Array.isArray(providerTypeIds)
+    ? providerTypeIds.map((id) => {
+        const numId = parseInt(id, 10);
+        if (!isNaN(numId) && numId >= 1 && numId <= 9) {
+          return id.padStart(2, '0'); // Add leading zero (API format: "01", "02", "09")
+        }
+        return id; // Return as-is for double digits (10+)
+      })
+    : [providerTypeIds];
+
+  // CRITICAL: Validate provider type IDs are not empty
+  if (normalizedProviderTypeIds.length === 0 || normalizedProviderTypeIds.every(id => !id || id.trim() === '')) {
+    console.log(`[searchProviders] ⚠️ ERROR: providerTypeIds is empty or invalid`);
+    console.log(`[searchProviders] Returning empty results - provider type is required`);
+    return {
+      success: true,
+      providers: [],
+      count: 0,
+      error: "Provider type IDs are required for search"
+    };
+  }
+
+  console.log(`\n\n\n`);
+  console.log(`╔════════════════════════════════════════════════════════════════╗`);
+  console.log(`║          searchProviders FUNCTION CALLED                      ║`);
+  console.log(`╚════════════════════════════════════════════════════════════════╝`);
+  console.log(`\n[searchProviders] ==========================================`);
+  console.log(`[searchProviders] SEARCH REQUEST DETAILS`);
+  console.log(`[searchProviders] ==========================================`);
+  console.log(`[searchProviders] ZIP: ${zip}`);
+  console.log(`[searchProviders] City: ${city}`);
+  console.log(`[searchProviders] Health Plan: ${healthPlan}`);
+  console.log(`[searchProviders] Radius: ${radius}`);
+  console.log(`[searchProviders] Raw provider type IDs: ${JSON.stringify(providerTypeIds)}`);
+  console.log(`[searchProviders] Normalized provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
+  // Resolve taxonomy codes for provider types (for NPI filtering)
+  const taxonomyCodes = taxonomyCodesForProviderTypeIds(normalizedProviderTypeIds);
+  
+  console.log(`[searchProviders] Provider type IDs delimited: ${normalizedProviderTypeIds.join(',')}`);
+  console.log(`[searchProviders] Resolved taxonomy codes: ${JSON.stringify(taxonomyCodes)}`);
+  console.log(`[searchProviders] Include NPI: ${includeNpi}`);
+  console.log(`[searchProviders] Accepts Pregnant Women: ${acceptsPregnantWomen}`);
+  console.log(`[searchProviders] Accepts Newborns: ${acceptsNewborns}`);
+  console.log(`[searchProviders] Telehealth: ${telehealth}`);
+  console.log(`[searchProviders] ==========================================\n`);
+
   try {
     const providers = [];
 
     // 1. Search Ohio Medicaid API
+    // IMPORTANT: Use single endpoint with comma-delimited provider types
+    // Provider type is the PRIMARY constraint - results must change by provider type selection
     try {
-      const medicaidUrl = new URL("https://psapi.ohpnm.omes.maximus.com/fhir/PublicSearchFHIR");
-      const medicaidParams = {
-        state: "OH",
-        zip: zip,
-        City: city, // Note: Capital C
-        healthplan: healthPlan, // lowercase
-        ProviderTypeIDsDelimited: Array.isArray(providerTypeIds) 
-          ? providerTypeIds.join(",") 
-          : providerTypeIds,
-        radius: radius.toString(),
-        Program: "1", // Capital P, always '1'
-      };
-
-      if (acceptsPregnantWomen !== undefined) {
-        medicaidParams.AcceptsPregnantWomen = acceptsPregnantWomen ? "1" : "0";
-      }
-      if (acceptsNewborns !== undefined) {
-        medicaidParams.AcceptsNewborns = acceptsNewborns ? "1" : "0";
-      }
-      if (telehealth !== undefined) {
-        medicaidParams.Telehealth = telehealth ? "1" : "0";
-      }
-
-      Object.keys(medicaidParams).forEach((key) => {
-        medicaidUrl.searchParams.append(key, medicaidParams[key]);
-      });
-
-      console.log(`[Medicaid] Searching: ${medicaidUrl.toString()}`);
-
-      const medicaidResponse = await axios.get(medicaidUrl.toString());
-      const medicaidData = medicaidResponse.data;
-
-      // Parse FHIR Bundle
-      if (medicaidData.entry && Array.isArray(medicaidData.entry)) {
-        const medicaidProviders = parseMedicaidResponse(medicaidData.entry, specialty);
-        providers.push(...medicaidProviders);
-        console.log(`[Medicaid] Found ${medicaidProviders.length} providers`);
+      console.log(`\n\n\n`);
+      console.log(`╔════════════════════════════════════════════════════════════════╗`);
+      console.log(`║          MEDICAID SEARCH STARTING                            ║`);
+      console.log(`╚════════════════════════════════════════════════════════════════╝`);
+      console.log(`[Medicaid] ==========================================`);
+      console.log(`[Medicaid] STARTING MEDICAID SEARCH`);
+      console.log(`[Medicaid] ==========================================`);
+      console.log(`[Medicaid] Provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
+      console.log(`[Medicaid] ProviderTypeIDsDelimited: "${normalizedProviderTypeIds.join(',')}"`);
+      console.log(`[Medicaid] ZIP: ${zip}, State: OH`);
+      console.log(`[Medicaid] Health plan: ${healthPlan}`);
+      console.log(`[Medicaid] Radius: ${radius}`);
+      console.log(`[Medicaid] Using SINGLE endpoint with comma-delimited provider types`);
+      console.log(`[Medicaid] ==========================================\n`);
+      
+      // Log what the URL will look like (before building it)
+      const previewProviderTypes = normalizedProviderTypeIds.join(',');
+      const previewUrl = `https://psapi.ohpnm.omes.maximus.com/fhir/PublicSearchFHIR?state=OH&zip=${zip}&healthplan=${encodeURIComponent(healthPlan)}&ProviderTypeIDsDelimited=${previewProviderTypes}&radius=${radius}`;
+      console.log(`\n`);
+      console.log(`================================================================================`);
+      console.log(`🔗 MEDICAID URL PREVIEW (will be built and called):`);
+      console.log(`${previewUrl}`);
+      console.log(`================================================================================`);
+      console.log(`\n`);
+      
+      // Determine if this is a maternity-related search
+      const isMaternitySearch = isMaternityProviderType(normalizedProviderTypeIds);
+      console.log(`[Medicaid] Is maternity provider type: ${isMaternitySearch}`);
+      
+      // IMPORTANT: Only include AcceptsPregnantWomen/AcceptsNewborns if:
+      // 1. User explicitly provided them (not undefined/null)
+      // 2. Provider type is maternity-related
+      // These filters often eliminate non-OB providers
+      let finalAcceptsPregnantWomen = undefined;
+      let finalAcceptsNewborns = undefined;
+      
+      if (isMaternitySearch) {
+        // Only use if explicitly provided
+        if (acceptsPregnantWomen !== undefined && acceptsPregnantWomen !== null) {
+          finalAcceptsPregnantWomen = acceptsPregnantWomen;
+          console.log(`[Medicaid] Including AcceptsPregnantWomen filter: ${acceptsPregnantWomen}`);
+        } else {
+          console.log(`[Medicaid] Skipping AcceptsPregnantWomen filter (not explicitly provided)`);
+        }
+        
+        if (acceptsNewborns !== undefined && acceptsNewborns !== null) {
+          finalAcceptsNewborns = acceptsNewborns;
+          console.log(`[Medicaid] Including AcceptsNewborns filter: ${acceptsNewborns}`);
+        } else {
+          console.log(`[Medicaid] Skipping AcceptsNewborns filter (not explicitly provided)`);
+        }
       } else {
-        console.log("[Medicaid] No entry field or empty results");
+        console.log(`[Medicaid] Skipping AcceptsPregnantWomen/AcceptsNewborns filters (non-maternity provider type)`);
       }
+      
+      // Fetch Medicaid results with single endpoint
+      const searchParams = {
+        zip: zip,
+        state: "OH",
+        healthplan: healthPlan,
+        radius: radius,
+      };
+      
+      console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
+      console.log(`║  CALLING fetchMedicaidResults (SINGLE ENDPOINT)                ║`);
+      console.log(`╚════════════════════════════════════════════════════════════════╝\n`);
+      
+      const allEntries = await fetchMedicaidResults(
+        searchParams,
+        normalizedProviderTypeIds, // Array - will be comma-delimited in URL
+        finalAcceptsPregnantWomen,
+        finalAcceptsNewborns,
+        telehealth,
+        5
+      );
+      
+      // Parse entries
+      console.log(`\n==========================================`);
+      console.log(`📊 MEDICAID RESULTS (TERMINAL OUTPUT):`);
+      console.log(`   Total entries fetched: ${allEntries.length}`);
+      
+      if (allEntries.length > 0) {
+        console.log(`[Medicaid] Parsing ${allEntries.length} entries...`);
+        const medicaidProviders = parseMedicaidResponse(allEntries, specialty);
+        providers.push(...medicaidProviders);
+        console.log(`   Providers after parsing: ${medicaidProviders.length}`);
+        console.log(`[Medicaid] Found ${medicaidProviders.length} providers after parsing`);
+        console.log(`[Medicaid] Medicaid source count: ${medicaidProviders.length}`);
+        
+        if (medicaidProviders.length === 0 && allEntries.length > 0) {
+          console.log(`   ⚠️ WARNING: ${allEntries.length} entries but 0 providers parsed!`);
+          console.log(`[Medicaid] WARNING: ${allEntries.length} entries but 0 providers parsed. Checking first entry...`);
+          if (allEntries[0] && allEntries[0].resource) {
+            const testProvider = parseFhirResource(allEntries[0].resource);
+            console.log(`[Medicaid] Test parse result:`, JSON.stringify(testProvider, null, 2));
+            console.log(`   First entry resource type: ${allEntries[0].resource?.resourceType || 'N/A'}`);
+            console.log(`   First entry has code: ${!!allEntries[0].resource?.code}`);
+          }
+        }
+      } else {
+        console.log(`   ⚠️ No entries returned from API`);
+        console.log("[Medicaid] No entries to parse after fetching");
+      }
+      console.log(`==========================================\n`);
+      
+      console.log(`[Medicaid] ==========================================\n`);
     } catch (error) {
-      console.error("Error searching Medicaid API:", error.message);
+      console.log(`\n\n\n`);
+      console.log(`╔════════════════════════════════════════════════════════════════╗`);
+      console.log(`║          ❌ MEDICAID SEARCH ERROR                                ║`);
+      console.log(`╚════════════════════════════════════════════════════════════════╝`);
+      console.log(`\n==========================================`);
+      console.log(`❌ MEDICAID SEARCH ERROR (TERMINAL OUTPUT):`);
+      console.log(`   Error: ${error.message}`);
+      console.log(`   Error Type: ${error.constructor.name}`);
+      if (error.response) {
+        console.log(`   Response Status: ${error.response.status}`);
+        console.log(`   Response Data: ${JSON.stringify(error.response.data, null, 2)}`);
+        console.error("[Medicaid] Response status:", error.response.status);
+        console.error("[Medicaid] Response data:", JSON.stringify(error.response.data, null, 2));
+      } else if (error.request) {
+        console.log(`   No response received from server`);
+        console.log(`   Request URL (if available): ${error.config?.url || 'N/A'}`);
+      }
+      console.log(`   Stack Trace:`);
+      console.log(error.stack);
+      console.log(`==========================================\n`);
+      console.error("[Medicaid] Error searching Medicaid API:", error.message);
+      console.error("[Medicaid] Error stack:", error.stack);
       // Continue to NPI search if enabled
     }
 
-    // 2. Search NPI Registry if enabled or if Medicaid returned no results
-    if (includeNpi || providers.length === 0) {
-      try {
-        // Determine taxonomy code
-        let taxonomyCode = null;
-        
-        if (specialty) {
-          taxonomyCode = getTaxonomyCode(specialty);
-        }
-        
-        if (!taxonomyCode && Array.isArray(providerTypeIds)) {
-          taxonomyCode = inferTaxonomyFromProviderTypes(providerTypeIds);
-        }
-        
-        if (!taxonomyCode) {
-          console.log("[NPI] Cannot infer taxonomy code, skipping NPI search");
-        } else {
-          const npiUrl = new URL("https://npiregistry.cms.hhs.gov/api/");
-          const npiParams = {
-            version: "2.1",
+    // 2. Search NPI Registry ONLY if explicitly requested (includeNpi=true)
+    // IMPORTANT: Do NOT call NPI fallback unless explicitly requested
+    // Provider type is the PRIMARY constraint - Medicaid directory should be sufficient
+    if (includeNpi === true) {
+      console.log(`\n[NPI] ==========================================`);
+      console.log(`[NPI] STARTING NPI SEARCH`);
+      console.log(`[NPI] ==========================================`);
+      console.log(`[NPI] Include NPI: ${includeNpi}`);
+      console.log(`[NPI] Providers found so far: ${providers.length}`);
+      console.log(`[NPI] Provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
+      console.log(`[NPI] Resolved taxonomy codes: ${JSON.stringify(taxonomyCodes)}`);
+      console.log(`[NPI] ==========================================\n`);
+      
+      // CRITICAL: Require taxonomy codes for NPI search
+      if (taxonomyCodes.length === 0) {
+        console.log(`[NPI] ⚠️ ERROR: No taxonomy codes resolved for provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
+        console.log(`[NPI] Skipping NPI search - provider type not supported for NPI fallback`);
+        console.log(`[NPI] Returning only Medicaid results (if any)`);
+        console.log(`[NPI] ⚠️ DO NOT perform broad NPI search without taxonomy codes`);
+      } else {
+        try {
+          // Get additional taxonomy codes from specialty if provided
+          let allTaxonomyCodes = [...taxonomyCodes];
+          
+          if (specialty) {
+            const specialtyTaxonomy = getTaxonomyCode(specialty);
+            if (specialtyTaxonomy && !allTaxonomyCodes.includes(specialtyTaxonomy)) {
+              allTaxonomyCodes.push(specialtyTaxonomy);
+              console.log(`[NPI] Added taxonomy code from specialty: ${specialtyTaxonomy}`);
+            }
+          }
+          
+          // Remove duplicates
+          allTaxonomyCodes = [...new Set(allTaxonomyCodes)];
+          
+          console.log(`[NPI] Final taxonomy codes to search: ${JSON.stringify(allTaxonomyCodes)}`);
+          console.log(`[NPI] Location params (included in ALL endpoints): zip=${zip}, city=${city}, state=OH`);
+          console.log(`[NPI] Health plan context: ${healthPlan} (not used in NPI API - Medicaid only)`);
+          console.log(`[NPI] Creating SEPARATE endpoints for each provider type (${allTaxonomyCodes.length} endpoint(s))`);
+          
+          // Fetch NPI results with pagination
+          // Location parameters (zip, city, state) are REQUIRED and included in ALL endpoints
+          const searchParams = {
+            zip: zip,
+            city: city,
             state: "OH",
-            taxonomy_code: taxonomyCode,
-            limit: "50",
           };
           
-          if (zip) {
-            npiParams.postal_code = zip;
+          console.log(`[NPI] Fetching NPI results with pagination (max 5 pages, target 200 results)...`);
+          console.log(`[NPI] Each provider type will get its own separate endpoint call`);
+          const allNpiProviders = await fetchNpiWithPagination(searchParams, allTaxonomyCodes, healthPlan, 5, 200);
+          
+          console.log(`[NPI] Total providers from NPI (before safety filter): ${allNpiProviders.length}`);
+          
+          // Safety filter: ensure all providers match taxonomy codes (should be minimal filtering)
+          const filteredProviders = filterByTaxonomy(allNpiProviders, allTaxonomyCodes);
+          
+          console.log(`[NPI] Total providers from NPI (after safety filter): ${filteredProviders.length}`);
+          
+          // Log first 5 providers with their taxonomy codes
+          if (filteredProviders.length > 0) {
+            console.log(`[NPI] First 5 providers from NPI:`);
+            filteredProviders.slice(0, 5).forEach((p, idx) => {
+              console.log(`[NPI]   ${idx + 1}. ${p.name?.substring(0, 60)}`);
+              console.log(`[NPI]      Taxonomies: ${JSON.stringify(p.providerTypes || [])}`);
+              console.log(`[NPI]      Source: ${p.source}`);
+            });
           }
-          if (city) {
-            npiParams.city = city;
+          
+          // Add filtered NPI providers
+          providers.push(...filteredProviders);
+          console.log(`[NPI] Total NPI providers added: ${filteredProviders.length}`);
+          console.log(`[NPI] Total providers from all sources: ${providers.length}`);
+        } catch (error) {
+          console.error("[NPI] Error searching NPI API:", error.message);
+          if (error.response) {
+            console.error("[NPI] Response status:", error.response.status);
+            console.error("[NPI] Response data:", JSON.stringify(error.response.data, null, 2));
           }
-          
-          Object.keys(npiParams).forEach((key) => {
-            npiUrl.searchParams.append(key, npiParams[key]);
-          });
-          
-          console.log(`[NPI] Searching: ${npiUrl.toString()}`);
-          
-          const npiResponse = await axios.get(npiUrl.toString());
-          const npiData = npiResponse.data;
-          
-          if (npiData.results && Array.isArray(npiData.results)) {
-            const npiProviders = parseNpiResponse(npiData.results);
-            providers.push(...npiProviders);
-            console.log(`[NPI] Found ${npiProviders.length} providers`);
-          }
+          // Continue with Medicaid results only
         }
-      } catch (error) {
-        console.error("Error searching NPI API:", error.message);
-        // Continue with Medicaid results only
       }
+      console.log(`[NPI] ==========================================\n`);
     }
+
+    // 3. Log counts from each source before deduplication
+    const medicaidCount = providers.filter(p => p.source === 'medicaid').length;
+    const npiCount = providers.filter(p => p.source === 'npi').length;
+    console.log(`\n[searchProviders] ==========================================`);
+    console.log(`[searchProviders] SOURCE COUNTS BEFORE DEDUPLICATION`);
+    console.log(`[searchProviders] ==========================================`);
+    console.log(`[searchProviders] Medicaid providers: ${medicaidCount}`);
+    console.log(`[searchProviders] NPI providers: ${npiCount}`);
+    console.log(`[searchProviders] Total providers: ${providers.length}`);
+    console.log(`[searchProviders] ==========================================\n`);
 
     // 3. Deduplicate providers by NPI or name+location
     const deduplicatedProviders = deduplicateProviders(providers);
+    console.log(`[searchProviders] After deduplication: ${deduplicatedProviders.length} providers`);
 
     // 4. Enrich with Firestore data (reviews, identity tags, Mama Approved)
     const enrichedProviders = await enrichProvidersWithFirestore(deduplicatedProviders);
+    console.log(`[searchProviders] After enrichment: ${enrichedProviders.length} providers`);
 
-    // 5. Sort providers: Mama Approved first, then by rating
+    // 5. Sort providers: Mama Approved first, then by rating (highest reviewed first)
+    console.log(`[searchProviders] Before sorting: ${enrichedProviders.length} providers`);
     enrichedProviders.sort((a, b) => {
       // Mama Approved providers first
       if (a.mamaApproved && !b.mamaApproved) return -1;
@@ -2754,16 +3598,67 @@ exports.searchProviders = onCall(async (request) => {
       const ratingA = a.rating || 0;
       const ratingB = b.rating || 0;
       if (ratingA !== ratingB) return ratingB - ratingA;
-      // Then by review count
+      // Then by review count (more reviews = higher priority)
       const countA = a.reviewCount || 0;
       const countB = b.reviewCount || 0;
       return countB - countA;
     });
+    console.log(`[searchProviders] After sorting: ${enrichedProviders.length} providers`);
 
     // 6. Serialize providers to ensure JSON-compatible format
     const serializedProviders = enrichedProviders.map(serializeProvider);
+    
+    // Final summary with comprehensive debugging
+    console.log(`\n[searchProviders] ==========================================`);
+    console.log(`[searchProviders] FINAL RESULTS SUMMARY`);
+    console.log(`[searchProviders] ==========================================`);
+    console.log(`[searchProviders] Total providers returned: ${serializedProviders.length}`);
+    console.log(`[searchProviders] Medicaid source: ${medicaidCount}`);
+    console.log(`[searchProviders] NPI source: ${npiCount}`);
+    console.log(`[searchProviders] After deduplication: ${deduplicatedProviders.length}`);
+    console.log(`[searchProviders] After enrichment: ${enrichedProviders.length}`);
+    
+    // Sanity checks
+    if (providers.length === 0 && normalizedProviderTypeIds.length > 0) {
+      console.log(`[searchProviders] ⚠️ WARNING: No providers found despite provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
+    }
+    
+    if (medicaidCount === 0 && npiCount === 0) {
+      console.log(`[searchProviders] ⚠️ WARNING: No providers from either source`);
+      console.log(`[searchProviders] Check: 1) API URLs, 2) Provider type IDs, 3) Location parameters`);
+    }
+    
+    if (serializedProviders.length > 0) {
+      const providerTypesFound = new Set();
+      serializedProviders.forEach(p => {
+        if (p.providerTypes && Array.isArray(p.providerTypes)) {
+          p.providerTypes.forEach(t => providerTypesFound.add(t));
+        }
+      });
+      console.log(`[searchProviders] Provider types in results: ${JSON.stringify(Array.from(providerTypesFound))}`);
+      console.log(`[searchProviders] Searched for provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
+      console.log(`[searchProviders] Resolved taxonomy codes: ${JSON.stringify(taxonomyCodes)}`);
+      console.log(`[searchProviders] Note: NPI URLs were logged during pagination (see [fetchNpiWithPagination] logs above)`);
+      
+      // Log first 5 providers with details
+      const sampleProviders = serializedProviders.slice(0, 5);
+      console.log(`[searchProviders] First ${sampleProviders.length} providers with taxonomy codes:`);
+      sampleProviders.forEach((p, idx) => {
+        console.log(`[searchProviders] Provider ${idx + 1}:`, JSON.stringify({
+          name: p.name?.substring(0, 60),
+          providerTypes: p.providerTypes,
+          taxonomyCodes: p.providerTypes, // NPI taxonomy codes are stored in providerTypes
+          source: p.source,
+          mamaApproved: p.mamaApproved,
+          rating: p.rating,
+          reviewCount: p.reviewCount,
+        }, null, 2));
+      });
+    }
+    console.log(`[searchProviders] ==========================================\n`);
 
     return {
+      success: true,
       providers: serializedProviders,
       count: serializedProviders.length,
     };
@@ -2774,30 +3669,198 @@ exports.searchProviders = onCall(async (request) => {
 });
 
 // Helper function to parse Medicaid FHIR Bundle entries
+// Handles Organization and OrganizationAffiliation resources
 function parseMedicaidResponse(entries, specialtyFilter) {
   const providers = [];
+  let skippedCount = 0;
+  let errorCount = 0;
+  
+  console.log(`[parseMedicaidResponse] Processing ${entries.length} entries`);
+  console.log(`[parseMedicaidResponse] Specialty filter: ${specialtyFilter || 'none'}`);
+  
+  // Separate Organization and OrganizationAffiliation resources
+  const organizations = new Map(); // id -> Organization resource
+  const affiliations = []; // OrganizationAffiliation resources
   
   for (const entry of entries) {
-    if (!entry.resource) continue;
+    if (!entry.resource) {
+      skippedCount++;
+      continue;
+    }
     
-    try {
-      const resource = entry.resource;
+    const resource = entry.resource;
+    if (resource.resourceType === 'Organization') {
+      const orgId = resource.id || entry.fullUrl;
+      organizations.set(orgId, resource);
+    } else if (resource.resourceType === 'OrganizationAffiliation') {
+      affiliations.push(resource);
+    } else if (resource.resourceType === 'Practitioner' || resource.resourceType === 'PractitionerRole') {
+      // Handle Practitioner/PractitionerRole if they exist
       const provider = parseFhirResource(resource);
-      
       if (provider) {
-        // Apply specialty filter if provided
-        if (!specialtyFilter || 
-            !provider.specialty ||
-            provider.specialty.toLowerCase().includes(specialtyFilter.toLowerCase())) {
-          providers.push(provider);
+        providers.push(provider);
+      } else {
+        skippedCount++;
+      }
+    } else {
+      skippedCount++;
+      console.log(`[parseMedicaidResponse] Skipping unknown resource type: ${resource.resourceType}`);
+    }
+  }
+  
+  console.log(`[parseMedicaidResponse] Found ${organizations.size} Organizations, ${affiliations.length} OrganizationAffiliations`);
+  
+  // Process OrganizationAffiliation resources to create providers
+  for (const affiliation of affiliations) {
+    try {
+      // Get the organization reference
+      const orgRef = affiliation.organization?.reference;
+      if (!orgRef) {
+        skippedCount++;
+        continue;
+      }
+      
+      // Extract organization ID from reference (format: "Organization/id" or just "id")
+      const orgId = orgRef.includes('/') ? orgRef.split('/')[1] : orgRef;
+      const organization = organizations.get(orgId);
+      
+      if (!organization) {
+        skippedCount++;
+        console.log(`[parseMedicaidResponse] Organization not found for affiliation: ${orgRef}`);
+        continue;
+      }
+      
+      // Extract provider name from Organization
+      const name = organization.name || 'Unknown';
+      
+      // Extract provider types from OrganizationAffiliation.code
+      const providerTypes = [];
+      if (affiliation.code && Array.isArray(affiliation.code)) {
+        for (const code of affiliation.code) {
+          if (code.coding && Array.isArray(code.coding)) {
+            for (const coding of code.coding) {
+              // Check if this is a ProviderType (not SpecialtyType)
+              if (coding.system && coding.system.includes('ProviderType') && coding.code) {
+                providerTypes.push(coding.code.toString());
+              }
+            }
+          }
         }
       }
+      
+      // Extract specialties from OrganizationAffiliation.code
+      const specialties = [];
+      if (affiliation.code && Array.isArray(affiliation.code)) {
+        for (const code of affiliation.code) {
+          if (code.coding && Array.isArray(code.coding)) {
+            for (const coding of code.coding) {
+              // Check if this is a SpecialtyType
+              if (coding.system && coding.system.includes('SpecialtyType') && coding.display) {
+                specialties.push(coding.display.toString());
+              }
+            }
+          }
+        }
+      }
+      
+      // Apply specialty filter if provided
+      if (specialtyFilter) {
+        const matchesSpecialty = specialties.some(s => 
+          s.toLowerCase().includes(specialtyFilter.toLowerCase())
+        );
+        if (!matchesSpecialty) {
+          skippedCount++;
+          continue;
+        }
+      }
+      
+      // Extract locations from Organization.contact
+      const locations = [];
+      if (organization.contact && Array.isArray(organization.contact)) {
+        for (const contact of organization.contact) {
+          if (contact.address) {
+            const addr = contact.address;
+            const addressLines = Array.isArray(addr.line) 
+              ? addr.line.map(l => {
+                  // Handle JSON string in line field
+                  if (typeof l === 'string' && l.startsWith('[')) {
+                    try {
+                      const parsed = JSON.parse(l);
+                      if (Array.isArray(parsed) && parsed[0] && parsed[0].ADDRESS_1) {
+                        return parsed[0].ADDRESS_1;
+                      }
+                    } catch (e) {
+                      // Not JSON, use as-is
+                    }
+                  }
+                  return l.toString();
+                }).filter(l => l && l.trim())
+              : (addr.line ? [addr.line.toString()] : []);
+            
+            if (addressLines.length > 0 || addr.city) {
+              locations.push({
+                address: addressLines.join(', '),
+                city: addr.city || '',
+                state: addr.state || 'OH',
+                zip: addr.postalCode || '',
+              });
+            }
+          }
+        }
+      }
+      
+      // Extract phone from Organization.contact
+      let phone = null;
+      if (organization.contact && Array.isArray(organization.contact)) {
+        for (const contact of organization.contact) {
+          if (contact.telecom && Array.isArray(contact.telecom)) {
+            for (const telecom of contact.telecom) {
+              if (telecom.system === 'phone' && telecom.value) {
+                phone = telecom.value.toString();
+                break;
+              }
+            }
+          }
+          if (phone) break;
+        }
+      }
+      
+      // Create provider object
+      const provider = {
+        name: name,
+        specialty: specialties.length > 0 ? specialties[0] : null,
+        practiceName: name, // For organizations, name is the practice name
+        npi: null, // Organizations don't have NPI
+        locations: locations,
+        providerTypes: providerTypes,
+        specialties: specialties,
+        phone: phone,
+        email: null,
+        source: 'medicaid',
+      };
+      
+      providers.push(provider);
+      
     } catch (error) {
-      console.error("Error parsing Medicaid entry:", error);
+      errorCount++;
+      console.error(`[parseMedicaidResponse] Error parsing OrganizationAffiliation:`, error.message);
       continue;
     }
   }
 
+  console.log(`[parseMedicaidResponse] Results: ${providers.length} providers, ${skippedCount} skipped, ${errorCount} errors`);
+  
+  // Log provider types summary
+  if (providers.length > 0) {
+    const allTypes = new Set();
+    providers.forEach(p => {
+      if (p.providerTypes && Array.isArray(p.providerTypes)) {
+        p.providerTypes.forEach(t => allTypes.add(t));
+      }
+    });
+    console.log(`[parseMedicaidResponse] Unique provider types found: ${JSON.stringify(Array.from(allTypes))}`);
+  }
+  
   return providers;
 }
 
@@ -2865,6 +3928,13 @@ function parseFhirResource(resource) {
           }
         }
       }
+    }
+    
+    // Log provider types for debugging
+    if (providerTypes.length > 0) {
+      console.log(`[parseFhirResource] Provider "${name.substring(0, 50)}" has provider types: ${JSON.stringify(providerTypes)}`);
+    } else {
+      console.log(`[parseFhirResource] Provider "${name.substring(0, 50)}" has NO provider types extracted`);
     }
     
     // Extract specialties
@@ -2944,6 +4014,17 @@ function parseNpiResponse(results) {
     }
   }
   
+  // Log provider types summary
+  if (providers.length > 0) {
+    const allTypes = new Set();
+    providers.forEach(p => {
+      if (p.providerTypes && Array.isArray(p.providerTypes)) {
+        p.providerTypes.forEach(t => allTypes.add(t));
+      }
+    });
+    console.log(`[parseNpiResponse] Unique provider types found: ${JSON.stringify(Array.from(allTypes))}`);
+  }
+  
   return providers;
 }
 
@@ -3000,6 +4081,13 @@ function parseNpiResult(result) {
           providerTypes.push(tax.code);
         }
       }
+    }
+    
+    // Log provider types for debugging
+    if (providerTypes.length > 0) {
+      console.log(`[parseNpiResult] Provider "${name.substring(0, 50)}" has provider types: ${JSON.stringify(providerTypes)}`);
+    } else {
+      console.log(`[parseNpiResult] Provider "${name.substring(0, 50)}" has NO provider types extracted`);
     }
     
     // Extract phone from first address
@@ -3366,5 +4454,283 @@ exports.addProvider = onCall(async (request) => {
   } catch (error) {
     console.error("Error in addProvider:", error);
     throw new HttpsError("internal", "Failed to add provider: " + error.message);
+  }
+});
+
+/**
+ * OhioMaximusSearch - Builds the correct Ohio Medicaid API URL from user inputs
+ * Based on: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
+ * 
+ * @param {string} zip - ZIP code (REQUIRED)
+ * @param {string} radius - Search radius in miles (REQUIRED)
+ * @param {string} city - City name (optional, for logging)
+ * @param {string} healthPlan - Health plan name (REQUIRED)
+ * @param {string|Array<string>} providerType - Provider type name(s) or code(s) (REQUIRED)
+ * @param {string} state - State code (defaults to "OH")
+ * @returns {Object} Object containing the built URL and normalized parameters
+ */
+exports.OhioMaximusSearch = onCall(async (request) => {
+  // Log function call immediately
+  console.log(`\n\n\n`);
+  console.log(`╔════════════════════════════════════════════════════════════════╗`);
+  console.log(`║          OhioMaximusSearch FUNCTION CALLED                    ║`);
+  console.log(`╚════════════════════════════════════════════════════════════════╝`);
+  console.log(`[OhioMaximusSearch] Function execution started at: ${new Date().toISOString()}`);
+  console.log(`[OhioMaximusSearch] Request data:`, JSON.stringify(request.data, null, 2));
+  
+  try {
+    const {
+      zip,
+      radius,
+      city,
+      healthPlan,
+      providerType,
+      state = "OH",
+    } = request.data;
+
+    console.log(`[OhioMaximusSearch] Parsed parameters:`);
+    console.log(`   ZIP: ${zip}`);
+    console.log(`   Radius: ${radius}`);
+    console.log(`   City: ${city || 'N/A'}`);
+    console.log(`   Health Plan: ${healthPlan}`);
+    console.log(`   Provider Type: ${providerType}`);
+    console.log(`   State: ${state}`);
+
+    // Validate required parameters
+    if (!zip || !radius || !healthPlan || !providerType) {
+      const errorMsg = "Missing required parameters: zip, radius, healthPlan, and providerType are required";
+      console.error(`[OhioMaximusSearch] ❌ VALIDATION ERROR: ${errorMsg}`);
+      throw new HttpsError("invalid-argument", errorMsg);
+    }
+
+    // Provider Type Code Mapping (exact as provided)
+    const providerTypeCodeMap = {
+    "Acupuncturist": "23",
+    "Adaptive Behavior Service Provider": "53",
+    "Ambulance": "82",
+    "Ambulatory Surgery Center": "46",
+    "Anesthesia Assistant Individual": "68",
+    "Audiologist Individual": "43",
+    "Behavioral Health Para-professionals": "96",
+    "Certified Registered Nurse Anesthetist Individual": "73",
+    "Chemical Dependency": "54",
+    "Chiropractor Individual": "27",
+    "Clinic": "50",
+    "Clinical Counseling": "47",
+    "Clinical Nurse Specialist Individual": "65",
+    "Dentist Individual": "30",
+    "Dodd Targeted Case Management": "85",
+    "Doula": "09",
+    "Durable Medical Equipment Supplier": "76",
+    "End-stage Renal Disease Clinic": "59",
+    "Enhanced Care Management": "78",
+    "Federally Qualified Health Center": "12",
+    "Free Standing Birth Center": "11",
+    "Help Me Grow": "06",
+    "Home And Community Based Oda Assisted Living": "74",
+    "Hospice": "44",
+    "Hospital": "01",
+    "Independent Diagnostic Testing Facility": "79",
+    "Independent Laboratory": "80",
+    "Managed Care Organization Panel Provider Only": "19",
+    "Marriage And Family Therapy": "52",
+    "Medicaid School Program": "28",
+    "Medicare Certified Home Health Agency": "60",
+    "Mental Health Clinic": "51",
+    "Non-agency Home Care Attendant": "26",
+    "Non-agency Nurse -- Rn Or Lpn": "38",
+    "Non-agency Personal Care Aide": "25",
+    "Non-state Operated Icf-dd": "89",
+    "Nurse Midwife Individual": "71",
+    "Nurse Practitioner Individual": "72",
+    "Nursing Facility": "86",
+    "Occupational Therapist, Individual": "41",
+    "Ohio Department Of Mental Health Provider": "84",
+    "Omhas Certified/licensed Treatment Program": "95",
+    "Optician/ocularist": "75",
+    "Optometrist Individual": "35",
+    "Other Accredited Home Health Agency": "16",
+    "Outpatient Health Facility": "04",
+    "Pace": "08",
+    "Pediatric Recovery Center": "10",
+    "Pharmacist": "69",
+    "Pharmacy": "70",
+    "Physical Therapist, Individual": "39",
+    "Physician Assistant": "24",
+    "Physician/osteopath Individual": "20",
+    "Podiatrist Individual": "36",
+    "Portable X-ray Supplier": "81",
+    "Professional Dental Group": "31",
+    "Professional Medical Group": "21",
+    "Psychiatric Hospital": "02",
+    "Psychiatric Residential Treatment Facility": "03",
+    "Psychology": "42",
+    "Registered Dietitian Nutritionist": "07",
+    "Rural Health Clinic": "05",
+    "Social Work": "37",
+    "Speech Language Pathologist Individual": "40",
+    "State Operated Icf-dd": "88",
+    "Waivered Services Individual": "55",
+    "Waivered Services Organization": "45",
+    "Wheelchair Van": "83",
+    };
+
+    // Normalize provider type(s) to code(s)
+    let providerTypeIds = [];
+    
+    if (Array.isArray(providerType)) {
+    // Handle array of provider types
+    providerTypeIds = providerType.map((type) => {
+      const trimmedType = String(type).trim();
+      // Check if it's already a code (numeric)
+      if (/^\d+$/.test(trimmedType)) {
+        // Normalize: add leading zero for single digits (1-9)
+        const numId = parseInt(trimmedType, 10);
+        if (numId >= 1 && numId <= 9) {
+          return trimmedType.padStart(2, '0');
+        }
+        return trimmedType;
+      }
+      // Look up in map
+      const code = providerTypeCodeMap[trimmedType];
+      if (!code) {
+        throw new HttpsError(
+          "invalid-argument",
+          `Invalid provider type: "${trimmedType}". Please use a valid provider type name or code.`
+        );
+      }
+      // Normalize: add leading zero for single digits (1-9)
+      const numId = parseInt(code, 10);
+      if (numId >= 1 && numId <= 9) {
+        return code.padStart(2, '0');
+      }
+      return code;
+      });
+    } else {
+      // Handle single provider type
+      const trimmedType = String(providerType).trim();
+      // Check if it's already a code (numeric)
+      if (/^\d+$/.test(trimmedType)) {
+        // Normalize: add leading zero for single digits (1-9)
+        const numId = parseInt(trimmedType, 10);
+        if (numId >= 1 && numId <= 9) {
+          providerTypeIds = [trimmedType.padStart(2, '0')];
+        } else {
+          providerTypeIds = [trimmedType];
+        }
+      } else {
+        // Look up in map
+        const code = providerTypeCodeMap[trimmedType];
+        if (!code) {
+          throw new HttpsError(
+            "invalid-argument",
+            `Invalid provider type: "${trimmedType}". Please use a valid provider type name or code.`
+          );
+        }
+        // Normalize: add leading zero for single digits (1-9)
+        const numId = parseInt(code, 10);
+        if (numId >= 1 && numId <= 9) {
+          providerTypeIds = [code.padStart(2, '0')];
+        } else {
+          providerTypeIds = [code];
+        }
+      }
+    }
+
+    // Normalize health plan name
+    console.log(`[OhioMaximusSearch] Normalizing health plan: ${healthPlan}`);
+    const normalizedHealthPlan = normalizeHealthPlanName(healthPlan);
+    console.log(`[OhioMaximusSearch] Normalized health plan: ${normalizedHealthPlan}`);
+
+    // Build URL using existing buildMedicaidUrl function
+    console.log(`[OhioMaximusSearch] Building Medicaid URL...`);
+    console.log(`[OhioMaximusSearch] Provider type IDs: ${JSON.stringify(providerTypeIds)}`);
+    
+    const medicaidUrl = buildMedicaidUrl({
+      zip: zip,
+      state: state,
+      healthplan: normalizedHealthPlan,
+      providerTypeIds: providerTypeIds,
+      radius: radius.toString(),
+    });
+
+    // Log the URL prominently
+    console.log(`\n`);
+    console.log(`================================================================================`);
+    console.log(`================================================================================`);
+    console.log(`🔗 OHIO MAXIMUS SEARCH - GENERATED URL:`);
+    console.log(`${medicaidUrl}`);
+    console.log(`================================================================================`);
+    console.log(`================================================================================`);
+    console.log(`\n[OhioMaximusSearch] Final Parameters:`);
+    console.log(`   ZIP: ${zip}`);
+    console.log(`   City: ${city || 'N/A'}`);
+    console.log(`   State: ${state}`);
+    console.log(`   Health Plan: ${healthPlan} → ${normalizedHealthPlan}`);
+    console.log(`   Provider Type: ${providerType} → ${providerTypeIds.join(',')}`);
+    console.log(`   Provider Type IDs: ${JSON.stringify(providerTypeIds)}`);
+    console.log(`   Radius: ${radius}`);
+    
+    // Fetch data from the URL
+    console.log(`\n[OhioMaximusSearch] Fetching providers from Ohio Maximus API...`);
+    let providers = [];
+    let allEntries = [];
+    
+    try {
+      // Use existing fetchFhirBundleWithPaging function to get entries
+      allEntries = await fetchFhirBundleWithPaging(medicaidUrl, 5);
+      console.log(`[OhioMaximusSearch] Fetched ${allEntries.length} entries from API`);
+      
+      // Parse entries using existing parseMedicaidResponse function
+      if (allEntries.length > 0) {
+        providers = parseMedicaidResponse(allEntries, null); // No specialty filter for now
+        console.log(`[OhioMaximusSearch] Parsed ${providers.length} providers from entries`);
+      } else {
+        console.log(`[OhioMaximusSearch] No entries returned from API`);
+      }
+    } catch (fetchError) {
+      console.error(`[OhioMaximusSearch] Error fetching/parsing providers:`, fetchError.message);
+      console.error(`[OhioMaximusSearch] Stack trace:`, fetchError.stack);
+      // Don't throw - return URL and empty providers list so user can see what was attempted
+    }
+    
+    console.log(`\n[OhioMaximusSearch] ✅ Function completed successfully`);
+    console.log(`[OhioMaximusSearch] Returning ${providers.length} providers`);
+    console.log(`╚════════════════════════════════════════════════════════════════╝\n\n`);
+
+    const result = {
+      success: true,
+      url: medicaidUrl,
+      providers: providers,
+      count: providers.length,
+      parameters: {
+        zip: zip,
+        city: city || null,
+        state: state,
+        healthPlan: normalizedHealthPlan,
+        providerTypeIds: providerTypeIds,
+        providerTypeIdsDelimited: providerTypeIds.join(','),
+        radius: radius.toString(),
+      },
+    };
+
+    // Log the result being returned
+    console.log(`[OhioMaximusSearch] Returning result with ${providers.length} providers`);
+    
+    return result;
+  } catch (error) {
+    // Log error details
+    console.error(`\n`);
+    console.error(`╔════════════════════════════════════════════════════════════════╗`);
+    console.error(`║          ❌ OhioMaximusSearch ERROR                            ║`);
+    console.error(`╚════════════════════════════════════════════════════════════════╝`);
+    console.error(`[OhioMaximusSearch] Error occurred at: ${new Date().toISOString()}`);
+    console.error(`[OhioMaximusSearch] Error message: ${error.message}`);
+    console.error(`[OhioMaximusSearch] Error stack: ${error.stack}`);
+    console.error(`[OhioMaximusSearch] Request data was:`, JSON.stringify(request.data, null, 2));
+    console.error(`╚════════════════════════════════════════════════════════════════╝\n`);
+    
+    // Re-throw the error
+    throw error;
   }
 });

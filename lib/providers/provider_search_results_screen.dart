@@ -5,6 +5,7 @@ import '../models/provider.dart';
 import '../services/provider_repository.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/provider_search_loading.dart';
+import '../constants/provider_types.dart';
 import 'provider_profile_screen.dart';
 import 'add_provider_screen.dart';
 
@@ -27,6 +28,7 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
   String? _error;
   String _sortBy = 'Highest rated';
   Map<String, Map<String, dynamic>> _providerMatchInfo = {}; // Store match scores and filters
+  List<String> _searchProviderTypeIds = []; // Store search provider type IDs for card display
 
   @override
   void initState() {
@@ -42,12 +44,22 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
     });
 
     try {
+      final providerTypeIds = widget.searchParams['providerTypeIds'] as List<String>;
       print('🔍 [ResultsScreen] Calling repository.searchProviders...');
+      print('🔍 [ResultsScreen] Payload details:');
+      print('🔍 [ResultsScreen]   - ZIP: ${widget.searchParams['zip']}');
+      print('🔍 [ResultsScreen]   - City: ${widget.searchParams['city']}');
+      print('🔍 [ResultsScreen]   - Health Plan: ${widget.searchParams['healthPlan']}');
+      print('🔍 [ResultsScreen]   - Provider Type IDs: $providerTypeIds');
+      print('🔍 [ResultsScreen]   - Provider Type IDs count: ${providerTypeIds.length}');
+      print('🔍 [ResultsScreen]   - Radius: ${widget.searchParams['radius']}');
+      print('🔍 [ResultsScreen]   - Include NPI: ${widget.searchParams['includeNPI']}');
+      
       final results = await _repository.searchProviders(
         zip: widget.searchParams['zip'] as String,
         city: widget.searchParams['city'] as String,
         healthPlan: widget.searchParams['healthPlan'] as String,
-        providerTypeIds: widget.searchParams['providerTypeIds'] as List<String>,
+        providerTypeIds: providerTypeIds,
         radius: widget.searchParams['radius'] as int,
         specialty: (widget.searchParams['specialties'] as List<String>?)?.isNotEmpty == true
             ? (widget.searchParams['specialties'] as List<String>).first
@@ -64,6 +76,17 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
       // Calculate match scores for each provider based on active filters
       // Show all providers, but prioritize by how many filters they match
       final activeFilters = <String, dynamic>{};
+      
+      // Log provider type IDs being searched
+      print('🔍 [ResultsScreen] Searching with provider type IDs: $providerTypeIds');
+      if (providerTypeIds.isNotEmpty) {
+        final providerTypeNames = providerTypeIds.map((id) {
+          final name = ProviderTypes.getDisplayName(id);
+          return '$id (${name ?? "Unknown"})';
+        }).join(', ');
+        print('🔍 [ResultsScreen] Provider types: $providerTypeNames');
+      }
+      
       if (widget.searchParams['mamaApprovedOnly'] == true) {
         activeFilters['mamaApproved'] = true;
       }
@@ -82,11 +105,49 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
       if ((widget.searchParams['identityTags'] as List?)?.isNotEmpty == true) {
         activeFilters['identityTags'] = widget.searchParams['identityTags'];
       }
+      if (providerTypeIds.isNotEmpty) {
+        activeFilters['providerTypeIds'] = providerTypeIds;
+      }
 
       // Calculate match score for each provider
       final providersWithScores = results.map((provider) {
         int matchScore = 0;
         final matchedFilters = <String>[];
+
+        // Provider type matching (most important filter)
+        if (activeFilters.containsKey('providerTypeIds') && provider.providerTypes.isNotEmpty) {
+          final selectedTypeIds = activeFilters['providerTypeIds'] as List<String>;
+          // Normalize IDs to API format (single digits 1-9 WITH leading zeros: "01", "02", "09")
+          final normalizedSelected = selectedTypeIds.map((id) {
+            final numId = int.tryParse(id);
+            if (numId != null && numId >= 1 && numId <= 9) {
+              return id.padLeft(2, '0'); // Add leading zero (API format: "01", "09")
+            }
+            return id; // Return as-is for double digits (10+)
+          }).toList();
+          
+          final normalizedProvider = provider.providerTypes.map((id) {
+            final numId = int.tryParse(id);
+            if (numId != null && numId >= 1 && numId <= 9) {
+              return id.padLeft(2, '0'); // Add leading zero (API format: "01", "09")
+            }
+            return id; // Return as-is for double digits (10+)
+          }).toList();
+          
+          // Check if any provider type matches
+          final matchingTypes = normalizedSelected.where((selectedId) => 
+            normalizedProvider.contains(selectedId)
+          ).toList();
+          
+          if (matchingTypes.isNotEmpty) {
+            matchScore += matchingTypes.length; // Weight provider type matches more
+            final typeNames = matchingTypes.map((id) => ProviderTypes.getDisplayName(id) ?? id).join(', ');
+            matchedFilters.add('Provider type: $typeNames');
+            print('✅ [ResultsScreen] Provider ${provider.name} matches types: $typeNames');
+          } else {
+            print('⚠️ [ResultsScreen] Provider ${provider.name} types (${provider.providerTypes}) do not match search types ($normalizedSelected)');
+          }
+        }
 
         if (activeFilters.containsKey('mamaApproved') && provider.mamaApproved == true) {
           matchScore++;
@@ -128,26 +189,33 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
         };
       }).toList();
 
-      // Sort by: Mama Approved first, then match score, then rating
+      // Sort by: Match score first (most important), then Mama Approved, then rating
       providersWithScores.sort((a, b) {
         final providerA = a['provider'] as Provider;
         final providerB = b['provider'] as Provider;
         
-        // Mama Approved providers first
-        if (providerA.mamaApproved && !providerB.mamaApproved) return -1;
-        if (!providerA.mamaApproved && providerB.mamaApproved) return 1;
-        
-        // Then by match score
+        // First priority: Match score (providers matching more filters come first)
         final scoreA = a['matchScore'] as int;
         final scoreB = b['matchScore'] as int;
         if (scoreA != scoreB) {
           return scoreB.compareTo(scoreA); // Higher score first
         }
         
-        // If scores are equal, sort by rating
+        // Second priority: Mama Approved providers
+        if (providerA.mamaApproved && !providerB.mamaApproved) return -1;
+        if (!providerA.mamaApproved && providerB.mamaApproved) return 1;
+        
+        // Third priority: Rating
         final ratingA = providerA.rating ?? 0.0;
         final ratingB = providerB.rating ?? 0.0;
-        return ratingB.compareTo(ratingA);
+        if (ratingA != ratingB) {
+          return ratingB.compareTo(ratingA);
+        }
+        
+        // Fourth priority: Review count
+        final countA = providerA.reviewCount ?? 0;
+        final countB = providerB.reviewCount ?? 0;
+        return countB.compareTo(countA);
       });
 
       // Extract providers and store match info, calculate ratings from reviews
@@ -193,6 +261,7 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
       setState(() {
         _providers = filtered;
         _isLoading = false;
+        _searchProviderTypeIds = providerTypeIds; // Store for card display
         print('✅ [ResultsScreen] setState called with ${filtered.length} providers');
         // Clear error if we got results (even if empty)
         if (filtered.isEmpty) {
@@ -533,21 +602,27 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                                       ),
                                       
                                       // Provider Cards (matching NewUI)
-                                      ..._providers.map((provider) => _ProviderCard(
-                                        provider: provider,
-                                        repository: _repository,
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => ProviderProfileScreen(
-                                                provider: provider,
-                                                providerId: provider.id,
+                                      ..._providers.map((provider) {
+                                        final matchInfo = _providerMatchInfo[provider.id ?? ''] ?? {'score': 0, 'filters': <String>[]};
+                                        return _ProviderCard(
+                                          provider: provider,
+                                          repository: _repository,
+                                          matchedFilters: (matchInfo['filters'] as List<String>?) ?? [],
+                                          matchScore: (matchInfo['score'] as int?) ?? 0,
+                                          searchProviderTypeIds: _searchProviderTypeIds,
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => ProviderProfileScreen(
+                                                  provider: provider,
+                                                  providerId: provider.id,
+                                                ),
                                               ),
-                                            ),
-                                          );
-                                        },
-                                      )).toList(),
+                                            );
+                                          },
+                                        );
+                                      }).toList(),
                                       
                                       const SizedBox(height: 32), // mt-8
                                       
@@ -919,11 +994,17 @@ class _ProviderCard extends StatelessWidget {
   final Provider provider;
   final ProviderRepository repository;
   final VoidCallback onTap;
+  final List<String> matchedFilters;
+  final int matchScore;
+  final List<String> searchProviderTypeIds;
 
   const _ProviderCard({
     required this.provider,
     required this.repository,
     required this.onTap,
+    this.matchedFilters = const [],
+    this.matchScore = 0,
+    this.searchProviderTypeIds = const [],
   });
 
   String _formatPhoneNumber(String phone) {
@@ -1069,46 +1150,126 @@ class _ProviderCard extends StatelessWidget {
                             ),
                         ],
                       ),
-                      if (provider.mamaApproved) ...[
-                        const SizedBox(height: 12), // mb-4
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Color(0xFFF0E0E8), // from-[#f0e0e8]
-                                Color(0xFFF5E8F0), // to-[#f5e8f0]
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Color(0xFFE8D0E0).withOpacity(0.5),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.workspace_premium,
-                                size: 16,
-                                color: Color(0xFFC9A9C0),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Mama Approved™',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFFC9A9C0),
-                                  fontWeight: FontWeight.w300,
+                      // Provider Type Tags and Match Indicators
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          // Provider Type Tags (only show types with display names)
+                          ...provider.providerTypes
+                              .where((typeId) => ProviderTypes.getDisplayName(typeId) != null) // Filter out codes without display names
+                              .map((typeId) {
+                            final typeName = ProviderTypes.getDisplayName(typeId)!; // Safe to use ! since we filtered
+                            final isMatched = searchProviderTypeIds.any((searchId) {
+                              // Normalize to API format (single digits 1-9 WITH leading zeros: "01", "02", "09")
+                              final normalizedSearch = int.tryParse(searchId) != null && int.parse(searchId) >= 1 && int.parse(searchId) <= 9
+                                  ? searchId.padLeft(2, '0') // Add leading zero (API format: "01", "09")
+                                  : searchId;
+                              final normalizedType = int.tryParse(typeId) != null && int.parse(typeId) >= 1 && int.parse(typeId) <= 9
+                                  ? typeId.padLeft(2, '0') // Add leading zero (API format: "01", "09")
+                                  : typeId;
+                              return normalizedSearch == normalizedType;
+                            });
+                            
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isMatched 
+                                    ? Color(0xFFE8F5E9).withOpacity(0.8) // Green for matched
+                                    : Color(0xFFF5F5F5).withOpacity(0.8), // Gray for unmatched
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isMatched
+                                      ? Color(0xFF4CAF50).withOpacity(0.3)
+                                      : Color(0xFFE0E0E0).withOpacity(0.5),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isMatched)
+                                    Icon(Icons.check_circle, size: 14, color: Color(0xFF4CAF50)),
+                                  if (isMatched) const SizedBox(width: 4),
+                                  Text(
+                                    typeName,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isMatched ? Color(0xFF2E7D32) : Color(0xFF6B5C75),
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                          
+                          // Mama Approved Badge
+                          if (provider.mamaApproved)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Color(0xFFF0E0E8),
+                                    Color(0xFFF5E8F0),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: Color(0xFFE8D0E0).withOpacity(0.5),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.workspace_premium,
+                                    size: 14,
+                                    color: Color(0xFFC9A9C0),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Mama Approved™',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFFC9A9C0),
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          
+                          // Match Score Indicator
+                          if (matchScore > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Color(0xFFE3F2FD).withOpacity(0.8),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: Color(0xFF2196F3).withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.star, size: 14, color: Color(0xFF1976D2)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$matchScore filter${matchScore > 1 ? 's' : ''} match',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF1976D2),
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ),

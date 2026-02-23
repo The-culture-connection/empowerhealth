@@ -31,17 +31,75 @@ class ProviderRepository {
       print('🔍 [ProviderRepository] Radius: $radius, Specialty: $specialty');
       print('🔍 [ProviderRepository] Include NPI: $includeNpi');
       
-      // Ensure provider type IDs have leading zeros
+      // Normalize provider type IDs to API format
+      // IMPORTANT: Ohio Medicaid API uses single digits (1-9) WITH leading zeros ("01", "02", "09")
       final validatedProviderTypeIds = providerTypeIds.map((id) {
-        // Ensure leading zeros are preserved (e.g., "09" not "9")
+        // Add leading zeros for single digits (API format: "01", "02", "09", not "1", "2", "9")
         final numId = int.tryParse(id);
-        if (numId != null && numId < 10) {
-          return id.padLeft(2, '0');
+        if (numId != null && numId >= 1 && numId <= 9) {
+          return id.padLeft(2, '0'); // Add leading zero (API format: "01", "09")
         }
-        return id;
+        return id; // Return as-is for double digits (10+)
       }).toList();
       
-      print('🔍 [ProviderRepository] Validated provider type IDs: $validatedProviderTypeIds');
+      print('🔍 [ProviderRepository] Normalized provider type IDs (API format with leading zeros): $validatedProviderTypeIds');
+
+      // Fetch providers from Ohio Maximus API
+      print('🔗 [ProviderRepository] Attempting to fetch providers from Ohio Maximus API...');
+      print('🔗 [ProviderRepository] Provider type IDs count: ${validatedProviderTypeIds.length}');
+      List<Provider> ohioMaximusProviders = [];
+      
+      try {
+        if (validatedProviderTypeIds.isNotEmpty) {
+          print('🔗 [ProviderRepository] Calling ohioMaximusSearch with:');
+          print('🔗 [ProviderRepository]   - zip: $zip');
+          print('🔗 [ProviderRepository]   - radius: $radius');
+          print('🔗 [ProviderRepository]   - city: $city');
+          print('🔗 [ProviderRepository]   - healthPlan: $healthPlan');
+          print('🔗 [ProviderRepository]   - providerType: ${validatedProviderTypeIds.length == 1 ? validatedProviderTypeIds.first : validatedProviderTypeIds}');
+          
+          // Call OhioMaximusSearch to get providers
+          final ohioResult = await _functionsService.ohioMaximusSearch(
+            zip: zip,
+            radius: radius.toString(),
+            city: city,
+            healthPlan: healthPlan,
+            providerType: validatedProviderTypeIds.length == 1 
+                ? validatedProviderTypeIds.first 
+                : validatedProviderTypeIds,
+            state: "OH",
+          );
+          
+          print('🔗 [ProviderRepository] ✅ Ohio Maximus search completed!');
+          print('🔗 [ProviderRepository] URL: ${ohioResult['url']}');
+          print('🔗 [ProviderRepository] Found ${ohioResult['count']} providers');
+          
+          // Parse providers from the result
+          final providersList = ohioResult['providers'] as List<dynamic>? ?? [];
+          ohioMaximusProviders = providersList.map((p) {
+            try {
+              if (p is Map) {
+                final Map<String, dynamic> providerMap = Map<String, dynamic>.from(
+                  p.map((key, value) => MapEntry(key.toString(), value))
+                );
+                return Provider.fromMap(providerMap);
+              }
+              return null;
+            } catch (e) {
+              print('⚠️ [ProviderRepository] Error parsing Ohio Maximus provider: $e');
+              return null;
+            }
+          }).whereType<Provider>().toList();
+          
+          print('🔗 [ProviderRepository] Parsed ${ohioMaximusProviders.length} providers from Ohio Maximus API');
+        } else {
+          print('⚠️ [ProviderRepository] Skipping Ohio Maximus search - provider type IDs list is empty');
+        }
+      } catch (e, stackTrace) {
+        // Don't fail the search if Ohio Maximus search fails, just log it
+        print('⚠️ [ProviderRepository] ❌ Could not fetch from Ohio Maximus API: $e');
+        print('⚠️ [ProviderRepository] Stack trace: $stackTrace');
+      }
 
       // Call Firebase function
       final result = await _functionsService.searchProviders(
@@ -59,7 +117,7 @@ class ProviderRepository {
 
       // Parse providers from function response
       final providersList = result['providers'] as List<dynamic>? ?? [];
-      final providers = providersList.map((p) {
+      final searchProviders = providersList.map((p) {
         try {
           // Convert to Map<String, dynamic> safely
           if (p is Map) {
@@ -77,9 +135,34 @@ class ProviderRepository {
         }
       }).whereType<Provider>().toList();
 
-      print('✅ [ProviderRepository] Total providers from function: ${providers.length}');
+      print('✅ [ProviderRepository] Total providers from searchProviders function: ${searchProviders.length}');
       
-      return providers;
+      // Combine Ohio Maximus providers with searchProviders results
+      // Use a Set to deduplicate by name + location
+      final allProviders = <Provider>[];
+      final seenProviders = <String>{};
+      
+      // Add Ohio Maximus providers first
+      for (final provider in ohioMaximusProviders) {
+        final key = _getProviderKey(provider);
+        if (!seenProviders.contains(key)) {
+          seenProviders.add(key);
+          allProviders.add(provider);
+        }
+      }
+      
+      // Add searchProviders results (avoiding duplicates)
+      for (final provider in searchProviders) {
+        final key = _getProviderKey(provider);
+        if (!seenProviders.contains(key)) {
+          seenProviders.add(key);
+          allProviders.add(provider);
+        }
+      }
+      
+      print('✅ [ProviderRepository] Combined results: ${ohioMaximusProviders.length} from Ohio Maximus + ${searchProviders.length} from searchProviders = ${allProviders.length} total (${ohioMaximusProviders.length + searchProviders.length - allProviders.length} duplicates removed)');
+      
+      return allProviders;
     } catch (e, stackTrace) {
       print('❌ [ProviderRepository] Error searching providers: $e');
       print('❌ [ProviderRepository] Stack trace: $stackTrace');
@@ -691,5 +774,14 @@ class ProviderRepository {
     } catch (e) {
       return false;
     }
+  }
+
+  /// Generate a unique key for a provider to detect duplicates
+  /// Uses name + first location (city + zip) as the key
+  String _getProviderKey(Provider provider) {
+    final locationKey = provider.locations.isNotEmpty
+        ? '${provider.locations.first.city}_${provider.locations.first.zip}'
+        : 'no_location';
+    return '${provider.name.toLowerCase().trim()}_$locationKey';
   }
 }

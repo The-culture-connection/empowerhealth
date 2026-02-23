@@ -158,19 +158,27 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       appBar: AppBar(
-        title: const Text('Birth Plan Creator'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
+        title: Text(
+          'Birth Plan Creator',
+          style: TextStyle(
+            fontWeight: FontWeight.w400,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: AppTheme.textSecondary,
+        elevation: 0,
         actions: _generatedBirthPlan != null
             ? [
                 IconButton(
-                  icon: const Icon(Icons.share),
+                  icon: Icon(Icons.share, color: AppTheme.textMuted),
                   onPressed: _shareBirthPlan,
                   tooltip: 'Share',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.picture_as_pdf),
+                  icon: Icon(Icons.picture_as_pdf, color: AppTheme.textMuted),
                   onPressed: _exportAsPdf,
                   tooltip: 'Export as PDF',
                 ),
@@ -178,25 +186,29 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
             : null,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24), // p-6
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
-            const Text(
+            // Header (matching NewUI)
+            Text(
               'Create Your Birth Plan',
               style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.brandPurple,
+                fontSize: 24, // text-2xl
+                fontWeight: FontWeight.w400, // font-normal
+                color: AppTheme.textSecondary, // text-[#4a3f52]
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            const SizedBox(height: 8), // mb-2
+            Text(
               'Share your wishes with your healthcare team',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 14, // text-sm
+                color: AppTheme.textLight, // text-[#8b7a95]
+                fontWeight: FontWeight.w300, // font-light
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32), // mb-8
 
             // Preferences Section
             _buildSection('Labor & Delivery Preferences', [

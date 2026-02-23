@@ -316,13 +316,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
+        backgroundColor: AppTheme.backgroundWarm,
         body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
-            ),
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundWarm,
           ),
           child: const Center(child: CircularProgressIndicator()),
         ),
@@ -336,19 +333,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final trimester = PregnancyUtils.calculateTrimester(dueDate);
     
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
-          ),
+        decoration: BoxDecoration(
+          color: AppTheme.backgroundWarm,
         ),
         child: SafeArea(
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24), // p-6
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

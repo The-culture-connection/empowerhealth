@@ -248,185 +248,379 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFFF7F5F9), // bg-[#f7f5f9]
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.white, Color(0xFFF8F6F8)],
-          ),
+        decoration: BoxDecoration(
+          color: Color(0xFFF7F5F9),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // Header
+              // Header (matching NewUI exactly)
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32), // px-6 pt-6 pb-8
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade100),
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xFFEBE4F3), // from-[#ebe4f3]
+                      Color(0xFFE0D5EB), // via-[#e0d5eb]
+                      Color(0xFFE8DFE8), // to-[#e8dfe8]
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
-                child: Row(
+                child: Stack(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Search Results',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                    // Subtle background pattern
+                    Positioned.fill(
+                      child: Opacity(
+                        opacity: 0.05,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              width: 128,
+                              height: 128,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '${_providers.length} providers near ${widget.searchParams['city']}, OH',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
+                            Container(
+                              width: 160,
+                              height: 160,
+                              decoration: BoxDecoration(
+                                color: Color(0xFFD4C5E0),
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+                    ),
+                    // Content
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.arrow_back, color: Color(0xFF8B7A95)),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Search results',
+                                    style: TextStyle(
+                                      fontSize: 24, // text-2xl
+                                      fontWeight: FontWeight.w400, // font-normal
+                                      color: Color(0xFF4A3F52), // text-[#4a3f52]
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8), // mb-2
+                                  Text(
+                                    '${_providers.length} providers found near you',
+                                    style: TextStyle(
+                                      fontSize: 14, // text-sm
+                                      color: Color(0xFF6B5C75), // text-[#6b5c75]
+                                      fontWeight: FontWeight.w300, // font-light
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
 
-              // Sort & Results
+              // Content (matching NewUI)
               Expanded(
                 child: _isLoading
                     ? const ProviderSearchLoading()
                     : _error != null
                         ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Error loading providers',
-                                  style: TextStyle(color: Colors.grey[700]),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _error!,
-                                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: _performSearch,
-                                  child: const Text('Try Again'),
-                                ),
-                              ],
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.error_outline, size: 48, color: AppTheme.error),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Error loading providers',
+                                    style: TextStyle(
+                                      color: AppTheme.textMuted,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _error!,
+                                    style: TextStyle(
+                                      color: AppTheme.textLight,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w300,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Color(0xFFD4C5E0),
+                                          Color(0xFFA89CB5),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    child: ElevatedButton(
+                                      onPressed: _performSearch,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.transparent,
+                                        shadowColor: Colors.transparent,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 24,
+                                          vertical: 14,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(24),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Try Again',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w300,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
                         : Builder(
                             builder: (context) {
-                              print('🔍 [ResultsScreen] Build: _providers.length = ${_providers.length}, _isLoading = $_isLoading, _error = $_error');
                               if (_providers.isEmpty) {
-                                print('🔍 [ResultsScreen] Rendering empty state');
                                 return _buildEmptyState();
                               } else {
-                                print('🔍 [ResultsScreen] Rendering provider list with ${_providers.length} providers');
-                                return Column(
-                                children: [
-                                  // Result count and sort - matching NewUI
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          '${_providers.length} providers near you',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: Colors.grey.shade200),
-                                          ),
-                                          child: DropdownButton<String>(
-                                            value: _sortBy,
-                                            underline: const SizedBox(),
-                                            isDense: true,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey[700],
-                                            ),
-                                            items: const [
-                                              DropdownMenuItem(
-                                                value: 'Highest rated',
-                                                child: Text('Highest rated'),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: 'Most reviewed',
-                                                child: Text('Most reviewed'),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: 'Nearest',
-                                                child: Text('Nearest'),
-                                              ),
+                                return SingleChildScrollView(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24), // px-6
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Trust Banner (matching NewUI)
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 24), // mb-6
+                                        padding: const EdgeInsets.all(20), // p-5
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              Color(0xFFF0EAD8), // from-[#f0ead8]
+                                              Color(0xFFF5F0E8), // to-[#f5f0e8]
                                             ],
-                                            onChanged: (value) {
-                                              if (value != null) {
-                                                setState(() {
-                                                  _sortBy = value;
-                                                  _sortProviders(_providers);
-                                                });
-                                              }
-                                            },
                                           ),
+                                          borderRadius: BorderRadius.circular(28),
+                                          border: Border.all(
+                                            color: Color(0xFFE8DFC8).withOpacity(0.5),
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.04),
+                                              blurRadius: 16,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  
-                                  // Results List with filters and disclaimer in scroll view
-                                  Expanded(
-                                    child: ListView(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                                      children: [
-                                        // Filters header in scroll view
-                                        _buildFiltersInScrollView(),
-                                        
-                                        // Disclaimer in scroll view
-                                        if ((widget.searchParams['identityTags'] as List?)?.isNotEmpty == true)
-                                          _buildCulturalMatchDisclaimer(),
-                                        
-                                        // Provider cards
-                                        ..._providers.map((provider) => _ProviderCard(
-                                          provider: provider,
-                                          repository: _repository,
-                                          onTap: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => ProviderProfileScreen(
-                                                  provider: provider, // Pass provider directly
-                                                  providerId: provider.id, // Also pass ID if available
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Icon(
+                                              Icons.shield,
+                                              color: Color(0xFFC9B087),
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                'These providers are sourced from Ohio Medicaid directories + NPI registry. Community trust indicators come from verified patient reviews.',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Color(0xFF6B5C75),
+                                                  fontWeight: FontWeight.w300,
+                                                  height: 1.5,
                                                 ),
                                               ),
-                                            );
-                                          },
-                                        )).toList(),
-                                      ],
-                                    ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      
+                                      // Sorting (matching NewUI)
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 24), // mb-6
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              'Sorted by distance',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Color(0xFF8B7A95),
+                                                fontWeight: FontWeight.w300,
+                                              ),
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 16,
+                                                vertical: 8,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withOpacity(0.8),
+                                                borderRadius: BorderRadius.circular(16),
+                                                border: Border.all(
+                                                  color: AppTheme.borderLighter.withOpacity(0.5),
+                                                ),
+                                              ),
+                                              child: DropdownButton<String>(
+                                                value: _sortBy,
+                                                underline: const SizedBox(),
+                                                isDense: true,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Color(0xFF6B5C75),
+                                                  fontWeight: FontWeight.w300,
+                                                ),
+                                                items: const [
+                                                  DropdownMenuItem(
+                                                    value: 'Nearest',
+                                                    child: Text('Nearest first'),
+                                                  ),
+                                                  DropdownMenuItem(
+                                                    value: 'Highest rated',
+                                                    child: Text('Highest rated'),
+                                                  ),
+                                                  DropdownMenuItem(
+                                                    value: 'Most reviewed',
+                                                    child: Text('Most reviewed'),
+                                                  ),
+                                                  DropdownMenuItem(
+                                                    value: 'Mama Approved first',
+                                                    child: Text('Mama Approved™'),
+                                                  ),
+                                                ],
+                                                onChanged: (value) {
+                                                  if (value != null) {
+                                                    setState(() {
+                                                      _sortBy = value;
+                                                      _sortProviders(_providers);
+                                                    });
+                                                  }
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      
+                                      // Provider Cards (matching NewUI)
+                                      ..._providers.map((provider) => _ProviderCard(
+                                        provider: provider,
+                                        repository: _repository,
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => ProviderProfileScreen(
+                                                provider: provider,
+                                                providerId: provider.id,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      )).toList(),
+                                      
+                                      const SizedBox(height: 32), // mt-8
+                                      
+                                      // Can't Find Provider (matching NewUI)
+                                      Container(
+                                        padding: const EdgeInsets.all(24), // p-6
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              Color(0xFFFAF7FB), // from-[#faf7fb]
+                                              Color(0xFFF9F5FB), // to-[#f9f5fb]
+                                            ],
+                                          ),
+                                          borderRadius: BorderRadius.circular(28),
+                                          border: Border.all(
+                                            color: AppTheme.borderLightest.withOpacity(0.5),
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.04),
+                                              blurRadius: 16,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Can\'t find who you\'re looking for?',
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w400,
+                                                color: Color(0xFF4A3F52),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8), // mb-4
+                                            Text(
+                                              'Help build this directory by adding providers you trust. Your contribution helps other mothers find quality care.',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Color(0xFF6B5C75),
+                                                fontWeight: FontWeight.w300,
+                                                height: 1.5,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 16), // mb-4
+                                            InkWell(
+                                              onTap: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => const AddProviderScreen(),
+                                                  ),
+                                                );
+                                              },
+                                              child: Text(
+                                                'Add a provider →',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Color(0xFFA89CB5),
+                                                  fontWeight: FontWeight.w300,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      
+                                      const SizedBox(height: 100), // Space for bottom nav
+                                    ],
                                   ),
-                                ],
-                              );
+                                );
                               }
                             },
                           ),
@@ -440,15 +634,21 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
 
   Widget _buildFilterChip(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        color: Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppTheme.borderLighter.withOpacity(0.5),
+        ),
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 12),
+        style: TextStyle(
+          fontSize: 12,
+          color: AppTheme.textMuted,
+          fontWeight: FontWeight.w300,
+        ),
       ),
     );
   }
@@ -468,19 +668,37 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
     
     if (hasVerifiedMatches) return const SizedBox.shrink();
     
-    // No verified matches found - show disclaimer
+    // No verified matches found - show disclaimer (matching NewUI)
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.amber.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.shade200),
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFFF0EAD8), // from-[#f0ead8]
+            Color(0xFFF5F0E8), // to-[#f5f0e8]
+          ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: Color(0xFFE8DFC8).withOpacity(0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, size: 20, color: Colors.amber.shade700),
+          Icon(
+            Icons.info_outline,
+            size: 20,
+            color: Color(0xFFC9B087),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -490,16 +708,18 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                   'No community-verified matches found',
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.amber.shade900,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF4A3F52),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text(
                   'We found ${_providers.length} providers matching your search, but none have been community-verified for the identity tags you selected. These providers may still be a good match.',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.amber.shade800,
+                    color: Color(0xFF6B5C75),
+                    fontWeight: FontWeight.w300,
+                    height: 1.5,
                   ),
                 ),
               ],
@@ -628,14 +848,19 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
 
   Widget _buildFiltersInScrollView() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF3E5F5), Color(0xFFE3F2FD)],
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFFE8E0F0).withOpacity(0.6),
+            Color(0xFFEDE7F3).withOpacity(0.6),
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.blue.shade100),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppTheme.borderLighter.withOpacity(0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -645,18 +870,20 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
             children: [
               Text(
                 'Within ${widget.searchParams['radius']} miles of ${(widget.searchParams['zip'] as String).length > 5 ? (widget.searchParams['zip'] as String).substring(0, 5) : widget.searchParams['zip']}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w400,
+                  color: AppTheme.textSecondary,
                 ),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
+                child: Text(
                   'Edit filters',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF663399),
+                    color: AppTheme.brandPurple,
+                    fontWeight: FontWeight.w300,
                   ),
                 ),
               ),
@@ -718,271 +945,380 @@ class _ProviderCard extends StatelessWidget {
         : null;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 20), // space-y-5
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
+        color: Colors.white.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(32), // rounded-[32px]
+        border: Border.all(
+          color: AppTheme.borderLighter.withOpacity(0.5),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         children: [
+          // Provider Image/Header (matching NewUI)
           Container(
-            height: 128,
+            height: 144, // h-36
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF663399).withOpacity(0.1),
-                  const Color(0xFFCBBEC9).withOpacity(0.1),
+                  Color(0xFFEBE4F3), // from-[#ebe4f3]
+                  Color(0xFFE8DFE8), // to-[#e8dfe8]
                 ],
               ),
             ),
-            child: Stack(
-              children: [
-                Center(
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF663399), Color(0xFFCBBEC9)],
-                      ),
-                      borderRadius: BorderRadius.circular(40),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        provider.name.isNotEmpty ? provider.name[0].toUpperCase() : '?',
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+            child: Center(
+              child: Container(
+                width: 80, // w-20
+                height: 80, // h-20
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xFFD4C5E0), // from-[#d4c5e0]
+                      Color(0xFFE0D5EB), // to-[#e0d5eb]
+                    ],
                   ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            provider.name,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${provider.specialty ?? ''}${provider.practiceName != null ? ' • ${provider.practiceName}' : ''}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
+                  borderRadius: BorderRadius.circular(40),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xFFA89CB5).withOpacity(0.2),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                if (provider.mamaApproved) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                child: Center(
+                  child: Text(
+                    provider.name.isNotEmpty ? provider.name[0].toUpperCase() : '?',
+                    style: TextStyle(
+                      fontSize: 32, // text-2xl
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
                     ),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.red.shade50,
-                          Colors.pink.shade50,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24), // p-6
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Name and Tags (matching NewUI)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16), // mb-4
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  provider.name,
+                                  style: TextStyle(
+                                    fontSize: 18, // text-lg
+                                    fontWeight: FontWeight.w400, // font-normal
+                                    color: Color(0xFF4A3F52), // text-[#4a3f52]
+                                  ),
+                                ),
+                                const SizedBox(height: 4), // mb-1
+                                Text(
+                                  '${provider.specialty ?? ''}${provider.practiceName != null ? ' • ${provider.practiceName}' : ''}',
+                                  style: TextStyle(
+                                    fontSize: 14, // text-sm
+                                    color: Color(0xFF8B7A95), // text-[#8b7a95]
+                                    fontWeight: FontWeight.w300, // font-light
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (provider.acceptingNewPatients ?? false)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Color(0xFFDCE8E4).withOpacity(0.8),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: Color(0xFFC9E0D9).withOpacity(0.3),
+                                ),
+                              ),
+                              child: Text(
+                                '✓ Accepting',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF6B9688),
+                                  fontWeight: FontWeight.w300,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.shade200),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.workspace_premium,
-                            size: 16, color: Colors.red.shade600),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Mama Approved™',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.red.shade700,
-                            fontWeight: FontWeight.w600,
+                      if (provider.mamaApproved) ...[
+                        const SizedBox(height: 12), // mb-4
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Color(0xFFF0E0E8), // from-[#f0e0e8]
+                                Color(0xFFF5E8F0), // to-[#f5e8f0]
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Color(0xFFE8D0E0).withOpacity(0.5),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.workspace_premium,
+                                size: 16,
+                                color: Color(0xFFC9A9C0),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Mama Approved™',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFFC9A9C0),
+                                  fontWeight: FontWeight.w300,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
-                ],
-                const SizedBox(height: 16),
-                Builder(
-                  builder: (context) {
-                    final rating = provider.rating;
-                    final reviewCount = provider.reviewCount ?? 0;
-                    if (rating != null && rating > 0) {
-                      final fullStars = rating.floor();
-                      final hasHalfStar = (rating - fullStars) >= 0.5;
-                      return Row(
-                        children: [
-                          Row(
-                            children: List.generate(5, (index) {
-                              if (index < fullStars) {
-                                return Icon(Icons.star, size: 16, color: Colors.amber.shade400);
-                              } else if (index == fullStars && hasHalfStar) {
-                                return Icon(Icons.star_half, size: 16, color: Colors.amber.shade400);
-                              } else {
-                                return Icon(Icons.star, size: 16, color: Colors.grey[300]);
-                              }
-                            }),
-                          ),
-                          if (reviewCount > 0) ...[
-                            const SizedBox(width: 8),
-                            Text(
-                              '($reviewCount reviews)',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                          ],
-                        ],
-                      );
-                    } else {
-                      return Row(
-                        children: [
-                          Row(
-                            children: List.generate(5, (index) => Icon(Icons.star, size: 16, color: Colors.grey[300])),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '(No ratings yet)',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                        ],
-                      );
-                    }
-                  },
                 ),
-                const SizedBox(height: 16),
-                if (location != null)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
+
+                // Rating (matching NewUI)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 20), // mb-5
+                  child: Row(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.star,
+                            size: 20,
+                            color: Color(0xFFC9B087),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            provider.rating != null && provider.rating! > 0
+                                ? provider.rating!.toStringAsFixed(1)
+                                : 'N/A',
+                            style: TextStyle(
+                              fontSize: 18, // text-lg
+                              fontWeight: FontWeight.w400, // font-normal
+                              color: Color(0xFF4A3F52), // text-[#4a3f52]
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '(${provider.reviewCount ?? 0} reviews)',
+                        style: TextStyle(
+                          fontSize: 14, // text-sm
+                          color: Color(0xFFA89CB5), // text-[#a89cb5]
+                          fontWeight: FontWeight.w300, // font-light
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Quick Info Grid (matching NewUI)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 20), // mb-5
+                  padding: const EdgeInsets.all(16), // p-4
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF7F5F9), // bg-[#f7f5f9]
+                    borderRadius: BorderRadius.circular(20), // rounded-[20px]
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  size: 16,
+                                  color: Color(0xFFA89CB5),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    distance ?? location?.fullAddress ?? '',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF8B7A95),
+                                      fontWeight: FontWeight.w300,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (provider.phone != null)
                             Expanded(
                               child: Row(
                                 children: [
-                                  Icon(Icons.location_on, size: 16, color: AppTheme.brandPurple),
+                                  Icon(
+                                    Icons.phone,
+                                    size: 16,
+                                    color: Color(0xFFA89CB5),
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      distance ?? location.fullAddress,
+                                      _formatPhoneNumber(provider.phone!),
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.grey[600],
+                                        color: Color(0xFF8B7A95),
+                                        fontWeight: FontWeight.w300,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            if (provider.phone != null)
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.phone, size: 16, color: AppTheme.brandPurple),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        _formatPhoneNumber(provider.phone!),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Specialties (if available)
+                if (provider.specialties.isNotEmpty) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 20), // mb-5
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: provider.specialties.take(3).map((specialty) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Color(0xFFE8E0F0).withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Color(0xFFD4C5E0).withOpacity(0.2),
+                            ),
+                          ),
+                          child: Text(
+                            specialty,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF8B7A95),
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
-                const SizedBox(height: 16),
+                ],
+
+                // Action Buttons (matching NewUI)
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: onTap,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.brandPurple,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Color(0xFFD4C5E0), // from-[#d4c5e0]
+                              Color(0xFFA89CB5), // to-[#a89cb5]
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0xFFA89CB5).withOpacity(0.25),
+                              blurRadius: 20,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton(
+                          onPressed: onTap,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                          child: Text(
+                            'View full profile',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w300,
+                            ),
                           ),
                         ),
-                        child: const Text('View Profile'),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12), // gap-3
                     if (provider.phone != null)
-                      OutlinedButton(
-                        onPressed: () async {
-                          final uri = Uri.parse('tel:${provider.phone}');
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri);
-                          }
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.all(16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: AppTheme.borderLighter.withOpacity(0.5),
                           ),
-                          side: BorderSide(color: Colors.grey.shade200),
+                          borderRadius: BorderRadius.circular(24),
                         ),
-                        child: Icon(Icons.phone, color: Colors.grey[700]),
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            final uri = Uri.parse('tel:${provider.phone}');
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(uri);
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.all(14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            side: BorderSide.none,
+                          ),
+                          child: Icon(
+                            Icons.phone,
+                            color: Color(0xFF8B7A95),
+                            size: 16,
+                          ),
+                        ),
                       ),
                   ],
                 ),

@@ -150,8 +150,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     }
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -161,31 +162,35 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // Header
+              // Header (matching NewUI)
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade100),
+                    bottom: BorderSide(color: AppTheme.borderLight),
                   ),
                 ),
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back),
+                      icon: Icon(Icons.arrow_back, color: AppTheme.textMuted),
                       onPressed: () => Navigator.pop(context),
                     ),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Back to results',
-                        style: TextStyle(fontSize: 14),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w300,
+                        ),
                       ),
                     ),
                     IconButton(
                       icon: Icon(
                         _isSaved ? Icons.bookmark : Icons.bookmark_border,
-                        color: _isSaved ? AppTheme.brandPurple : Colors.grey,
+                        color: _isSaved ? AppTheme.brandPurple : AppTheme.textBarelyVisible,
                       ),
                       onPressed: () {
                         setState(() {
@@ -197,26 +202,27 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 ),
               ),
 
-              // Content
+              // Content (matching NewUI)
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20), // px-5 py-5
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildProviderHeader(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 16), // mb-4
                       _buildQuickActions(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 16), // mb-4
                       _buildContactInfo(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 16), // mb-4
                       _buildIdentityTags(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 16), // mb-4
                       _buildAbout(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 16), // mb-4
                       _buildReviews(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 16), // mb-4
                       _buildCommunityNote(),
+                      const SizedBox(height: 100), // Space for bottom nav
                     ],
                   ),
                 ),
@@ -230,14 +236,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   Widget _buildProviderHeader() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.only(bottom: 16), // mb-4
+      padding: const EdgeInsets.all(24), // p-6
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xFF663399), Color(0xFF8855BB)],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(24), // rounded-3xl
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -259,21 +266,21 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     Text(
                       _provider!.name,
                       style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 24, // text-2xl
+                        fontWeight: FontWeight.w400, // font-normal
                         color: Colors.white,
                       ),
                     ),
-                    if (_provider!.specialty != null) ...[
-                      const SizedBox(height: 4),
+                    const SizedBox(height: 4), // mb-1
+                    if (_provider!.specialty != null)
                       Text(
                         _provider!.specialty!,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 14, // text-sm
                           color: Colors.white.withOpacity(0.9),
+                          fontWeight: FontWeight.w300,
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),
@@ -388,31 +395,71 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Widget _buildQuickActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: _provider!.phone != null
-                ? () async {
-                    final uri = Uri.parse('tel:${_provider!.phone}');
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri);
-                    }
-                  }
-                : null,
-            icon: const Icon(Icons.phone, size: 18),
-            label: const Text('Call Now'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.brandPurple,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16), // mb-4
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFF663399),
+                    Color(0xFF8855BB),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(24), // rounded-2xl
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0xFF663399).withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _provider!.phone != null
+                    ? () async {
+                        final uri = Uri.parse('tel:${_provider!.phone}');
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri);
+                        }
+                      }
+                    : null,
+                icon: const Icon(Icons.phone, size: 18),
+                label: const Text('Call Now'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 12), // gap-3
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () {
+                // TODO: Implement booking
+              },
+              icon: const Icon(Icons.calendar_today, size: 18),
+              label: const Text('Book Appointment'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.textMuted,
+                side: BorderSide(color: AppTheme.borderLight),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -435,9 +482,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       if (_provider!.practiceName != null)
                         Text(
                           _provider!.practiceName!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w400,
+                            color: AppTheme.textSecondary,
                           ),
                         ),
                       const SizedBox(height: 4),
@@ -445,16 +493,18 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         location.fullAddress,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w300,
                         ),
                       ),
                       if (location.distance != null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          '${location.distance!.toStringAsFixed(1)} miles away',
+                          '${location.distance!.toStringAsFixed(1)} away',
                           style: TextStyle(
                             fontSize: 12,
                             color: AppTheme.brandPurple,
+                            fontWeight: FontWeight.w300,
                           ),
                         ),
                       ],
@@ -463,7 +513,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 ),
               ],
             ),
-            const Divider(height: 32),
+            Container(
+              height: 1,
+              color: AppTheme.borderLight,
+              margin: const EdgeInsets.symmetric(vertical: 16),
+            ),
           ],
           if (_provider!.phone != null) ...[
             Row(
@@ -479,15 +533,20 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   },
                   child: Text(
                     _provider!.phone!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: Colors.blue,
+                      color: AppTheme.brandPurple,
+                      fontWeight: FontWeight.w300,
                     ),
                   ),
                 ),
               ],
             ),
-            const Divider(height: 32),
+            Container(
+              height: 1,
+              color: AppTheme.borderLight,
+              margin: const EdgeInsets.symmetric(vertical: 16),
+            ),
           ],
           if (_provider!.email != null) ...[
             Row(
@@ -503,15 +562,20 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   },
                   child: Text(
                     _provider!.email!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: Colors.blue,
+                      color: AppTheme.brandPurple,
+                      fontWeight: FontWeight.w300,
                     ),
                   ),
                 ),
               ],
             ),
-            const Divider(height: 32),
+            Container(
+              height: 1,
+              color: AppTheme.borderLight,
+              margin: const EdgeInsets.symmetric(vertical: 16),
+            ),
           ],
           if (_provider!.website != null) ...[
             Row(
@@ -527,9 +591,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   },
                   child: Text(
                     _provider!.website!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: Colors.blue,
+                      color: AppTheme.brandPurple,
+                      fontWeight: FontWeight.w300,
                     ),
                   ),
                 ),
@@ -554,11 +619,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             children: [
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'Identity & Cultural Tags',
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w400,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -580,9 +646,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 onPressed: () {
                   // TODO: Navigate to add tag
                 },
-                child: const Text(
+                child: Text(
                   '+ Add tag',
-                  style: TextStyle(color: Color(0xFF663399)),
+                  style: TextStyle(
+                    color: AppTheme.brandPurple,
+                    fontWeight: FontWeight.w300,
+                  ),
                 ),
               ),
             ],
@@ -601,19 +670,21 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'About identity tags:',
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w400,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'These help mothers find culturally concordant care. Tags show their source and verification status for transparency. Community members can add tags, which are then reviewed by our team.',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey,
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w300,
                     ),
                   ),
                 ],
@@ -659,7 +730,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             tag.name,
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w400,
                               color: statusColor.shade700,
                             ),
                           ),
@@ -689,7 +760,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     'Source: ${tag.source}',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[600],
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w300,
                     ),
                   ),
                 ],
@@ -697,17 +769,30 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             );
           }),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
+          OutlinedButton(
             onPressed: () {
               // TODO: Implement report
             },
-            icon: const Icon(Icons.flag, size: 18),
-            label: const Text('Report incorrect info'),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(24),
               ),
+              side: BorderSide(color: AppTheme.borderLight),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.flag, size: 16, color: AppTheme.textMuted),
+                const SizedBox(width: 8),
+                Text(
+                  'Report incorrect info',
+                  style: TextStyle(
+                    color: AppTheme.textMuted,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -722,11 +807,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_provider!.specialties.isNotEmpty) ...[
-            const Text(
+            Text(
               'Specialties',
               style: TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w400,
+                color: AppTheme.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
@@ -749,6 +835,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       color: AppTheme.brandPurple,
+                      fontWeight: FontWeight.w300,
                     ),
                   ),
                 );
@@ -791,9 +878,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                               children: [
                                 Text(
                                   review.userName ?? 'Anonymous',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppTheme.textSecondary,
                                   ),
                                 ),
                                 if (review.isVerified) ...[
@@ -808,11 +896,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(color: Colors.blue.shade200),
                                     ),
-                                    child: const Text(
+                                    child: Text(
                                       'Verified Patient',
                                       style: TextStyle(
                                         fontSize: 10,
-                                        color: Colors.blue,
+                                        color: AppTheme.brandPurple,
+                                        fontWeight: FontWeight.w300,
                                       ),
                                     ),
                                   ),
@@ -836,7 +925,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                   review.createdAt.toString().split(' ')[0],
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey[500],
+                                    color: AppTheme.textLight,
+                                    fontWeight: FontWeight.w300,
                                   ),
                                 ),
                               ],
@@ -859,6 +949,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.green.shade700,
+                                fontWeight: FontWeight.w300,
                               ),
                             ),
                           ),
@@ -870,7 +961,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         review.reviewText!,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[700],
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w300,
+                          height: 1.5,
                         ),
                       ),
                     ],
@@ -879,9 +972,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               );
             }),
           ] else
-            const Text(
+            Text(
               'No reviews yet. Be the first to review!',
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(
+                color: AppTheme.textMuted,
+                fontWeight: FontWeight.w300,
+              ),
             ),
         ],
       ),
@@ -890,22 +986,32 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   Widget _buildCommunityNote() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20), // p-5
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFE3F2FD), Color(0xFFF3E5F5)],
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFFE3F2FD), // from-blue-50
+            Color(0xFFF3E5F5), // to-purple-50
+          ],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(24), // rounded-3xl
         border: Border.all(color: Colors.blue.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 40, // w-10
+            height: 40, // h-10
             decoration: BoxDecoration(
               color: AppTheme.brandPurple,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(16), // rounded-2xl
             ),
             child: const Icon(Icons.favorite, color: Colors.white, size: 20),
           ),
@@ -914,24 +1020,26 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              const Text(
-                'Help Other Mothers',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                Text(
+                  'Help Other Mothers',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w400,
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Your experience matters. Share your story to help other mothers make informed decisions about their care.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
+                const SizedBox(height: 8), // mb-2
+                Text(
+                  'Your experience matters. Share your story to help other mothers make informed decisions about their care.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textMuted,
+                    fontWeight: FontWeight.w300,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () async {
+                const SizedBox(height: 12), // mb-3
+                TextButton(
+                  onPressed: () async {
                   // Use NPI if available, otherwise use Firestore ID, otherwise use name+location as composite ID
                   String? reviewProviderId = _provider!.id;
                   if (reviewProviderId == null || reviewProviderId.isEmpty) {
@@ -1015,10 +1123,13 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     }
                   }
                 },
-                child: const Text(
-                  'Write a review →',
-                  style: TextStyle(color: Color(0xFF663399)),
-                ),
+                  child: Text(
+                    'Write a review →',
+                    style: TextStyle(
+                      color: AppTheme.brandPurple,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
               ),
             ]),
           ),
@@ -1032,11 +1143,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     required Widget child,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 16), // mb-4
+      padding: const EdgeInsets.all(20), // p-5
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
+        borderRadius: BorderRadius.circular(24), // rounded-3xl
+        border: Border.all(color: AppTheme.borderLight),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -1050,12 +1162,13 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w400,
+              color: AppTheme.textSecondary,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 16), // mb-4
           child,
         ],
       ),

@@ -162,639 +162,849 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.backgroundWarm, // Matching NewUI background
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24), // p-6 matching NewUI
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with Avatar and Greeting (matching NewUI)
-                Row(
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppTheme.gradientPurpleStart, AppTheme.gradientGoldEnd],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.brandPurple.withOpacity(0.25),
-                            blurRadius: 20,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          _getInitials(_userName),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
+      body: Stack(
+        children: [
+          // Subtle warm texture overlay (matching NewUI exactly)
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.02,
+              child: Container(
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: NetworkImage(
+                      "data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23663399' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E",
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
+                    repeat: ImageRepeat.repeat,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Main content
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24), // p-6 matching NewUI
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with Avatar and Greeting (matching NewUI exactly)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 24), // mb-8
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 56, // w-14
+                              height: 56, // h-14
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Color(0xFF8B7AA8), // from-[#8b7aa8]
+                                    Color(0xFFD4A574), // to-[#d4a574]
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(28),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Color(0xFF663399).withOpacity(0.25),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _getInitials(_userName),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18, // text-lg
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12), // gap-3
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${_getGreeting()},',
+                                    style: const TextStyle(
+                                      fontSize: 14, // text-sm
+                                      color: Color(0xFF9D8FB5), // text-[#9d8fb5]
+                                      fontWeight: FontWeight.w300, // font-light
+                                    ),
+                                  ),
+                                  Text(
+                                    _userName ?? 'User',
+                                    style: const TextStyle(
+                                      fontSize: 20, // text-xl
+                                      fontWeight: FontWeight.w400, // font-normal
+                                      color: Color(0xFF2D2733), // text-[#2d2733]
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24), // mb-6
+
+                        // Search Bar (matching NewUI exactly)
+                        InkWell(
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.providers);
+                          },
+                          borderRadius: BorderRadius.circular(28),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(28), // rounded-[28px]
+                              border: Border.all(
+                                color: Color(0xFFE8DFE8), // border-[#e8dfe8]
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color(0xFF663399).withOpacity(0.08),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: TextField(
+                              enabled: false,
+                              style: const TextStyle(
+                                color: Color(0xFF2D2733), // text-[#2d2733]
+                                fontWeight: FontWeight.w300, // font-light
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Find trusted providers near you',
+                                hintStyle: const TextStyle(
+                                  color: Color(0xFFB5A8C2), // placeholder:text-[#b5a8c2]
+                                  fontWeight: FontWeight.w300, // font-light
+                                ),
+                                prefixIcon: Icon(
+                                  Icons.search,
+                                  color: Color(0xFF9D8FB5), // text-[#9d8fb5]
+                                  size: 20, // w-5 h-5
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20, // pl-14 pr-5
+                                  vertical: 16, // py-4
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Pregnancy Journey (matching NewUI exactly)
+                  if (dueDate != null && weeksPregnant > 0) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 32), // mb-8
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${_getGreeting()},',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.textLightest,
-                              fontWeight: FontWeight.w300,
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16), // mb-4
+                            child: Text(
+                              'Your pregnancy journey',
+                              style: TextStyle(
+                                fontSize: 16, // text-base
+                                fontWeight: FontWeight.w400, // font-normal
+                                color: Color(0xFF4A3F52), // text-[#4a3f52]
+                                letterSpacing: 0.5, // tracking-wide
+                              ),
                             ),
                           ),
-                          Text(
-                            _userName ?? 'User',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w400, // Lighter weight matching NewUI
-                              color: AppTheme.textPrimary,
+                          Container(
+                            padding: const EdgeInsets.all(28), // p-7
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Color(0xFFEBE4F3), // from-[#ebe4f3]
+                                  Color(0xFFE6D8ED), // via-[#e6d8ed]
+                                  Color(0xFFEAD9E0), // to-[#ead9e0]
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(32), // rounded-[32px]
+                              border: Border.all(
+                                color: Color(0xFFE0D3E8).withOpacity(0.5), // border-[#e0d3e8]/50
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color(0xFF663399).withOpacity(0.12),
+                                  blurRadius: 32,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Stack(
+                              children: [
+                                // Subtle background glow (matching NewUI)
+                                Positioned.fill(
+                                  child: Opacity(
+                                    opacity: 0.3,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Container(
+                                          width: 160, // w-40
+                                          height: 160, // h-40
+                                          decoration: BoxDecoration(
+                                            color: Color(0xFFD4C5E0), // bg-[#d4c5e0]
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: Color(0xFFD4C5E0),
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        ),
+                                        Container(
+                                          width: 192, // w-48
+                                          height: 192, // h-48
+                                          decoration: BoxDecoration(
+                                            color: Color(0xFFE6D5B8), // bg-[#e6d5b8]
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                // Content
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Week $weeksPregnant of 40',
+                                                style: TextStyle(
+                                                  fontSize: 14, // text-sm
+                                                  color: Color(0xFF7D6D85), // text-[#7d6d85]
+                                                  fontWeight: FontWeight.w300, // font-light
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8), // mb-2
+                                              Text(
+                                                "You're in your $trimester trimester",
+                                                style: const TextStyle(
+                                                  fontSize: 24, // text-2xl
+                                                  fontWeight: FontWeight.w400, // font-normal
+                                                  color: Color(0xFF2D2733), // text-[#2d2733]
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8), // mb-2
+                                              Text(
+                                                "You're doing beautifully",
+                                                style: TextStyle(
+                                                  fontSize: 14, // text-sm
+                                                  color: Color(0xFFD4A574), // text-[#d4a574]
+                                                  fontWeight: FontWeight.w500, // font-medium
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          width: 64, // w-16
+                                          height: 64, // h-16
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.6), // bg-white/60
+                                            borderRadius: BorderRadius.circular(32),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Color(0xFF663399).withOpacity(0.15),
+                                                blurRadius: 16,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Center(
+                                            child: Text(
+                                              '🤰',
+                                              style: TextStyle(fontSize: 32), // text-2xl
+                                            ),
+                                          ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 24), // mb-6
+                                    // Progress bar (matching NewUI exactly)
+                                    Container(
+                                      height: 6, // h-1.5
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.5), // bg-white/50
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: FractionallySizedBox(
+                                        alignment: Alignment.centerLeft,
+                                        widthFactor: progress.clamp(0.0, 1.0),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                Color(0xFF8B7AA8), // from-[#8b7aa8]
+                                                Color(0xFFD4A574), // to-[#d4a574]
+                                              ],
+                                            ),
+                                            borderRadius: BorderRadius.circular(3),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Color(0xFF8B7AA8).withOpacity(0.4),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 24),
 
-                // Search Bar (matching NewUI)
-                InkWell(
-                  onTap: () {
-                    Navigator.pushNamed(context, Routes.providers);
-                  },
-                  borderRadius: BorderRadius.circular(28),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: AppTheme.borderLight),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.brandPurple.withOpacity(0.08),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      enabled: false,
-                      decoration: InputDecoration(
-                        hintText: 'Find trusted providers near you',
-                        hintStyle: const TextStyle(
-                          color: AppTheme.textBarelyVisible,
-                          fontWeight: FontWeight.w300,
-                        ),
-                        prefixIcon: Icon(Icons.search, color: AppTheme.textLightest, size: 20),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Pregnancy Journey Card (matching NewUI)
-                if (dueDate != null && weeksPregnant > 0) ...[
-                  const Text(
-                    'Your pregnancy journey',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: AppTheme.textSecondary,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFFEBE4F3), // #ebe4f3
-                          Color(0xFFE6D8ED), // #e6d8ed
-                          Color(0xFFEAD9E0), // #ead9e0
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(
-                        color: const Color(0xFFE0D3E8).withOpacity(0.5),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.brandPurple.withOpacity(0.12),
-                          blurRadius: 32,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
+                  // Support for Today (matching NewUI exactly)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 32), // mb-8
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Subtle background glow
-                        Positioned.fill(
-                          child: Opacity(
-                            opacity: 0.3,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Container(
-                                  width: 160,
-                                  height: 160,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.gradientBeigeStart,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.gradientBeigeStart,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  width: 192,
-                                  height: 192,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.gradientGoldStart,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ],
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16), // mb-4
+                          child: Text(
+                            'Support for today',
+                            style: TextStyle(
+                              fontSize: 16, // text-base
+                              fontWeight: FontWeight.w400, // font-normal
+                              color: Color(0xFF4A3F52), // text-[#4a3f52]
+                              letterSpacing: 0.5, // tracking-wide
                             ),
                           ),
                         ),
-                        // Content
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        // Most Recent Appointment Analysis
+                        StreamBuilder<QuerySnapshot>(
+                          stream: _auth.currentUser != null
+                              ? FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(_auth.currentUser!.uid)
+                                  .collection('visit_summaries')
+                                  .orderBy('appointmentDate', descending: true)
+                                  .limit(1)
+                                  .snapshots()
+                              : null,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return _AppointmentCard(
+                                title: 'Loading...',
+                                subtitle: 'Loading appointment',
+                                description: '',
+                                onTap: () {},
+                              );
+                            }
+
+                            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                              return _AppointmentCard(
+                                title: 'No appointments yet',
+                                subtitle: 'Upload your first visit summary',
+                                description: '',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const AppointmentsListScreen(),
+                                    ),
+                                  );
+                                },
+                              );
+                            }
+
+                            final doc = snapshot.data!.docs.first;
+                            final data = doc.data() as Map<String, dynamic>;
+                            final appointmentDate = data['appointmentDate'];
+                            
+                            String dateText = 'Recent appointment';
+                            if (appointmentDate != null) {
+                              if (appointmentDate is Timestamp) {
+                                dateText = DateFormat('MMMM d, yyyy').format(appointmentDate.toDate());
+                              } else if (appointmentDate is String) {
+                                try {
+                                  final dt = DateTime.parse(appointmentDate);
+                                  dateText = DateFormat('MMMM d, yyyy').format(dt);
+                                } catch (e) {
+                                  dateText = 'Recent appointment';
+                                }
+                              }
+                            }
+
+                            return _AppointmentCard(
+                              title: 'Prenatal appointment',
+                              subtitle: 'Visit on $dateText',
+                              description: 'Dr. Johnson • Valley Health Center',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const AppointmentsListScreen(),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16), // mb-4
+
+                        // Emotional Check-in Card (matching NewUI exactly)
+                        InkWell(
+                          onTap: () => Navigator.pushNamed(context, Routes.journal),
+                          borderRadius: BorderRadius.circular(32),
+                          child: Container(
+                            padding: const EdgeInsets.all(24), // p-6
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Color(0xFFFDFBFC), // from-[#fdfbfc]
+                                  Colors.white, // via-white
+                                  Color(0xFFFEF9F5), // to-[#fef9f5]
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(32), // rounded-[32px]
+                              border: Border.all(
+                                color: Color(0xFFF0E8F3), // border-[#f0e8f3]
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color(0xFF663399).withOpacity(0.1),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Row(
                               children: [
+                                Container(
+                                  width: 48, // w-12
+                                  height: 48, // h-12
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Color(0xFFF8EDF3), // from-[#f8edf3]
+                                        Color(0xFFF9F2E8), // to-[#f9f2e8]
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(20), // rounded-[20px]
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.favorite,
+                                    color: Color(0xFFC9A9C0), // text-[#c9a9c0]
+                                    size: 20, // w-5 h-5
+                                  ),
+                                ),
+                                const SizedBox(width: 16), // gap-4
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Week $weeksPregnant of 40',
-                                        style: const TextStyle(
-                                          color: AppTheme.textMuted,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w300,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        "You're in your $trimester trimester",
-                                        style: const TextStyle(
-                                          color: AppTheme.textPrimary,
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      const Text(
-                                        "You're doing beautifully",
+                                        'Take a moment for yourself',
                                         style: TextStyle(
-                                          color: AppTheme.brandGold,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
+                                          fontSize: 16, // text-base
+                                          fontWeight: FontWeight.w400, // font-normal
+                                          color: Color(0xFF2D2733), // text-[#2d2733]
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4), // mb-1
+                                      Text(
+                                        'How are you feeling today? Your emotional wellbeing matters.',
+                                        style: TextStyle(
+                                          fontSize: 14, // text-sm
+                                          color: Color(0xFF6B5C75), // text-[#6b5c75]
+                                          fontWeight: FontWeight.w300, // font-light
+                                          height: 1.5, // leading-relaxed
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                Container(
-                                  width: 64,
-                                  height: 64,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(32),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppTheme.brandPurple.withOpacity(0.15),
-                                        blurRadius: 16,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Center(
-                                    child: Text(
-                                      '🤰',
-                                      style: TextStyle(fontSize: 32),
-                                    ),
-                                  ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: Color(0xFFD4A574), // text-[#d4a574]
+                                  size: 20, // w-5 h-5
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 24),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Container(
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: FractionallySizedBox(
-                                  alignment: Alignment.centerLeft,
-                                  widthFactor: progress.clamp(0.0, 1.0),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [AppTheme.gradientPurpleStart, AppTheme.brandGold],
-                                      ),
-                                      borderRadius: BorderRadius.circular(6),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppTheme.gradientPurpleStart.withOpacity(0.4),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
+                          ),
+                        ),
+                        // Most Recent Appointment Analysis
+                        StreamBuilder<QuerySnapshot>(
+                          stream: _auth.currentUser != null
+                              ? FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(_auth.currentUser!.uid)
+                                  .collection('visit_summaries')
+                                  .orderBy('appointmentDate', descending: true)
+                                  .limit(1)
+                                  .snapshots()
+                              : null,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return _AppointmentCard(
+                                title: 'Loading...',
+                                subtitle: 'Loading appointment',
+                                description: '',
+                                onTap: () {},
+                              );
+                            }
+
+                            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                              return _AppointmentCard(
+                                title: 'No appointments yet',
+                                subtitle: 'Upload your first visit summary',
+                                description: '',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const AppointmentsListScreen(),
                                     ),
+                                  );
+                                },
+                              );
+                            }
+
+                            final doc = snapshot.data!.docs.first;
+                            final data = doc.data() as Map<String, dynamic>;
+                            final appointmentDate = data['appointmentDate'];
+                            
+                            String dateText = 'Recent appointment';
+                            if (appointmentDate != null) {
+                              if (appointmentDate is Timestamp) {
+                                dateText = DateFormat('MMMM d, yyyy').format(appointmentDate.toDate());
+                              } else if (appointmentDate is String) {
+                                try {
+                                  final dt = DateTime.parse(appointmentDate);
+                                  dateText = DateFormat('MMMM d, yyyy').format(dt);
+                                } catch (e) {
+                                  dateText = 'Recent appointment';
+                                }
+                              }
+                            }
+
+                            return _AppointmentCard(
+                              title: 'Prenatal appointment',
+                              subtitle: 'Visit on $dateText',
+                              description: 'Dr. Johnson • Valley Health Center',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const AppointmentsListScreen(),
                                   ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16), // mb-4
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16), // mb-4
+                          padding: const EdgeInsets.all(24), // p-6
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(32), // rounded-[32px]
+                            border: Border.all(
+                              color: Color(0xFFE8DFE8), // border-[#e8dfe8]
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0xFF663399).withOpacity(0.1),
+                                blurRadius: 24,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 48, // w-12
+                                height: 48, // h-12
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Color(0xFFE8E0F0), // from-[#e8e0f0]
+                                      Color(0xFFEDE7F3), // to-[#ede7f3]
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(20), // rounded-[20px]
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.calendar_today,
+                                  color: Color(0xFF8B7AA8), // text-[#8b7aa8]
+                                  size: 20, // w-5 h-5
                                 ),
                               ),
+                              const SizedBox(width: 16), // gap-4
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Prenatal appointment',
+                                      style: TextStyle(
+                                        fontSize: 16, // text-base
+                                        fontWeight: FontWeight.w400, // font-normal
+                                        color: Color(0xFF2D2733), // text-[#2d2733]
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4), // mb-1
+                                    Text(
+                                      'Tomorrow at 2:00 PM',
+                                      style: TextStyle(
+                                        fontSize: 14, // text-sm
+                                        color: Color(0xFF6B5C75), // text-[#6b5c75]
+                                        fontWeight: FontWeight.w300, // font-light
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8), // mb-2
+                                    Text(
+                                      'Dr. Johnson • Valley Health Center',
+                                      style: TextStyle(
+                                        fontSize: 14, // text-sm
+                                        color: Color(0xFF9D8FB5), // text-[#9d8fb5]
+                                        fontWeight: FontWeight.w300, // font-light
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                color: Color(0xFFB5A8C2), // text-[#b5a8c2]
+                                size: 20, // w-5 h-5
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Emotional Check-in Card (matching NewUI exactly)
+                        Container(
+                          padding: const EdgeInsets.all(24), // p-6
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Color(0xFFFDFBFC), // from-[#fdfbfc]
+                                Colors.white, // via-white
+                                Color(0xFFFEF9F5), // to-[#fef9f5]
+                              ],
                             ),
-                          ],
+                            borderRadius: BorderRadius.circular(32), // rounded-[32px]
+                            border: Border.all(
+                              color: Color(0xFFF0E8F3), // border-[#f0e8f3]
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0xFF663399).withOpacity(0.1),
+                                blurRadius: 24,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 48, // w-12
+                                height: 48, // h-12
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Color(0xFFF8EDF3), // from-[#f8edf3]
+                                      Color(0xFFF9F2E8), // to-[#f9f2e8]
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(20), // rounded-[20px]
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.favorite,
+                                  color: Color(0xFFC9A9C0), // text-[#c9a9c0]
+                                  size: 20, // w-5 h-5
+                                ),
+                              ),
+                              const SizedBox(width: 16), // gap-4
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Take a moment for yourself',
+                                      style: TextStyle(
+                                        fontSize: 16, // text-base
+                                        fontWeight: FontWeight.w400, // font-normal
+                                        color: Color(0xFF2D2733), // text-[#2d2733]
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4), // mb-1
+                                    Text(
+                                      'How are you feeling today? Your emotional wellbeing matters.',
+                                      style: TextStyle(
+                                        fontSize: 14, // text-sm
+                                        color: Color(0xFF6B5C75), // text-[#6b5c75]
+                                        fontWeight: FontWeight.w300, // font-light
+                                        height: 1.5, // leading-relaxed
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                color: Color(0xFFD4A574), // text-[#d4a574]
+                                size: 20, // w-5 h-5
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-                ],
 
-                // Support for Today Section (matching NewUI)
-                const Text(
-                  'Support for today',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: AppTheme.textSecondary,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                // Most Recent Appointment Analysis
-                StreamBuilder<QuerySnapshot>(
-                  stream: _auth.currentUser != null
-                      ? FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(_auth.currentUser!.uid)
-                          .collection('visit_summaries')
-                          .orderBy('appointmentDate', descending: true)
-                          .limit(1)
-                          .snapshots()
-                      : null,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return _SupportCard(
-                        icon: Icons.calendar_today,
-                        iconColor: const Color(0xFF663399),
-                        iconBg: const Color(0xFF663399).withOpacity(0.1),
-                        title: 'Loading...',
-                        subtitle: 'Loading appointment',
-                        onTap: () {},
-                      );
-                    }
-
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return _SupportCard(
-                        icon: Icons.calendar_today,
-                        iconColor: const Color(0xFF663399),
-                        iconBg: const Color(0xFF663399).withOpacity(0.1),
-                        title: 'No appointments yet',
-                        subtitle: 'Upload your first visit summary',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AppointmentsListScreen(),
-                            ),
-                          );
-                        },
-                      );
-                    }
-
-                    final doc = snapshot.data!.docs.first;
-                    final data = doc.data() as Map<String, dynamic>;
-                    final appointmentDate = data['appointmentDate'];
-                    final summary = data['summary'];
-                    final summaryString = summary is String 
-                        ? summary 
-                        : (summary is Map 
-                            ? (data['summaryData'] is Map 
-                                ? _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>)
-                                : summary.toString())
-                            : null);
-                    
-                    String dateText = 'Recent appointment';
-                    if (appointmentDate != null) {
-                      if (appointmentDate is Timestamp) {
-                        dateText = DateFormat('MMMM d, yyyy').format(appointmentDate.toDate());
-                      } else if (appointmentDate is String) {
-                        try {
-                          final dt = DateTime.parse(appointmentDate);
-                          dateText = DateFormat('MMMM d, yyyy').format(dt);
-                        } catch (e) {
-                          dateText = 'Recent appointment';
-                        }
-                      }
-                    }
-
-                    String previewText = 'View your visit summary';
-                    if (summaryString != null) {
-                      final babyMatch = RegExp(r'## How Your Baby Is Doing\n(.*?)(?=\n## |$)', dotAll: true)
-                          .firstMatch(summaryString);
-                      if (babyMatch != null) {
-                        final content = babyMatch.group(1)?.trim() ?? '';
-                        previewText = content.length > 80 ? content.substring(0, 80) + '...' : content;
-                      } else {
-                        final lines = summaryString.split('\n');
-                        for (final line in lines) {
-                          if (line.trim().isNotEmpty && !line.startsWith('#')) {
-                            previewText = line.trim();
-                            if (previewText.length > 80) {
-                              previewText = previewText.substring(0, 80) + '...';
-                            }
-                            break;
-                          }
-                        }
-                      }
-                    }
-
-                    return _SupportCard(
-                      icon: Icons.medical_information,
-                      iconColor: const Color(0xFF663399),
-                      iconBg: const Color(0xFF663399).withOpacity(0.1),
-                      title: 'Visit on $dateText',
-                      subtitle: previewText,
-                      description: data['readingLevel'] ?? '8th grade',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AppointmentsListScreen(),
+                  // Your Care Tools (matching NewUI exactly)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16), // mb-4
+                        child: Text(
+                          'Your care tools',
+                          style: TextStyle(
+                            fontSize: 16, // text-base
+                            fontWeight: FontWeight.w400, // font-normal
+                            color: Color(0xFF4A3F52), // text-[#4a3f52]
+                            letterSpacing: 0.5, // tracking-wide
                           ),
-                        );
-                      },
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-
-                // Emotional Check-in Card
-                _SupportCard(
-                  icon: Icons.favorite,
-                  iconColor: Colors.red.shade500,
-                  iconBg: Colors.red.shade50,
-                  title: 'How are you feeling?',
-                  subtitle: 'Take a moment to check in with yourself',
-                  gradient: LinearGradient(
-                    colors: [Colors.red.shade50, Colors.pink.shade50],
-                  ),
-                  borderColor: Colors.pink.shade100,
-                  onTap: () => Navigator.pushNamed(context, Routes.journal),
-                ),
-                const SizedBox(height: 24),
-
-                // Your Care Tools Section (matching NewUI)
-                const Text(
-                  'Your care tools',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: AppTheme.textSecondary,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                
-                // Active Learning Modules Widget
-                StreamBuilder<QuerySnapshot>(
-                  stream: _auth.currentUser != null
-                      ? FirebaseFirestore.instance
-                          .collection('learning_tasks')
-                          .where('userId', isEqualTo: _auth.currentUser!.uid)
-                          .where('isGenerated', isEqualTo: true)
-                          .orderBy('createdAt', descending: true)
-                          .snapshots()
-                      : null,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Row(
-                        children: [
-                          Expanded(child: _ModuleCard(
-                            icon: Icons.book_outlined,
-                            iconColor: Colors.blue.shade500,
-                            iconBg: Colors.blue.shade50,
-                            title: 'Loading...',
-                            subtitle: 'Loading modules',
-                            onTap: () {},
-                          )),
-                          const SizedBox(width: 12),
-                          Expanded(child: _ModuleCard(
-                            icon: Icons.book_outlined,
-                            iconColor: Colors.blue.shade500,
-                            iconBg: Colors.blue.shade50,
-                            title: 'Loading...',
-                            subtitle: 'Loading modules',
-                            onTap: () {},
-                          )),
-                        ],
-                      );
-                    }
-
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return Row(
+                        ),
+                      ),
+                      // Grid of 4 cards (matching NewUI exactly)
+                      Row(
                         children: [
                           Expanded(
-                            child: _ModuleCard(
+                            child: _CareToolCard(
                               icon: Icons.book_outlined,
-                              iconColor: Colors.blue.shade500,
-                              iconBg: Colors.blue.shade50,
-                              title: 'No modules yet',
-                              subtitle: 'Generate modules to get started',
+                              iconGradient: [
+                                Color(0xFFE8E0F0), // from-[#e8e0f0]
+                                Color(0xFFEDE7F3), // to-[#ede7f3]
+                              ],
+                              iconColor: Color(0xFF8B7AA8), // text-[#8b7aa8]
+                              title: 'Learning',
+                              subtitle: 'Week by week guides',
                               onTap: () => Navigator.pushNamed(context, Routes.learning),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 16), // gap-4
                           Expanded(
-                            child: _ModuleCard(
-                              icon: Icons.add_circle_outline,
-                              iconColor: const Color(0xFF663399),
-                              iconBg: const Color(0xFF663399).withOpacity(0.1),
-                              title: 'Get started',
-                              subtitle: 'Create your first module',
-                              onTap: () => Navigator.pushNamed(context, Routes.learning),
+                            child: _CareToolCard(
+                              icon: Icons.edit,
+                              iconGradient: [
+                                Color(0xFFF9F2E8), // from-[#f9f2e8]
+                                Color(0xFFFEF9F5), // to-[#fef9f5]
+                              ],
+                              iconColor: Color(0xFFD4A574), // text-[#d4a574]
+                              title: 'Journal',
+                              subtitle: 'Your private space',
+                              onTap: () => Navigator.pushNamed(context, Routes.journal),
                             ),
                           ),
                         ],
-                      );
-                    }
-
-                    // Filter out archived modules and get first 2 active ones
-                    final activeModules = snapshot.data!.docs.where((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final isArchived = data['isArchived'] ?? false;
-                      return isArchived != true;
-                    }).take(2).toList();
-                    
-                    final module1 = activeModules.length > 0 ? activeModules[0] : null;
-                    final module2 = activeModules.length > 1 ? activeModules[1] : null;
-
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: module1 != null
-                              ? _buildModuleCardFromData(
-                                  module1.data() as Map<String, dynamic>,
-                                  (title) {
-                                    final lower = title.toLowerCase();
-                                    if (lower.contains('right') || lower.contains('advocacy')) return Icons.scale;
-                                    if (lower.contains('nutrition') || lower.contains('food')) return Icons.restaurant;
-                                    if (lower.contains('medication')) return Icons.medication;
-                                    if (lower.contains('mental') || lower.contains('emotional')) return Icons.favorite;
-                                    if (lower.contains('birth') || lower.contains('labor')) return Icons.child_care;
-                                    return Icons.book_outlined;
-                                  },
-                                  (title) {
-                                    final lower = title.toLowerCase();
-                                    if (lower.contains('right') || lower.contains('advocacy')) {
-                                      return {'bg': Colors.red.shade50, 'icon': Colors.red.shade600};
-                                    }
-                                    if (lower.contains('nutrition') || lower.contains('food')) {
-                                      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
-                                    }
-                                    if (lower.contains('medication')) {
-                                      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
-                                    }
-                                    if (lower.contains('mental') || lower.contains('emotional')) {
-                                      return {'bg': Colors.purple.shade50, 'icon': const Color(0xFF663399)};
-                                    }
-                                    return {'bg': Colors.blue.shade50, 'icon': Colors.blue.shade500};
-                                  },
-                                  context,
-                                )
-                              : _ModuleCard(
-                                  icon: Icons.book_outlined,
-                                  iconColor: Colors.blue.shade500,
-                                  iconBg: Colors.blue.shade50,
-                                  title: 'No modules',
-                                  subtitle: 'Get started',
-                                  onTap: () => Navigator.pushNamed(context, Routes.learning),
-                                ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: module2 != null
-                              ? _buildModuleCardFromData(
-                                  module2.data() as Map<String, dynamic>,
-                                  (title) {
-                                    final lower = title.toLowerCase();
-                                    if (lower.contains('right') || lower.contains('advocacy')) return Icons.scale;
-                                    if (lower.contains('nutrition') || lower.contains('food')) return Icons.restaurant;
-                                    if (lower.contains('medication')) return Icons.medication;
-                                    if (lower.contains('mental') || lower.contains('emotional')) return Icons.favorite;
-                                    if (lower.contains('birth') || lower.contains('labor')) return Icons.child_care;
-                                    return Icons.book_outlined;
-                                  },
-                                  (title) {
-                                    final lower = title.toLowerCase();
-                                    if (lower.contains('right') || lower.contains('advocacy')) {
-                                      return {'bg': Colors.red.shade50, 'icon': Colors.red.shade600};
-                                    }
-                                    if (lower.contains('nutrition') || lower.contains('food')) {
-                                      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
-                                    }
-                                    if (lower.contains('medication')) {
-                                      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
-                                    }
-                                    if (lower.contains('mental') || lower.contains('emotional')) {
-                                      return {'bg': Colors.purple.shade50, 'icon': const Color(0xFF663399)};
-                                    }
-                                    return {'bg': Colors.blue.shade50, 'icon': Colors.blue.shade500};
-                                  },
-                                  context,
-                                )
-                              : _ModuleCard(
-                                  icon: Icons.add_circle_outline,
-                                  iconColor: const Color(0xFF663399),
-                                  iconBg: const Color(0xFF663399).withOpacity(0.1),
-                                  title: 'Add module',
-                                  subtitle: 'Create new',
-                                  onTap: () => Navigator.pushNamed(context, Routes.learning),
-                                ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
-
-                // Quick Tools Section (removed - functionality preserved in care tools)
-                const SizedBox(height: 24),
-                _QuickToolCard(
-                  icon: Icons.assignment,
-                  iconColor: const Color(0xFF663399),
-                  iconBg: const Color(0xFF663399).withOpacity(0.1),
-                  title: 'Birth Plan Builder',
-                  subtitle: 'Create your preferences',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const BirthPlansListScreen(),
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-                _QuickToolCard(
-                  icon: Icons.description,
-                  iconColor: Colors.green.shade600,
-                  iconBg: Colors.green.shade50,
-                  title: 'After Visit Summary',
-                  subtitle: 'Understand your visit',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AppointmentsListScreen(),
+                      const SizedBox(height: 16), // gap-4
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _CareToolCard(
+                              icon: Icons.description,
+                              iconGradient: [
+                                Color(0xFFE8E0F0), // from-[#e8e0f0]
+                                Color(0xFFEDE7F3), // to-[#ede7f3]
+                              ],
+                              iconColor: Color(0xFF8B7AA8), // text-[#8b7aa8]
+                              title: 'Birth plan',
+                              subtitle: 'Your preferences',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const BirthPlansListScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16), // gap-4
+                          Expanded(
+                            child: _CareToolCard(
+                              icon: Icons.people_outline,
+                              iconGradient: [
+                                Colors.white, // from-white
+                                Color(0xFFFDFBFC), // via-[#fdfbfc]
+                                Color(0xFFFEF9F5), // to-[#fef9f5]
+                              ],
+                              iconColor: Color(0xFFC9A9C0), // text-[#c9a9c0]
+                              title: 'Community',
+                              subtitle: 'Connect & share',
+                              borderColor: Color(0xFFF0E8F3), // border-[#f0e8f3]
+                              onTap: () => Navigator.pushNamed(context, Routes.community),
+                            ),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-                _QuickToolCard(
-                  icon: Icons.favorite,
-                  iconColor: Colors.amber.shade600,
-                  iconBg: Colors.amber.shade50,
-                  title: 'Journal Entry',
-                  subtitle: 'Reflect on today',
-                  onTap: () => Navigator.pushNamed(context, Routes.journal),
-                ),
-                const SizedBox(height: 80), // Space for bottom nav
+                    ],
+                  ),
+                      const SizedBox(height: 100), // Space for bottom nav
               ],
             ),
           ),
@@ -1116,20 +1326,132 @@ class _ModuleCard extends StatelessWidget {
   }
 }
 
-class _QuickToolCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
+class _AppointmentCard extends StatelessWidget {
   final String title;
   final String subtitle;
+  final String description;
   final VoidCallback onTap;
 
-  const _QuickToolCard({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBg,
+  const _AppointmentCard({
     required this.title,
     required this.subtitle,
+    required this.description,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(32),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16), // mb-4
+        padding: const EdgeInsets.all(24), // p-6
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32), // rounded-[32px]
+          border: Border.all(
+            color: Color(0xFFE8DFE8), // border-[#e8dfe8]
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0xFF663399).withOpacity(0.1),
+              blurRadius: 24,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48, // w-12
+              height: 48, // h-12
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFFE8E0F0), // from-[#e8e0f0]
+                    Color(0xFFEDE7F3), // to-[#ede7f3]
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20), // rounded-[20px]
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.calendar_today,
+                color: Color(0xFF8B7AA8), // text-[#8b7aa8]
+                size: 20, // w-5 h-5
+              ),
+            ),
+            const SizedBox(width: 16), // gap-4
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16, // text-base
+                      fontWeight: FontWeight.w400, // font-normal
+                      color: Color(0xFF2D2733), // text-[#2d2733]
+                    ),
+                  ),
+                  const SizedBox(height: 4), // mb-1
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14, // text-sm
+                      color: Color(0xFF6B5C75), // text-[#6b5c75]
+                      fontWeight: FontWeight.w300, // font-light
+                    ),
+                  ),
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 8), // mb-2
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 14, // text-sm
+                        color: Color(0xFF9D8FB5), // text-[#9d8fb5]
+                        fontWeight: FontWeight.w300, // font-light
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: Color(0xFFB5A8C2), // text-[#b5a8c2]
+              size: 20, // w-5 h-5
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CareToolCard extends StatelessWidget {
+  final IconData icon;
+  final List<Color> iconGradient;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final Color? borderColor;
+  final VoidCallback onTap;
+
+  const _CareToolCard({
+    required this.icon,
+    required this.iconGradient,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    this.borderColor,
     required this.onTap,
   });
 
@@ -1139,32 +1461,37 @@ class _QuickToolCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(28),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20), // p-5
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: AppTheme.borderLight),
+          gradient: borderColor != null
+              ? LinearGradient(
+                  colors: iconGradient,
+                )
+              : null,
+          color: borderColor == null ? Colors.white : null,
+          borderRadius: BorderRadius.circular(28), // rounded-[28px]
+          border: Border.all(
+            color: borderColor ?? Color(0xFFE8DFE8), // border-[#e8dfe8]
+          ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.brandPurple.withOpacity(0.08),
+              color: Color(0xFF663399).withOpacity(0.08),
               blurRadius: 20,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 44, // w-11
+              height: 44, // h-11
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    AppTheme.gradientBeigeStart.withOpacity(0.6),
-                    AppTheme.gradientBeigeEnd.withOpacity(0.6),
-                  ],
+                  colors: iconGradient,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(18), // rounded-[18px]
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
@@ -1173,34 +1500,30 @@ class _QuickToolCard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textLightest,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                ],
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: 20, // w-5 h-5
               ),
             ),
-            Icon(Icons.chevron_right, color: AppTheme.textBarelyVisible, size: 20),
+            const SizedBox(height: 12), // mb-3
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14, // text-sm
+                fontWeight: FontWeight.w400, // font-normal
+                color: Color(0xFF2D2733), // text-[#2d2733]
+              ),
+            ),
+            const SizedBox(height: 4), // mb-1
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12, // text-xs
+                color: Color(0xFF9D8FB5), // text-[#9d8fb5]
+                fontWeight: FontWeight.w300, // font-light
+              ),
+            ),
           ],
         ),
       ),

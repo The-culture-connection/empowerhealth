@@ -13,6 +13,8 @@ class ProfileCreationProvider extends ChangeNotifier {
   DateTime? deliveryDate;
   int? childAgeMonths;
   String zipCode = '';
+  String city = '';
+  String state = 'OH'; // Default to Ohio
   String insuranceType = '';
 
   // Demographics
@@ -83,6 +85,8 @@ class ProfileCreationProvider extends ChangeNotifier {
     DateTime? deliveryDate,
     int? childAgeMonths,
     String? zipCode,
+    String? city,
+    String? state,
     String? insuranceType,
   }) {
     if (username != null) this.username = username;
@@ -117,6 +121,8 @@ class ProfileCreationProvider extends ChangeNotifier {
     }
     if (childAgeMonths != null) this.childAgeMonths = childAgeMonths;
     if (zipCode != null) this.zipCode = zipCode;
+    if (city != null) this.city = city;
+    if (state != null) this.state = state;
     if (insuranceType != null) this.insuranceType = insuranceType;
     notifyListeners();
   }
@@ -214,6 +220,8 @@ class ProfileCreationProvider extends ChangeNotifier {
       deliveryDate: deliveryDate,
       childAgeMonths: childAgeMonths,
       zipCode: zipCode,
+      city: city,
+      state: state,
       insuranceType: insuranceType,
       raceEthnicity: raceEthnicity,
       languagePreference: languagePreference,
@@ -250,6 +258,8 @@ class ProfileCreationProvider extends ChangeNotifier {
     deliveryDate = null;
     childAgeMonths = null;
     zipCode = '';
+    city = '';
+    state = 'OH';
     insuranceType = '';
     raceEthnicity = null;
     languagePreference = null;

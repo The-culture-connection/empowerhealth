@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/provider_review.dart';
+import '../models/provider.dart';
 import '../services/provider_repository.dart';
 import '../cors/ui_theme.dart';
 
 class ProviderReviewScreen extends StatefulWidget {
   final String providerId;
   final String providerName;
+  final Provider? provider; // Optional provider data to save
 
   const ProviderReviewScreen({
     super.key,
     required this.providerId,
     required this.providerName,
+    this.provider,
   });
 
   @override
@@ -86,7 +89,13 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
         isVerified: true, // Provider reviews are verified
       );
 
-      await _repository.submitProviderReview(review);
+      // Save provider to Firestore if provided, then submit review
+      String? firestoreProviderId;
+      if (widget.provider != null) {
+        firestoreProviderId = await _repository.saveProviderOnReview(widget.provider!);
+      }
+      
+      await _repository.submitProviderReview(review, firestoreProviderId: firestoreProviderId);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

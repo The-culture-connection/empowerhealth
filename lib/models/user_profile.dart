@@ -11,6 +11,8 @@ class UserProfile {
   final DateTime? deliveryDate;
   final int? childAgeMonths;
   final String zipCode;
+  final String? city;
+  final String? state;
   final String insuranceType;
 
   // Demographics
@@ -60,6 +62,8 @@ class UserProfile {
     this.deliveryDate,
     this.childAgeMonths,
     required this.zipCode,
+    this.city,
+    this.state,
     required this.insuranceType,
     this.raceEthnicity,
     this.languagePreference,
@@ -100,6 +104,8 @@ class UserProfile {
       'deliveryDate': deliveryDate?.toIso8601String(),
       'childAgeMonths': childAgeMonths,
       'zipCode': zipCode,
+      'city': city,
+      'state': state,
       'insuranceType': insuranceType,
       'raceEthnicity': raceEthnicity,
       'languagePreference': languagePreference,
@@ -140,6 +146,8 @@ class UserProfile {
       deliveryDate: map['deliveryDate'] != null ? DateTime.parse(map['deliveryDate']) : null,
       childAgeMonths: map['childAgeMonths'],
       zipCode: map['zipCode'] ?? '',
+      city: map['city'],
+      state: map['state'],
       insuranceType: map['insuranceType'] ?? '',
       raceEthnicity: map['raceEthnicity'],
       languagePreference: map['languagePreference'],
@@ -178,6 +186,8 @@ class UserProfile {
     bool? isPostpartum,
     int? childAgeMonths,
     String? zipCode,
+    String? city,
+    String? state,
     String? insuranceType,
     String? raceEthnicity,
     String? languagePreference,
@@ -211,6 +221,8 @@ class UserProfile {
       isPostpartum: isPostpartum ?? this.isPostpartum,
       childAgeMonths: childAgeMonths ?? this.childAgeMonths,
       zipCode: zipCode ?? this.zipCode,
+      city: city ?? this.city,
+      state: state ?? this.state,
       insuranceType: insuranceType ?? this.insuranceType,
       raceEthnicity: raceEthnicity ?? this.raceEthnicity,
       languagePreference: languagePreference ?? this.languagePreference,

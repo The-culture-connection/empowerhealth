@@ -6,7 +6,12 @@ import '../constants/provider_types.dart';
 import '../cors/ui_theme.dart';
 
 class AddProviderScreen extends StatefulWidget {
-  const AddProviderScreen({super.key});
+  final bool isMamaApproved;
+  
+  const AddProviderScreen({
+    super.key,
+    this.isMamaApproved = false,
+  });
 
   @override
   State<AddProviderScreen> createState() => _AddProviderScreenState();
@@ -15,6 +20,7 @@ class AddProviderScreen extends StatefulWidget {
 class _AddProviderScreenState extends State<AddProviderScreen> {
   final _formKey = GlobalKey<FormState>();
   final _repository = ProviderRepository();
+  final _functionsService = FirebaseFunctionsService();
   
   final _nameController = TextEditingController();
   final _providerTypeController = TextEditingController();
@@ -88,15 +94,39 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
         phone: _phoneController.text.isNotEmpty ? _phoneController.text : null,
         email: _emailController.text.isNotEmpty ? _emailController.text : null,
         website: _websiteController.text.isNotEmpty ? _websiteController.text : null,
-        source: 'user_submission',
+        source: widget.isMamaApproved ? 'admin_mama_approved' : 'user_submission',
+        mamaApproved: widget.isMamaApproved,
       );
 
-      // TODO: Get current user ID
-      await _repository.submitProvider(
-        provider,
-        userId: null, // TODO: Get from auth
-        notes: _notesController.text.isNotEmpty ? _notesController.text : null,
-      );
+      // If Mama Approved, use Firebase function; otherwise use repository
+      if (widget.isMamaApproved) {
+        await _functionsService.addProvider(
+          name: _nameController.text,
+          specialty: _selectedSpecialty,
+          providerTypes: providerTypeId != null ? [providerTypeId] : [],
+          specialties: [_selectedSpecialty],
+          locations: [
+            {
+              'address': _addressController.text,
+              'city': _cityController.text,
+              'state': 'OH',
+              'zip': _zipController.text,
+              'phone': _phoneController.text.isNotEmpty ? _phoneController.text : null,
+            },
+          ],
+          phone: _phoneController.text.isNotEmpty ? _phoneController.text : null,
+          email: _emailController.text.isNotEmpty ? _emailController.text : null,
+          website: _websiteController.text.isNotEmpty ? _websiteController.text : null,
+          mamaApproved: true,
+        );
+      } else {
+        // TODO: Get current user ID
+        await _repository.submitProvider(
+          provider,
+          userId: null, // TODO: Get from auth
+          notes: _notesController.text.isNotEmpty ? _notesController.text : null,
+        );
+      }
 
       setState(() {
         _submitted = true;

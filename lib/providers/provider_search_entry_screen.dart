@@ -112,6 +112,11 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
             _zipController.text = profile.zipCode;
           }
           
+          // Autofill City
+          if (profile.city != null && profile.city!.isNotEmpty && _cityController.text.isEmpty) {
+            _cityController.text = profile.city!;
+          }
+          
           // Map insurance type to health plan
           if (_healthPlan.isEmpty) {
             _healthPlan = _mapInsuranceToHealthPlan(profile.insuranceType);

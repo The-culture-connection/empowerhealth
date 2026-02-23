@@ -14,6 +14,8 @@ class BasicInfoStep extends StatefulWidget {
 class _BasicInfoStepState extends State<BasicInfoStep> {
   final _formKey = GlobalKey<FormState>();
   final _zipCodeController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _stateController = TextEditingController();
   final _childAgeMonthsController = TextEditingController();
   
   @override
@@ -21,12 +23,16 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
     super.initState();
     final provider = Provider.of<ProfileCreationProvider>(context, listen: false);
     _zipCodeController.text = provider.zipCode;
+    _cityController.text = provider.city;
+    _stateController.text = provider.state;
     _childAgeMonthsController.text = provider.childAgeMonths?.toString() ?? '';
   }
 
   @override
   void dispose() {
     _zipCodeController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
     _childAgeMonthsController.dispose();
     super.dispose();
   }
@@ -244,6 +250,46 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                 },
                 onChanged: (value) {
                   provider.updateBasicInfo(zipCode: value);
+                },
+              ),
+              const SizedBox(height: AppTheme.spacingXL),
+              
+              // City
+              TextFormField(
+                controller: _cityController,
+                decoration: const InputDecoration(
+                  labelText: 'City',
+                  hintText: 'Enter your city',
+                  prefixIcon: Icon(Icons.location_city_outlined),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your city';
+                  }
+                  return null;
+                },
+                onChanged: (value) {
+                  provider.updateBasicInfo(city: value);
+                },
+              ),
+              const SizedBox(height: AppTheme.spacingXL),
+              
+              // State
+              TextFormField(
+                controller: _stateController,
+                decoration: const InputDecoration(
+                  labelText: 'State',
+                  hintText: 'Enter your state (e.g., OH)',
+                  prefixIcon: Icon(Icons.map_outlined),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your state';
+                  }
+                  return null;
+                },
+                onChanged: (value) {
+                  provider.updateBasicInfo(state: value.toUpperCase());
                 },
               ),
               const SizedBox(height: AppTheme.spacingL),

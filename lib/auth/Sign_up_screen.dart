@@ -100,9 +100,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       if (user != null) {
-        // Update display name
-        await _authService.updateDisplayName(_name.text.trim());
-
         if (mounted) {
           // Navigate to profile creation
           Navigator.pushReplacementNamed(context, Routes.profileCreation);
@@ -147,20 +144,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         children: [
                           Text('Create account', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
                           const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _name,
-                            decoration: InputDecoration(
-                              labelText: 'Full name',
-                              suffixIcon: IconButton(
-                                icon: Icon(Icons.keyboard_hide, 
-                                    color: Colors.grey[400], size: 20),
-                                onPressed: () => FocusScope.of(context).unfocus(),
-                                tooltip: 'Dismiss keyboard',
-                              ),
-                            ),
-                            validator: (v) => (v == null || v.isEmpty) ? 'Enter your name' : null,
-                          ),
-                          const SizedBox(height: 12),
                           TextFormField(
                             controller: _email,
                             keyboardType: TextInputType.emailAddress,

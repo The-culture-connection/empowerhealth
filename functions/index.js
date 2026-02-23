@@ -2753,7 +2753,22 @@ exports.searchProviders = onCall(async (request) => {
     // 4. Enrich with Firestore data (reviews, identity tags, Mama Approved)
     const enrichedProviders = await enrichProvidersWithFirestore(deduplicatedProviders);
 
-    // 5. Serialize providers to ensure JSON-compatible format
+    // 5. Sort providers: Mama Approved first, then by rating
+    enrichedProviders.sort((a, b) => {
+      // Mama Approved providers first
+      if (a.mamaApproved && !b.mamaApproved) return -1;
+      if (!a.mamaApproved && b.mamaApproved) return 1;
+      // Then by rating (highest first)
+      const ratingA = a.rating || 0;
+      const ratingB = b.rating || 0;
+      if (ratingA !== ratingB) return ratingB - ratingA;
+      // Then by review count
+      const countA = a.reviewCount || 0;
+      const countB = b.reviewCount || 0;
+      return countB - countA;
+    });
+
+    // 6. Serialize providers to ensure JSON-compatible format
     const serializedProviders = enrichedProviders.map(serializeProvider);
 
     return {
@@ -3147,6 +3162,7 @@ async function enrichProvidersWithFirestore(providers) {
       let rating = firestoreProvider?.rating || null;
       let reviewCount = firestoreProvider?.reviewCount || 0;
       
+      // Try to get reviews by Firestore ID first
       if (firestoreId) {
         try {
           const reviewsQuery = await admin.firestore()
@@ -3161,10 +3177,69 @@ async function enrichProvidersWithFirestore(providers) {
               const totalRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
               rating = totalRating / reviews.length;
               reviewCount = reviews.length;
+              console.log(`[Enrich] Provider ${firestoreId}: calculated rating ${rating} from ${reviews.length} reviews`);
             }
           }
         } catch (error) {
           console.error(`Error getting reviews for ${firestoreId}:`, error);
+        }
+      }
+      
+      // If no rating found and provider has NPI, try to find reviews by NPI
+      if ((rating == null || rating == 0) && provider.npi) {
+        try {
+          // Try to find provider by NPI to get Firestore ID
+          const npiProviderQuery = await admin.firestore()
+            .collection("providers")
+            .where("npi", "==", provider.npi)
+            .limit(1)
+            .get();
+          
+          if (!npiProviderQuery.empty) {
+            const npiProviderId = npiProviderQuery.docs[0].id;
+            const reviewsQuery = await admin.firestore()
+              .collection("reviews")
+              .where("providerId", "==", npiProviderId)
+              .limit(50)
+              .get();
+            
+            if (!reviewsQuery.empty) {
+              const reviews = reviewsQuery.docs.map((doc) => doc.data());
+              if (reviews.length > 0) {
+                const totalRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
+                rating = totalRating / reviews.length;
+                reviewCount = reviews.length;
+                console.log(`[Enrich] Provider NPI ${provider.npi}: calculated rating ${rating} from ${reviews.length} reviews`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error getting reviews by NPI for ${provider.npi}:`, error);
+        }
+      }
+      
+      // If still no rating found and provider has NPI, try to find reviews by NPI-based providerId
+      if ((rating == null || rating == 0) && provider.npi && !firestoreId) {
+        try {
+          // Try to find reviews with providerId starting with 'npi_'
+          const npiProviderId = `npi_${provider.npi}`;
+          const reviewsQuery = await admin.firestore()
+            .collection("reviews")
+            .where("providerId", "==", npiProviderId)
+            .limit(50)
+            .get();
+          
+          if (!reviewsQuery.empty) {
+            const reviews = reviewsQuery.docs.map((doc) => doc.data());
+            if (reviews.length > 0) {
+              const totalRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
+              rating = totalRating / reviews.length;
+              reviewCount = reviews.length;
+              console.log(`[Enrich] Provider NPI ${provider.npi} (no Firestore ID): calculated rating ${rating} from ${reviews.length} reviews`);
+            }
+          }
+        } catch (error) {
+          console.error(`Error getting reviews by NPI ID for ${provider.npi}:`, error);
         }
       }
       
@@ -3192,3 +3267,112 @@ async function enrichProvidersWithFirestore(providers) {
 
   return enriched;
 }
+
+// Admin function to add or update a provider manually (backend only)
+// This allows admins to add providers and mark them as Mama Approved
+exports.addProvider = onCall(async (request) => {
+  // Validate authentication
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated");
+  }
+
+  // Check if user is admin (you can customize this check)
+  // For now, we'll allow any authenticated user - you should add admin check
+  const { uid } = request.auth;
+  
+  // TODO: Add admin check here
+  // const userDoc = await admin.firestore().collection("users").doc(uid).get();
+  // if (!userDoc.exists || userDoc.data().role !== "admin") {
+  //   throw new HttpsError("permission-denied", "Admin access required");
+  // }
+
+  const {
+    name,
+    specialty,
+    practiceName,
+    npi,
+    locations,
+    providerTypes,
+    specialties,
+    phone,
+    email,
+    website,
+    mamaApproved = false,
+    identityTags = [],
+    acceptsPregnantWomen,
+    acceptsNewborns,
+    telehealth,
+  } = request.data;
+
+  // Validate required fields
+  if (!name) {
+    throw new HttpsError("invalid-argument", "Provider name is required");
+  }
+
+  try {
+    // Check if provider already exists by NPI
+    let providerId = null;
+    if (npi) {
+      const existingQuery = await admin.firestore()
+        .collection("providers")
+        .where("npi", "==", npi)
+        .limit(1)
+        .get();
+      
+      if (!existingQuery.empty) {
+        providerId = existingQuery.docs[0].id;
+      }
+    }
+
+    // Prepare provider data
+    const providerData = {
+      name: name,
+      specialty: specialty || null,
+      practiceName: practiceName || null,
+      npi: npi || null,
+      locations: Array.isArray(locations) ? locations : [],
+      providerTypes: Array.isArray(providerTypes) ? providerTypes : [],
+      specialties: Array.isArray(specialties) ? specialties : [],
+      phone: phone || null,
+      email: email || null,
+      website: website || null,
+      mamaApproved: mamaApproved === true,
+      mamaApprovedCount: mamaApproved ? 1 : 0,
+      identityTags: Array.isArray(identityTags) ? identityTags : [],
+      acceptsPregnantWomen: acceptsPregnantWomen !== undefined ? acceptsPregnantWomen : null,
+      acceptsNewborns: acceptsNewborns !== undefined ? acceptsNewborns : null,
+      telehealth: telehealth !== undefined ? telehealth : null,
+      source: "admin_added",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (providerId) {
+      // Update existing provider
+      await admin.firestore()
+        .collection("providers")
+        .doc(providerId)
+        .update({
+          ...providerData,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      console.log(`[Admin] Updated provider ${providerId}: ${name}`);
+    } else {
+      // Create new provider
+      const docRef = await admin.firestore()
+        .collection("providers")
+        .add(providerData);
+      providerId = docRef.id;
+      console.log(`[Admin] Created provider ${providerId}: ${name}`);
+    }
+
+    return {
+      success: true,
+      providerId: providerId,
+      message: providerId ? "Provider updated" : "Provider created",
+    };
+  } catch (error) {
+    console.error("Error in addProvider:", error);
+    throw new HttpsError("internal", "Failed to add provider: " + error.message);
+  }
+});

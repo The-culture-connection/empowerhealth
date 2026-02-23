@@ -1,17 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/provider.dart';
 import '../models/provider_review.dart';
-import 'ohio_medicaid_directory_service.dart';
-import 'npi_registry_service.dart';
+import 'firebase_functions_service.dart';
 import '../constants/provider_types.dart';
 
 class ProviderRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final OhioMedicaidDirectoryService _medicaidService = OhioMedicaidDirectoryService();
-  final NpiRegistryService _npiService = NpiRegistryService();
+  final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
 
-  /// Search providers combining Medicaid and NPI results
-  /// Pregnancy-Smart filters only to keep URLs manageable
+  /// Search providers using Firebase function
+  /// This calls the Cloud Function which handles Medicaid + NPI API calls and enrichment
   Future<List<Provider>> searchProviders({
     required String zip,
     required String city,
@@ -25,11 +23,9 @@ class ProviderRepository {
     bool? acceptsNewborns,
     bool? telehealth,
   }) async {
-    final List<Provider> allProviders = [];
-
     try {
       // Validate provider type IDs
-      print('🔍 [ProviderRepository] Starting search');
+      print('🔍 [ProviderRepository] Starting search via Firebase function');
       print('🔍 [ProviderRepository] ZIP: $zip, City: $city, Health Plan: $healthPlan');
       print('🔍 [ProviderRepository] Provider type IDs: $providerTypeIds');
       print('🔍 [ProviderRepository] Radius: $radius, Specialty: $specialty');
@@ -47,86 +43,43 @@ class ProviderRepository {
       
       print('🔍 [ProviderRepository] Validated provider type IDs: $validatedProviderTypeIds');
 
-      // Search Medicaid directory
-      List<Provider> medicaidProviders = [];
-      try {
-        medicaidProviders = await _medicaidService.searchProviders(
-          zip: zip,
-          city: city,
-          healthPlan: healthPlan,
-          providerTypeIds: validatedProviderTypeIds,
-          radius: radius,
-          specialty: specialty,
-          // Pregnancy-Smart filters only
-          acceptsPregnantWomen: acceptsPregnantWomen,
-          acceptsNewborns: acceptsNewborns,
-          telehealth: telehealth,
-        );
-        print('✅ [ProviderRepository] Medicaid returned ${medicaidProviders.length} providers');
-      } catch (e) {
-        print('❌ [ProviderRepository] Medicaid search failed: $e');
-        // Continue to NPI search if enabled
-      }
+      // Call Firebase function
+      final result = await _functionsService.searchProviders(
+        zip: zip,
+        city: city,
+        healthPlan: healthPlan,
+        providerTypeIds: validatedProviderTypeIds,
+        radius: radius,
+        specialty: specialty,
+        includeNpi: includeNpi,
+        acceptsPregnantWomen: acceptsPregnantWomen,
+        acceptsNewborns: acceptsNewborns,
+        telehealth: telehealth,
+      );
 
-      allProviders.addAll(medicaidProviders);
-
-      // If zero results or NPI toggle is on, search NPI
-      if (includeNpi || medicaidProviders.isEmpty) {
+      // Parse providers from function response
+      final providersList = result['providers'] as List<dynamic>? ?? [];
+      final providers = providersList.map((p) {
         try {
-          // NPI requires specialty or mappable provider types
-          if (specialty == null || specialty.isEmpty) {
-            // Check if we can infer from provider types
-            final canInferTaxonomy = validatedProviderTypeIds.any((id) => 
-              ['09', '01', '71', '46', '44', '19', '20'].contains(id));
-            
-            if (!canInferTaxonomy) {
-              print('⚠️ [ProviderRepository] NPI search skipped: no specialty and provider types cannot be mapped to NPI taxonomy');
-              // Don't throw - just skip NPI search
-            } else {
-              final npiProviders = await _npiService.searchProviders(
-                state: 'OH',
-                specialty: specialty,
-                zip: zip,
-                city: city,
-                providerTypeIds: validatedProviderTypeIds,
-              );
-              print('✅ [ProviderRepository] NPI returned ${npiProviders.length} providers');
-              allProviders.addAll(npiProviders);
-            }
-          } else {
-            try {
-              final npiProviders = await _npiService.searchProviders(
-                state: 'OH',
-                specialty: specialty,
-                zip: zip,
-                city: city,
-                providerTypeIds: validatedProviderTypeIds,
-              );
-              print('✅ [ProviderRepository] NPI returned ${npiProviders.length} providers');
-              allProviders.addAll(npiProviders);
-            } catch (e) {
-              // If NPI fails due to missing criteria, log but don't fail the whole search
-              if (e.toString().contains('Select a specialty') || 
-                  e.toString().contains('cannot be searched')) {
-                print('ℹ️ [ProviderRepository] NPI search skipped: $e');
-              } else {
-                rethrow; // Re-throw other errors
-              }
-            }
+          // Convert to Map<String, dynamic> safely
+          if (p is Map) {
+            final Map<String, dynamic> providerMap = Map<String, dynamic>.from(
+              p.map((key, value) => MapEntry(key.toString(), value))
+            );
+            return Provider.fromMap(providerMap);
           }
-        } catch (e) {
-          print('❌ [ProviderRepository] NPI search failed: $e');
-          // Continue with Medicaid results only - don't throw, just log
+          print('⚠️ [ProviderRepository] Provider is not a Map: ${p.runtimeType}');
+          return null;
+        } catch (e, stackTrace) {
+          print('⚠️ [ProviderRepository] Error parsing provider: $e');
+          print('⚠️ [ProviderRepository] Stack trace: $stackTrace');
+          return null;
         }
-      }
+      }).whereType<Provider>().toList();
 
-      print('✅ [ProviderRepository] Total providers before enrichment: ${allProviders.length}');
-
-      // Merge with Firestore data (identity tags, Mama Approved status, reviews)
-      final enriched = await _enrichProvidersWithFirestoreData(allProviders);
-      print('✅ [ProviderRepository] Total providers after enrichment: ${enriched.length}');
+      print('✅ [ProviderRepository] Total providers from function: ${providers.length}');
       
-      return enriched;
+      return providers;
     } catch (e, stackTrace) {
       print('❌ [ProviderRepository] Error searching providers: $e');
       print('❌ [ProviderRepository] Stack trace: $stackTrace');
@@ -162,20 +115,59 @@ class ProviderRepository {
         }
 
         if (firestoreProvider != null) {
+          // Calculate average rating from reviews if not already set
+          double? calculatedRating = firestoreProvider.rating;
+          int reviewCount = firestoreProvider.reviewCount ?? 0;
+          
+          if (calculatedRating == null || calculatedRating == 0) {
+            // Try to calculate from reviews
+            try {
+              final reviews = await getProviderReviews(firestoreProvider.id ?? '');
+              if (reviews.isNotEmpty) {
+                final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
+                calculatedRating = totalRating / reviews.length;
+                reviewCount = reviews.length;
+              }
+            } catch (e) {
+              // If review calculation fails, keep existing rating
+              print('⚠️ [ProviderRepository] Could not calculate rating from reviews: $e');
+            }
+          }
+          
           // Merge: Use API data but add Firestore enrichments
           enrichedProviders.add(provider.copyWith(
             id: firestoreProvider.id,
             mamaApproved: firestoreProvider.mamaApproved,
             mamaApprovedCount: firestoreProvider.mamaApprovedCount,
             identityTags: firestoreProvider.identityTags,
-            rating: firestoreProvider.rating,
-            reviewCount: firestoreProvider.reviewCount,
+            rating: calculatedRating,
+            reviewCount: reviewCount,
             acceptingNewPatients: firestoreProvider.acceptingNewPatients,
           ));
           enrichmentSuccesses++;
         } else {
-          // New provider or Firestore lookup failed - just add as-is
-          enrichedProviders.add(provider);
+          // New provider - try to calculate rating from reviews if provider has an ID
+          if (provider.id != null && provider.id!.isNotEmpty) {
+            try {
+              final reviews = await getProviderReviews(provider.id!);
+              if (reviews.isNotEmpty) {
+                final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
+                final calculatedRating = totalRating / reviews.length;
+                enrichedProviders.add(provider.copyWith(
+                  rating: calculatedRating,
+                  reviewCount: reviews.length,
+                ));
+              } else {
+                enrichedProviders.add(provider);
+              }
+            } catch (e) {
+              // If review lookup fails, add provider as-is
+              enrichedProviders.add(provider);
+            }
+          } else {
+            // No ID, can't look up reviews - add as-is
+            enrichedProviders.add(provider);
+          }
         }
       } catch (e) {
         // Catch any other errors during enrichment
@@ -393,24 +385,50 @@ class ProviderRepository {
 
   /// Submit a provider review
   /// Prevents duplicates by checking for existing review from same user for same provider within last minute
-  Future<void> submitProviderReview(ProviderReview review) async {
+  /// Also ensures provider is saved to Firestore and review count is updated
+  Future<void> submitProviderReview(ProviderReview review, {String? firestoreProviderId}) async {
     try {
       print('💾 [ProviderRepository] Submitting review for providerId: ${review.providerId}');
+      if (firestoreProviderId != null) {
+        print('💾 [ProviderRepository] Using Firestore provider ID: $firestoreProviderId');
+      }
       print('💾 [ProviderRepository] Review data: rating=${review.rating}, wouldRecommend=${review.wouldRecommend}, hasText=${review.reviewText != null}');
+      
+      // Use Firestore provider ID if available, otherwise use original providerId
+      final effectiveProviderId = firestoreProviderId ?? review.providerId;
       
       // Check for duplicate review (same user, same provider, within last 2 minutes)
       // Query without orderBy to avoid index requirement, then filter in memory
       final now = DateTime.now();
       final twoMinutesAgo = now.subtract(const Duration(minutes: 2));
       
-      final existingReviewsQuery = await _firestore
+      // Check both providerId formats
+      final existingReviewsQuery1 = await _firestore
           .collection('reviews')
           .where('providerId', isEqualTo: review.providerId)
           .where('userId', isEqualTo: review.userId)
           .get();
       
-      // Filter in memory for recent reviews
-      final recentReviews = existingReviewsQuery.docs.where((doc) {
+      final existingReviewsQuery2 = firestoreProviderId != null
+          ? await _firestore
+              .collection('reviews')
+              .where('providerId', isEqualTo: firestoreProviderId)
+              .where('userId', isEqualTo: review.userId)
+              .get()
+          : QuerySnapshot.empty;
+      
+      // Combine and filter in memory for recent reviews
+      final allRecentDocs = <QueryDocumentSnapshot>[];
+      for (var doc in existingReviewsQuery1.docs) {
+        allRecentDocs.add(doc);
+      }
+      for (var doc in existingReviewsQuery2.docs) {
+        if (!allRecentDocs.any((d) => d.id == doc.id)) {
+          allRecentDocs.add(doc);
+        }
+      }
+      
+      final recentReviews = allRecentDocs.where((doc) {
         final data = doc.data();
         final createdAt = data['createdAt'];
         if (createdAt is Timestamp) {
@@ -424,15 +442,236 @@ class ProviderRepository {
         throw Exception('You have already submitted a review for this provider recently. Please wait a moment.');
       }
       
+      // Create review with effective provider ID
       final reviewData = review.toMap();
+      reviewData['providerId'] = effectiveProviderId; // Use Firestore ID if available
       print('💾 [ProviderRepository] Review map keys: ${reviewData.keys.toList()}');
       
       final docRef = await _firestore.collection('reviews').add(reviewData);
       print('✅ [ProviderRepository] Review saved with ID: ${docRef.id}');
+      
+      // Update provider's review count after saving review
+      await _updateProviderReviewCount(effectiveProviderId);
     } catch (e, stackTrace) {
       print('❌ [ProviderRepository] Error submitting review: $e');
       print('❌ [ProviderRepository] Stack trace: $stackTrace');
       rethrow;
+    }
+  }
+
+  /// Save provider to Firestore when a review is submitted
+  /// This ensures providers are saved with all their data for easy retrieval
+  /// Returns the Firestore provider ID
+  Future<String?> saveProviderOnReview(Provider provider) async {
+    try {
+      print('💾 [ProviderRepository] Saving provider to Firestore: ${provider.name}');
+      
+      // Try to find existing provider by NPI first
+      String? providerId;
+      if (provider.npi != null && provider.npi!.isNotEmpty) {
+        final npiQuery = await _firestore
+            .collection('providers')
+            .where('npi', isEqualTo: provider.npi)
+            .limit(1)
+            .get();
+        
+        if (!npiQuery.docs.isEmpty) {
+          providerId = npiQuery.docs.first.id;
+          print('✅ [ProviderRepository] Found existing provider by NPI: $providerId');
+        }
+      }
+      
+      // If not found by NPI, try by name+location
+      if (providerId == null && provider.locations.isNotEmpty) {
+        final loc = provider.locations.first;
+        final nameQuery = await _firestore
+            .collection('providers')
+            .where('name', isEqualTo: provider.name)
+            .limit(10)
+            .get();
+        
+        for (var doc in nameQuery.docs) {
+          final data = doc.data();
+          if (data['locations'] != null && data['locations'] is List) {
+            final locations = data['locations'] as List;
+            final match = locations.any((l) => 
+              l is Map && 
+              l['city'] == loc.city && 
+              l['zip'] == loc.zip
+            );
+            if (match) {
+              providerId = doc.id;
+              print('✅ [ProviderRepository] Found existing provider by name+location: $providerId');
+              break;
+            }
+          }
+        }
+      }
+      
+      // Prepare provider data
+      final providerData = provider.toMap();
+      providerData['updatedAt'] = FieldValue.serverTimestamp();
+      
+      // Get current review count (will be updated after review is saved)
+      // For now, set to 0 if new provider, or get existing count
+      int reviewCount = 0;
+      if (providerId != null) {
+        try {
+          // Count reviews by Firestore ID
+          final reviewsByFirestoreId = await _firestore
+              .collection('reviews')
+              .where('providerId', isEqualTo: providerId)
+              .get();
+          
+          // Also count by NPI if available
+          if (provider.npi != null && provider.npi!.isNotEmpty) {
+            final npiProviderId = 'npi_${provider.npi}';
+            final reviewsByNpi = await _firestore
+                .collection('reviews')
+                .where('providerId', isEqualTo: npiProviderId)
+                .get();
+            
+            // Combine and deduplicate
+            final allReviewIds = <String>{};
+            for (var doc in reviewsByFirestoreId.docs) {
+              allReviewIds.add(doc.id);
+            }
+            for (var doc in reviewsByNpi.docs) {
+              if (!allReviewIds.contains(doc.id)) {
+                allReviewIds.add(doc.id);
+              }
+            }
+            reviewCount = allReviewIds.length;
+          } else {
+            reviewCount = reviewsByFirestoreId.docs.length;
+          }
+        } catch (e) {
+          print('⚠️ [ProviderRepository] Could not get review count: $e');
+        }
+      }
+      
+      // Add reviewCount index for easy sorting
+      providerData['reviewCount'] = reviewCount;
+      
+      if (providerId != null) {
+        // Update existing provider
+        await _firestore.collection('providers').doc(providerId).update(providerData);
+        print('✅ [ProviderRepository] Updated provider: $providerId');
+      } else {
+        // Create new provider
+        providerData['createdAt'] = FieldValue.serverTimestamp();
+        providerData['source'] = provider.source ?? 'review_submission';
+        final docRef = await _firestore.collection('providers').add(providerData);
+        providerId = docRef.id;
+        print('✅ [ProviderRepository] Created new provider: $providerId');
+      }
+      
+      return providerId;
+    } catch (e, stackTrace) {
+      print('❌ [ProviderRepository] Error saving provider: $e');
+      print('❌ [ProviderRepository] Stack trace: $stackTrace');
+      // Don't throw - allow review to be saved even if provider save fails
+      return null;
+    }
+  }
+
+  /// Update provider's review count after a review is submitted
+  Future<void> _updateProviderReviewCount(String providerId) async {
+    try {
+      print('🔍 [ProviderRepository] Updating review count for providerId: $providerId');
+      
+      // Check if providerId is a Firestore ID or composite ID
+      String? firestoreProviderId = providerId;
+      
+      // Handle NPI-based IDs
+      if (providerId.startsWith('npi_')) {
+        final npi = providerId.substring(4);
+        final npiQuery = await _firestore
+            .collection('providers')
+            .where('npi', isEqualTo: npi)
+            .limit(1)
+            .get();
+        
+        if (!npiQuery.docs.isEmpty) {
+          firestoreProviderId = npiQuery.docs.first.id;
+          print('✅ [ProviderRepository] Found Firestore provider by NPI: $firestoreProviderId');
+        } else {
+          // Provider not in Firestore yet, can't update
+          print('⚠️ [ProviderRepository] Provider with NPI $npi not found in Firestore');
+          return;
+        }
+      }
+      
+      // Handle composite IDs (api_name_city_zip, name_name, etc.)
+      if (firestoreProviderId == providerId && (providerId.startsWith('api_') || providerId.startsWith('name_'))) {
+        // Try to find provider by extracting info from composite ID
+        // For now, we'll need the provider to be saved first via saveProviderOnReview
+        print('⚠️ [ProviderRepository] Composite ID detected, provider should be saved first');
+        return;
+      }
+      
+      if (firestoreProviderId == null) {
+        print('⚠️ [ProviderRepository] Could not determine Firestore provider ID');
+        return;
+      }
+      
+      // Count ALL reviews for this provider (by both original providerId and Firestore ID)
+      final reviewsByOriginalId = await _firestore
+          .collection('reviews')
+          .where('providerId', isEqualTo: providerId)
+          .get();
+      
+      final reviewsByFirestoreId = await _firestore
+          .collection('reviews')
+          .where('providerId', isEqualTo: firestoreProviderId)
+          .get();
+      
+      // Combine and deduplicate reviews
+      final allReviewIds = <String>{};
+      final allReviews = <Map<String, dynamic>>[];
+      
+      for (var doc in reviewsByOriginalId.docs) {
+        if (!allReviewIds.contains(doc.id)) {
+          allReviewIds.add(doc.id);
+          allReviews.add(doc.data());
+        }
+      }
+      
+      for (var doc in reviewsByFirestoreId.docs) {
+        if (!allReviewIds.contains(doc.id)) {
+          allReviewIds.add(doc.id);
+          allReviews.add(doc.data());
+        }
+      }
+      
+      final reviewCount = allReviews.length;
+      
+      // Calculate average rating
+      double? averageRating;
+      if (allReviews.isNotEmpty) {
+        final totalRating = allReviews.fold<double>(
+          0.0,
+          (sum, review) => sum + ((review['rating'] as num?)?.toDouble() ?? 0.0),
+        );
+        averageRating = totalRating / reviewCount;
+      }
+      
+      // Update provider with review count and rating
+      final updateData = <String, dynamic>{
+        'reviewCount': reviewCount,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      
+      if (averageRating != null) {
+        updateData['rating'] = averageRating;
+      }
+      
+      await _firestore.collection('providers').doc(firestoreProviderId).update(updateData);
+      print('✅ [ProviderRepository] Updated provider $firestoreProviderId: reviewCount=$reviewCount, rating=$averageRating');
+    } catch (e, stackTrace) {
+      print('⚠️ [ProviderRepository] Error updating provider review count: $e');
+      print('⚠️ [ProviderRepository] Stack trace: $stackTrace');
+      // Don't throw - review is already saved
     }
   }
 

@@ -59,7 +59,16 @@ class Provider {
       practiceName: map['practiceName'],
       npi: map['npi'],
       locations: (map['locations'] as List<dynamic>?)
-              ?.map((l) => ProviderLocation.fromMap(l as Map<String, dynamic>))
+              ?.map((l) {
+                if (l is Map) {
+                  final Map<String, dynamic> locationMap = Map<String, dynamic>.from(
+                    (l as Map).map((key, value) => MapEntry(key.toString(), value))
+                  );
+                  return ProviderLocation.fromMap(locationMap);
+                }
+                return null;
+              })
+              .whereType<ProviderLocation>()
               .toList() ??
           [],
       providerTypes: (map['providerTypes'] as List<dynamic>?)
@@ -82,7 +91,16 @@ class Provider {
       mamaApproved: map['mamaApproved'] ?? false,
       mamaApprovedCount: map['mamaApprovedCount'] ?? 0,
       identityTags: (map['identityTags'] as List<dynamic>?)
-              ?.map((t) => IdentityTag.fromMap(t as Map<String, dynamic>))
+              ?.map((t) {
+                if (t is Map) {
+                  final Map<String, dynamic> tagMap = Map<String, dynamic>.from(
+                    (t as Map).map((key, value) => MapEntry(key.toString(), value))
+                  );
+                  return IdentityTag.fromMap(tagMap);
+                }
+                return null;
+              })
+              .whereType<IdentityTag>()
               .toList() ??
           [],
       createdAt: map['createdAt'] is Timestamp

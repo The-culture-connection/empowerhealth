@@ -429,6 +429,119 @@ class FirebaseFunctionsService {
       throw Exception('❌ Failed to analyze visit notes: $e');
     }
   }
+
+  // Search providers using Firebase function
+  Future<Map<String, dynamic>> searchProviders({
+    required String zip,
+    required String city,
+    required String healthPlan,
+    required List<String> providerTypeIds,
+    required int radius,
+    String? specialty,
+    bool includeNpi = false,
+    bool? acceptsPregnantWomen,
+    bool? acceptsNewborns,
+    bool? telehealth,
+  }) async {
+    try {
+      print('🔵 [FirebaseFunctions] Calling searchProviders function...');
+      print('🔵 [FirebaseFunctions] ZIP: $zip, City: $city, Health Plan: $healthPlan');
+      print('🔵 [FirebaseFunctions] Provider type IDs: $providerTypeIds');
+      
+      final callable = _functions.httpsCallable(
+        'searchProviders',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 60),
+        ),
+      );
+      
+      final result = await callable.call({
+        'zip': zip,
+        'city': city,
+        'healthPlan': healthPlan,
+        'providerTypeIds': providerTypeIds,
+        'radius': radius,
+        if (specialty != null && specialty.isNotEmpty) 'specialty': specialty,
+        'includeNpi': includeNpi,
+        if (acceptsPregnantWomen != null) 'acceptsPregnantWomen': acceptsPregnantWomen,
+        if (acceptsNewborns != null) 'acceptsNewborns': acceptsNewborns,
+        if (telehealth != null) 'telehealth': telehealth,
+      });
+      
+      print('✅ [FirebaseFunctions] searchProviders call successful');
+      print('✅ [FirebaseFunctions] Found ${result.data['count']} providers');
+      return result.data as Map<String, dynamic>;
+    } catch (e, stackTrace) {
+      print('❌ [FirebaseFunctions] Error calling searchProviders: $e');
+      print('❌ [FirebaseFunctions] Stack trace: $stackTrace');
+      
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('timeout') || errorString.contains('deadline exceeded')) {
+        throw Exception('⏱️ Request timed out. Please try again.');
+      } else if (errorString.contains('unavailable') || errorString.contains('unreachable')) {
+        throw Exception('🌐 Service temporarily unavailable. Please try again in a few moments.');
+      } else if (errorString.contains('permission') || errorString.contains('unauthorized')) {
+        throw Exception('🔒 Permission denied. Please ensure you are logged in.');
+      }
+      
+      throw Exception('❌ Failed to search providers: $e');
+    }
+  }
+
+  // Admin function to add or update a provider manually (backend only)
+  Future<Map<String, dynamic>> addProvider({
+    required String name,
+    String? specialty,
+    String? practiceName,
+    String? npi,
+    List<Map<String, dynamic>>? locations,
+    List<String>? providerTypes,
+    List<String>? specialties,
+    String? phone,
+    String? email,
+    String? website,
+    bool mamaApproved = false,
+    List<Map<String, dynamic>>? identityTags,
+    bool? acceptsPregnantWomen,
+    bool? acceptsNewborns,
+    bool? telehealth,
+  }) async {
+    try {
+      print('🔵 [FirebaseFunctions] Calling addProvider function...');
+      
+      final callable = _functions.httpsCallable(
+        'addProvider',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 30),
+        ),
+      );
+      
+      final result = await callable.call({
+        'name': name,
+        if (specialty != null) 'specialty': specialty,
+        if (practiceName != null) 'practiceName': practiceName,
+        if (npi != null) 'npi': npi,
+        if (locations != null) 'locations': locations,
+        if (providerTypes != null) 'providerTypes': providerTypes,
+        if (specialties != null) 'specialties': specialties,
+        if (phone != null) 'phone': phone,
+        if (email != null) 'email': email,
+        if (website != null) 'website': website,
+        'mamaApproved': mamaApproved,
+        if (identityTags != null) 'identityTags': identityTags,
+        if (acceptsPregnantWomen != null) 'acceptsPregnantWomen': acceptsPregnantWomen,
+        if (acceptsNewborns != null) 'acceptsNewborns': acceptsNewborns,
+        if (telehealth != null) 'telehealth': telehealth,
+      });
+      
+      print('✅ [FirebaseFunctions] addProvider call successful');
+      return result.data as Map<String, dynamic>;
+    } catch (e, stackTrace) {
+      print('❌ [FirebaseFunctions] Error calling addProvider: $e');
+      print('❌ [FirebaseFunctions] Stack trace: $stackTrace');
+      throw Exception('❌ Failed to add provider: $e');
+    }
+  }
 }
 
 

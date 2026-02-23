@@ -26,6 +26,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isSaving = false;
   
   // Controllers
+  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _ageController = TextEditingController();
   final _zipCodeController = TextEditingController();
   final _childAgeMonthsController = TextEditingController();
@@ -39,6 +41,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isPostpartum = false;
   int? _childAgeMonths;
   String _insuranceType = '';
+  String? _city;
+  String? _state;
   String? _raceEthnicity;
   String? _languagePreference;
   String? _maritalStatus;
@@ -86,6 +90,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _childAgeMonths = profile.childAgeMonths;
           _childAgeMonthsController.text = profile.childAgeMonths?.toString() ?? '';
           _insuranceType = profile.insuranceType;
+          _city = profile.city;
+          _state = profile.state;
           _raceEthnicity = profile.raceEthnicity;
           _languagePreference = profile.languagePreference;
           _maritalStatus = profile.maritalStatus;
@@ -143,13 +149,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final updatedProfile = UserProfile(
         userId: userId,
-        username: _userProfile!.username, // Username is not editable
+        username: _usernameController.text.trim(),
         age: int.parse(_ageController.text),
         isPregnant: _isPregnant,
         dueDate: _dueDate,
         isPostpartum: _isPostpartum,
         childAgeMonths: _childAgeMonths,
         zipCode: _zipCodeController.text.trim(),
+        city: _city,
+        state: _state,
         insuranceType: _insuranceType,
         raceEthnicity: _raceEthnicity,
         languagePreference: _languagePreference,
@@ -510,6 +518,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   // Basic Information Section
                   _buildSection('Basic Information', [
                 TextFormField(
+                  controller: _usernameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Username *',
+                    prefixIcon: Icon(Icons.person_outline),
+                    helperText: 'This will be displayed in the community and reviews',
+                  ),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Required';
+                    if (v.length < 3) return 'Username must be at least 3 characters';
+                    if (v.length > 20) return 'Username must be 20 characters or less';
+                    if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(v)) {
+                      return 'Username can only contain letters, numbers, underscores, and hyphens';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email *',
+                    prefixIcon: Icon(Icons.email_outlined),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Required';
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) {
+                      return 'Please enter a valid email address';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
                   controller: _ageController,
                   decoration: const InputDecoration(
                     labelText: 'Age *',
@@ -596,6 +638,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     if (v.length != 5) return 'Please enter a valid 5-digit zip code';
                     return null;
                   },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  initialValue: _city,
+                  decoration: const InputDecoration(
+                    labelText: 'City',
+                    prefixIcon: Icon(Icons.location_city_outlined),
+                  ),
+                  onChanged: (v) => setState(() => _city = v),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  initialValue: _state,
+                  decoration: const InputDecoration(
+                    labelText: 'State',
+                    prefixIcon: Icon(Icons.map_outlined),
+                    helperText: 'Enter state abbreviation (e.g., OH)',
+                  ),
+                  onChanged: (v) => setState(() => _state = v?.toUpperCase()),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(

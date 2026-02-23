@@ -85,21 +85,44 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       } else if (_provider?.locations.isNotEmpty == true) {
         // Create composite ID from name + location
         final loc = _provider!.locations.first;
-        reviewProviderId = 'api_${_provider!.name}_${loc.city}_${loc.zip}'.replaceAll(' ', '_').toLowerCase();
+        final namePart = _provider!.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+        reviewProviderId = 'api_${namePart}_${loc.city}_${loc.zip}';
+      } else if (_provider?.name.isNotEmpty == true) {
+        // Last resort: use name only (sanitized)
+        final namePart = _provider!.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+        reviewProviderId = 'name_$namePart';
       }
     }
     
     if (reviewProviderId == null || reviewProviderId.isEmpty) {
       print('⚠️ [ProviderProfile] Cannot load reviews: No provider ID available');
+      print('⚠️ [ProviderProfile] Provider name: ${_provider?.name}, NPI: ${_provider?.npi}, Locations: ${_provider?.locations.length}');
       return;
     }
+    
+    print('🔍 [ProviderProfile] Using providerId for reviews: $reviewProviderId');
     
     try {
       print('🔍 [ProviderProfile] Loading reviews for providerId: $reviewProviderId');
       final reviews = await _repository.getProviderReviews(reviewProviderId);
       print('✅ [ProviderProfile] Loaded ${reviews.length} reviews');
+      
+      // Calculate average rating from reviews
+      double? averageRating;
+      if (reviews.isNotEmpty) {
+        final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
+        averageRating = totalRating / reviews.length;
+      }
+      
       setState(() {
         _reviews = reviews;
+        // Update provider rating if we have reviews
+        if (averageRating != null && _provider != null) {
+          _provider = _provider!.copyWith(
+            rating: averageRating,
+            reviewCount: reviews.length,
+          );
+        }
       });
     } catch (e, stackTrace) {
       print('❌ [ProviderProfile] Error loading reviews: $e');
@@ -338,7 +361,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               const Icon(Icons.star, color: Colors.white, size: 20),
               const SizedBox(width: 4),
               Text(
-                _provider!.rating?.toStringAsFixed(1) ?? 'N/A',
+                _provider!.rating != null && _provider!.rating! > 0
+                    ? _provider!.rating!.toStringAsFixed(1)
+                    : _reviews.isNotEmpty
+                        ? (_reviews.fold<double>(0.0, (sum, r) => sum + r.rating) / _reviews.length).toStringAsFixed(1)
+                        : 'N/A',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -921,13 +948,26 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   }
                   
                   if (reviewProviderId == null || reviewProviderId.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Cannot submit review: Provider identifier is missing'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                    return;
+                    // Try to create a composite ID as last resort
+                    if (_provider?.name.isNotEmpty == true) {
+                      final namePart = _provider!.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+                      if (_provider?.locations.isNotEmpty == true) {
+                        final loc = _provider!.locations.first;
+                        reviewProviderId = 'api_${namePart}_${loc.city}_${loc.zip}';
+                      } else {
+                        reviewProviderId = 'name_$namePart';
+                      }
+                    }
+                    
+                    if (reviewProviderId == null || reviewProviderId.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Cannot submit review: Provider identifier is missing'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
                   }
                   
                   final result = await Navigator.push(
@@ -936,6 +976,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       builder: (context) => ProviderReviewScreen(
                         providerId: reviewProviderId!,
                         providerName: _provider!.name,
+                        provider: _provider, // Pass provider data to save
                       ),
                     ),
                   );

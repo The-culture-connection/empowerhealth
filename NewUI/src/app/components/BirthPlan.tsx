@@ -1,4 +1,4 @@
-import { Heart, Users, Home, Pill, AlertTriangle, Share2, Download } from "lucide-react";
+import { Heart, Users, Home, Pill, AlertTriangle, Share2, Download, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { PHIBoundaryNotice, SecureIndicator, EmergencyFooter } from "./PrivacyComponents";
 
@@ -19,11 +19,11 @@ export function BirthPlan() {
   };
 
   return (
-    <div className="p-5 pb-24">
+    <div className="p-6 pb-24">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl mb-2">Birth Plan Builder</h1>
-        <p className="text-gray-600">Share your preferences with your care team</p>
+      <div className="mb-8">
+        <h1 className="text-2xl mb-2 text-[#4a3f52] font-normal">Birth plan</h1>
+        <p className="text-[#8b7a95] font-light">Share your preferences with your care team</p>
       </div>
 
       {/* PHI Boundary Notice */}
@@ -32,36 +32,44 @@ export function BirthPlan() {
       </div>
 
       {/* Intro */}
-      <div className="bg-gradient-to-br from-[#663399] to-[#8855bb] rounded-3xl p-6 text-white shadow-md mb-6">
-        <h2 className="text-lg mb-2">Your Voice Matters</h2>
-        <p className="text-white/90 text-sm mb-3">
-          This plan helps you communicate your wishes. Remember: plans can change, and that's okay. This is about starting a conversation with your care team.
-        </p>
-        <SecureIndicator />
+      <div className="bg-gradient-to-br from-[#ebe4f3] via-[#e0d5eb] to-[#e8dfe8] rounded-[32px] p-7 shadow-[0_4px_24px_rgba(0,0,0,0.06)] mb-8 relative overflow-hidden">
+        {/* Subtle background pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#d4c5e0] blur-3xl"></div>
+        </div>
+        
+        <div className="relative">
+          <h2 className="text-lg mb-2 text-[#4a3f52] font-normal">Your voice matters</h2>
+          <p className="text-[#6b5c75] text-sm mb-4 font-light leading-relaxed">
+            This plan helps you communicate your wishes. Remember: plans can change, and that's okay. This is about starting a conversation with your care team.
+          </p>
+          <SecureIndicator />
+        </div>
       </div>
 
       {/* Support Team */}
-      <section className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Users className="w-5 h-5 text-[#663399]" />
-          <h2>My Support Team</h2>
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="w-5 h-5 text-[#a89cb5] stroke-[1.5]" />
+          <h2 className="text-[#6b5c75] font-normal text-base tracking-wide">My support team</h2>
         </div>
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-          <div className="space-y-3">
+        <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
+          <div className="space-y-4">
             <div>
-              <label className="text-sm text-gray-600 mb-2 block">Who do you want with you?</label>
+              <label className="text-sm text-[#8b7a95] mb-2 block font-light">Who do you want with you?</label>
               <input
                 type="text"
                 placeholder="Partner, family, doula..."
-                className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20"
+                className="w-full px-5 py-3.5 rounded-[20px] bg-[#f7f5f9] border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 text-[#4a3f52] placeholder:text-[#b5a8c2] font-light"
               />
             </div>
             <div>
-              <label className="text-sm text-gray-600 mb-2 block">Doula or birth coach</label>
+              <label className="text-sm text-[#8b7a95] mb-2 block font-light">Doula or birth coach</label>
               <input
                 type="text"
                 placeholder="Name and contact (optional)"
-                className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20"
+                className="w-full px-5 py-3.5 rounded-[20px] bg-[#f7f5f9] border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 text-[#4a3f52] placeholder:text-[#b5a8c2] font-light"
               />
             </div>
           </div>
@@ -69,23 +77,23 @@ export function BirthPlan() {
       </section>
 
       {/* Birth Environment */}
-      <section className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Home className="w-5 h-5 text-[#663399]" />
-          <h2>My Birth Environment</h2>
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Home className="w-5 h-5 text-[#a89cb5] stroke-[1.5]" />
+          <h2 className="text-[#6b5c75] font-normal text-base tracking-wide">My birth environment</h2>
         </div>
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-600 mb-4">What helps you feel calm and safe?</p>
+        <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
+          <p className="text-sm text-[#8b7a95] mb-4 font-light">What helps you feel calm and safe?</p>
           <div className="space-y-2">
             {["Dim lighting", "Music playing", "Quiet room", "Freedom to move around", "Minimal interruptions"].map(
               (item) => (
                 <button
                   key={item}
                   onClick={() => togglePreference("environment", item)}
-                  className={`w-full text-left px-4 py-3 rounded-2xl transition-colors ${
+                  className={`w-full text-left px-5 py-3.5 rounded-[20px] transition-all font-light ${
                     preferences.environment.includes(item)
-                      ? "bg-[#663399] text-white"
-                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                      ? "bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white shadow-[0_2px_12px_rgba(168,156,181,0.2)]"
+                      : "bg-[#f7f5f9] text-[#6b5c75] hover:bg-[#ede7f3]/50"
                   }`}
                 >
                   {item} {preferences.environment.includes(item) && "✓"}
@@ -97,13 +105,13 @@ export function BirthPlan() {
       </section>
 
       {/* Pain Management */}
-      <section className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Heart className="w-5 h-5 text-[#663399]" />
-          <h2>Pain Management Preferences</h2>
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Heart className="w-5 h-5 text-[#c9a9c0] stroke-[1.5]" />
+          <h2 className="text-[#6b5c75] font-normal text-base tracking-wide">Pain management preferences</h2>
         </div>
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-600 mb-4">What options are you considering?</p>
+        <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
+          <p className="text-sm text-[#8b7a95] mb-4 font-light">What options are you considering?</p>
           <div className="space-y-2">
             {[
               "Epidural",
@@ -116,10 +124,10 @@ export function BirthPlan() {
               <button
                 key={item}
                 onClick={() => togglePreference("pain", item)}
-                className={`w-full text-left px-4 py-3 rounded-2xl transition-colors ${
+                className={`w-full text-left px-5 py-3.5 rounded-[20px] transition-all font-light ${
                   preferences.pain.includes(item)
-                    ? "bg-[#663399] text-white"
-                    : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                    ? "bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white shadow-[0_2px_12px_rgba(168,156,181,0.2)]"
+                    : "bg-[#f7f5f9] text-[#6b5c75] hover:bg-[#ede7f3]/50"
                 }`}
               >
                 {item} {preferences.pain.includes(item) && "✓"}
@@ -130,24 +138,24 @@ export function BirthPlan() {
       </section>
 
       {/* After Birth */}
-      <section className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Pill className="w-5 h-5 text-[#663399]" />
-          <h2>After Baby Arrives</h2>
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="w-5 h-5 text-[#c9b087] stroke-[1.5]" />
+          <h2 className="text-[#6b5c75] font-normal text-base tracking-wide">After baby arrives</h2>
         </div>
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+        <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
           <div className="space-y-4">
             <div>
-              <label className="text-sm text-gray-600 mb-2 block">Skin-to-skin contact</label>
-              <select className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20">
+              <label className="text-sm text-[#8b7a95] mb-2 block font-light">Skin-to-skin contact</label>
+              <select className="w-full px-5 py-3.5 rounded-[20px] bg-[#f7f5f9] border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 text-[#4a3f52] font-light">
                 <option>Yes, immediately if possible</option>
                 <option>Yes, after cleaning</option>
                 <option>I'd like to decide in the moment</option>
               </select>
             </div>
             <div>
-              <label className="text-sm text-gray-600 mb-2 block">Feeding preference</label>
-              <select className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20">
+              <label className="text-sm text-[#8b7a95] mb-2 block font-light">Feeding preference</label>
+              <select className="w-full px-5 py-3.5 rounded-[20px] bg-[#f7f5f9] border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 text-[#4a3f52] font-light">
                 <option>Breastfeeding</option>
                 <option>Formula feeding</option>
                 <option>Combination</option>
@@ -159,44 +167,44 @@ export function BirthPlan() {
       </section>
 
       {/* Emergency Wishes */}
-      <section className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600" />
-          <h2>If Things Change</h2>
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <AlertTriangle className="w-5 h-5 text-[#c9b087] stroke-[1.5]" />
+          <h2 className="text-[#6b5c75] font-normal text-base tracking-wide">If things change</h2>
         </div>
-        <div className="bg-gradient-to-br from-[#fef3f3] to-[#fff0f8] rounded-3xl p-5 shadow-sm border border-pink-100">
-          <p className="text-sm text-gray-600 mb-3">
+        <div className="bg-gradient-to-br from-[#faf7fb] to-[#f9f5fb] rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#f0e8f3]/50">
+          <p className="text-sm text-[#6b5c75] mb-3 font-light leading-relaxed">
             If an emergency happens, who should make decisions with your medical team?
           </p>
           <input
             type="text"
             placeholder="Name of decision-maker"
-            className="w-full px-4 py-3 rounded-2xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20"
+            className="w-full px-5 py-3.5 rounded-[20px] bg-white/80 backdrop-blur-sm border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 text-[#4a3f52] placeholder:text-[#b5a8c2] font-light"
           />
         </div>
       </section>
 
       {/* Notes */}
-      <section className="mb-6">
-        <h2 className="mb-3">Additional Notes</h2>
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+      <section className="mb-8">
+        <h2 className="mb-4 text-[#6b5c75] font-normal text-base tracking-wide">Additional notes</h2>
+        <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
           <textarea
             rows={4}
             placeholder="Anything else you'd like your care team to know..."
-            className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 resize-none"
+            className="w-full px-5 py-4 rounded-[20px] bg-[#f7f5f9] border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 resize-none text-[#4a3f52] placeholder:text-[#b5a8c2] font-light"
           ></textarea>
         </div>
       </section>
 
       {/* Actions */}
-      <div className="flex gap-3 mb-6">
-        <button className="flex-1 py-3 px-4 rounded-2xl border border-[#663399] text-[#663399] hover:bg-[#663399]/5 transition-colors flex items-center justify-center gap-2">
-          <Download className="w-4 h-4" />
+      <div className="flex gap-3 mb-8">
+        <button className="flex-1 py-3.5 px-4 rounded-[24px] border border-[#d4c5e0]/50 text-[#8b7a95] hover:bg-[#f7f5f9] transition-all flex items-center justify-center gap-2 font-light shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+          <Download className="w-4 h-4 stroke-[1.5]" />
           Download PDF
         </button>
-        <button className="flex-1 py-3 px-4 rounded-2xl bg-[#663399] text-white hover:bg-[#552288] transition-colors flex items-center justify-center gap-2">
-          <Share2 className="w-4 h-4" />
-          Share with Team
+        <button className="flex-1 py-3.5 px-4 rounded-[24px] bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white hover:shadow-[0_4px_20px_rgba(168,156,181,0.25)] transition-all flex items-center justify-center gap-2 font-light shadow-[0_2px_12px_rgba(168,156,181,0.15)]">
+          <Share2 className="w-4 h-4 stroke-[1.5]" />
+          Share with team
         </button>
       </div>
 

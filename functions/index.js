@@ -223,16 +223,8 @@ Format as:
 
     const summary = response.choices[0].message.content;
 
-    // Save to Firestore
-    await admin.firestore().collection("visit_summaries").add({
-      userId: request.auth.uid,
-      originalNotes: visitNotes,
-      summary,
-      diagnoses,
-      medications,
-      emotionalFlags,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    // Note: The app code saves the summary to Firestore with the correct appointmentDate
+    // We only generate and return the summary here to avoid duplicate saves
 
     return {success: true, summary};
   } catch (error) {

@@ -1,9 +1,11 @@
-import { Search, MapPin, ChevronDown, Info, Heart, Plus, AlertCircle } from "lucide-react";
+import { Search, MapPin, ChevronDown, Info, Heart, Plus, AlertCircle, Sparkles } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 export function ProviderSearchEntry() {
-  // TIER 1: Core filters (Required for API)
+  const navigate = useNavigate();
+  
+  // TIER 1: Core filters
   const [zipCode, setZipCode] = useState("");
   const [city, setCity] = useState("");
   const [radius, setRadius] = useState("10");
@@ -43,21 +45,18 @@ export function ProviderSearchEntry() {
     "AmeriHealth Caritas"
   ];
 
-  // Provider Types (mapped to ProviderTypeIDsDelimited)
+  // Provider Types
   const providerTypeOptions = [
-    { id: "001", label: "Physician/Osteopath (OB-GYN)" },
-    { id: "002", label: "Physician/Osteopath (Family Medicine)" },
+    { id: "001", label: "OB-GYN" },
+    { id: "002", label: "Family Medicine" },
     { id: "003", label: "Certified Nurse Midwife" },
-    { id: "004", label: "Nurse Midwife (Individual)" },
-    { id: "005", label: "Nurse Midwife (Group Practice)" },
-    { id: "006", label: "Free Standing Birth Center" },
-    { id: "007", label: "Hospital - Birth Center" },
-    { id: "008", label: "Doula" },
-    { id: "009", label: "Mental Health Provider" },
-    { id: "010", label: "Lactation Consultant" }
+    { id: "004", label: "Birth Center" },
+    { id: "005", label: "Doula" },
+    { id: "006", label: "Mental Health Provider" },
+    { id: "007", label: "Lactation Consultant" }
   ];
 
-  // Specialties (mapped to SpecialtyTypeIDsDelimited - validated list)
+  // Specialties
   const specialtyOptions = [
     { id: "S001", label: "Prenatal Care" },
     { id: "S002", label: "High-Risk Pregnancy" },
@@ -68,12 +67,10 @@ export function ProviderSearchEntry() {
     { id: "S007", label: "Postpartum Care" },
     { id: "S008", label: "Birth Trauma Support" },
     { id: "S009", label: "Gestational Diabetes" },
-    { id: "S010", label: "Hypertension Management" },
-    { id: "S011", label: "Multiple Births" },
-    { id: "S012", label: "Maternal Mental Health" }
+    { id: "S010", label: "Maternal Mental Health" }
   ];
 
-  // Languages (mapped to LanguagesSpoken)
+  // Languages
   const languageOptions = [
     "English",
     "Spanish",
@@ -95,12 +92,6 @@ export function ProviderSearchEntry() {
     "Asian / Pacific Islander",
     "Native American / Indigenous",
     "Middle Eastern / North African",
-    "Haitian",
-    "Nigerian",
-    "Somali",
-    "Spanish-speaking",
-    "Arabic-speaking",
-    "French-speaking",
     "LGBTQ+ affirming",
     "Cultural competency certified"
   ];
@@ -113,559 +104,287 @@ export function ProviderSearchEntry() {
     }
   };
 
-  // Validation: Required fields per API spec
-  const canSearch = zipCode.length === 5 && healthPlan && providerTypes.length > 0;
-
-  const buildSearchParams = () => {
-    // This would be sent to your API
-    return {
-      // TIER 1: Required
-      State: "OH",
-      Zip: zipCode,
-      City: city,
-      Radius: radius,
-      HealthPlan: healthPlan,
-      ProviderTypeIDsDelimited: providerTypes.join(","),
-      Program: program,
-      
-      // TIER 2: Care-fit filters
-      AcceptsNewPatients: acceptingNew ? "Yes" : undefined,
-      Telehealth: telehealth ? "Yes" : undefined,
-      LanguagesSpoken: languagesSpoken.length > 0 ? languagesSpoken.join(",") : undefined,
-      SpecialtyTypeIDsDelimited: specialties.length > 0 ? specialties.join(",") : undefined,
-      
-      // TIER 3: Advanced
-      AcceptsPregnantWomen: acceptsPregnant ? "Yes" : undefined,
-      
-      // CLIENT-SIDE (not sent to API)
-      _clientFilters: {
-        mamaApprovedOnly,
-        identityTags
-      }
-    };
+  const handleSearch = () => {
+    // Navigate to results even if fields are empty
+    navigate("/providers/results");
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-[#f8f6f8] pb-24">
+    <div className="min-h-screen bg-[#f7f5f9] pb-24">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#663399] to-[#8855bb] px-5 pt-5 pb-8 mb-4">
-        <div className="mb-2">
-          <h1 className="text-2xl text-white mb-2">Find Your Care Team</h1>
-          <p className="text-white/90 text-sm">Search Ohio Medicaid providers with filters that matter to you</p>
+      <div className="bg-gradient-to-br from-[#ebe4f3] via-[#e0d5eb] to-[#e8dfe8] px-6 pt-6 pb-8 mb-6 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#d4c5e0] blur-3xl"></div>
+        </div>
+        
+        <div className="relative">
+          <Link to="/providers" className="inline-flex items-center gap-2 text-[#8b7a95] hover:text-[#6b5c75] transition-colors mb-4 font-light text-sm">
+            ← Back to providers
+          </Link>
+          <h1 className="text-2xl text-[#4a3f52] mb-2 font-normal">Find your care team</h1>
+          <p className="text-[#6b5c75] text-sm font-light">Search Ohio providers with filters that matter to you</p>
         </div>
       </div>
 
-      <div className="px-5">
-        {/* API Info Banner */}
-        <div className="mb-4 p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border border-blue-100">
+      <div className="px-6 max-w-2xl mx-auto">
+        {/* Info Banner */}
+        <div className="mb-6 p-5 bg-gradient-to-br from-[#f0ead8] to-[#f5f0e8] rounded-[28px] border border-[#e8dfc8]/50 shadow-[0_2px_16px_rgba(0,0,0,0.04)]">
           <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <Info className="w-5 h-5 text-[#c9b087] flex-shrink-0 mt-0.5 stroke-[1.5]" />
             <div>
-              <p className="text-sm text-gray-700 mb-1">
-                <strong>How search works:</strong> We search Ohio Medicaid directories + NPI registry, then filter by community trust indicators.
+              <p className="text-sm text-[#6b5c75] mb-2 font-light leading-relaxed">
+                <strong className="font-normal">How search works:</strong> We search Ohio Medicaid directories + NPI registry, then add community trust indicators.
               </p>
-              <p className="text-xs text-gray-600">
-                Filters marked with * are required by the directory. "Mama Approved™" and identity tags are community-powered filters.
+              <p className="text-xs text-[#a89cb5] font-light leading-relaxed">
+                "Mama Approved™" and identity tags are community-powered filters.
               </p>
             </div>
           </div>
         </div>
 
-        {/* TIER 1: Core Location & Required Filters */}
-        <section className="mb-4">
-          <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-4">
-              <MapPin className="w-5 h-5 text-[#663399]" />
-              <h2>Location & Directory</h2>
-              <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
-                Required
-              </span>
+        {/* TIER 1: Location */}
+        <section className="mb-6">
+          <div className="bg-white/60 backdrop-blur-sm rounded-[32px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
+            <div className="flex items-center gap-2 mb-5">
+              <MapPin className="w-5 h-5 text-[#a89cb5] stroke-[1.5]" />
+              <h2 className="text-[#4a3f52] font-normal">Location</h2>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">
-                  ZIP Code <span className="text-rose-500">*</span>
-                </label>
+                <label className="block text-sm text-[#8b7a95] mb-2 font-light">ZIP code (optional)</label>
                 <input
                   type="text"
                   maxLength={5}
                   value={zipCode}
                   onChange={(e) => setZipCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="44115"
-                  className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 focus:bg-white transition-colors"
+                  placeholder="43215"
+                  className="w-full px-5 py-3.5 rounded-[20px] bg-[#f7f5f9] border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 transition-colors text-[#4a3f52] placeholder:text-[#b5a8c2] font-light"
                 />
-                <p className="text-xs text-gray-500 mt-1">API param: <code className="text-[#663399]">Zip</code></p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">City (Optional)</label>
-                <input
-                  type="text"
+                <label className="block text-sm text-[#8b7a95] mb-2 font-light">City (optional)</label>
+                <select
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  placeholder="Cleveland"
-                  className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 focus:bg-white transition-colors"
-                />
-                <p className="text-xs text-gray-500 mt-1">API param: <code className="text-[#663399]">City</code></p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Search Radius <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={radius}
-                    onChange={(e) => setRadius(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 appearance-none"
-                  >
-                    <option value="3">3 miles</option>
-                    <option value="5">5 miles</option>
-                    <option value="10">10 miles</option>
-                    <option value="15">15 miles</option>
-                    <option value="25">25 miles</option>
-                    <option value="50">50 miles</option>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">API param: <code className="text-[#663399]">Radius</code></p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">State</label>
-                  <input
-                    type="text"
-                    value="Ohio"
-                    disabled
-                    className="w-full px-4 py-3 rounded-2xl bg-gray-100 border border-gray-200 text-gray-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">API param: <code className="text-[#663399]">State=OH</code></p>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Health Plan <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={healthPlan}
-                  onChange={(e) => setHealthPlan(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 appearance-none"
+                  className="w-full px-5 py-3.5 rounded-[20px] bg-[#f7f5f9] border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 transition-colors text-[#4a3f52] font-light"
                 >
-                  <option value="">Select your health plan</option>
-                  {healthPlans.map((plan) => (
-                    <option key={plan} value={plan}>{plan}</option>
-                  ))}
+                  <option value="">Select a city</option>
+                  <option value="Columbus">Columbus</option>
+                  <option value="Cleveland">Cleveland</option>
+                  <option value="Cincinnati">Cincinnati</option>
+                  <option value="Toledo">Toledo</option>
+                  <option value="Akron">Akron</option>
+                  <option value="Dayton">Dayton</option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  API param: <code className="text-[#663399]">HealthPlan</code> | Required for Medicaid directory
-                </p>
               </div>
 
-              <div className="p-3 bg-gray-50 rounded-2xl border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Program</p>
-                    <p className="text-xs text-gray-500">Fixed to Medicaid</p>
-                  </div>
-                  <span className="text-sm px-3 py-1 rounded-full bg-white border border-gray-200">
-                    Medicaid
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">API param: <code className="text-[#663399]">Program=Medicaid</code></p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* TIER 1: Provider Type (Required) */}
-        <section className="mb-4">
-          <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h2>Provider Type <span className="text-rose-500">*</span></h2>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
-                  Required
-                </span>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mb-3">
-              API param: <code className="text-[#663399]">ProviderTypeIDsDelimited</code> | Choose at least one
-            </p>
-
-            <button
-              onClick={() => setShowProviderTypes(!showProviderTypes)}
-              className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-between text-left hover:border-[#663399]/30 transition-colors"
-            >
-              <span className="text-sm text-gray-600">
-                {providerTypes.length > 0 ? `${providerTypes.length} selected` : "Select provider types"}
-              </span>
-              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showProviderTypes ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showProviderTypes && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {providerTypeOptions.map((type) => (
-                  <button
-                    key={type.id}
-                    onClick={() => toggleItem(type.id, providerTypes, setProviderTypes)}
-                    className={`px-3 py-2 rounded-2xl text-sm transition-colors ${
-                      providerTypes.includes(type.id)
-                        ? "bg-[#663399] text-white"
-                        : "bg-gray-50 text-gray-700 border border-gray-200 hover:border-[#663399]/30"
-                    }`}
-                  >
-                    {type.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {providerTypes.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {providerTypes.map((typeId) => {
-                  const type = providerTypeOptions.find(t => t.id === typeId);
-                  return (
-                    <span key={typeId} className="px-3 py-1.5 rounded-2xl text-xs bg-[#663399] text-white flex items-center gap-2">
-                      {type?.label}
-                      <button
-                        onClick={() => toggleItem(typeId, providerTypes, setProviderTypes)}
-                        className="hover:bg-white/20 rounded-full"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* TIER 2: Care-Fit Filters */}
-        <section className="mb-4">
-          <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-4">
-              <h2>Care Preferences</h2>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
-                Recommended
-              </span>
-            </div>
-            <p className="text-xs text-gray-500 mb-4">High-value filters to find the right care for you</p>
-
-            <div className="space-y-4">
-              {/* Accepting New Patients */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-200">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Accepting new patients</p>
-                  <p className="text-xs text-gray-500">API param: <code className="text-[#663399]">AcceptsNewPatients=Yes</code></p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={acceptingNew}
-                    onChange={(e) => setAcceptingNew(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#663399]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#663399]"></div>
-                </label>
-              </div>
-
-              {/* Telehealth */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-200">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Telehealth available</p>
-                  <p className="text-xs text-gray-500">API param: <code className="text-[#663399]">Telehealth=Yes</code></p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={telehealth}
-                    onChange={(e) => setTelehealth(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#663399]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#663399]"></div>
-                </label>
-              </div>
-
-              {/* Languages Spoken */}
               <div>
-                <label className="block text-sm font-medium mb-2">Languages Spoken</label>
-                <p className="text-xs text-gray-500 mb-2">API param: <code className="text-[#663399]">LanguagesSpoken</code></p>
-                
-                <button
-                  onClick={() => setShowLanguages(!showLanguages)}
-                  className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-between text-left hover:border-[#663399]/30 transition-colors"
+                <label className="block text-sm text-[#8b7a95] mb-2 font-light">Search radius</label>
+                <select
+                  value={radius}
+                  onChange={(e) => setRadius(e.target.value)}
+                  className="w-full px-5 py-3.5 rounded-[20px] bg-[#f7f5f9] border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 transition-colors text-[#4a3f52] font-light"
                 >
-                  <span className="text-sm text-gray-600">
-                    {languagesSpoken.length > 0 ? `${languagesSpoken.length} selected` : "Any language"}
-                  </span>
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showLanguages ? 'rotate-180' : ''}`} />
-                </button>
-
-                {showLanguages && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {languageOptions.map((language) => (
-                      <button
-                        key={language}
-                        onClick={() => toggleItem(language, languagesSpoken, setLanguagesSpoken)}
-                        className={`px-3 py-2 rounded-2xl text-sm transition-colors ${
-                          languagesSpoken.includes(language)
-                            ? "bg-[#663399] text-white"
-                            : "bg-gray-50 text-gray-700 border border-gray-200 hover:border-[#663399]/30"
-                        }`}
-                      >
-                        {language}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {languagesSpoken.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {languagesSpoken.map((language) => (
-                      <span key={language} className="px-3 py-1.5 rounded-2xl text-xs bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-2">
-                        {language}
-                        <button
-                          onClick={() => toggleItem(language, languagesSpoken, setLanguagesSpoken)}
-                          className="hover:bg-blue-100 rounded-full"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Specialty */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Specialty (Optional)</label>
-                <p className="text-xs text-gray-500 mb-2">API param: <code className="text-[#663399]">SpecialtyTypeIDsDelimited</code> | Validated IDs only</p>
-
-                <button
-                  onClick={() => setShowSpecialties(!showSpecialties)}
-                  className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-between text-left hover:border-[#663399]/30 transition-colors"
-                >
-                  <span className="text-sm text-gray-600">
-                    {specialties.length > 0 ? `${specialties.length} selected` : "Any specialty"}
-                  </span>
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showSpecialties ? 'rotate-180' : ''}`} />
-                </button>
-
-                {showSpecialties && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {specialtyOptions.map((specialty) => (
-                      <button
-                        key={specialty.id}
-                        onClick={() => toggleItem(specialty.id, specialties, setSpecialties)}
-                        className={`px-3 py-2 rounded-2xl text-sm transition-colors ${
-                          specialties.includes(specialty.id)
-                            ? "bg-[#663399] text-white"
-                            : "bg-gray-50 text-gray-700 border border-gray-200 hover:border-[#663399]/30"
-                        }`}
-                      >
-                        {specialty.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {specialties.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {specialties.map((specialtyId) => {
-                      const specialty = specialtyOptions.find(s => s.id === specialtyId);
-                      return (
-                        <span key={specialtyId} className="px-3 py-1.5 rounded-2xl text-xs bg-purple-50 text-[#663399] border border-purple-100 flex items-center gap-2">
-                          {specialty?.label}
-                          <button
-                            onClick={() => toggleItem(specialtyId, specialties, setSpecialties)}
-                            className="hover:bg-[#663399]/10 rounded-full"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
+                  <option value="5">5 miles</option>
+                  <option value="10">10 miles</option>
+                  <option value="25">25 miles</option>
+                  <option value="50">50 miles</option>
+                </select>
               </div>
             </div>
           </div>
         </section>
 
-        {/* TIER 3: Advanced Filters */}
-        <section className="mb-4">
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="w-full bg-white rounded-3xl p-4 shadow-sm border border-gray-100 hover:border-[#663399]/30 transition-colors flex items-center justify-between"
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Advanced Filters</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                Optional
-              </span>
-            </div>
-            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
-          </button>
-
-          {showAdvanced && (
-            <div className="mt-4 bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-              <p className="text-xs text-gray-500 mb-4">Additional filters from the Medicaid directory</p>
-
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl border border-gray-200">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Accepts pregnant patients</p>
-                  <p className="text-xs text-gray-500">API param: <code className="text-[#663399]">AcceptsPregnantWomen=Yes</code></p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={acceptsPregnant}
-                    onChange={(e) => setAcceptsPregnant(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#663399]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#663399]"></div>
-                </label>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* CLIENT-SIDE FILTERS: Trust Layer */}
+        {/* Health Plan */}
         <section className="mb-6">
-          <div className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-3xl p-5 shadow-sm border border-rose-100">
-            <div className="flex items-center gap-2 mb-3">
-              <Heart className="w-5 h-5 text-rose-600" />
-              <h2>Community Trust Filters</h2>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-white/70 text-rose-700 border border-rose-200">
-                Community-powered
-              </span>
-            </div>
-            <p className="text-xs text-gray-600 mb-4">
-              <strong>Note:</strong> These filters are applied <em>after</em> getting results from the directory. They're not API parameters—they filter based on community reviews and verified tags in our database.
-            </p>
+          <div className="bg-white/60 backdrop-blur-sm rounded-[32px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
+            <h2 className="text-[#4a3f52] font-normal mb-2">Health plan (optional)</h2>
+            <p className="text-sm text-[#8b7a95] mb-4 font-light">Which plan do you have?</p>
+            
+            <select
+              value={healthPlan}
+              onChange={(e) => setHealthPlan(e.target.value)}
+              className="w-full px-5 py-3.5 rounded-[20px] bg-[#f7f5f9] border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 transition-colors text-[#4a3f52] font-light"
+            >
+              <option value="">Select a health plan</option>
+              {healthPlans.map(plan => (
+                <option key={plan} value={plan}>{plan}</option>
+              ))}
+            </select>
+          </div>
+        </section>
 
-            <div className="space-y-4">
-              {/* Mama Approved */}
-              <div className="flex items-center justify-between p-3 bg-white rounded-2xl border border-rose-200">
-                <div className="flex-1 flex items-center gap-2">
-                  <p className="text-sm font-medium">Mama Approved™ only</p>
-                  <button className="text-rose-600">
-                    <Info className="w-4 h-4" />
-                  </button>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={mamaApprovedOnly}
-                    onChange={(e) => setMamaApprovedOnly(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-rose-300/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-500"></div>
-                </label>
-              </div>
-              <p className="text-xs text-gray-500 pl-3">
-                Filter: <code className="text-rose-600">clientFilters.mamaApprovedOnly</code> | Applied locally after API results
-              </p>
-
-              {/* Identity Tags */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium">Identity & Cultural Match</label>
-                  <button className="text-rose-600">
-                    <Info className="w-4 h-4" />
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 mb-3">
-                  Filter: <code className="text-rose-600">clientFilters.identityTags</code> | Tags are community-added with verification status
-                </p>
-
+        {/* Provider Types */}
+        <section className="mb-6">
+          <div className="bg-white/60 backdrop-blur-sm rounded-[32px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
+            <h2 className="text-[#4a3f52] font-normal mb-2">Provider type</h2>
+            <p className="text-sm text-[#8b7a95] mb-4 font-light">What kind of provider are you looking for?</p>
+            
+            <div className="space-y-2">
+              {providerTypeOptions.map(type => (
                 <button
-                  onClick={() => setShowIdentityTags(!showIdentityTags)}
-                  className="w-full px-4 py-3 rounded-2xl bg-white border border-rose-200 flex items-center justify-between text-left hover:border-rose-300 transition-colors"
+                  key={type.id}
+                  onClick={() => toggleItem(type.id, providerTypes, setProviderTypes)}
+                  className={`w-full text-left px-5 py-3.5 rounded-[20px] transition-all font-light ${
+                    providerTypes.includes(type.id)
+                      ? "bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white shadow-[0_2px_12px_rgba(168,156,181,0.2)]"
+                      : "bg-[#f7f5f9] text-[#6b5c75] hover:bg-[#ede7f3]/50"
+                  }`}
                 >
-                  <span className="text-sm text-gray-700">
-                    {identityTags.length > 0 ? `${identityTags.length} selected` : "Any identity/cultural match"}
-                  </span>
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showIdentityTags ? 'rotate-180' : ''}`} />
+                  {type.label} {providerTypes.includes(type.id) && "✓"}
                 </button>
+              ))}
+            </div>
+          </div>
+        </section>
 
-                {showIdentityTags && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {identityTagOptions.map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => toggleItem(tag, identityTags, setIdentityTags)}
-                        className={`px-3 py-2 rounded-2xl text-sm transition-colors ${
-                          identityTags.includes(tag)
-                            ? "bg-rose-500 text-white"
-                            : "bg-white text-gray-700 border border-rose-200 hover:border-rose-300"
-                        }`}
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                )}
+        {/* Specialties */}
+        <section className="mb-6">
+          <div className="bg-white/60 backdrop-blur-sm rounded-[32px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
+            <h2 className="text-[#4a3f52] font-normal mb-2">Specialties (optional)</h2>
+            <p className="text-sm text-[#8b7a95] mb-4 font-light">Any specific care needs?</p>
+            
+            <div className="space-y-2">
+              {specialtyOptions.slice(0, showAdvanced ? specialtyOptions.length : 5).map(specialty => (
+                <button
+                  key={specialty.id}
+                  onClick={() => toggleItem(specialty.id, specialties, setSpecialties)}
+                  className={`w-full text-left px-5 py-3.5 rounded-[20px] transition-all font-light text-sm ${
+                    specialties.includes(specialty.id)
+                      ? "bg-[#e8e0f0]/80 text-[#6b5c75] border border-[#d4c5e0]/50"
+                      : "bg-[#f7f5f9] text-[#8b7a95] hover:bg-[#ede7f3]/50"
+                  }`}
+                >
+                  {specialty.label} {specialties.includes(specialty.id) && "✓"}
+                </button>
+              ))}
+            </div>
+            
+            {!showAdvanced && (
+              <button
+                onClick={() => setShowAdvanced(true)}
+                className="mt-3 text-sm text-[#a89cb5] font-light hover:text-[#8b7a95] transition-colors"
+              >
+                Show all specialties →
+              </button>
+            )}
+          </div>
+        </section>
 
-                {identityTags.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {identityTags.map((tag) => (
-                      <span key={tag} className="px-3 py-1.5 rounded-2xl text-xs bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-2">
-                        {tag}
-                        <button
-                          onClick={() => toggleItem(tag, identityTags, setIdentityTags)}
-                          className="hover:bg-rose-200 rounded-full"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
+        {/* Languages */}
+        <section className="mb-6">
+          <div className="bg-white/60 backdrop-blur-sm rounded-[32px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
+            <h2 className="text-[#4a3f52] font-normal mb-2">Languages spoken (optional)</h2>
+            <p className="text-sm text-[#8b7a95] mb-4 font-light">Prefer a provider who speaks your language?</p>
+            
+            <div className="flex flex-wrap gap-2">
+              {languageOptions.map(lang => (
+                <button
+                  key={lang}
+                  onClick={() => toggleItem(lang, languagesSpoken, setLanguagesSpoken)}
+                  className={`px-4 py-2 rounded-[16px] text-sm transition-all font-light ${
+                    languagesSpoken.includes(lang)
+                      ? "bg-[#e8e0f0]/80 text-[#6b5c75] border border-[#d4c5e0]/50"
+                      : "bg-[#f7f5f9] text-[#8b7a95] hover:bg-[#ede7f3]/50"
+                  }`}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Community Filters */}
+        <section className="mb-6">
+          <div className="bg-gradient-to-br from-[#faf7fb] to-[#f9f5fb] rounded-[32px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#f0e8f3]/50">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-5 h-5 text-[#c9b087] stroke-[1.5]" />
+              <h2 className="text-[#4a3f52] font-normal">Community filters</h2>
+            </div>
+            <p className="text-sm text-[#8b7a95] mb-4 font-light">These are powered by reviews from other mothers</p>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => setMamaApprovedOnly(!mamaApprovedOnly)}
+                className={`w-full text-left px-5 py-3.5 rounded-[20px] transition-all font-light ${
+                  mamaApprovedOnly
+                    ? "bg-[#f0e0e8]/80 text-[#c9a9c0] border border-[#e8d0e0]/50"
+                    : "bg-white/60 backdrop-blur-sm text-[#8b7a95] border border-[#ede7f3]/50"
+                }`}
+              >
+                ⭐ Mama Approved™ only {mamaApprovedOnly && "✓"}
+              </button>
+
+              <div>
+                <p className="text-sm text-[#8b7a95] mb-2 font-light">Background & identity match</p>
+                <div className="flex flex-wrap gap-2">
+                  {identityTagOptions.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => toggleItem(tag, identityTags, setIdentityTags)}
+                      className={`px-4 py-2 rounded-[16px] text-xs transition-all font-light ${
+                        identityTags.includes(tag)
+                          ? "bg-[#e8e0f0]/80 text-[#6b5c75] border border-[#d4c5e0]/50"
+                          : "bg-white/60 backdrop-blur-sm text-[#a89cb5] border border-[#ede7f3]/50"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Quick Toggles */}
+        <section className="mb-8">
+          <div className="bg-white/60 backdrop-blur-sm rounded-[32px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
+            <h2 className="text-[#4a3f52] font-normal mb-4">Additional preferences</h2>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => setAcceptingNew(!acceptingNew)}
+                className={`w-full text-left px-5 py-3.5 rounded-[20px] transition-all font-light flex items-center justify-between ${
+                  acceptingNew
+                    ? "bg-[#dce8e4]/60 text-[#6b9688]"
+                    : "bg-[#f7f5f9] text-[#8b7a95]"
+                }`}
+              >
+                <span>Accepting new patients</span>
+                <span>{acceptingNew ? "✓" : ""}</span>
+              </button>
+
+              <button
+                onClick={() => setTelehealth(!telehealth)}
+                className={`w-full text-left px-5 py-3.5 rounded-[20px] transition-all font-light flex items-center justify-between ${
+                  telehealth
+                    ? "bg-[#e8e0f0]/60 text-[#8b7a95]"
+                    : "bg-[#f7f5f9] text-[#8b7a95]"
+                }`}
+              >
+                <span>Offers telehealth</span>
+                <span>{telehealth ? "✓" : ""}</span>
+              </button>
             </div>
           </div>
         </section>
 
         {/* Search Button */}
-        <div className="space-y-3">
-          <Link
-            to={canSearch ? "/providers/results" : "#"}
-            className={`block w-full py-4 px-4 rounded-2xl text-center transition-colors shadow-sm ${
-              canSearch
-                ? "bg-[#663399] text-white hover:bg-[#552288]"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-            }`}
-            onClick={(e) => {
-              if (canSearch) {
-                console.log("Search params:", buildSearchParams());
-              } else {
-                e.preventDefault();
-              }
-            }}
-          >
-            <Search className="w-5 h-5 inline mr-2" />
-            Search Providers
-          </Link>
+        <button
+          onClick={handleSearch}
+          className="w-full py-4 rounded-[24px] bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white hover:shadow-[0_4px_20px_rgba(168,156,181,0.25)] transition-all font-light shadow-[0_2px_12px_rgba(168,156,181,0.15)]"
+        >
+          Search providers
+        </button>
 
-          <Link
-            to="/providers/add"
-            className="block w-full py-3 px-4 rounded-2xl bg-white text-gray-700 border border-gray-200 hover:border-[#663399]/30 transition-colors flex items-center justify-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Can't find your provider? Add them
-          </Link>
-        </div>
-
-        {/* Developer Note */}
-        <div className="mt-6 p-4 bg-gray-50 rounded-2xl border border-gray-200">
-          <p className="text-xs text-gray-600">
-            <strong>For developers:</strong> This form generates a properly structured API request with validated IDs. 
-            The <code className="text-[#663399]">buildSearchParams()</code> function shows the exact parameters to send to the Ohio Medicaid API.
-            Check the console when you search to see the full request structure.
-          </p>
-        </div>
+        <p className="text-center text-sm text-[#a89cb5] mt-4 font-light">
+          All fields are optional. We'll show you the best matches.
+        </p>
       </div>
     </div>
   );

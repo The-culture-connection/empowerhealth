@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/provider.dart';
 import '../services/provider_repository.dart';
+import '../services/firebase_functions_service.dart';
 import '../constants/provider_types.dart';
 import '../cors/ui_theme.dart';
 

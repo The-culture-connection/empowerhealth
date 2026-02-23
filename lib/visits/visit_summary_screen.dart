@@ -188,12 +188,24 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
 
       // Save to user's profile under visit_summaries subcollection
       final userId = _auth.currentUser!.uid;
+      
+      // Normalize appointment date to UTC midnight to prevent timezone issues
+      DateTime? normalizedDate;
+      if (_selectedDate != null) {
+        // Create UTC date at midnight to match Firebase function behavior
+        normalizedDate = DateTime.utc(
+          _selectedDate!.year,
+          _selectedDate!.month,
+          _selectedDate!.day,
+        );
+      }
+      
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('visit_summaries')
           .add({
-        'appointmentDate': _selectedDate,
+        'appointmentDate': normalizedDate != null ? Timestamp.fromDate(normalizedDate) : null,
         'originalNotes': visitText,
         'summary': result['summary'],
         'diagnoses': _diagnosesController.text.trim(),

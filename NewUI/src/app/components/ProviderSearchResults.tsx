@@ -1,9 +1,15 @@
 import { ArrowLeft, MapPin, Star, Heart, Phone, Clock, Award, Shield, Info, Bookmark, ChevronRight } from "lucide-react";
 import { Link } from "react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { ProviderSearchLoading } from "./ProviderSearchLoading";
 
 export function ProviderSearchResults() {
   const [savedProviders, setSavedProviders] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Loading component will handle its own timing
+  }, []);
 
   const toggleSave = (id: string) => {
     if (savedProviders.includes(id)) {
@@ -51,8 +57,7 @@ export function ProviderSearchResults() {
       telehealth: false,
       identityTags: [
         { label: "Spanish-speaking", status: "verified" },
-        { label: "Home birth support", status: "verified" },
-        { label: "Latina/o/x", status: "verified" }
+        { label: "Home birth support", status: "verified" }
       ],
       phone: "(216) 555-0142"
     },
@@ -71,235 +76,197 @@ export function ProviderSearchResults() {
       acceptingNew: true,
       telehealth: true,
       identityTags: [
-        { label: "Spanish-speaking", status: "verified" },
         { label: "Accepts Medicaid", status: "verified" }
       ],
       phone: "(216) 778-4321"
-    },
-    {
-      id: "4",
-      name: "Amara Johnson, CD(DONA)",
-      credentials: "Certified Doula",
-      specialty: "Birth & Postpartum Doula",
-      practice: "Sacred Beginnings Doula Services",
-      address: "Cleveland, OH",
-      distance: "3.5 miles",
-      city: "Cleveland",
-      mamaApproved: true,
-      rating: 5.0,
-      reviewCount: 143,
-      acceptingNew: true,
-      telehealth: false,
-      identityTags: [
-        { label: "Black / African American", status: "verified" },
-        { label: "VBAC support", status: "verified" },
-        { label: "Birth trauma support", status: "verified" }
-      ],
-      phone: "(216) 555-0198"
     }
   ];
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "verified":
-        return "text-green-600 bg-green-50 border-green-200";
-      case "pending":
-        return "text-amber-600 bg-amber-50 border-amber-200";
-      case "disputed":
-        return "text-gray-600 bg-gray-50 border-gray-200";
-      default:
-        return "text-gray-600 bg-gray-50 border-gray-200";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "verified":
-        return "✓";
-      case "pending":
-        return "⏱";
-      case "disputed":
-        return "?";
-      default:
-        return "";
-    }
-  };
+  if (isLoading) {
+    return <ProviderSearchLoading onComplete={() => setIsLoading(false)} />;
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-[#f8f6f8] pb-24">
+    <div className="min-h-screen bg-[#f7f5f9] pb-24">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-5 py-4 sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <Link to="/providers/search" className="text-gray-600 hover:text-[#663399]">
-            <ArrowLeft className="w-5 h-5" />
+      <div className="bg-gradient-to-br from-[#ebe4f3] via-[#e0d5eb] to-[#e8dfe8] px-6 pt-6 pb-8 mb-6 relative overflow-hidden sticky top-0 z-10">
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#d4c5e0] blur-3xl"></div>
+        </div>
+        
+        <div className="relative">
+          <Link to="/providers/search" className="inline-flex items-center gap-2 text-[#8b7a95] hover:text-[#6b5c75] transition-colors mb-4 font-light text-sm">
+            <ArrowLeft className="w-4 h-4 stroke-[1.5]" />
+            Refine search
           </Link>
-          <div>
-            <h1 className="text-lg">Search Results</h1>
-            <p className="text-xs text-gray-500">{providers.length} providers near Cleveland, OH</p>
+          <h1 className="text-2xl text-[#4a3f52] mb-2 font-normal">Search results</h1>
+          <p className="text-[#6b5c75] text-sm font-light">{providers.length} providers found near you</p>
+        </div>
+      </div>
+
+      <div className="px-6 max-w-2xl mx-auto">
+        {/* Trust Banner */}
+        <div className="mb-6 p-5 bg-gradient-to-br from-[#f0ead8] to-[#f5f0e8] rounded-[28px] border border-[#e8dfc8]/50 shadow-[0_2px_16px_rgba(0,0,0,0.04)]">
+          <div className="flex items-start gap-3">
+            <Shield className="w-5 h-5 text-[#c9b087] flex-shrink-0 mt-0.5 stroke-[1.5]" />
+            <div>
+              <p className="text-sm text-[#6b5c75] font-light leading-relaxed">
+                These providers are sourced from <strong className="font-normal">Ohio Medicaid directories + NPI registry</strong>. Community trust indicators come from verified patient reviews.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Filters Summary */}
-      <div className="px-5 py-4 bg-gradient-to-br from-purple-50 to-blue-50 border-b border-blue-100">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm text-gray-700">Within 10 miles of 44115</p>
-          <Link to="/providers/search" className="text-xs text-[#663399]">Edit filters</Link>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="px-2.5 py-1 rounded-full text-xs bg-white border border-gray-200">Buckeye Health Plan</span>
-          <span className="px-2.5 py-1 rounded-full text-xs bg-white border border-gray-200">OB-GYN</span>
-          <span className="px-2.5 py-1 rounded-full text-xs bg-white border border-gray-200">Accepting new patients</span>
-        </div>
-      </div>
-
-      <div className="px-5 py-5">
-        {/* Sort */}
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-gray-600">Sorted by relevance</p>
-          <select className="text-xs px-3 py-1.5 rounded-xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20">
-            <option>Most relevant</option>
+        {/* Sorting */}
+        <div className="flex items-center justify-between mb-6">
+          <p className="text-sm text-[#8b7a95] font-light">Sorted by distance</p>
+          <select className="text-xs px-4 py-2 rounded-[16px] bg-white/80 backdrop-blur-sm border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 text-[#6b5c75] font-light">
+            <option>Nearest first</option>
             <option>Highest rated</option>
-            <option>Nearest</option>
             <option>Most reviewed</option>
-            <option>Mama Approved first</option>
+            <option>Mama Approved™</option>
           </select>
         </div>
 
-        {/* Results */}
-        <div className="space-y-4">
-          {providers.map((provider) => (
-            <div key={provider.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-              {/* Provider Header */}
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-lg">{provider.name}</h3>
-                      {provider.mamaApproved && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200">
-                          <Award className="w-3.5 h-3.5 text-rose-600" />
-                          <span className="text-xs text-rose-700 font-medium">Mama Approved™</span>
-                        </div>
-                      )}
+        {/* Provider Results */}
+        <div className="space-y-5">
+          {providers.map((provider) => {
+            const isSaved = savedProviders.includes(provider.id);
+            
+            return (
+              <div
+                key={provider.id}
+                className="bg-white/60 backdrop-blur-sm rounded-[32px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-[#ede7f3]/50 overflow-hidden hover:shadow-[0_6px_32px_rgba(0,0,0,0.08)] transition-all"
+              >
+                <div className="p-6">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-lg text-[#4a3f52] font-normal">{provider.name}</h3>
+                        {provider.mamaApproved && (
+                          <Award className="w-5 h-5 text-[#c9a9c0] fill-[#f0e0e8] stroke-[1.5]" />
+                        )}
+                      </div>
+                      <p className="text-sm text-[#8b7a95] mb-1 font-light">{provider.credentials}</p>
+                      <p className="text-sm text-[#a89cb5] font-light">{provider.practice}</p>
                     </div>
-                    <p className="text-sm text-gray-600 mb-1">{provider.credentials}</p>
-                    <p className="text-sm text-gray-500">{provider.specialty}</p>
+                    <button
+                      onClick={() => toggleSave(provider.id)}
+                      className="text-[#a89cb5] hover:text-[#8b7a95] transition-colors"
+                    >
+                      <Bookmark className={`w-5 h-5 stroke-[1.5] ${isSaved ? 'fill-[#a89cb5]' : ''}`} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => toggleSave(provider.id)}
-                    className={`p-2 rounded-xl transition-colors ${
-                      savedProviders.includes(provider.id)
-                        ? "bg-[#663399] text-white"
-                        : "bg-gray-50 text-gray-400 hover:bg-gray-100"
-                    }`}
-                  >
-                    <Bookmark className="w-5 h-5" fill={savedProviders.includes(provider.id) ? "currentColor" : "none"} />
-                  </button>
-                </div>
 
-                {/* Rating */}
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                    <span className="font-medium">{provider.rating}</span>
-                  </div>
-                  <span className="text-sm text-gray-500">({provider.reviewCount} reviews)</span>
-                  {provider.acceptingNew && (
-                    <>
-                      <span className="text-gray-300">•</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
-                        ✓ Accepting
-                      </span>
-                    </>
+                  {/* Mama Approved Badge */}
+                  {provider.mamaApproved && (
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-[16px] bg-gradient-to-r from-[#f0e0e8] to-[#f5e8f0] border border-[#e8d0e0]/50 mb-4">
+                      <Award className="w-4 h-4 text-[#c9a9c0] stroke-[1.5]" />
+                      <span className="text-xs text-[#c9a9c0] font-light">Mama Approved™</span>
+                    </div>
                   )}
-                  {provider.telehealth && (
-                    <>
-                      <span className="text-gray-300">•</span>
-                      <span className="text-xs text-gray-500">Telehealth</span>
-                    </>
+
+                  {/* Rating */}
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="flex items-center gap-1.5">
+                      <Star className="w-5 h-5 fill-[#c9b087] text-[#c9b087]" />
+                      <span className="text-lg font-normal text-[#4a3f52]">{provider.rating}</span>
+                    </div>
+                    <span className="text-sm text-[#a89cb5] font-light">({provider.reviewCount} reviews)</span>
+                  </div>
+
+                  {/* Quick Info Grid */}
+                  <div className="grid grid-cols-2 gap-3 mb-5 p-4 bg-[#f7f5f9] rounded-[20px]">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-[#a89cb5] stroke-[1.5]" />
+                      <span className="text-xs text-[#8b7a95] font-light">{provider.distance}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-[#a89cb5] stroke-[1.5]" />
+                      <span className="text-xs text-[#8b7a95] font-light">{provider.phone.slice(-8)}</span>
+                    </div>
+                    {provider.acceptingNew && (
+                      <div className="col-span-2">
+                        <span className="text-xs px-3 py-1.5 rounded-[14px] bg-[#dce8e4]/80 text-[#6b9688] border border-[#c9e0d9]/30 font-light inline-block">
+                          ✓ Accepting new patients
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Identity Tags */}
+                  {provider.identityTags && provider.identityTags.length > 0 && (
+                    <div className="mb-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Info className="w-4 h-4 text-[#a89cb5] stroke-[1.5]" />
+                        <span className="text-xs text-[#8b7a95] font-light">Background & specialties</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {provider.identityTags.map((tag, index) => (
+                          <div
+                            key={index}
+                            className={`text-xs px-3 py-1.5 rounded-[14px] border font-light flex items-center gap-1.5 ${
+                              tag.status === "verified"
+                                ? "bg-[#e8e0f0]/60 text-[#8b7a95] border-[#d4c5e0]/30"
+                                : "bg-[#f7f5f9] text-[#b5a8c2] border-[#e8e0f0]/50"
+                            }`}
+                          >
+                            {tag.status === "verified" && <span className="text-[#8ba39c]">✓</span>}
+                            {tag.label}
+                            {tag.status === "pending" && (
+                              <span className="text-[#b5a8c2] text-[10px]">(pending)</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </div>
 
-                {/* Location */}
-                <div className="flex items-start gap-2 mb-4 p-3 bg-gray-50 rounded-2xl">
-                  <MapPin className="w-4 h-4 text-[#663399] flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 text-sm">
-                    <p className="text-gray-700">{provider.practice}</p>
-                    <p className="text-gray-500 text-xs">{provider.address}</p>
-                    <p className="text-[#663399] text-xs mt-1">{provider.distance} away</p>
-                  </div>
-                </div>
-
-                {/* Identity Tags */}
-                {provider.identityTags.length > 0 && (
-                  <div className="mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs text-gray-500">Identity & Cultural Tags</span>
-                      <button className="text-[#663399]">
-                        <Info className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {provider.identityTags.map((tag, index) => (
-                        <div
-                          key={index}
-                          className={`px-2.5 py-1 rounded-full text-xs border flex items-center gap-1.5 ${getStatusColor(tag.status)}`}
-                        >
-                          <span>{tag.label}</span>
-                          <span className="opacity-60">{getStatusIcon(tag.status)}</span>
-                        </div>
-                      ))}
+                  {/* Location */}
+                  <div className="mb-5 p-4 bg-[#f7f5f9] rounded-[20px]">
+                    <div className="flex items-start gap-3">
+                      <MapPin className="w-4 h-4 text-[#a89cb5] stroke-[1.5] mt-0.5" />
+                      <div>
+                        <p className="text-sm text-[#6b5c75] font-light">{provider.address}</p>
+                        <button className="text-xs text-[#a89cb5] font-light hover:text-[#8b7a95] transition-colors mt-1">
+                          Get directions →
+                        </button>
+                      </div>
                     </div>
                   </div>
-                )}
 
-                {/* Actions */}
-                <div className="flex gap-2">
-                  <Link
-                    to={`/providers/${provider.id}`}
-                    className="flex-1 py-3 px-4 rounded-2xl bg-[#663399] text-white text-sm text-center hover:bg-[#552288] transition-colors shadow-sm"
-                  >
-                    View Profile
-                  </Link>
-                  <a
-                    href={`tel:${provider.phone}`}
-                    className="px-4 py-3 rounded-2xl border border-gray-200 text-gray-700 hover:border-[#663399]/30 transition-colors"
-                  >
-                    <Phone className="w-4 h-4" />
-                  </a>
-                  <Link
-                    to={`/providers/${provider.id}/review`}
-                    className="px-4 py-3 rounded-2xl border border-gray-200 text-gray-700 hover:border-[#663399]/30 transition-colors text-sm flex items-center gap-1"
-                  >
-                    Review
-                  </Link>
+                  {/* Actions */}
+                  <div className="flex gap-3">
+                    <Link
+                      to={`/providers/${provider.id}`}
+                      className="flex-1 py-3.5 px-4 rounded-[24px] bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white text-sm hover:shadow-[0_4px_20px_rgba(168,156,181,0.25)] transition-all font-light shadow-[0_2px_12px_rgba(168,156,181,0.15)] text-center"
+                    >
+                      View full profile
+                    </Link>
+                    <button className="px-5 py-3.5 rounded-[24px] border border-[#e8e0f0]/50 text-[#8b7a95] text-sm hover:bg-[#f7f5f9] transition-colors font-light">
+                      <Phone className="w-4 h-4 stroke-[1.5]" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Add Provider CTA */}
-        <div className="mt-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-3xl p-5 shadow-sm border border-blue-100">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#663399] flex items-center justify-center flex-shrink-0">
-              <Heart className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="mb-2">Don't see your provider?</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Help other mothers by adding your provider to our community directory.
-              </p>
-              <Link
-                to="/providers/add"
-                className="inline-flex items-center gap-2 text-sm text-[#663399] font-medium"
-              >
-                Add a provider
-                <ChevronRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
+        {/* Can't Find Provider */}
+        <div className="mt-8 bg-gradient-to-br from-[#faf7fb] to-[#f9f5fb] rounded-[28px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#f0e8f3]/50">
+          <h3 className="mb-2 text-[#4a3f52] font-normal">Can't find who you're looking for?</h3>
+          <p className="text-sm text-[#6b5c75] mb-4 font-light leading-relaxed">
+            Help build this directory by adding providers you trust. Your contribution helps other mothers find quality care.
+          </p>
+          <Link
+            to="/providers/add"
+            className="inline-flex items-center gap-2 text-sm text-[#a89cb5] font-light hover:text-[#8b7a95] transition-colors"
+          >
+            Add a provider →
+          </Link>
         </div>
       </div>
     </div>

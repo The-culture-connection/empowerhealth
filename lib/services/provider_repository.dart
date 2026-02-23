@@ -397,51 +397,6 @@ class ProviderRepository {
       // Use Firestore provider ID if available, otherwise use original providerId
       final effectiveProviderId = firestoreProviderId ?? review.providerId;
       
-      // Check for duplicate review (same user, same provider, within last 2 minutes)
-      // Query without orderBy to avoid index requirement, then filter in memory
-      final now = DateTime.now();
-      final twoMinutesAgo = now.subtract(const Duration(minutes: 2));
-      
-      // Check both providerId formats
-      final existingReviewsQuery1 = await _firestore
-          .collection('reviews')
-          .where('providerId', isEqualTo: review.providerId)
-          .where('userId', isEqualTo: review.userId)
-          .get();
-      
-      final existingReviewsQuery2 = firestoreProviderId != null
-          ? await _firestore
-              .collection('reviews')
-              .where('providerId', isEqualTo: firestoreProviderId)
-              .where('userId', isEqualTo: review.userId)
-              .get()
-          : QuerySnapshot.empty;
-      
-      // Combine and filter in memory for recent reviews
-      final allRecentDocs = <QueryDocumentSnapshot>[];
-      for (var doc in existingReviewsQuery1.docs) {
-        allRecentDocs.add(doc);
-      }
-      for (var doc in existingReviewsQuery2.docs) {
-        if (!allRecentDocs.any((d) => d.id == doc.id)) {
-          allRecentDocs.add(doc);
-        }
-      }
-      
-      final recentReviews = allRecentDocs.where((doc) {
-        final data = doc.data();
-        final createdAt = data['createdAt'];
-        if (createdAt is Timestamp) {
-          return createdAt.toDate().isAfter(twoMinutesAgo);
-        }
-        return false;
-      }).toList();
-      
-      if (recentReviews.isNotEmpty) {
-        print('⚠️ [ProviderRepository] Duplicate review detected (${recentReviews.length} recent reviews), skipping save');
-        throw Exception('You have already submitted a review for this provider recently. Please wait a moment.');
-      }
-      
       // Create review with effective provider ID
       final reviewData = review.toMap();
       reviewData['providerId'] = effectiveProviderId; // Use Firestore ID if available

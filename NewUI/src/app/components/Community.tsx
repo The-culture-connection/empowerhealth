@@ -1,4 +1,4 @@
-import { MessageCircle, Heart, Users, MapPin, Award, ThumbsUp, MessageSquare } from "lucide-react";
+import { MessageCircle, Heart, Users, MapPin, Award, ThumbsUp, MessageSquare, Sparkles } from "lucide-react";
 import { Link } from "react-router";
 
 export function Community() {
@@ -72,22 +72,28 @@ export function Community() {
   ];
 
   return (
-    <div className="p-5">
+    <div className="p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl mb-2">Community</h1>
-        <p className="text-gray-600">Connect with others on the same journey</p>
+      <div className="mb-8">
+        <h1 className="text-2xl mb-2 text-[#4a3f52] font-normal">Community</h1>
+        <p className="text-[#8b7a95] font-light">Connect with others on the same journey</p>
       </div>
 
       {/* Safety Note */}
-      <div className="bg-gradient-to-br from-[#663399] to-[#8855bb] rounded-3xl p-5 text-white shadow-md mb-6">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
-            <Heart className="w-5 h-5 text-white" />
+      <div className="bg-gradient-to-br from-[#ebe4f3] via-[#e0d5eb] to-[#e8dfe8] rounded-[32px] p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)] mb-8 relative overflow-hidden">
+        {/* Subtle background pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#d4c5e0] blur-3xl"></div>
+        </div>
+        
+        <div className="relative flex items-start gap-3">
+          <div className="w-11 h-11 rounded-[20px] bg-white/40 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm">
+            <Heart className="w-5 h-5 text-[#6b5c75] stroke-[1.5]" />
           </div>
           <div>
-            <h2 className="text-lg mb-1">A Safe Space</h2>
-            <p className="text-white/90 text-sm">
+            <h2 className="text-lg mb-2 text-[#4a3f52] font-normal">A safe space</h2>
+            <p className="text-[#6b5c75] text-sm font-light leading-relaxed">
               Share your experiences, ask questions, and support others. All discussions are moderated to keep this space respectful and supportive.
             </p>
           </div>
@@ -100,10 +106,10 @@ export function Community() {
           {["All", "Questions", "Birth Stories", "Support", "Resources"].map((category) => (
             <button
               key={category}
-              className={`px-4 py-2 rounded-2xl whitespace-nowrap transition-colors ${
+              className={`px-5 py-2.5 rounded-[20px] whitespace-nowrap transition-all font-light shadow-[0_2px_12px_rgba(0,0,0,0.03)] ${
                 category === "All"
-                  ? "bg-[#663399] text-white"
-                  : "bg-white text-gray-700 border border-gray-200 hover:border-[#663399]/30"
+                  ? "bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white"
+                  : "bg-white/80 backdrop-blur-sm text-[#6b5c75] border border-[#e8e0f0]/50 hover:border-[#d4c5e0]/50"
               }`}
             >
               {category}
@@ -114,39 +120,39 @@ export function Community() {
 
       {/* Discussions */}
       <section className="mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <h2>Recent Discussions</h2>
-          <Link to="/community/new" className="text-sm text-[#663399]">New post</Link>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[#6b5c75] font-normal text-base tracking-wide">Recent discussions</h2>
+          <Link to="/community/new" className="text-sm text-[#a89cb5] font-light hover:text-[#8b7a95] transition-colors">New post</Link>
         </div>
         <div className="space-y-3">
           {discussions.map((discussion, index) => (
             <Link
               key={index}
               to={`/community/${discussion.id}`}
-              className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:border-[#663399]/30 transition-colors cursor-pointer block"
+              className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50 hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-all cursor-pointer block"
             >
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#663399] to-[#cbbec9] flex items-center justify-center flex-shrink-0 text-white text-sm">
+                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#d4c5e0] to-[#e0d5eb] flex items-center justify-center flex-shrink-0 text-white text-sm shadow-sm">
                   {discussion.author.charAt(0)}
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-600">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs px-3 py-1.5 rounded-[14px] bg-[#ede7f3]/60 text-[#8b7a95] font-light">
                       {discussion.category}
                     </span>
                     {discussion.hasBlackMamaTag && (
-                      <span className="text-xs px-2 py-1 rounded-lg bg-rose-100 text-rose-700 flex items-center gap-1">
-                        <Award className="w-3 h-3" />
-                        Black Mama Approved
+                      <span className="text-xs px-3 py-1.5 rounded-[14px] bg-[#f0e0e8]/80 text-[#c9a9c0] flex items-center gap-1.5 font-light">
+                        <Award className="w-3 h-3 stroke-[1.5]" />
+                        Mama Approved™
                       </span>
                     )}
                   </div>
-                  <h3 className="text-sm mb-1">{discussion.title}</h3>
-                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                  <h3 className="text-sm mb-2 text-[#4a3f52] font-normal">{discussion.title}</h3>
+                  <div className="flex items-center gap-3 text-xs text-[#a89cb5] font-light">
                     <span>{discussion.author}</span>
                     <span>•</span>
                     <span className="flex items-center gap-1">
-                      <MessageSquare className="w-3.5 h-3.5" />
+                      <MessageSquare className="w-3.5 h-3.5 stroke-[1.5]" />
                       {discussion.replies} replies
                     </span>
                     <span>•</span>
@@ -160,47 +166,47 @@ export function Community() {
       </section>
 
       {/* Provider Directory */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2>Trusted Providers</h2>
-          <button className="text-sm text-[#663399]">See all</button>
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[#6b5c75] font-normal text-base tracking-wide">Trusted providers</h2>
+          <button className="text-sm text-[#a89cb5] font-light hover:text-[#8b7a95] transition-colors">See all</button>
         </div>
         <div className="space-y-3">
           {providers.map((provider, index) => (
             <div
               key={index}
-              className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:border-[#663399]/30 transition-colors cursor-pointer"
+              className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50 hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-all cursor-pointer"
             >
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#663399] to-[#cbbec9] flex items-center justify-center flex-shrink-0 text-white">
+                <div className="w-12 h-12 rounded-[20px] bg-gradient-to-br from-[#d4c5e0] to-[#e0d5eb] flex items-center justify-center flex-shrink-0 text-white shadow-sm">
                   {provider.name.charAt(0)}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-sm">{provider.name}</h3>
+                    <h3 className="text-sm text-[#4a3f52] font-normal">{provider.name}</h3>
                     {provider.hasBlackMamaTag && (
-                      <span className="text-xs px-2 py-1 rounded-lg bg-rose-100 text-rose-700 flex items-center gap-1">
-                        <Award className="w-3 h-3" />
+                      <span className="text-xs px-2 py-1 rounded-[12px] bg-[#f0e0e8]/80 text-[#c9a9c0] flex items-center gap-1">
+                        <Award className="w-3 h-3 stroke-[1.5]" />
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">{provider.title}</p>
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-                    <MapPin className="w-3.5 h-3.5" />
+                  <p className="text-sm text-[#8b7a95] mb-2 font-light">{provider.title}</p>
+                  <div className="flex items-center gap-2 text-xs text-[#a89cb5] mb-2 font-light">
+                    <MapPin className="w-3.5 h-3.5 stroke-[1.5]" />
                     <span>{provider.location}</span>
                   </div>
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-3">
                     <div className="flex items-center gap-1">
-                      <span className="text-amber-500">★</span>
-                      <span className="text-sm">{provider.rating}</span>
-                      <span className="text-xs text-gray-500">({provider.reviews} reviews)</span>
+                      <span className="text-[#c9b087]">★</span>
+                      <span className="text-sm text-[#6b5c75] font-light">{provider.rating}</span>
+                      <span className="text-xs text-[#a89cb5] font-light">({provider.reviews} reviews)</span>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {provider.specialties.map((specialty, i) => (
                       <span
                         key={i}
-                        className="text-xs px-2 py-1 rounded-lg bg-purple-50 text-[#663399]"
+                        className="text-xs px-3 py-1.5 rounded-[14px] bg-[#e8e0f0]/60 text-[#8b7a95] font-light"
                       >
                         {specialty}
                       </span>
@@ -214,17 +220,17 @@ export function Community() {
       </section>
 
       {/* Anonymous Feedback */}
-      <div className="mt-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-3xl p-5 shadow-sm border border-blue-100">
+      <div className="mb-6 bg-gradient-to-br from-[#f0ead8] to-[#f5f0e8] rounded-[28px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#e8dfc8]/50">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-            <ThumbsUp className="w-5 h-5 text-blue-600" />
+          <div className="w-11 h-11 rounded-[20px] bg-white/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm">
+            <Sparkles className="w-5 h-5 text-[#c9b087] stroke-[1.5]" />
           </div>
           <div className="flex-1">
-            <h3 className="mb-1">Share Your Experience</h3>
-            <p className="text-sm text-gray-600 mb-3">
+            <h3 className="mb-2 text-[#4a3f52] font-normal">Share your experience</h3>
+            <p className="text-sm text-[#6b5c75] mb-3 font-light leading-relaxed">
               Help others by sharing anonymous feedback about your providers and birth experience.
             </p>
-            <button className="text-sm text-[#663399]">Submit feedback →</button>
+            <button className="text-sm text-[#a89cb5] font-light hover:text-[#8b7a95] transition-colors">Submit feedback →</button>
           </div>
         </div>
       </div>

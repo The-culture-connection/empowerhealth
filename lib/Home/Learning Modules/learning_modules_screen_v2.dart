@@ -5,6 +5,7 @@ import '../../models/learning_module.dart';
 import '../../services/ai_service.dart';
 import '../../cors/ui_theme.dart';
 import 'learning_module_detail_screen.dart';
+import 'module_survey_dialog.dart';
 
 class LearningModulesScreenV2 extends StatefulWidget {
   const LearningModulesScreenV2({super.key});
@@ -367,6 +368,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                         title: title,
                                         content: formattedContent,
                                         icon: '📚',
+                                        taskId: taskId,
                                       ),
                                     ),
                                   );
@@ -393,7 +395,40 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                       value: isCompleted,
                                       onChanged: isArchived ? null : (value) async {
                                         if (value == true) {
-                                          // When checked, mark as completed and archive
+                                          // For learning modules (not todos), check if survey is completed
+                                          if (!isTodo && taskId != null) {
+                                            final userId = _auth.currentUser?.uid;
+                                            if (userId != null) {
+                                              final surveyQuery = await FirebaseFirestore.instance
+                                                  .collection('ModuleFeedback')
+                                                  .where('userId', isEqualTo: userId)
+                                                  .where('taskId', isEqualTo: taskId)
+                                                  .limit(1)
+                                                  .get();
+                                              
+                                              if (surveyQuery.docs.isEmpty) {
+                                                // Survey not completed, show popup
+                                                if (mounted) {
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (context) => ModuleSurveyDialog(
+                                                      moduleTitle: title,
+                                                      taskId: taskId,
+                                                      onSurveyCompleted: () async {
+                                                        // After survey is completed, archive the module
+                                                        await doc.reference.update({
+                                                          'isCompleted': true,
+                                                          'isArchived': true,
+                                                        });
+                                                      },
+                                                    ),
+                                                  );
+                                                }
+                                                return; // Don't archive yet
+                                              }
+                                            }
+                                          }
+                                          // Survey completed or it's a todo, proceed with archiving
                                           await doc.reference.update({
                                             'isCompleted': true,
                                             'isArchived': true,
@@ -495,6 +530,40 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                                 alignment: Alignment.centerRight,
                                                 child: TextButton(
                                                   onPressed: () async {
+                                                    // For learning modules (not todos), check if survey is completed
+                                                    if (!isTodo && taskId != null) {
+                                                      final userId = _auth.currentUser?.uid;
+                                                      if (userId != null) {
+                                                        final surveyQuery = await FirebaseFirestore.instance
+                                                            .collection('module_surveys')
+                                                            .where('userId', isEqualTo: userId)
+                                                            .where('taskId', isEqualTo: taskId)
+                                                            .limit(1)
+                                                            .get();
+                                                        
+                                                        if (surveyQuery.docs.isEmpty) {
+                                                          // Survey not completed, show popup
+                                                          if (mounted) {
+                                                            showDialog(
+                                                              context: context,
+                                                              builder: (context) => ModuleSurveyDialog(
+                                                                moduleTitle: title,
+                                                                taskId: taskId,
+                                                                onSurveyCompleted: () async {
+                                                                  // After survey is completed, archive the module
+                                                                  await doc.reference.update({
+                                                                    'isCompleted': true,
+                                                                    'isArchived': true,
+                                                                  });
+                                                                },
+                                                              ),
+                                                            );
+                                                          }
+                                                          return; // Don't archive yet
+                                                        }
+                                                      }
+                                                    }
+                                                    // Survey completed or it's a todo, proceed with archiving
                                                     await doc.reference.update({
                                                       'isCompleted': true,
                                                       'isArchived': true,
@@ -523,6 +592,39 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                                 alignment: Alignment.centerRight,
                                                 child: TextButton(
                                                   onPressed: () async {
+                                                    // For learning modules (not todos), check if survey is completed
+                                                    if (!isTodo && taskId != null) {
+                                                      final userId = _auth.currentUser?.uid;
+                                                      if (userId != null) {
+                                                        final surveyQuery = await FirebaseFirestore.instance
+                                                            .collection('module_surveys')
+                                                            .where('userId', isEqualTo: userId)
+                                                            .where('taskId', isEqualTo: taskId)
+                                                            .limit(1)
+                                                            .get();
+                                                        
+                                                        if (surveyQuery.docs.isEmpty) {
+                                                          // Survey not completed, show popup
+                                                          if (mounted) {
+                                                            showDialog(
+                                                              context: context,
+                                                              builder: (context) => ModuleSurveyDialog(
+                                                                moduleTitle: title,
+                                                                taskId: taskId,
+                                                                onSurveyCompleted: () async {
+                                                                  // After survey is completed, archive the module
+                                                                  await doc.reference.update({
+                                                                    'isArchived': true,
+                                                                  });
+                                                                },
+                                                              ),
+                                                            );
+                                                          }
+                                                          return; // Don't archive yet
+                                                        }
+                                                      }
+                                                    }
+                                                    // Survey completed or it's a todo, proceed with archiving
                                                     await doc.reference.update({'isArchived': true});
                                                   },
                                                   style: TextButton.styleFrom(

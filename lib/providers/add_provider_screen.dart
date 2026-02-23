@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/provider.dart';
 import '../services/provider_repository.dart';
 import '../services/firebase_functions_service.dart';
@@ -46,7 +47,27 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
   final List<String> _specialties = Specialties.specialties;
 
   @override
+  void initState() {
+    super.initState();
+    // Add listeners to text controllers to update button state
+    _nameController.addListener(_updateSubmitState);
+    _addressController.addListener(_updateSubmitState);
+    _cityController.addListener(_updateSubmitState);
+    _zipController.addListener(_updateSubmitState);
+  }
+
+  void _updateSubmitState() {
+    setState(() {
+      // Trigger rebuild to update button state
+    });
+  }
+
+  @override
   void dispose() {
+    _nameController.removeListener(_updateSubmitState);
+    _addressController.removeListener(_updateSubmitState);
+    _cityController.removeListener(_updateSubmitState);
+    _zipController.removeListener(_updateSubmitState);
     _nameController.dispose();
     _providerTypeController.dispose();
     _specialtyController.dispose();
@@ -61,11 +82,19 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
   }
 
   bool get _canSubmit {
-    return _nameController.text.isNotEmpty &&
+    final canSubmit = _nameController.text.trim().isNotEmpty &&
         _selectedProviderType.isNotEmpty &&
         _selectedSpecialty.isNotEmpty &&
-        _addressController.text.isNotEmpty &&
-        _zipController.text.length == 5;
+        _addressController.text.trim().isNotEmpty &&
+        _cityController.text.trim().isNotEmpty &&
+        _zipController.text.trim().length == 5;
+    
+    // Debug print to help diagnose why button might be disabled
+    if (!canSubmit) {
+      print('🔍 [AddProvider] Submit disabled - name: ${_nameController.text.trim().isNotEmpty}, type: ${_selectedProviderType.isNotEmpty}, specialty: ${_selectedSpecialty.isNotEmpty}, address: ${_addressController.text.trim().isNotEmpty}, city: ${_cityController.text.trim().isNotEmpty}, zip: ${_zipController.text.trim().length == 5}');
+    }
+    
+    return canSubmit;
   }
 
   Future<void> _handleSubmit() async {
@@ -121,10 +150,11 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
           mamaApproved: true,
         );
       } else {
-        // TODO: Get current user ID
+        // Get current user ID
+        final userId = FirebaseAuth.instance.currentUser?.uid;
         await _repository.submitProvider(
           provider,
-          userId: null, // TODO: Get from auth
+          userId: userId,
           notes: _notesController.text.isNotEmpty ? _notesController.text : null,
         );
       }
@@ -191,7 +221,9 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                     ElevatedButton(
                       onPressed: _canSubmit && !_isSubmitting ? _handleSubmit : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.brandPurple,
+                        backgroundColor: _canSubmit && !_isSubmitting 
+                            ? AppTheme.brandPurple 
+                            : Colors.grey,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24,
@@ -838,6 +870,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: value.isEmpty ? null : value,
+          isExpanded: true, // Prevents overflow
           decoration: InputDecoration(
             hintText: hint ?? 'Select $label',
             filled: true,
@@ -859,7 +892,11 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
           items: items.map((item) {
             return DropdownMenuItem(
               value: item,
-              child: Text(item),
+              child: Text(
+                item,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             );
           }).toList(),
           onChanged: (newValue) {

@@ -869,6 +869,25 @@ class ProviderRepository {
   /// Submit a provider for moderation
   Future<void> submitProvider(Provider provider, {String? userId, String? notes}) async {
     try {
+      print('💾 [ProviderRepository] Submitting provider to UserProviders: ${provider.name}');
+      
+      final providerData = provider.toMap();
+      providerData['source'] = provider.source ?? 'user_submission';
+      providerData['submittedBy'] = userId;
+      providerData['userId'] = userId; // Also add userId for Firestore rules
+      providerData['submissionNotes'] = notes;
+      providerData['status'] = 'pending'; // User-submitted providers start as pending
+      providerData['createdAt'] = FieldValue.serverTimestamp();
+      providerData['updatedAt'] = FieldValue.serverTimestamp();
+      providerData['reviewCount'] = 0;
+      providerData['mamaApproved'] = false;
+      providerData['mamaApprovedCount'] = 0;
+      
+      // Save to UserProviders collection
+      final docRef = await _firestore.collection('UserProviders').add(providerData);
+      print('✅ [ProviderRepository] Created user provider in UserProviders: ${docRef.id}');
+      
+      // Also save to provider_submissions for moderation tracking
       await _firestore.collection('provider_submissions').add({
         'provider': provider.toMap(),
         'submittedBy': userId,

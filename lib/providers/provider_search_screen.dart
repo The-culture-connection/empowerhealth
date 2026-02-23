@@ -316,6 +316,96 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                                 );
                               }).toList(),
 
+                              const SizedBox(height: 20),
+                              
+                              // Add Provider Button
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.04),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                  border: Border.all(
+                                    color: AppTheme.borderLight,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: InkWell(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const AddProviderScreen(),
+                                      ),
+                                    ).then((_) {
+                                      // Reload providers after adding a new one
+                                      _loadReviewedProviders();
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 48,
+                                          height: 48,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                AppTheme.brandPurple,
+                                                Color(0xFF8855BB),
+                                              ],
+                                            ),
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                          child: const Icon(
+                                            Icons.add,
+                                            color: Colors.white,
+                                            size: 24,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Add a Provider',
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w400,
+                                                  color: AppTheme.textPrimary,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Can\'t find your provider? Add them to help others',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: AppTheme.textMuted,
+                                                  fontWeight: FontWeight.w300,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.chevron_right,
+                                          color: AppTheme.textMuted,
+                                          size: 24,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+
                               const SizedBox(height: 24),
                             ],
                           ),

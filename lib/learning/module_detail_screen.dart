@@ -234,8 +234,11 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               const Divider(),
               const SizedBox(height: 16),
               
-              // Review Section
-              _ModuleReviewSection(moduleTitle: widget.title),
+              // Survey Section
+              _ModuleReviewSection(
+                moduleTitle: widget.title,
+                taskId: null, // Will be passed from learning_modules_screen_v2 if available
+              ),
             ],
           ),
         ),
@@ -246,30 +249,66 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
 
 class _ModuleReviewSection extends StatefulWidget {
   final String moduleTitle;
+  final String? taskId; // Add taskId to track which module this survey is for
 
-  const _ModuleReviewSection({required this.moduleTitle});
+  const _ModuleReviewSection({required this.moduleTitle, this.taskId});
 
   @override
   State<_ModuleReviewSection> createState() => _ModuleReviewSectionState();
 }
 
 class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
-  final TextEditingController _feedbackController = TextEditingController();
-  int _preparationRating = 0;
+  int _understandingRating = 0;
+  int _nextStepsRating = 0;
+  int _confidenceRating = 0;
+  final TextEditingController _commentsController = TextEditingController();
   bool _isSubmitting = false;
   bool _hasSubmitted = false;
 
   @override
+  void initState() {
+    super.initState();
+    _checkIfSurveyCompleted();
+  }
+
+  @override
   void dispose() {
-    _feedbackController.dispose();
+    _commentsController.dispose();
     super.dispose();
   }
 
-  Future<void> _submitReview() async {
-    if (_preparationRating == 0) {
+  Future<void> _checkIfSurveyCompleted() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null || widget.taskId == null) return;
+
+    try {
+      final surveyQuery = await FirebaseFirestore.instance
+          .collection('ModuleFeedback')
+          .where('userId', isEqualTo: userId)
+          .where('taskId', isEqualTo: widget.taskId)
+          .limit(1)
+          .get();
+
+      if (surveyQuery.docs.isNotEmpty) {
+        final surveyData = surveyQuery.docs.first.data();
+        setState(() {
+          _understandingRating = surveyData['understandingRating'] ?? 0;
+          _nextStepsRating = surveyData['nextStepsRating'] ?? 0;
+          _confidenceRating = surveyData['confidenceRating'] ?? 0;
+          _commentsController.text = surveyData['comments'] ?? '';
+          _hasSubmitted = true;
+        });
+      }
+    } catch (e) {
+      print('Error checking survey completion: $e');
+    }
+  }
+
+  Future<void> _submitSurvey() async {
+    if (_understandingRating == 0 || _nextStepsRating == 0 || _confidenceRating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please rate how prepared you felt'),
+          content: Text('Please answer all questions'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -284,17 +323,43 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
         throw Exception('User not authenticated');
       }
 
-      await FirebaseFirestore.instance
-          .collection('module_reviews')
-          .add({
+      final surveyData = {
         'userId': userId,
         'moduleTitle': widget.moduleTitle,
-        'feedback': _feedbackController.text.trim().isEmpty 
+        'taskId': widget.taskId,
+        'understandingRating': _understandingRating,
+        'nextStepsRating': _nextStepsRating,
+        'confidenceRating': _confidenceRating,
+        'comments': _commentsController.text.trim().isEmpty 
             ? null 
-            : _feedbackController.text.trim(),
-        'preparationRating': _preparationRating,
+            : _commentsController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      // Check if survey already exists
+      if (widget.taskId != null) {
+        final existingSurvey = await FirebaseFirestore.instance
+            .collection('ModuleFeedback')
+            .where('userId', isEqualTo: userId)
+            .where('taskId', isEqualTo: widget.taskId)
+            .limit(1)
+            .get();
+
+        if (existingSurvey.docs.isNotEmpty) {
+          // Update existing survey
+          await existingSurvey.docs.first.reference.update(surveyData);
+        } else {
+          // Create new survey
+          await FirebaseFirestore.instance
+              .collection('ModuleFeedback')
+              .add(surveyData);
+        }
+      } else {
+        // If no taskId, just add without taskId reference
+        await FirebaseFirestore.instance
+            .collection('ModuleFeedback')
+            .add(surveyData);
+      }
 
       setState(() {
         _isSubmitting = false;
@@ -315,12 +380,61 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error submitting review: ${e.toString()}'),
+            content: Text('Error submitting survey: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
+  }
+
+  Widget _buildStarRating(String label, int rating, Function(int) onRatingChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (index) {
+            return GestureDetector(
+              onTap: () {
+                onRatingChanged(index + 1);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Icon(
+                  index < rating ? Icons.star : Icons.star_border,
+                  size: 40,
+                  color: index < rating 
+                      ? Colors.amber 
+                      : Colors.grey,
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            rating == 0 
+                ? 'Tap stars to rate'
+                : '$rating out of 5 stars',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -339,7 +453,7 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
             SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Thank you for your feedback!',
+                'Thank you for completing the survey!',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -356,7 +470,7 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Module Review',
+          'Module Survey',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -365,7 +479,39 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'How did this module help you learn?',
+          'Please rate your experience with this module:',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildStarRating(
+          'I understand what this means.',
+          _understandingRating,
+          (rating) {
+            setState(() => _understandingRating = rating);
+          },
+        ),
+        const SizedBox(height: 32),
+        _buildStarRating(
+          'I know what I need to do next.',
+          _nextStepsRating,
+          (rating) {
+            setState(() => _nextStepsRating = rating);
+          },
+        ),
+        const SizedBox(height: 32),
+        _buildStarRating(
+          'I feel confident about my next steps.',
+          _confidenceRating,
+          (rating) {
+            setState(() => _confidenceRating = rating);
+          },
+        ),
+        const SizedBox(height: 32),
+        const Text(
+          'General Comments (Optional)',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
@@ -373,9 +519,9 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
         ),
         const SizedBox(height: 12),
         TextField(
-          controller: _feedbackController,
+          controller: _commentsController,
           decoration: InputDecoration(
-            hintText: 'Share your thoughts about how this module helped you...',
+            hintText: 'Share any additional thoughts or feedback...',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -387,53 +533,11 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
           maxLines: 4,
           minLines: 3,
         ),
-        const SizedBox(height: 24),
-        const Text(
-          'How well prepared did you feel after this module?',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(5, (index) {
-            return GestureDetector(
-              onTap: () {
-                setState(() => _preparationRating = index + 1);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(
-                  index < _preparationRating ? Icons.star : Icons.star_border,
-                  size: 40,
-                  color: index < _preparationRating 
-                      ? Colors.amber 
-                      : Colors.grey,
-                ),
-              ),
-            );
-          }),
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: Text(
-            _preparationRating == 0 
-                ? 'Tap stars to rate'
-                : '$_preparationRating out of 5 stars',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: _isSubmitting ? null : _submitReview,
+            onPressed: _isSubmitting ? null : _submitSurvey,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.brandPurple,
               foregroundColor: Colors.white,
@@ -449,7 +553,7 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
                     ),
                   )
                 : const Text(
-                    'Submit Review',
+                    'Submit Survey',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
           ),

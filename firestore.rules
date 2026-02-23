@@ -188,6 +188,15 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
+    // Module feedback - users can create feedback and read/update/delete their own
+    match /ModuleFeedback/{feedbackId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['userId', 'moduleTitle', 'understandingRating', 'nextStepsRating', 'confidenceRating', 'createdAt']);
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
     // Provider Search Collections
     
     // Providers - all authenticated users can read
@@ -234,6 +243,20 @@ service cloud.firestore {
       // TODO: Implement admin role check
       allow update: if isAuthenticated();
       allow delete: if false;
+    }
+    
+    // User-provided providers - users can create and read their own
+    match /UserProviders/{providerId} {
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['name', 'createdAt']);
+      allow read: if isAuthenticated() && (
+        resource.data.submittedBy == request.auth.uid ||
+        // Admins can read all
+        isAdmin()
+      );
+      // Only admins can update/delete (for moderation)
+      allow update, delete: if isAdmin();
     }
     
     // Saved providers - users can manage their own favorites

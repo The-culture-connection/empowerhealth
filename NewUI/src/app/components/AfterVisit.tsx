@@ -1,177 +1,137 @@
-import { FileText, Calendar, Pill, Activity, AlertCircle, CheckCircle, Flag, Share2, Sparkles } from "lucide-react";
-import { useState } from "react";
-import { PHIBoundaryNotice, SecureIndicator, EmergencyFooter } from "./PrivacyComponents";
+import { Calendar, User, FileText, Heart, ChevronLeft } from "lucide-react";
+import { Link } from "react-router";
 
 export function AfterVisit() {
-  const [flagged, setFlagged] = useState(false);
-
   return (
-    <div className="p-6 pb-24">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl mb-2 text-[#4a3f52] font-normal">After visit summary</h1>
-        <p className="text-[#8b7a95] font-light">Your visit explained in simple terms</p>
+    <div className="min-h-screen bg-[#faf8f4] dark:bg-[#1a1520] relative overflow-hidden transition-colors duration-500">
+      {/* Warm ambient light */}
+      <div className="fixed inset-0 opacity-40 dark:opacity-30 pointer-events-none transition-opacity duration-500">
+        <div className="absolute top-0 right-1/3 w-[500px] h-[500px] rounded-full bg-[#d4a574] blur-[140px]"></div>
       </div>
 
-      {/* PHI Boundary Notice */}
-      <div className="mb-4">
-        <PHIBoundaryNotice />
-      </div>
+      <div className="relative p-6 pb-24 max-w-2xl mx-auto">
+        {/* Back Navigation */}
+        <Link to="/" className="inline-flex items-center gap-2 mb-8 text-[#75657d] dark:text-[#cbbec9] hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors duration-300">
+          <ChevronLeft className="w-4 h-4 stroke-[1.5]" />
+          <span className="text-sm font-light tracking-wide">Home</span>
+        </Link>
 
-      {/* Visit Info */}
-      <div className="bg-white/60 backdrop-blur-sm rounded-[32px] p-6 mb-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
-        <div className="flex items-start justify-between mb-5">
-          <div>
-            <p className="text-sm text-[#a89cb5] mb-1 font-light">February 14, 2026</p>
-            <h2 className="text-lg mb-1 text-[#4a3f52] font-normal">24-week prenatal checkup</h2>
-            <p className="text-sm text-[#8b7a95] font-light">Dr. Maria Johnson</p>
+        {/* Document Header - Like a framed document */}
+        <div className="mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-[#2a2435] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 mb-4 shadow-sm">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#d4a574]"></div>
+            <span className="text-[#75657d] dark:text-[#cbbec9] text-xs tracking-[0.03em] font-light">Visit summary</span>
           </div>
-          <button className="text-[#a89cb5] flex items-center gap-2 text-sm font-light hover:text-[#8b7a95] transition-colors">
-            <Share2 className="w-4 h-4 stroke-[1.5]" />
-            Share
-          </button>
+          <h1 className="text-[32px] text-[#2d2235] dark:text-[#f5f0f7] font-[450] leading-[1.3] mb-2 tracking-[-0.01em]">Your prenatal visit</h1>
+          <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light">February 23, 2026</p>
         </div>
 
-        <div className="flex items-center gap-3 p-4 bg-gradient-to-br from-[#dce8e4] to-[#e8f0ed] rounded-[24px] mb-4 border border-[#c9e0d9]/30">
-          <CheckCircle className="w-5 h-5 text-[#6b9688] flex-shrink-0 stroke-[1.5]" />
-          <p className="text-sm text-[#4a5f56] font-light leading-relaxed">Everything looks great! You and baby are doing well.</p>
-        </div>
-
-        <SecureIndicator />
-      </div>
-
-      {/* What We Checked */}
-      <section className="mb-6">
-        <h2 className="mb-4 text-[#6b5c75] font-normal text-base tracking-wide">What we checked today</h2>
-        <div className="space-y-3">
-          <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
-            <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-[20px] bg-[#e8e0f0]/60 flex items-center justify-center flex-shrink-0">
-                <Activity className="w-5 h-5 text-[#9d8fb5] stroke-[1.5]" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm mb-1 text-[#4a3f52] font-normal">Baby's heartbeat</h3>
-                <p className="text-sm text-[#6b5c75] mb-2 font-light">145 beats per minute</p>
-                <p className="text-xs text-[#a89cb5] font-light leading-relaxed">
-                  This is a healthy heart rate for your baby right now. A normal range is between 110-160 beats per minute.
-                </p>
-              </div>
+        {/* Visit Details Card - Structured like a document on a table */}
+        <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-8 mb-6 shadow-[0_16px_48px_rgba(102,51,153,0.14),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
+          {/* Provider Info */}
+          <div className="flex items-start gap-4 pb-6 mb-6 border-b border-[#e8e0f0] dark:border-[#3a3043]">
+            <div className="w-14 h-14 rounded-[16px] bg-gradient-to-br from-[#e8e0f0] to-[#d8cfe5] dark:from-[#3a3043] dark:to-[#4a3e5d] flex items-center justify-center shadow-[inset_0_2px_8px_rgba(0,0,0,0.06)]">
+              <User className="w-6 h-6 text-[#663399] dark:text-[#9d7ab8] stroke-[1.5]" />
+            </div>
+            <div>
+              <h3 className="text-[#2d2235] dark:text-[#f5f0f7] text-[17px] font-[450] mb-1 tracking-[-0.005em]">Dr. Maria Johnson</h3>
+              <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light mb-0.5">Valley Health Center</p>
+              <p className="text-[#9b8ba5] dark:text-[#9b8ba5] text-xs font-light">Prenatal care visit</p>
             </div>
           </div>
 
-          <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
-            <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-[20px] bg-[#f0e0e8]/60 flex items-center justify-center flex-shrink-0">
-                <Activity className="w-5 h-5 text-[#c9a9c0] stroke-[1.5]" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm mb-1 text-[#4a3f52] font-normal">Your blood pressure</h3>
-                <p className="text-sm text-[#6b5c75] mb-2 font-light">118/76 mmHg</p>
-                <p className="text-xs text-[#a89cb5] font-light leading-relaxed">
-                  Your blood pressure is in the normal range. We'll keep monitoring it to make sure you stay healthy.
-                </p>
+          {/* Key Measurements */}
+          <div className="space-y-5 mb-6">
+            <div>
+              <h4 className="text-[#663399] dark:text-[#cbbec9] text-[11px] uppercase tracking-[0.08em] mb-3 font-medium">Measurements</h4>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light">Blood pressure</span>
+                  <span className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-[450]">118/76</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light">Weight</span>
+                  <span className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-[450]">+2 lbs since last visit</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light">Fundal height</span>
+                  <span className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-[450]">24 cm</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
-            <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-[20px] bg-[#f0ead8]/60 flex items-center justify-center flex-shrink-0">
-                <Activity className="w-5 h-5 text-[#c9b087] stroke-[1.5]" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm mb-1 text-[#4a3f52] font-normal">Fundal height</h3>
-                <p className="text-sm text-[#6b5c75] mb-2 font-light">24 centimeters</p>
-                <p className="text-xs text-[#a89cb5] font-light leading-relaxed">
-                  This measures how your baby is growing. At 24 weeks, a measurement around 24 cm means baby is right on track.
-                </p>
+            <div className="h-px bg-[#e8e0f0] dark:bg-[#3a3043]"></div>
+
+            {/* Baby's Heartbeat */}
+            <div>
+              <h4 className="text-[#663399] dark:text-[#cbbec9] text-[11px] uppercase tracking-[0.08em] mb-3 font-medium">Baby</h4>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f5eee0] to-[#ebe0d6] dark:from-[#3a3043] dark:to-[#4a3e5d] flex items-center justify-center shadow-[inset_0_2px_6px_rgba(0,0,0,0.06)]">
+                  <Heart className="w-5 h-5 text-[#d4a574] dark:text-[#e0b589] stroke-[1.5]" />
+                </div>
+                <div>
+                  <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light mb-0.5">Heartbeat</p>
+                  <p className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-[450]">148 bpm • Strong and steady</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </section>
 
-      {/* Medications */}
-      <section className="mb-6">
-        <h2 className="mb-4 text-[#6b5c75] font-normal text-base tracking-wide">Your medications</h2>
-        <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
-          <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-[20px] bg-[#dce8e4]/60 flex items-center justify-center flex-shrink-0">
-              <Pill className="w-5 h-5 text-[#8ba39c] stroke-[1.5]" />
+        {/* Notes Section - Like a written note */}
+        <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-8 mb-6 shadow-[0_16px_48px_rgba(102,51,153,0.14),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
+          <h3 className="text-[#663399] dark:text-[#cbbec9] text-[11px] uppercase tracking-[0.08em] mb-4 font-medium">What we discussed</h3>
+          
+          <div className="space-y-4">
+            <p className="text-[#2d2235] dark:text-[#f5f0f7] text-[15px] font-light leading-relaxed">
+              Everything looks healthy and on track. Baby is growing well and movement patterns are normal.
+            </p>
+            
+            <div className="pt-4 border-t border-[#e8e0f0] dark:border-[#3a3043]">
+              <h4 className="text-[#663399] dark:text-[#cbbec9] text-xs mb-3 font-medium tracking-wide">For next time</h4>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#d4a574] mt-2 flex-shrink-0"></div>
+                  <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light leading-relaxed">Continue prenatal vitamins with iron</p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#d4a574] mt-2 flex-shrink-0"></div>
+                  <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light leading-relaxed">Schedule glucose screening for next visit</p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#d4a574] mt-2 flex-shrink-0"></div>
+                  <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light leading-relaxed">Call if any concerns arise before next appointment</p>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Next Appointment */}
+        <div className="relative bg-gradient-to-br from-[#663399] via-[#7744aa] to-[#8855bb] dark:from-[#2a2435] dark:via-[#3a3149] dark:to-[#4a3e5d] rounded-[20px] p-6 shadow-[0_16px_48px_rgba(102,51,153,0.2),_inset_0_1px_0_rgba(255,255,255,0.1)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-500">
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute bottom-0 right-0 w-40 h-40 rounded-full bg-[#d4a574] blur-[80px]"></div>
+          </div>
+          
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 rounded-[16px] bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20">
+              <Calendar className="w-5 h-5 text-[#f5f0f7] stroke-[1.5]" />
             </div>
             <div className="flex-1">
-              <h3 className="text-sm mb-1 text-[#4a3f52] font-normal">Prenatal vitamin</h3>
-              <p className="text-sm text-[#6b5c75] mb-2 font-light">One tablet daily with food</p>
-              <p className="text-xs text-[#a89cb5] font-light leading-relaxed">
-                These vitamins help you and baby stay healthy. They include folic acid, iron, and other important nutrients. Take them with a meal to avoid nausea.
-              </p>
+              <p className="text-[#e8dff0] text-xs mb-1 font-light tracking-wide">Next visit</p>
+              <p className="text-[#f5f0f7] text-[15px] font-[450]">March 23, 2026 • 10:00 AM</p>
             </div>
+            <ChevronLeft className="w-5 h-5 text-[#e8dff0] stroke-[1.5] rotate-180" />
           </div>
         </div>
-      </section>
 
-      {/* Next Steps */}
-      <section className="mb-6">
-        <h2 className="mb-4 text-[#6b5c75] font-normal text-base tracking-wide">What comes next</h2>
-        <div className="space-y-3">
-          <div className="bg-gradient-to-br from-[#faf7fb] to-[#f9f5fb] rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#f0e8f3]/50">
-            <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-[20px] bg-white/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm">
-                <Calendar className="w-5 h-5 text-[#a89cb5] stroke-[1.5]" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm mb-1 text-[#4a3f52] font-normal">Next appointment</h3>
-                <p className="text-sm text-[#6b5c75] mb-2 font-light">March 14, 2026 at 2:00 PM</p>
-                <p className="text-xs text-[#a89cb5] font-light leading-relaxed">
-                  This will be your 28-week checkup. We'll do another ultrasound to check on baby's growth.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-[#f0ead8] to-[#f5f0e8] rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#e8dfc8]/50">
-            <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-[20px] bg-white/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm">
-                <Sparkles className="w-5 h-5 text-[#c9b087] stroke-[1.5]" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm mb-1 text-[#4a3f52] font-normal">Things to think about</h3>
-                <p className="text-xs text-[#8b7a95] font-light leading-relaxed">
-                  Start thinking about your birth plan and who you'd like with you during labor. We can talk about this at your next visit.
-                </p>
-              </div>
-            </div>
-          </div>
+        {/* Quiet reassurance */}
+        <div className="mt-8 text-center">
+          <p className="text-[#9b8ba5] dark:text-[#9b8ba5] text-xs font-light leading-relaxed">
+            Questions about this visit? Call your care team anytime.
+          </p>
         </div>
-      </section>
-
-      {/* Flag Concerns */}
-      <section className="mb-6">
-        <div className="bg-gradient-to-br from-[#ebe4f3] to-[#f5f0f8] rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#e8e0f0]/50">
-          <div className="flex items-start gap-3 mb-4">
-            <Flag className="w-5 h-5 text-[#a89cb5] flex-shrink-0 stroke-[1.5]" />
-            <div className="flex-1">
-              <h3 className="text-sm mb-1 text-[#4a3f52] font-normal">Something not feel right?</h3>
-              <p className="text-xs text-[#8b7a95] font-light leading-relaxed">
-                If anything in this summary seems unclear or doesn't match what you discussed, let us know.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setFlagged(!flagged)}
-            className={`w-full py-3.5 px-4 rounded-[20px] transition-all font-light shadow-[0_2px_12px_rgba(0,0,0,0.03)] ${
-              flagged
-                ? "bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white"
-                : "border border-[#e8e0f0]/50 text-[#8b7a95] hover:bg-[#f7f5f9]"
-            }`}
-          >
-            {flagged ? "Concern flagged - we'll follow up" : "Flag a concern"}
-          </button>
-        </div>
-      </section>
-
-      {/* Emergency Footer */}
-      <EmergencyFooter />
+      </div>
     </div>
   );
 }

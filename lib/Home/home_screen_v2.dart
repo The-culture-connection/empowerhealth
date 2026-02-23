@@ -506,6 +506,101 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 16), // mb-4
+                        
+                        // Care Check-in Card (matching NewUI exactly)
+                        InkWell(
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.careSurvey);
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Color(0xFFF5EEE0), // from-[#f5eee0]
+                                  Color(0xFFFAF8F4), // via-[#faf8f4]
+                                  Color(0xFFEBE0D6), // to-[#ebe0d6]
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.brandPurple.withOpacity(0.12),
+                                  blurRadius: 40,
+                                  offset: const Offset(0, 12),
+                                ),
+                              ],
+                              border: Border.all(
+                                color: AppTheme.borderLight.withOpacity(0.4),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Color(0xFFF5EEE0),
+                                        Color(0xFFEBE0D6),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.06),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.auto_awesome,
+                                    color: Color(0xFFD4A574),
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Care check-in',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Share what support you need • 2 minutes',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: AppTheme.textMuted,
+                                          fontWeight: FontWeight.w300,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: AppTheme.textMuted,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16), // mb-4
+                        
                         // Most Recent Appointment Analysis
                         StreamBuilder<QuerySnapshot>(
                           stream: _auth.currentUser != null

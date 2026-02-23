@@ -35,18 +35,18 @@ export function Journal() {
     <div className="p-6 pb-24">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl mb-2 text-[#4a3f52] font-normal">Your journal</h1>
-        <p className="text-[#8b7a95] font-light">A safe space for your thoughts and feelings</p>
+        <h1 className="text-2xl mb-2 text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">Your journal</h1>
+        <p className="text-[#6b5c75] dark:text-[#c9bfd4] font-light transition-colors">A safe space for your thoughts and feelings</p>
       </div>
 
       {/* Privacy Notice */}
-      <div className="bg-gradient-to-br from-[#ebe4f3] to-[#f5f0f8] rounded-[28px] p-5 border border-[#e8e0f0]/50 mb-8 shadow-[0_2px_16px_rgba(0,0,0,0.04)]">
+      <div className="bg-gradient-to-br from-[#ebe4f3] to-[#f5f0f8] dark:from-[#2d2438] dark:to-[#2f2638] rounded-[28px] p-5 border border-[#e8e0f0]/50 dark:border-[#3d3547] mb-8 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-300">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-[18px] bg-white/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm">
-            <Heart className="w-5 h-5 text-[#a89cb5] stroke-[1.5]" />
+          <div className="w-10 h-10 rounded-[18px] bg-white/60 dark:bg-[#3d3547]/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-300">
+            <Heart className="w-5 h-5 text-[#a89cb5] dark:text-[#b89fb5] stroke-[1.5] transition-colors" />
           </div>
           <div>
-            <p className="text-sm text-[#6b5c75] mb-2 font-light leading-relaxed">
+            <p className="text-sm text-[#6b5c75] dark:text-[#c9bfd4] mb-2 font-light leading-relaxed transition-colors">
               Your journal is private. Only you can see what you write here.
             </p>
             <SecureIndicator />
@@ -56,21 +56,21 @@ export function Journal() {
 
       {/* Current Entry */}
       <section className="mb-8">
-        <div className="bg-gradient-to-br from-[#faf7fb] to-[#f9f5fb] rounded-[32px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#f0e8f3]/50 mb-4">
+        <div className="bg-gradient-to-br from-[#faf7fb] to-[#f9f5fb] dark:from-[#2a2435] dark:to-[#2d2438] rounded-[32px] p-6 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#f0e8f3]/50 dark:border-[#3d3547] mb-4 transition-all duration-300">
           <div className="flex items-center gap-2 mb-5">
-            <Pen className="w-5 h-5 text-[#c9b087] stroke-[1.5]" />
-            <h2 className="text-[#4a3f52] font-normal">Today's entry</h2>
+            <Pen className="w-5 h-5 text-[#d4a574] dark:text-[#e0b589] stroke-[1.5] transition-colors" />
+            <h2 className="text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">Today's entry</h2>
           </div>
           
           {/* Writing Prompts */}
           <div className="mb-4">
-            <p className="text-sm text-[#8b7a95] mb-3 font-light">Not sure where to start? Try a prompt:</p>
+            <p className="text-sm text-[#6b5c75] dark:text-[#b89fb5] mb-3 font-light transition-colors">Not sure where to start? Try a prompt:</p>
             <div className="flex flex-wrap gap-2">
               {prompts.slice(0, 3).map((prompt, index) => (
                 <button
                   key={index}
                   onClick={() => setEntry(prompt + "\n\n")}
-                  className="text-xs px-4 py-2.5 rounded-[18px] bg-white/80 backdrop-blur-sm text-[#6b5c75] hover:bg-[#f0e8f3]/60 transition-all border border-[#e8e0f0]/50 shadow-[0_1px_8px_rgba(0,0,0,0.03)] font-light"
+                  className="text-xs px-4 py-2.5 rounded-[18px] bg-white/80 dark:bg-[#3d3547] backdrop-blur-sm text-[#6b5c75] dark:text-[#c9bfd4] hover:bg-[#f0e8f3]/60 dark:hover:bg-[#4a4057] transition-all border border-[#e8e0f0]/50 dark:border-[#4a4057] shadow-[0_2px_12px_rgba(102,51,153,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.2)] font-light"
                 >
                   {prompt}
                 </button>
@@ -83,14 +83,14 @@ export function Journal() {
             onChange={(e) => setEntry(e.target.value)}
             rows={6}
             placeholder="What's on your mind today?"
-            className="w-full px-5 py-4 rounded-[24px] bg-white/80 backdrop-blur-sm border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 resize-none text-[#4a3f52] placeholder:text-[#b5a8c2] font-light shadow-[0_2px_12px_rgba(0,0,0,0.03)]"
+            className="w-full px-5 py-4 rounded-[24px] bg-white/80 dark:bg-[#1a1520] backdrop-blur-sm border border-[#e8e0f0]/50 dark:border-[#3d3547] focus:outline-none focus:ring-2 focus:ring-[#8b7aa8]/30 dark:focus:ring-[#9d8fb5]/30 resize-none text-[#2d2733] dark:text-[#f5f0f7] placeholder:text-[#b5a8c2] dark:placeholder:text-[#9d8fb5] font-light shadow-[0_2px_12px_rgba(102,51,153,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.2)] transition-all duration-300"
           ></textarea>
 
           <div className="flex items-center gap-3 mt-4">
-            <button className="flex-1 py-3.5 px-4 rounded-[24px] bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white hover:shadow-[0_4px_20px_rgba(168,156,181,0.25)] transition-all font-light shadow-[0_2px_12px_rgba(168,156,181,0.15)]">
+            <button className="flex-1 py-3.5 px-4 rounded-[24px] bg-gradient-to-br from-[#8b7aa8] to-[#b89fb5] dark:from-[#9d8fb5] dark:to-[#d4a574] text-white hover:shadow-[0_6px_24px_rgba(139,122,168,0.3)] dark:hover:shadow-[0_6px_24px_rgba(212,165,116,0.4)] transition-all font-light shadow-[0_2px_12px_rgba(139,122,168,0.2)] dark:shadow-[0_2px_12px_rgba(212,165,116,0.2)]">
               Save entry
             </button>
-            <button className="px-5 py-3.5 rounded-[24px] border border-[#e8e0f0]/50 text-[#8b7a95] hover:bg-[#f7f5f9] transition-colors font-light">
+            <button className="px-5 py-3.5 rounded-[24px] border border-[#e8e0f0]/50 dark:border-[#3d3547] text-[#6b5c75] dark:text-[#b89fb5] hover:bg-[#f7f5f9] dark:hover:bg-[#2a2435] transition-all duration-300 font-light">
               Cancel
             </button>
           </div>
@@ -99,8 +99,8 @@ export function Journal() {
 
       {/* Mood Check */}
       <section className="mb-8">
-        <h2 className="mb-4 text-[#6b5c75] font-normal text-base tracking-wide">How are you feeling today?</h2>
-        <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
+        <h2 className="mb-4 text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">How are you feeling today?</h2>
+        <div className="bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] transition-all duration-300">
           <div className="grid grid-cols-5 gap-3">
             {[
               { emoji: "😊", label: "Joyful" },
@@ -111,10 +111,10 @@ export function Journal() {
             ].map((mood) => (
               <button
                 key={mood.label}
-                className="flex flex-col items-center gap-2 p-3 rounded-[20px] hover:bg-[#f7f5f9] transition-colors"
+                className="flex flex-col items-center gap-2 p-3 rounded-[20px] hover:bg-[#f7f5f9] dark:hover:bg-[#3d3547] transition-all duration-300"
               >
                 <span className="text-3xl">{mood.emoji}</span>
-                <span className="text-xs text-[#a89cb5] font-light">{mood.label}</span>
+                <span className="text-xs text-[#9d8fb5] dark:text-[#9d8fb5] font-light transition-colors">{mood.label}</span>
               </button>
             ))}
           </div>
@@ -123,23 +123,23 @@ export function Journal() {
 
       {/* Past Entries */}
       <section className="mb-8">
-        <h2 className="mb-4 text-[#6b5c75] font-normal text-base tracking-wide">Recent reflections</h2>
+        <h2 className="mb-4 text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">Recent reflections</h2>
         <div className="space-y-3">
           {recentEntries.map((entry, index) => (
             <div
               key={index}
-              className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50 hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-all cursor-pointer"
+              className="bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 cursor-pointer"
             >
               <div className="flex items-start gap-4">
-                <div className="w-11 h-11 rounded-[20px] bg-gradient-to-br from-[#d4c5e0] to-[#e0d5eb] flex items-center justify-center flex-shrink-0 shadow-sm">
+                <div className="w-11 h-11 rounded-[20px] bg-gradient-to-br from-[#8b7aa8] to-[#b89fb5] dark:from-[#9d8fb5] dark:to-[#d4a574] flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-300">
                   <Heart className="w-5 h-5 text-white stroke-[1.5]" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-[#b5a8c2] stroke-[1.5]" />
-                    <p className="text-xs text-[#a89cb5] font-light">{entry.date}</p>
+                    <Calendar className="w-3.5 h-3.5 text-[#b5a8c2] dark:text-[#9d8fb5] stroke-[1.5] transition-colors" />
+                    <p className="text-xs text-[#9d8fb5] dark:text-[#9d8fb5] font-light transition-colors">{entry.date}</p>
                   </div>
-                  <p className="text-sm text-[#6b5c75] line-clamp-2 font-light leading-relaxed">{entry.preview}</p>
+                  <p className="text-sm text-[#6b5c75] dark:text-[#c9bfd4] line-clamp-2 font-light leading-relaxed transition-colors">{entry.preview}</p>
                 </div>
               </div>
             </div>

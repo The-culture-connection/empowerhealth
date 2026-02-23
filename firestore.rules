@@ -297,5 +297,19 @@ service cloud.firestore {
       // Only admins can write to ADMIN collection
       allow write: if isAdmin();
     }
+    
+    // Care Survey - users can create and read their own surveys
+    match /CareSurvey/{surveyId} {
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['selectedNeeds', 'accessResponses', 'createdAt']);
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        // Admins can read all
+        isAdmin()
+      );
+      // Only admins can update/delete
+      allow update, delete: if isAdmin();
+    }
   }
 }

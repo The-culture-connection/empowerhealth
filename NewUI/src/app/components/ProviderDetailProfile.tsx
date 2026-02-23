@@ -1,893 +1,213 @@
-import { ArrowLeft, MapPin, Star, Phone, Clock, Award, Shield, Info, Bookmark, Mail, Globe, ThumbsUp, Calendar, Heart, AlertCircle, CheckCircle2, Flag, MessageCircle, Share2, Navigation, Video, DollarSign, Users, Stethoscope, GraduationCap, Languages, Building } from "lucide-react";
+import { ChevronLeft, Star, MapPin, Phone, Clock, Award, Heart, ThumbsUp, Quote, Shield } from "lucide-react";
 import { Link } from "react-router";
-import { useState } from "react";
+import { ProviderReviewBoundary } from "./PrivacyComponents";
 
 export function ProviderDetailProfile() {
-  const [isSaved, setIsSaved] = useState(false);
-  const [showMamaApprovedInfo, setShowMamaApprovedInfo] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "reviews" | "about">("overview");
-
   const provider = {
-    id: "1",
     name: "Dr. Aisha Williams",
-    credentials: "MD, OB-GYN, FACOG",
-    title: "Maternal-Fetal Medicine Specialist",
-    specialty: "Maternal-Fetal Medicine",
-    practice: "Cleveland Clinic Women's Health Center",
-    address: "9500 Euclid Ave, Cleveland, OH 44195",
-    city: "Cleveland",
-    state: "OH",
-    zipCode: "44195",
-    distance: "4.2 miles",
-    phone: "(216) 444-6601",
-    email: "williams.a@ccf.org",
-    website: "clevelandclinic.org/womenshealth",
-    mamaApproved: true,
+    credentials: "MD, FACOG",
+    specialty: "OB-GYN",
+    practice: "Equity Maternal Health",
+    location: "Columbus, OH",
+    address: "1234 Healthcare Drive, Columbus, OH 43215",
+    distance: "4.1 miles",
     rating: 4.9,
-    reviewCount: 127,
+    reviews: 189,
     acceptingNew: true,
-    telehealth: true,
-    hours: {
-      monday: "8:00 AM - 5:00 PM",
-      tuesday: "8:00 AM - 5:00 PM",
-      wednesday: "8:00 AM - 5:00 PM",
-      thursday: "8:00 AM - 7:00 PM",
-      friday: "8:00 AM - 4:00 PM",
-      saturday: "Closed",
-      sunday: "Closed"
-    },
-    languages: ["English", "Spanish", "French"],
-    yearsOfExperience: 15,
-    education: [
-      "MD - Case Western Reserve University School of Medicine",
-      "Residency - OB-GYN, Cleveland Clinic",
-      "Fellowship - Maternal-Fetal Medicine, Ohio State University"
-    ],
-    certifications: [
-      "Board Certified in Obstetrics & Gynecology",
-      "Maternal-Fetal Medicine Subspecialty Certification",
-      "Fellow, American College of Obstetricians and Gynecologists (FACOG)",
-      "Cultural Competency in Healthcare Certificate"
-    ],
-    insurance: [
-      "Medicaid (All Ohio Plans)",
-      "Buckeye Health Plan",
-      "CareSource",
-      "Molina Healthcare",
-      "UnitedHealthcare Community Plan",
-      "Medicare",
-      "Aetna",
-      "Anthem Blue Cross Blue Shield",
-      "Humana",
-      "Most major private insurances"
-    ],
-    specialties: [
-      "High-Risk Pregnancy Management",
-      "VBAC Support & Counseling",
-      "Gestational Diabetes Care",
-      "Hypertension Management",
-      "Multiple Pregnancy Care",
-      "Genetic Counseling",
-      "Fetal Monitoring",
-      "Preterm Labor Prevention"
-    ],
-    identityTags: [
-      { 
-        label: "Black / African American", 
-        status: "verified", 
-        source: "Self-identified", 
-        verifiedBy: "Professional credential",
-        date: "January 2024",
-        addedBy: "Provider"
-      },
-      { 
-        label: "Cultural competency certified", 
-        status: "verified", 
-        source: "Professional credential", 
-        verifiedBy: "Cleveland Clinic HR",
-        date: "March 2023",
-        addedBy: "Institution"
-      },
-      { 
-        label: "LGBTQ+ affirming", 
-        status: "verified", 
-        source: "Community-added", 
-        verifiedBy: "Multiple patient confirmations",
-        date: "November 2025",
-        addedBy: "Community (12 confirmations)"
-      },
-      { 
-        label: "Spanish-speaking", 
-        status: "verified", 
-        source: "Self-identified", 
-        verifiedBy: "Language proficiency test",
-        date: "January 2024",
-        addedBy: "Provider"
-      },
-      { 
-        label: "Birth trauma informed", 
-        status: "pending", 
-        source: "Community-added", 
-        verifiedBy: "Awaiting provider confirmation",
-        date: "February 2026",
-        addedBy: "Community (3 suggestions)"
-      }
-    ],
-    experienceRatings: {
-      feltHeard: 4.9,
-      feltRespected: 5.0,
-      explainedClearly: 4.8,
-      wouldRecommend: 98
-    },
-    reviews: [
-      {
-        id: "1",
-        author: "Jasmine M.",
-        verified: true,
-        date: "2 weeks ago",
-        rating: 5,
-        feltHeard: 5,
-        feltRespected: 5,
-        explainedClearly: 5,
-        wouldRecommend: true,
-        text: "Dr. Williams took the time to listen to all my concerns and made me feel truly heard. She respected my birth plan and was so supportive throughout my high-risk pregnancy. As a Black mother, I felt she understood the unique challenges I faced and advocated fiercely for me and my baby. I can't recommend her enough!",
-        helpful: 45,
-        responses: 12
-      },
-      {
-        id: "2",
-        author: "Keisha R.",
-        verified: true,
-        date: "1 month ago",
-        rating: 5,
-        feltHeard: 5,
-        feltRespected: 5,
-        explainedClearly: 5,
-        wouldRecommend: true,
-        text: "Finally found a provider who understands the unique challenges Black mothers face in healthcare. Dr. Williams is knowledgeable, compassionate, and advocates fiercely for her patients. She took my concerns about preeclampsia seriously from day one and monitored me closely. I felt safe and respected throughout my entire pregnancy journey.",
-        helpful: 38,
-        responses: 8
-      },
-      {
-        id: "3",
-        author: "Maria S.",
-        verified: true,
-        date: "2 months ago",
-        rating: 5,
-        feltHeard: 4,
-        feltRespected: 5,
-        explainedClearly: 5,
-        wouldRecommend: true,
-        text: "Dr. Williams helped me navigate my gestational diabetes with patience and clear explanations. She spoke Spanish with me which made me feel so much more comfortable. I felt safe and cared for throughout my entire pregnancy. The office staff is also wonderful!",
-        helpful: 29,
-        responses: 5
-      },
-      {
-        id: "4",
-        author: "Anonymous",
-        verified: true,
-        date: "3 months ago",
-        rating: 5,
-        feltHeard: 5,
-        feltRespected: 5,
-        explainedClearly: 4,
-        wouldRecommend: true,
-        text: "After a traumatic first birth experience, I was anxious about trying for a VBAC. Dr. Williams was incredibly supportive and helped me understand all my options without any pressure. She respected my choices and made me feel empowered. I had a successful VBAC thanks to her guidance!",
-        helpful: 34,
-        responses: 6
-      },
-      {
-        id: "5",
-        author: "Destiny L.",
-        verified: true,
-        date: "4 months ago",
-        rating: 5,
-        feltHeard: 5,
-        feltRespected: 5,
-        explainedClearly: 5,
-        wouldRecommend: true,
-        text: "Dr. Williams is phenomenal. She treated me like family and explained everything in terms I could understand. Never felt rushed or dismissed. She's the kind of doctor every pregnant person deserves!",
-        helpful: 41,
-        responses: 9
-      }
-    ],
-    clinicalInterests: [
-      "Maternal health equity",
-      "Reducing maternal mortality in Black communities",
-      "Patient-centered birth planning",
-      "Trauma-informed obstetric care"
-    ],
-    hospitalAffiliations: [
-      "Cleveland Clinic Main Campus",
-      "Cleveland Clinic Hillcrest Hospital",
-      "Cleveland Clinic Fairview Hospital"
-    ],
-    awards: [
-      "Top Doctor - Cleveland Magazine 2025",
-      "Patient's Choice Award 2024",
-      "Compassionate Care Award - Cleveland Clinic 2023"
-    ]
+    languages: ["English"],
+    specialties: ["Cultural sensitivity", "Birth trauma", "VBAC support", "High-risk pregnancy"],
+    hasBlackMamaTag: true,
+    phone: "(614) 555-0142",
+    hours: "Mon-Fri 8am-6pm",
+    insurance: ["Medicaid", "Medicare", "Blue Cross", "Aetna", "United Healthcare"],
+    bio: "Dr. Williams is committed to providing culturally sensitive, trauma-informed care. She believes every person deserves to be heard, respected, and supported throughout their pregnancy journey.",
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "verified":
-        return "text-green-700 bg-green-50 border-green-200";
-      case "pending":
-        return "text-amber-700 bg-amber-50 border-amber-200";
-      case "disputed":
-        return "text-gray-700 bg-gray-50 border-gray-300";
-      default:
-        return "text-gray-700 bg-gray-50 border-gray-200";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "verified":
-        return <CheckCircle2 className="w-4 h-4" />;
-      case "pending":
-        return <Clock className="w-4 h-4" />;
-      case "disputed":
-        return <AlertCircle className="w-4 h-4" />;
-      default:
-        return null;
-    }
-  };
+  const reviews = [
+    {
+      author: "Jasmine M.",
+      rating: 5,
+      date: "2 weeks ago",
+      text: "Dr. Williams took the time to listen to all my concerns and made me feel truly heard. She respected my birth plan and was so supportive throughout my pregnancy.",
+      helpful: 45,
+    },
+    {
+      author: "Maria S.",
+      rating: 5,
+      date: "1 month ago",
+      text: "I felt safe and cared for at every appointment. Dr. Williams explains everything clearly and never rushes you.",
+      helpful: 38,
+    },
+    {
+      author: "Amara T.",
+      rating: 5,
+      date: "2 months ago",
+      text: "Finding Dr. Williams changed my entire pregnancy experience. She's knowledgeable, compassionate, and truly advocates for her patients.",
+      helpful: 52,
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-[#f8f6f8] pb-24">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-5 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <Link to="/providers/results" className="flex items-center gap-2 text-gray-600 hover:text-[#663399]">
-            <ArrowLeft className="w-5 h-5" />
-            <span className="text-sm">Back to results</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <button className="p-2 rounded-xl bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors">
-              <Share2 className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setIsSaved(!isSaved)}
-              className={`p-2 rounded-xl transition-colors ${
-                isSaved ? "bg-[#663399] text-white" : "bg-gray-50 text-gray-400 hover:bg-gray-100"
-              }`}
-            >
-              <Bookmark className="w-5 h-5" fill={isSaved ? "currentColor" : "none"} />
-            </button>
-          </div>
-        </div>
+    <div className="min-h-screen bg-[#faf8f4] dark:bg-[#1a1520] relative overflow-hidden transition-colors duration-500">
+      {/* Warm ambient light */}
+      <div className="fixed inset-0 opacity-40 dark:opacity-30 pointer-events-none transition-opacity duration-500">
+        <div className="absolute top-0 right-1/3 w-[500px] h-[500px] rounded-full bg-[#d4a574] blur-[140px]"></div>
       </div>
 
-      <div className="px-5 py-5">
-        {/* Provider Hero Card */}
-        <section className="mb-4">
-          <div className="bg-gradient-to-br from-[#663399] to-[#8855bb] rounded-3xl p-6 text-white shadow-lg">
-            <div className="flex items-start gap-4 mb-4">
-              {/* Provider Avatar */}
-              <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl font-medium flex-shrink-0 border-2 border-white/30">
-                AW
-              </div>
-              
+      <div className="relative p-6 pb-24 max-w-2xl mx-auto">
+        {/* Back Navigation */}
+        <Link to="/providers" className="inline-flex items-center gap-2 mb-8 text-[#75657d] dark:text-[#cbbec9] hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors duration-300">
+          <ChevronLeft className="w-4 h-4 stroke-[1.5]" />
+          <span className="text-sm font-light tracking-wide">All providers</span>
+        </Link>
+
+        {/* Provider Header Card */}
+        <div className="relative bg-gradient-to-br from-[#663399] via-[#7744aa] to-[#8855bb] dark:from-[#2a2435] dark:via-[#3a3149] dark:to-[#4a3e5d] rounded-[24px] p-8 mb-6 shadow-[0_20px_60px_rgba(102,51,153,0.25),_inset_0_1px_0_rgba(255,255,255,0.1)] dark:shadow-[0_24px_72px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-500">
+          {/* Soft inner glow */}
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-[#d4a574] blur-[80px]"></div>
+          </div>
+
+          <div className="relative">
+            <div className="flex items-start justify-between mb-6">
               <div className="flex-1">
-                <h1 className="text-2xl mb-1">{provider.name}</h1>
-                <p className="text-white/90 text-sm mb-0.5">{provider.credentials}</p>
-                <p className="text-white/80 text-sm">{provider.title}</p>
-                
-                {/* Mama Approved Badge */}
-                {provider.mamaApproved && (
-                  <button
-                    onClick={() => setShowMamaApprovedInfo(!showMamaApprovedInfo)}
-                    className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 border border-white/30 hover:bg-white/30 transition-colors"
-                  >
-                    <Award className="w-4 h-4" />
-                    <span className="text-sm font-medium">Mama Approved™</span>
-                    <Info className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {showMamaApprovedInfo && (
-              <div className="mt-4 p-4 bg-white/10 rounded-2xl border border-white/20 backdrop-blur-sm">
-                <p className="text-sm text-white/90 mb-2">
-                  <strong>Mama Approved™</strong> is a community experience-based trust indicator, not a medical certification.
-                </p>
-                <p className="text-xs text-white/80">
-                  This provider has received consistently positive reviews from mothers in our community, with high ratings for feeling heard, respected, and supported during their pregnancy journey.
-                </p>
-              </div>
-            )}
-
-            {/* Rating Summary */}
-            <div className="flex items-center gap-4 mt-4 pt-4 border-t border-white/20">
-              <div className="flex items-center gap-2">
-                <Star className="w-6 h-6 fill-white text-white" />
-                <div>
-                  <div className="text-2xl font-medium">{provider.rating}</div>
-                  <div className="text-xs text-white/80">Rating</div>
-                </div>
-              </div>
-              <div className="h-12 w-px bg-white/20"></div>
-              <div>
-                <div className="text-2xl font-medium">{provider.reviewCount}</div>
-                <div className="text-xs text-white/80">Reviews</div>
-              </div>
-              <div className="h-12 w-px bg-white/20"></div>
-              <div>
-                <div className="text-2xl font-medium">{provider.yearsOfExperience}</div>
-                <div className="text-xs text-white/80">Years</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Quick Action Buttons */}
-        <section className="mb-4">
-          <div className="grid grid-cols-3 gap-3">
-            <a
-              href={`tel:${provider.phone}`}
-              className="py-3 px-4 rounded-2xl bg-[#663399] text-white text-sm hover:bg-[#552288] transition-colors shadow-sm flex flex-col items-center justify-center gap-1"
-            >
-              <Phone className="w-5 h-5" />
-              <span className="text-xs">Call</span>
-            </a>
-            <button className="py-3 px-4 rounded-2xl bg-white border border-gray-200 text-gray-700 text-sm hover:border-[#663399]/30 transition-colors flex flex-col items-center justify-center gap-1">
-              <Calendar className="w-5 h-5" />
-              <span className="text-xs">Book</span>
-            </button>
-            <button className="py-3 px-4 rounded-2xl bg-white border border-gray-200 text-gray-700 text-sm hover:border-[#663399]/30 transition-colors flex flex-col items-center justify-center gap-1">
-              <MessageCircle className="w-5 h-5" />
-              <span className="text-xs">Message</span>
-            </button>
-          </div>
-        </section>
-
-        {/* Status Chips */}
-        <section className="mb-4">
-          <div className="flex flex-wrap gap-2">
-            {provider.acceptingNew && (
-              <span className="px-3 py-1.5 rounded-full text-xs bg-green-50 text-green-700 border border-green-200 flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Accepting new patients
-              </span>
-            )}
-            {provider.telehealth && (
-              <span className="px-3 py-1.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1.5">
-                <Video className="w-3.5 h-3.5" />
-                Telehealth available
-              </span>
-            )}
-            <span className="px-3 py-1.5 rounded-full text-xs bg-purple-50 text-[#663399] border border-purple-200 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5" />
-              {provider.distance} away
-            </span>
-          </div>
-        </section>
-
-        {/* Tab Navigation */}
-        <section className="mb-4">
-          <div className="bg-white rounded-2xl p-1 shadow-sm border border-gray-100 flex">
-            <button
-              onClick={() => setActiveTab("overview")}
-              className={`flex-1 py-2.5 px-4 rounded-xl text-sm transition-colors ${
-                activeTab === "overview"
-                  ? "bg-[#663399] text-white shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab("reviews")}
-              className={`flex-1 py-2.5 px-4 rounded-xl text-sm transition-colors ${
-                activeTab === "reviews"
-                  ? "bg-[#663399] text-white shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Reviews ({provider.reviewCount})
-            </button>
-            <button
-              onClick={() => setActiveTab("about")}
-              className={`flex-1 py-2.5 px-4 rounded-xl text-sm transition-colors ${
-                activeTab === "about"
-                  ? "bg-[#663399] text-white shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              About
-            </button>
-          </div>
-        </section>
-
-        {/* Tab Content: Overview */}
-        {activeTab === "overview" && (
-          <>
-            {/* Contact & Location */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <h2 className="mb-4">Contact & Location</h2>
-
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-[#663399] flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium mb-0.5">{provider.practice}</p>
-                      <p className="text-sm text-gray-600">{provider.address}</p>
-                      <a
-                        href={`https://maps.google.com/?q=${encodeURIComponent(provider.address)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-[#663399] mt-2 hover:underline"
-                      >
-                        <Navigation className="w-3 h-3" />
-                        Get directions
-                      </a>
+                <div className="flex items-center gap-2 mb-3">
+                  <h1 className="text-[#f5f0f7] dark:text-[#ffffff] text-[24px] font-[450] tracking-[-0.01em]">{provider.name}</h1>
+                  {provider.hasBlackMamaTag && (
+                    <div className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-[#d4a574] stroke-[1.5]" />
+                      <span className="text-[#f5f0f7] text-xs font-light tracking-wide">Mama Approved™</span>
                     </div>
-                  </div>
-
-                  <div className="h-px bg-gray-100"></div>
-
-                  <div className="flex items-center gap-3">
-                    <Phone className="w-5 h-5 text-[#663399]" />
-                    <a href={`tel:${provider.phone}`} className="text-sm text-gray-700 hover:text-[#663399]">
-                      {provider.phone}
-                    </a>
-                  </div>
-
-                  <div className="h-px bg-gray-100"></div>
-
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-5 h-5 text-[#663399]" />
-                    <a href={`mailto:${provider.email}`} className="text-sm text-gray-700 hover:text-[#663399]">
-                      {provider.email}
-                    </a>
-                  </div>
-
-                  <div className="h-px bg-gray-100"></div>
-
-                  <div className="flex items-center gap-3">
-                    <Globe className="w-5 h-5 text-[#663399]" />
-                    <a href={`https://${provider.website}`} target="_blank" rel="noopener noreferrer" className="text-sm text-gray-700 hover:text-[#663399]">
-                      {provider.website}
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Office Hours */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="w-5 h-5 text-[#663399]" />
-                  <h2>Office Hours</h2>
-                </div>
-
-                <div className="space-y-2">
-                  {Object.entries(provider.hours).map(([day, hours]) => (
-                    <div key={day} className="flex items-center justify-between text-sm">
-                      <span className="capitalize text-gray-600">{day}</span>
-                      <span className={hours === "Closed" ? "text-gray-400" : "text-gray-900"}>
-                        {hours}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Identity & Cultural Tags */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <h2>Identity & Cultural Tags</h2>
-                    <button className="text-[#663399]">
-                      <Info className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <Link to={`/providers/${provider.id}/add-tag`} className="text-sm text-[#663399]">
-                    + Add tag
-                  </Link>
-                </div>
-
-                <div className="mb-4 p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl border border-blue-100">
-                  <p className="text-xs text-gray-700 mb-2">
-                    <strong>About identity tags:</strong> These help mothers find culturally concordant care and providers who understand their unique experiences.
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    Tags show their source and verification status for transparency. Community members can suggest tags, which are then reviewed by our team and the provider.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  {provider.identityTags.map((tag, index) => (
-                    <div key={index} className={`p-4 rounded-2xl border ${getStatusColor(tag.status)}`}>
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(tag.status)}
-                          <span className="font-medium text-sm">{tag.label}</span>
-                        </div>
-                        <span className="text-xs px-2.5 py-1 rounded-full bg-white/70 capitalize font-medium">
-                          {tag.status}
-                        </span>
-                      </div>
-                      <div className="text-xs space-y-1 opacity-90">
-                        <p><strong>Source:</strong> {tag.source}</p>
-                        <p><strong>Verified by:</strong> {tag.verifiedBy}</p>
-                        <p><strong>Added:</strong> {tag.date} by {tag.addedBy}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <button className="mt-4 w-full py-2.5 px-4 rounded-2xl bg-gray-50 text-gray-700 text-sm border border-gray-200 hover:border-[#663399]/30 transition-colors flex items-center justify-center gap-2">
-                  <Flag className="w-4 h-4" />
-                  Report incorrect information
-                </button>
-              </div>
-            </section>
-
-            {/* Experience Ratings Summary */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <h2 className="mb-4">How Patients Feel</h2>
-                
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-700">Felt heard</span>
-                      <span className="text-sm font-medium">{provider.experienceRatings.feltHeard}/5</span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-[#663399] to-[#8855bb] rounded-full"
-                        style={{ width: `${(provider.experienceRatings.feltHeard / 5) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-700">Felt respected</span>
-                      <span className="text-sm font-medium">{provider.experienceRatings.feltRespected}/5</span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-[#663399] to-[#8855bb] rounded-full"
-                        style={{ width: `${(provider.experienceRatings.feltRespected / 5) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-700">Explained clearly</span>
-                      <span className="text-sm font-medium">{provider.experienceRatings.explainedClearly}/5</span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-[#663399] to-[#8855bb] rounded-full"
-                        style={{ width: `${(provider.experienceRatings.explainedClearly / 5) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-700">Would recommend</span>
-                      <span className="text-lg font-medium text-green-600">{provider.experienceRatings.wouldRecommend}%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Specialties */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Stethoscope className="w-5 h-5 text-[#663399]" />
-                  <h2>Areas of Expertise</h2>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {provider.specialties.map((specialty, index) => (
-                    <span key={index} className="px-3 py-2 rounded-2xl text-sm bg-purple-50 text-[#663399] border border-purple-100">
-                      {specialty}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Languages */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Languages className="w-5 h-5 text-[#663399]" />
-                  <h2>Languages Spoken</h2>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {provider.languages.map((language, index) => (
-                    <span key={index} className="px-3 py-2 rounded-2xl text-sm bg-blue-50 text-blue-700 border border-blue-200">
-                      {language}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Insurance */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Shield className="w-5 h-5 text-[#663399]" />
-                  <h2>Insurance Accepted</h2>
-                </div>
-                <div className="space-y-2">
-                  {provider.insurance.slice(0, 5).map((ins, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-gray-700">{ins}</span>
-                    </div>
-                  ))}
-                  {provider.insurance.length > 5 && (
-                    <button className="text-sm text-[#663399] hover:underline">
-                      + {provider.insurance.length - 5} more plans
-                    </button>
                   )}
                 </div>
-              </div>
-            </section>
-          </>
-        )}
-
-        {/* Tab Content: Reviews */}
-        {activeTab === "reviews" && (
-          <>
-            {/* Review Summary */}
-            <section className="mb-4">
-              <div className="bg-gradient-to-br from-[#fef3f3] to-[#fff0f8] rounded-3xl p-6 shadow-sm border border-pink-100">
-                <div className="flex items-center gap-6 mb-6">
-                  <div className="text-center">
-                    <div className="text-5xl font-medium mb-2">{provider.rating}</div>
-                    <div className="flex gap-1 mb-2">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-5 h-5 fill-amber-400 text-amber-400" />
-                      ))}
-                    </div>
-                    <p className="text-sm text-gray-600">{provider.reviewCount} reviews</p>
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    {[5, 4, 3, 2, 1].map((stars) => {
-                      const percentage = stars === 5 ? 85 : stars === 4 ? 12 : 3;
-                      return (
-                        <div key={stars} className="flex items-center gap-2">
-                          <span className="text-xs text-gray-600 w-8">{stars} ★</span>
-                          <div className="flex-1 h-2 bg-white rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-amber-400 rounded-full"
-                              style={{ width: `${percentage}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-xs text-gray-600 w-10">{percentage}%</span>
-                        </div>
-                      );
-                    })}
+                <p className="text-[#e8dff0] dark:text-[#e8e0f0] text-sm font-light mb-1">{provider.credentials}</p>
+                <p className="text-[#e8dff0] dark:text-[#e8e0f0] text-sm font-light mb-1">{provider.specialty} • {provider.practice}</p>
+                <div className="flex items-center gap-2 mt-3">
+                  <div className="flex items-center gap-1.5">
+                    <Star className="w-4 h-4 text-[#d4a574] fill-[#d4a574] stroke-[1.5]" />
+                    <span className="text-[#f5f0f7] text-sm font-[450]">{provider.rating}</span>
+                    <span className="text-[#e8dff0] text-xs font-light">({provider.reviews} reviews)</span>
                   </div>
                 </div>
-
-                <Link
-                  to={`/providers/${provider.id}/review`}
-                  className="block w-full py-3 px-4 rounded-2xl bg-[#663399] text-white text-sm text-center hover:bg-[#552288] transition-colors"
-                >
-                  Write a review
-                </Link>
               </div>
-            </section>
-
-            {/* Individual Reviews */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-4">
-                  <h2>Patient Reviews</h2>
-                  <select className="text-xs px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20">
-                    <option>Most recent</option>
-                    <option>Highest rated</option>
-                    <option>Most helpful</option>
-                  </select>
-                </div>
-
-                <div className="space-y-4">
-                  {provider.reviews.map((review, index) => (
-                    <div key={review.id} className={`${index !== 0 ? 'pt-4 border-t border-gray-100' : ''}`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium">{review.author}</span>
-                            {review.verified && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                                Verified Patient
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex gap-0.5">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`w-4 h-4 ${
-                                    i < review.rating ? "fill-amber-400 text-amber-400" : "text-gray-300"
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                            <span className="text-xs text-gray-500">{review.date}</span>
-                          </div>
-                        </div>
-                        {review.wouldRecommend && (
-                          <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200 whitespace-nowrap">
-                            ✓ Recommends
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Experience ratings mini bars */}
-                      <div className="flex gap-3 mb-3 text-xs">
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-500">Heard:</span>
-                          <span className="font-medium">{review.feltHeard}/5</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-500">Respected:</span>
-                          <span className="font-medium">{review.feltRespected}/5</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-500">Clear:</span>
-                          <span className="font-medium">{review.explainedClearly}/5</span>
-                        </div>
-                      </div>
-
-                      <p className="text-sm text-gray-700 mb-3 leading-relaxed">{review.text}</p>
-                      
-                      <div className="flex items-center gap-4">
-                        <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#663399] transition-colors">
-                          <ThumbsUp className="w-3.5 h-3.5" />
-                          Helpful ({review.helpful})
-                        </button>
-                        <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#663399] transition-colors">
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          {review.responses} responses
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <Link
-                  to={`/providers/${provider.id}/reviews`}
-                  className="block mt-4 w-full py-3 px-4 rounded-2xl bg-gray-50 text-gray-700 text-sm text-center border border-gray-200 hover:border-[#663399]/30 transition-colors"
-                >
-                  View all {provider.reviewCount} reviews
-                </Link>
-              </div>
-            </section>
-          </>
-        )}
-
-        {/* Tab Content: About */}
-        {activeTab === "about" && (
-          <>
-            {/* Education */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <GraduationCap className="w-5 h-5 text-[#663399]" />
-                  <h2>Education & Training</h2>
-                </div>
-                <div className="space-y-3">
-                  {provider.education.map((edu, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-[#663399] flex-shrink-0 mt-2"></div>
-                      <p className="text-sm text-gray-700">{edu}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Certifications */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Award className="w-5 h-5 text-[#663399]" />
-                  <h2>Certifications</h2>
-                </div>
-                <div className="space-y-2">
-                  {provider.certifications.map((cert, index) => (
-                    <div key={index} className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#663399] flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-gray-700">{cert}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Clinical Interests */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Heart className="w-5 h-5 text-[#663399]" />
-                  <h2>Clinical Interests</h2>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {provider.clinicalInterests.map((interest, index) => (
-                    <span key={index} className="px-3 py-2 rounded-2xl text-sm bg-rose-50 text-rose-700 border border-rose-200">
-                      {interest}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Hospital Affiliations */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Building className="w-5 h-5 text-[#663399]" />
-                  <h2>Hospital Affiliations</h2>
-                </div>
-                <div className="space-y-2">
-                  {provider.hospitalAffiliations.map((hospital, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-[#663399]"></div>
-                      <p className="text-sm text-gray-700">{hospital}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Awards & Recognition */}
-            <section className="mb-4">
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Award className="w-5 h-5 text-[#663399]" />
-                  <h2>Awards & Recognition</h2>
-                </div>
-                <div className="space-y-3">
-                  {provider.awards.map((award, index) => (
-                    <div key={index} className="p-3 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-200">
-                      <p className="text-sm text-gray-700">{award}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-          </>
-        )}
-
-        {/* Help Other Mothers CTA */}
-        <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-3xl p-5 shadow-sm border border-blue-100">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#663399] flex items-center justify-center flex-shrink-0">
-              <Heart className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h3 className="mb-2">Help Other Mothers</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Your experience matters. Share your story to help other mothers make informed decisions about their care.
-              </p>
-              <Link to={`/providers/${provider.id}/review`} className="text-sm text-[#663399] font-medium">
-                Write a review →
-              </Link>
-            </div>
+
+            {provider.acceptingNew && (
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#e8f5f0]/20 backdrop-blur-sm border border-[#89c5a6]/30">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#89c5a6]"></div>
+                <span className="text-[#f5f0f7] text-xs tracking-wide font-light">Accepting new patients</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Contact Information */}
+        <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-7 mb-6 shadow-[0_12px_40px_rgba(102,51,153,0.12),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
+          <h2 className="text-[#663399] dark:text-[#cbbec9] text-[11px] uppercase tracking-[0.08em] mb-5 font-medium">Contact</h2>
+          
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <MapPin className="w-5 h-5 text-[#cbbec9] dark:text-[#75657d] stroke-[1.5] flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-light leading-relaxed">{provider.address}</p>
+                <p className="text-[#9b8ba5] dark:text-[#9b8ba5] text-xs font-light mt-1">{provider.distance} away</p>
+              </div>
+            </div>
+            
+            <div className="h-px bg-[#e8e0f0] dark:bg-[#3a3043]"></div>
+            
+            <div className="flex items-center gap-3">
+              <Phone className="w-5 h-5 text-[#cbbec9] dark:text-[#75657d] stroke-[1.5]" />
+              <a href={`tel:${provider.phone}`} className="text-[#663399] dark:text-[#d4a574] text-sm font-[450] hover:underline">{provider.phone}</a>
+            </div>
+            
+            <div className="h-px bg-[#e8e0f0] dark:bg-[#3a3043]"></div>
+            
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-[#cbbec9] dark:text-[#75657d] stroke-[1.5]" />
+              <p className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-light">{provider.hours}</p>
+            </div>
+          </div>
+
+          <button className="w-full mt-6 py-3.5 px-6 rounded-[18px] bg-gradient-to-br from-[#663399] via-[#7744aa] to-[#8855bb] dark:from-[#3a3043] dark:via-[#4a3e5d] dark:to-[#5a4971] text-[#f5f0f7] text-sm font-[450] shadow-[0_8px_24px_rgba(102,51,153,0.2),_inset_0_1px_0_rgba(255,255,255,0.1)] hover:shadow-[0_12px_32px_rgba(102,51,153,0.25)] hover:translate-y-[-1px] transition-all duration-300 tracking-[-0.005em]">
+            Schedule appointment
+          </button>
+        </div>
+
+        {/* About */}
+        <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-7 mb-6 shadow-[0_12px_40px_rgba(102,51,153,0.12),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
+          <h2 className="text-[#663399] dark:text-[#cbbec9] text-[11px] uppercase tracking-[0.08em] mb-4 font-medium">About</h2>
+          <p className="text-[#2d2235] dark:text-[#f5f0f7] text-[15px] font-light leading-relaxed">{provider.bio}</p>
+        </div>
+
+        {/* Specialties */}
+        <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-7 mb-6 shadow-[0_12px_40px_rgba(102,51,153,0.12),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
+          <h2 className="text-[#663399] dark:text-[#cbbec9] text-[11px] uppercase tracking-[0.08em] mb-4 font-medium">Specialties</h2>
+          <div className="flex flex-wrap gap-2">
+            {provider.specialties.map((specialty, index) => (
+              <span
+                key={index}
+                className="px-4 py-2 rounded-full bg-[#e8e0f0] dark:bg-[#3a3043] text-[#75657d] dark:text-[#cbbec9] text-sm font-light"
+              >
+                {specialty}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Insurance */}
+        <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-7 mb-6 shadow-[0_12px_40px_rgba(102,51,153,0.12),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
+          <h2 className="text-[#663399] dark:text-[#cbbec9] text-[11px] uppercase tracking-[0.08em] mb-4 font-medium">Insurance accepted</h2>
+          <div className="flex flex-wrap gap-2">
+            {provider.insurance.map((ins, index) => (
+              <span
+                key={index}
+                className="px-4 py-2 rounded-full bg-[#e8f5f0] dark:bg-[#2a3f38] text-[#5a9d7d] dark:text-[#89c5a6] text-sm font-light"
+              >
+                {ins}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Reviews */}
+        <ProviderReviewBoundary>
+          <div className="mb-6">
+            <h2 className="text-[#663399] dark:text-[#cbbec9] text-[11px] uppercase tracking-[0.08em] mb-4 font-medium">Community reviews</h2>
+            <div className="space-y-4">
+              {reviews.map((review, index) => (
+                <div
+                  key={index}
+                  className="relative bg-white dark:bg-[#2a2435] rounded-[20px] p-6 shadow-[0_8px_32px_rgba(102,51,153,0.1),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#e8e0f0] to-[#d8cfe5] dark:from-[#3a3043] dark:to-[#4a3e5d] flex items-center justify-center shadow-sm">
+                        <span className="text-[#663399] dark:text-[#9d7ab8] text-xs font-[450]">{review.author.charAt(0)}</span>
+                      </div>
+                      <div>
+                        <p className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-[450]">{review.author}</p>
+                        <p className="text-[#9b8ba5] dark:text-[#9b8ba5] text-xs font-light">{review.date}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {[...Array(review.rating)].map((_, i) => (
+                        <Star key={i} className="w-3.5 h-3.5 text-[#d4a574] fill-[#d4a574] stroke-[1.5]" />
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <p className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-light leading-relaxed mb-3">{review.text}</p>
+                  
+                  <div className="flex items-center gap-2 text-[#9b8ba5] dark:text-[#9b8ba5] text-xs font-light">
+                    <ThumbsUp className="w-3.5 h-3.5 stroke-[1.5]" />
+                    <span>{review.helpful} found this helpful</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ProviderReviewBoundary>
       </div>
     </div>
   );

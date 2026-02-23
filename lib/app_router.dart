@@ -21,6 +21,7 @@ import 'providers/provider_search_entry_screen.dart';
 import 'providers/provider_search_results_screen.dart';
 import 'providers/provider_profile_screen.dart';
 import 'providers/add_provider_screen.dart';
+import 'care_survey/care_navigation_survey_screen.dart';
 
 class Routes {
   static const auth = '/auth';
@@ -48,6 +49,7 @@ class Routes {
   static const providerResults = '/providers/results';
   static const providerProfile = '/providers/profile';
   static const addProvider = '/providers/add';
+  static const careSurvey = '/care-survey';
 }
 
 class AppRouter {
@@ -97,6 +99,8 @@ class AppRouter {
         return _page(const ProviderSearchEntryScreen());
       case Routes.addProvider:
         return _page(const AddProviderScreen());
+      case Routes.careSurvey:
+        return _page(const CareNavigationSurveyScreen());
       default:
         return _page(const AuthScreen());
     }

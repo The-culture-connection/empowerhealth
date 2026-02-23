@@ -1,18 +1,14 @@
-import { Search, MapPin, Star, Award, Filter, Shield, Heart, Phone, Clock, Quote, ThumbsUp } from "lucide-react";
+import { Search, MapPin, Star, Award, Filter, Shield, Heart, Phone, Clock, Quote, ThumbsUp, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { ProviderReviewBoundary } from "./PrivacyComponents";
 import { Link } from "react-router";
 
 export function ProviderSearch() {
   const [activeTab, setActiveTab] = useState<"all" | "obgyn" | "midwife" | "doula" | "mentalhealth">("all");
-  const [filters, setFilters] = useState({
-    location: "",
-    insurance: "",
-    raceConcordance: false,
-  });
 
   const providers = [
     {
+      id: "1",
       name: "Dr. Aisha Williams",
       specialty: "OB-GYN",
       practice: "Equity Maternal Health",
@@ -28,17 +24,9 @@ export function ProviderSearch() {
       phone: "(614) 555-0142",
       hours: "Mon-Fri 8am-6pm",
       priceRange: "$$",
-      recentReviews: [
-        {
-          author: "Jasmine M.",
-          rating: 5,
-          date: "2 weeks ago",
-          text: "Dr. Williams took the time to listen to all my concerns and made me feel truly heard. She respected my birth plan and was so supportive throughout my pregnancy.",
-          helpful: 45,
-        },
-      ],
     },
     {
+      id: "2",
       name: "Ohio Midwifery Collective",
       specialty: "Certified Nurse Midwife",
       practice: "Columbus Birth Center",
@@ -54,17 +42,9 @@ export function ProviderSearch() {
       phone: "(614) 555-0198",
       hours: "24/7 On-call",
       priceRange: "$$$",
-      recentReviews: [
-        {
-          author: "Maria S.",
-          rating: 5,
-          date: "3 days ago",
-          text: "The entire team made my home birth experience magical. They were calm, encouraging, and respected every one of my wishes.",
-          helpful: 52,
-        },
-      ],
     },
     {
+      id: "3",
       name: "Destiny Williams, CD(DONA)",
       specialty: "Birth Doula",
       practice: "Sacred Journey Doula Services",
@@ -80,259 +60,149 @@ export function ProviderSearch() {
       phone: "(614) 555-0203",
       hours: "By appointment",
       priceRange: "$$",
-      recentReviews: [
-        {
-          author: "Amara T.",
-          rating: 5,
-          date: "5 days ago",
-          text: "Destiny was my rock during labor. She knew exactly what I needed before I even asked. Her presence was calming and empowering.",
-          helpful: 67,
-        },
-      ],
     },
   ];
 
   const categories = [
-    { id: "all", label: "All providers", count: 3 },
+    { id: "all", label: "All", count: 3 },
     { id: "obgyn", label: "OB-GYNs", count: 1 },
     { id: "midwife", label: "Midwives", count: 1 },
     { id: "doula", label: "Doulas", count: 1 },
   ];
 
   return (
-    <div className="pb-5">
-      {/* Hero Header */}
-      <div className="bg-gradient-to-br from-[#ebe4f3] via-[#e0d5eb] to-[#e8dfe8] px-6 pt-6 pb-8 mb-6 relative overflow-hidden">
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#d4c5e0] blur-3xl"></div>
-        </div>
-
-        <div className="relative mb-6">
-          <h1 className="text-2xl text-[#4a3f52] mb-2 font-normal">Find your care team</h1>
-          <p className="text-[#6b5c75] text-sm font-light">Trusted providers reviewed by mothers like you</p>
-        </div>
-
-        {/* Search Bar */}
-        <Link to="/providers/search" className="block relative">
-          <div className="relative">
-            <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 text-[#a89cb5] w-5 h-5 pointer-events-none stroke-[1.5]" />
-            <div className="w-full pl-14 pr-5 py-4 rounded-[24px] bg-white/80 backdrop-blur-sm border-0 shadow-[0_2px_16px_rgba(0,0,0,0.06)] text-[#a89cb5] font-light">
-              Search providers, specialties, or location
-            </div>
-          </div>
-        </Link>
+    <div className="min-h-screen bg-[#faf8f4] dark:bg-[#1a1520] relative overflow-hidden transition-colors duration-500">
+      {/* Warm ambient light */}
+      <div className="fixed inset-0 opacity-40 dark:opacity-30 pointer-events-none transition-opacity duration-500">
+        <div className="absolute top-0 right-1/3 w-[500px] h-[500px] rounded-full bg-[#d4a574] blur-[140px]"></div>
       </div>
 
-      <div className="px-6">
-        {/* Category Pills */}
-        <section className="mb-6">
-          <div className="flex gap-2 overflow-x-auto pb-2 -mx-6 px-6">
+      <div className="relative p-6 pb-24 max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="mb-8 mt-4">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-[#2a2435] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 mb-4 shadow-sm">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#d4a574]"></div>
+            <span className="text-[#75657d] dark:text-[#cbbec9] text-xs tracking-[0.03em] font-light">Ohio providers</span>
+          </div>
+          <h1 className="text-[32px] text-[#2d2235] dark:text-[#f5f0f7] font-[450] leading-[1.3] mb-2 tracking-[-0.01em]">Find your care team</h1>
+          <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light">Trusted providers who listen and support you</p>
+        </div>
+
+        {/* Search Bar - Like a framed input */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 text-[#cbbec9] dark:text-[#75657d] w-5 h-5 stroke-[1.5]" />
+            <input
+              type="text"
+              placeholder="Search by name, location, or specialty..."
+              className="w-full pl-14 pr-5 py-4 rounded-[20px] bg-white dark:bg-[#2a2435] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 focus:outline-none focus:ring-2 focus:ring-[#d4a574]/30 text-[#2d2235] dark:text-[#f5f0f7] placeholder:text-[#cbbec9] dark:placeholder:text-[#75657d] text-sm font-light shadow-[0_8px_32px_rgba(102,51,153,0.1)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300"
+            />
+          </div>
+        </div>
+
+        {/* Categories - Like fabric swatches */}
+        <div className="mb-8">
+          <div className="flex gap-2 overflow-x-auto pb-2">
             {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => setActiveTab(category.id as any)}
-                className={`px-5 py-2.5 rounded-[20px] whitespace-nowrap transition-all shadow-[0_2px_12px_rgba(0,0,0,0.03)] font-light ${
+                className={`px-5 py-2.5 rounded-[18px] whitespace-nowrap transition-all duration-300 font-light shadow-sm ${
                   activeTab === category.id
-                    ? "bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white"
-                    : "bg-white/80 backdrop-blur-sm text-[#6b5c75] border border-[#e8e0f0]/50 hover:border-[#d4c5e0]/50"
+                    ? "bg-gradient-to-br from-[#663399] to-[#7744aa] dark:from-[#3a3043] dark:to-[#4a3e5d] text-[#f5f0f7] shadow-[0_8px_24px_rgba(102,51,153,0.2)]"
+                    : "bg-white dark:bg-[#2a2435] text-[#75657d] dark:text-[#cbbec9] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 hover:border-[#d4a574]/30"
                 }`}
               >
-                {category.label} <span className="text-xs opacity-75">({category.count})</span>
+                <span className="text-sm tracking-[-0.005em]">{category.label}</span>
               </button>
             ))}
           </div>
-        </section>
+        </div>
 
-        {/* Review Boundary Notice */}
-        <ProviderReviewBoundary />
-
-        {/* Quick Filters */}
-        <section className="mb-6">
-          <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
-            <div className="flex items-center gap-2 mb-4">
-              <Filter className="w-4 h-4 text-[#a89cb5] stroke-[1.5]" />
-              <span className="text-sm text-[#6b5c75] font-normal">Filters</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button className="px-4 py-2 rounded-[16px] text-xs bg-[#e8e0f0]/60 text-[#8b7a95] border border-[#d4c5e0]/30 font-light">
-                <MapPin className="w-3 h-3 inline mr-1.5 stroke-[1.5]" />
-                Near me
-              </button>
-              <button className="px-4 py-2 rounded-[16px] text-xs bg-[#dce8e4]/60 text-[#6b9688] border border-[#c9e0d9]/30 font-light">
-                ✓ Accepting patients
-              </button>
-              <button
-                onClick={() => setFilters({ ...filters, raceConcordance: !filters.raceConcordance })}
-                className={`px-4 py-2 rounded-[16px] text-xs border transition-colors font-light ${
-                  filters.raceConcordance
-                    ? "bg-[#e8e0f0]/80 text-[#8b7a95] border-[#d4c5e0]/50"
-                    : "bg-[#f7f5f9] text-[#a89cb5] border-[#e8e0f0]/50"
-                }`}
-              >
-                <Heart className="w-3 h-3 inline mr-1.5 stroke-[1.5]" />
-                Background match
-              </button>
-              <button className="px-4 py-2 rounded-[16px] text-xs bg-[#f0e0e8]/60 text-[#c9a9c0] border border-[#e8d0e0]/30 font-light">
-                <Award className="w-3 h-3 inline mr-1.5 stroke-[1.5]" />
-                Mama Approved™
-              </button>
-            </div>
+        {/* Trust Indicator */}
+        <div className="relative bg-gradient-to-br from-[#f5eee0] via-[#faf8f4] to-[#ebe0d6] dark:from-[#2a2435] dark:via-[#2d2640] dark:to-[#3a3043] rounded-[20px] p-6 mb-8 shadow-[0_12px_40px_rgba(102,51,153,0.12),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 overflow-hidden transition-all duration-500">
+          {/* Subtle glow */}
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#d4a574] blur-[60px]"></div>
           </div>
-        </section>
-
-        {/* Provider Cards */}
-        <section>
-          <div className="flex items-center justify-between mb-5">
-            <p className="text-sm text-[#8b7a95] font-light">{providers.length} providers near you</p>
-            <select className="text-xs px-4 py-2 rounded-[16px] bg-white/80 backdrop-blur-sm border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 text-[#6b5c75] font-light">
-              <option>Highest rated</option>
-              <option>Most reviewed</option>
-              <option>Nearest</option>
-            </select>
-          </div>
-
-          <div className="space-y-5">
-            {providers.map((provider, index) => (
-              <div
-                key={index}
-                className="bg-white/60 backdrop-blur-sm rounded-[32px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-[#ede7f3]/50 overflow-hidden hover:shadow-[0_6px_32px_rgba(0,0,0,0.08)] transition-all"
-              >
-                {/* Provider Image/Header */}
-                <div className="relative h-36 bg-gradient-to-br from-[#ebe4f3] to-[#e8dfe8] flex items-center justify-center">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#d4c5e0] to-[#e0d5eb] flex items-center justify-center text-white text-2xl shadow-[0_4px_16px_rgba(168,156,181,0.2)]">
-                    {provider.name.charAt(0)}
-                  </div>
-                  {provider.raceMatch && filters.raceConcordance && (
-                    <div className="absolute top-4 right-4 px-3 py-2 rounded-[16px] bg-[#e8e0f0]/90 backdrop-blur-sm text-[#6b5c75] text-xs font-light shadow-sm flex items-center gap-1.5">
-                      <Heart className="w-3.5 h-3.5 fill-[#a89cb5] stroke-[1.5]" />
-                      Match
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-6">
-                  {/* Name and Tags */}
-                  <div className="mb-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="text-lg mb-1 text-[#4a3f52] font-normal">{provider.name}</h3>
-                        <p className="text-sm text-[#8b7a95] font-light">{provider.specialty} • {provider.practice}</p>
-                      </div>
-                      {provider.acceptingNew && (
-                        <span className="text-xs px-3 py-1.5 rounded-[14px] bg-[#dce8e4]/80 text-[#6b9688] border border-[#c9e0d9]/30 whitespace-nowrap font-light">
-                          ✓ Accepting
-                        </span>
-                      )}
-                    </div>
-
-                    {provider.hasBlackMamaTag && (
-                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-[16px] bg-gradient-to-r from-[#f0e0e8] to-[#f5e8f0] border border-[#e8d0e0]/50">
-                        <Award className="w-4 h-4 text-[#c9a9c0] stroke-[1.5]" />
-                        <span className="text-xs text-[#c9a9c0] font-light">Mama Approved™</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Rating */}
-                  <div className="flex items-center gap-2 mb-5">
-                    <div className="flex items-center gap-1.5">
-                      <Star className="w-5 h-5 fill-[#c9b087] text-[#c9b087]" />
-                      <span className="text-lg font-normal text-[#4a3f52]">{provider.rating}</span>
-                    </div>
-                    <span className="text-sm text-[#a89cb5] font-light">({provider.reviews} reviews)</span>
-                    <span className="text-[#e8e0f0]">•</span>
-                    <span className="text-sm text-[#a89cb5] font-light">{provider.priceRange}</span>
-                  </div>
-
-                  {/* Quick Info */}
-                  <div className="grid grid-cols-2 gap-3 mb-5 p-4 bg-[#f7f5f9] rounded-[20px]">
-                    <div className="flex items-center gap-2 text-xs text-[#8b7a95] font-light">
-                      <MapPin className="w-4 h-4 text-[#a89cb5] stroke-[1.5]" />
-                      <span>{provider.distance}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-[#8b7a95] font-light">
-                      <Phone className="w-4 h-4 text-[#a89cb5] stroke-[1.5]" />
-                      <span>{provider.phone.slice(-8)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-[#8b7a95] col-span-2 font-light">
-                      <Clock className="w-4 h-4 text-[#a89cb5] stroke-[1.5]" />
-                      <span>{provider.hours}</span>
-                    </div>
-                  </div>
-
-                  {/* Specialties */}
-                  <div className="mb-5">
-                    <div className="flex flex-wrap gap-2">
-                      {provider.specialties.map((specialty, i) => (
-                        <span key={i} className="text-xs px-3 py-1.5 rounded-[14px] bg-[#e8e0f0]/60 text-[#8b7a95] border border-[#d4c5e0]/20 font-light">
-                          {specialty}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Featured Review */}
-                  {provider.recentReviews && provider.recentReviews[0] && (
-                    <div className="bg-gradient-to-br from-[#faf7fb] to-[#f9f5fb] rounded-[24px] p-5 mb-5 border border-[#f0e8f3]/50">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Quote className="w-4 h-4 text-[#c9a9c0] stroke-[1.5]" />
-                        <span className="text-xs text-[#a89cb5] font-light">Recent review</span>
-                      </div>
-                      <div className="flex gap-0.5 mb-3">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-3.5 h-3.5 ${
-                              i < provider.recentReviews[0].rating
-                                ? "fill-[#c9b087] text-[#c9b087]"
-                                : "text-[#e8e0f0]"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <p className="text-sm text-[#6b5c75] mb-3 line-clamp-3 font-light leading-relaxed">"{provider.recentReviews[0].text}"</p>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[#a89cb5] font-light">— {provider.recentReviews[0].author}</span>
-                        <div className="flex items-center gap-1.5 text-[#a89cb5] font-light">
-                          <ThumbsUp className="w-3 h-3 stroke-[1.5]" />
-                          <span>{provider.recentReviews[0].helpful}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-3">
-                    <button className="flex-1 py-3.5 px-4 rounded-[24px] bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white text-sm hover:shadow-[0_4px_20px_rgba(168,156,181,0.25)] transition-all font-light shadow-[0_2px_12px_rgba(168,156,181,0.15)]">
-                      View full profile
-                    </button>
-                    <button className="px-5 py-3.5 rounded-[24px] border border-[#e8e0f0]/50 text-[#8b7a95] text-sm hover:bg-[#f7f5f9] transition-colors font-light">
-                      <Phone className="w-4 h-4 stroke-[1.5]" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Community Trust Badge */}
-        <div className="mt-8 bg-gradient-to-br from-[#f0ead8] to-[#f5f0e8] rounded-[28px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#e8dfc8]/50">
-          <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-[20px] bg-white/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm">
-              <Shield className="w-5 h-5 text-[#c9b087] stroke-[1.5]" />
+          
+          <div className="relative flex items-start gap-3">
+            <div className="w-10 h-10 rounded-[14px] bg-gradient-to-br from-[#f5eee0] to-[#ebe0d6] dark:from-[#3a3043] dark:to-[#4a3e5d] flex items-center justify-center shadow-[inset_0_2px_6px_rgba(0,0,0,0.06)]">
+              <Award className="w-5 h-5 text-[#d4a574] dark:text-[#e0b589] stroke-[1.5]" />
             </div>
             <div>
-              <h3 className="mb-2 text-[#4a3f52] font-normal">Verified reviews</h3>
-              <p className="text-sm text-[#6b5c75] mb-3 font-light leading-relaxed">
-                All reviews come from verified patients. Share your experience anonymously to help other mothers make informed choices.
+              <h3 className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-[450] mb-1 tracking-[-0.005em]">Mama Approved™ providers</h3>
+              <p className="text-[#75657d] dark:text-[#cbbec9] text-xs font-light leading-relaxed">
+                Verified by community trust indicators and identity transparency
               </p>
-              <button className="text-sm text-[#a89cb5] font-light hover:text-[#8b7a95] transition-colors">Write a review →</button>
             </div>
           </div>
         </div>
+
+        {/* Provider Cards - Like upholstered panels */}
+        <div className="space-y-4">
+          {providers.map((provider) => (
+            <Link key={provider.id} to={`/providers/${provider.id}`}>
+              <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-6 shadow-[0_12px_40px_rgba(102,51,153,0.12),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500 hover:shadow-[0_16px_56px_rgba(102,51,153,0.16)] dark:hover:shadow-[0_16px_64px_rgba(0,0,0,0.5)] hover:translate-y-[-2px] cursor-pointer">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-[#2d2235] dark:text-[#f5f0f7] text-[17px] font-[450] tracking-[-0.005em]">{provider.name}</h3>
+                      {provider.hasBlackMamaTag && (
+                        <div className="px-2.5 py-1 rounded-full bg-gradient-to-br from-[#f5eee0] to-[#ebe0d6] dark:from-[#3a3043] dark:to-[#4a3e5d] flex items-center gap-1.5 shadow-sm">
+                          <Award className="w-3.5 h-3.5 text-[#d4a574] dark:text-[#e0b589] stroke-[1.5]" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light mb-1">{provider.specialty}</p>
+                    <p className="text-[#9b8ba5] dark:text-[#9b8ba5] text-xs font-light">{provider.practice}</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-[#cbbec9] dark:text-[#75657d] stroke-[1.5] flex-shrink-0" />
+                </div>
+
+                {/* Rating & Location */}
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="flex items-center gap-1.5">
+                    <Star className="w-4 h-4 text-[#d4a574] fill-[#d4a574] stroke-[1.5]" />
+                    <span className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-[450]">{provider.rating}</span>
+                    <span className="text-[#9b8ba5] dark:text-[#9b8ba5] text-xs font-light">({provider.reviews})</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-[#cbbec9] dark:text-[#75657d] stroke-[1.5]" />
+                    <span className="text-[#75657d] dark:text-[#cbbec9] text-xs font-light">{provider.distance}</span>
+                  </div>
+                  {provider.acceptingNew && (
+                    <div className="px-3 py-1 rounded-full bg-[#e8f5f0]/60 dark:bg-[#2a3f38] text-[#5a9d7d] dark:text-[#89c5a6] text-xs font-light">
+                      Accepting new patients
+                    </div>
+                  )}
+                </div>
+
+                {/* Specialties - Like fabric tags */}
+                <div className="flex flex-wrap gap-2">
+                  {provider.specialties.slice(0, 3).map((specialty, index) => (
+                    <span
+                      key={index}
+                      className="px-3 py-1.5 rounded-full bg-[#e8e0f0] dark:bg-[#3a3043] text-[#75657d] dark:text-[#cbbec9] text-xs font-light"
+                    >
+                      {specialty}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* Trust Notice */}
+        <ProviderReviewBoundary>
+          <div className="mt-8 text-center">
+            <p className="text-[#9b8ba5] dark:text-[#9b8ba5] text-xs font-light leading-relaxed">
+              All providers shown maintain community trust indicators and transparency standards
+            </p>
+          </div>
+        </ProviderReviewBoundary>
       </div>
     </div>
   );

@@ -75,25 +75,25 @@ export function Community() {
     <div className="p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl mb-2 text-[#4a3f52] font-normal">Community</h1>
-        <p className="text-[#8b7a95] font-light">Connect with others on the same journey</p>
+        <h1 className="text-2xl mb-2 text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">Community</h1>
+        <p className="text-[#6b5c75] dark:text-[#c9bfd4] font-light transition-colors">Connect with others on the same journey</p>
       </div>
 
       {/* Safety Note */}
-      <div className="bg-gradient-to-br from-[#ebe4f3] via-[#e0d5eb] to-[#e8dfe8] rounded-[32px] p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)] mb-8 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-[#ebe4f3] via-[#e0d5eb] to-[#e8dfe8] dark:from-[#2d2438] dark:via-[#352d40] dark:to-[#3a2f3d] rounded-[32px] p-6 shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] mb-8 relative overflow-hidden border border-[#e0d3e8]/50 dark:border-[#4a4057]/30 transition-all duration-300">
         {/* Subtle background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#d4c5e0] blur-3xl"></div>
+        <div className="absolute inset-0 opacity-30 dark:opacity-20 transition-opacity duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#d4c5e0] dark:bg-[#663399] blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#e6d5b8] dark:bg-[#d4a574] blur-3xl"></div>
         </div>
         
         <div className="relative flex items-start gap-3">
-          <div className="w-11 h-11 rounded-[20px] bg-white/40 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm">
-            <Heart className="w-5 h-5 text-[#6b5c75] stroke-[1.5]" />
+          <div className="w-11 h-11 rounded-[20px] bg-white/40 dark:bg-[#3d3547]/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-300">
+            <Heart className="w-5 h-5 text-[#6b5c75] dark:text-[#b89fb5] stroke-[1.5] transition-colors" />
           </div>
           <div>
-            <h2 className="text-lg mb-2 text-[#4a3f52] font-normal">A safe space</h2>
-            <p className="text-[#6b5c75] text-sm font-light leading-relaxed">
+            <h2 className="text-lg mb-2 text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">A safe space</h2>
+            <p className="text-[#6b5c75] dark:text-[#c9bfd4] text-sm font-light leading-relaxed transition-colors">
               Share your experiences, ask questions, and support others. All discussions are moderated to keep this space respectful and supportive.
             </p>
           </div>
@@ -106,10 +106,10 @@ export function Community() {
           {["All", "Questions", "Birth Stories", "Support", "Resources"].map((category) => (
             <button
               key={category}
-              className={`px-5 py-2.5 rounded-[20px] whitespace-nowrap transition-all font-light shadow-[0_2px_12px_rgba(0,0,0,0.03)] ${
+              className={`px-5 py-2.5 rounded-[20px] whitespace-nowrap transition-all duration-300 font-light shadow-[0_2px_12px_rgba(102,51,153,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.2)] ${
                 category === "All"
-                  ? "bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white"
-                  : "bg-white/80 backdrop-blur-sm text-[#6b5c75] border border-[#e8e0f0]/50 hover:border-[#d4c5e0]/50"
+                  ? "bg-gradient-to-br from-[#8b7aa8] to-[#b89fb5] dark:from-[#9d8fb5] dark:to-[#d4a574] text-white"
+                  : "bg-white/80 dark:bg-[#2a2435] backdrop-blur-sm text-[#6b5c75] dark:text-[#c9bfd4] border border-[#e8e0f0]/50 dark:border-[#3d3547] hover:border-[#d4c5e0]/50 dark:hover:border-[#4a4057]"
               }`}
             >
               {category}
@@ -121,34 +121,34 @@ export function Community() {
       {/* Discussions */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[#6b5c75] font-normal text-base tracking-wide">Recent discussions</h2>
-          <Link to="/community/new" className="text-sm text-[#a89cb5] font-light hover:text-[#8b7a95] transition-colors">New post</Link>
+          <h2 className="text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">Recent discussions</h2>
+          <Link to="/community/new" className="text-sm text-[#9d8fb5] dark:text-[#9d8fb5] font-light hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors">New post</Link>
         </div>
         <div className="space-y-3">
           {discussions.map((discussion, index) => (
             <Link
               key={index}
               to={`/community/${discussion.id}`}
-              className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50 hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-all cursor-pointer block"
+              className="bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 cursor-pointer block"
             >
               <div className="flex items-start gap-4">
-                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#d4c5e0] to-[#e0d5eb] flex items-center justify-center flex-shrink-0 text-white text-sm shadow-sm">
+                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#8b7aa8] to-[#b89fb5] dark:from-[#9d8fb5] dark:to-[#d4a574] flex items-center justify-center flex-shrink-0 text-white text-sm shadow-sm transition-all duration-300">
                   {discussion.author.charAt(0)}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs px-3 py-1.5 rounded-[14px] bg-[#ede7f3]/60 text-[#8b7a95] font-light">
+                    <span className="text-xs px-3 py-1.5 rounded-[14px] bg-[#ede7f3]/60 dark:bg-[#3d3547] text-[#8b7a95] dark:text-[#b89fb5] font-light transition-all duration-300">
                       {discussion.category}
                     </span>
                     {discussion.hasBlackMamaTag && (
-                      <span className="text-xs px-3 py-1.5 rounded-[14px] bg-[#f0e0e8]/80 text-[#c9a9c0] flex items-center gap-1.5 font-light">
+                      <span className="text-xs px-3 py-1.5 rounded-[14px] bg-[#f0e0e8]/80 dark:bg-[#3d3040] text-[#c9a9c0] dark:text-[#d4a574] flex items-center gap-1.5 font-light transition-all duration-300">
                         <Award className="w-3 h-3 stroke-[1.5]" />
                         Mama Approved™
                       </span>
                     )}
                   </div>
-                  <h3 className="text-sm mb-2 text-[#4a3f52] font-normal">{discussion.title}</h3>
-                  <div className="flex items-center gap-3 text-xs text-[#a89cb5] font-light">
+                  <h3 className="text-sm mb-2 text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">{discussion.title}</h3>
+                  <div className="flex items-center gap-3 text-xs text-[#9d8fb5] dark:text-[#9d8fb5] font-light transition-colors">
                     <span>{discussion.author}</span>
                     <span>•</span>
                     <span className="flex items-center gap-1">
@@ -168,45 +168,45 @@ export function Community() {
       {/* Provider Directory */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[#6b5c75] font-normal text-base tracking-wide">Trusted providers</h2>
-          <button className="text-sm text-[#a89cb5] font-light hover:text-[#8b7a95] transition-colors">See all</button>
+          <h2 className="text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">Trusted providers</h2>
+          <button className="text-sm text-[#9d8fb5] dark:text-[#9d8fb5] font-light hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors">See all</button>
         </div>
         <div className="space-y-3">
           {providers.map((provider, index) => (
             <div
               key={index}
-              className="bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50 hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-all cursor-pointer"
+              className="bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 cursor-pointer"
             >
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-[20px] bg-gradient-to-br from-[#d4c5e0] to-[#e0d5eb] flex items-center justify-center flex-shrink-0 text-white shadow-sm">
+                <div className="w-12 h-12 rounded-[20px] bg-gradient-to-br from-[#8b7aa8] to-[#b89fb5] dark:from-[#9d8fb5] dark:to-[#d4a574] flex items-center justify-center flex-shrink-0 text-white shadow-sm transition-all duration-300">
                   {provider.name.charAt(0)}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-sm text-[#4a3f52] font-normal">{provider.name}</h3>
+                    <h3 className="text-sm text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">{provider.name}</h3>
                     {provider.hasBlackMamaTag && (
-                      <span className="text-xs px-2 py-1 rounded-[12px] bg-[#f0e0e8]/80 text-[#c9a9c0] flex items-center gap-1">
+                      <span className="text-xs px-2 py-1 rounded-[12px] bg-[#f0e0e8]/80 dark:bg-[#3d3040] text-[#c9a9c0] dark:text-[#d4a574] flex items-center gap-1 transition-all duration-300">
                         <Award className="w-3 h-3 stroke-[1.5]" />
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-[#8b7a95] mb-2 font-light">{provider.title}</p>
-                  <div className="flex items-center gap-2 text-xs text-[#a89cb5] mb-2 font-light">
+                  <p className="text-sm text-[#6b5c75] dark:text-[#b89fb5] mb-2 font-light transition-colors">{provider.title}</p>
+                  <div className="flex items-center gap-2 text-xs text-[#9d8fb5] dark:text-[#9d8fb5] mb-2 font-light transition-colors">
                     <MapPin className="w-3.5 h-3.5 stroke-[1.5]" />
                     <span>{provider.location}</span>
                   </div>
                   <div className="flex items-center gap-2 mb-3">
                     <div className="flex items-center gap-1">
-                      <span className="text-[#c9b087]">★</span>
-                      <span className="text-sm text-[#6b5c75] font-light">{provider.rating}</span>
-                      <span className="text-xs text-[#a89cb5] font-light">({provider.reviews} reviews)</span>
+                      <span className="text-[#d4a574] dark:text-[#e0b589] transition-colors">★</span>
+                      <span className="text-sm text-[#6b5c75] dark:text-[#c9bfd4] font-light transition-colors">{provider.rating}</span>
+                      <span className="text-xs text-[#9d8fb5] dark:text-[#9d8fb5] font-light transition-colors">({provider.reviews} reviews)</span>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {provider.specialties.map((specialty, i) => (
                       <span
                         key={i}
-                        className="text-xs px-3 py-1.5 rounded-[14px] bg-[#e8e0f0]/60 text-[#8b7a95] font-light"
+                        className="text-xs px-3 py-1.5 rounded-[14px] bg-[#e8e0f0]/60 dark:bg-[#3d3547] text-[#8b7a95] dark:text-[#b89fb5] font-light transition-all duration-300"
                       >
                         {specialty}
                       </span>
@@ -220,17 +220,17 @@ export function Community() {
       </section>
 
       {/* Anonymous Feedback */}
-      <div className="mb-6 bg-gradient-to-br from-[#f0ead8] to-[#f5f0e8] rounded-[28px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#e8dfc8]/50">
+      <div className="mb-6 bg-gradient-to-br from-[#f9f2e8] to-[#fef9f5] dark:from-[#3d3540] dark:to-[#453d48] rounded-[28px] p-6 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#e8dfc8]/50 dark:border-[#3d3547] transition-all duration-300">
         <div className="flex items-start gap-3">
-          <div className="w-11 h-11 rounded-[20px] bg-white/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm">
-            <Sparkles className="w-5 h-5 text-[#c9b087] stroke-[1.5]" />
+          <div className="w-11 h-11 rounded-[20px] bg-white/60 dark:bg-[#4a4057]/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-300">
+            <Sparkles className="w-5 h-5 text-[#d4a574] dark:text-[#e0b589] stroke-[1.5] transition-colors" />
           </div>
           <div className="flex-1">
-            <h3 className="mb-2 text-[#4a3f52] font-normal">Share your experience</h3>
-            <p className="text-sm text-[#6b5c75] mb-3 font-light leading-relaxed">
+            <h3 className="mb-2 text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">Share your experience</h3>
+            <p className="text-sm text-[#6b5c75] dark:text-[#c9bfd4] mb-3 font-light leading-relaxed transition-colors">
               Help others by sharing anonymous feedback about your providers and birth experience.
             </p>
-            <button className="text-sm text-[#a89cb5] font-light hover:text-[#8b7a95] transition-colors">Submit feedback →</button>
+            <button className="text-sm text-[#9d8fb5] dark:text-[#9d8fb5] font-light hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors">Submit feedback →</button>
           </div>
         </div>
       </div>

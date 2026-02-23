@@ -15,6 +15,9 @@ import { ProviderDetailProfile } from "./components/ProviderDetailProfile";
 import { AddProvider } from "./components/AddProvider";
 import { PostDetail } from "./components/PostDetail";
 import { NewPost } from "./components/NewPost";
+import { SymptomCheck } from "./components/SymptomCheck";
+import { CarePlan } from "./components/CarePlan";
+import { CareNavigationSurvey } from "./components/CareNavigationSurvey";
 
 export const router = createBrowserRouter([
   {
@@ -36,6 +39,9 @@ export const router = createBrowserRouter([
       { path: "providers/results", Component: ProviderSearchResults },
       { path: "providers/add", Component: AddProvider },
       { path: "providers/:providerId", Component: ProviderDetailProfile },
+      { path: "symptom-check", Component: SymptomCheck },
+      { path: "care-plan", Component: CarePlan },
+      { path: "care-check-in", Component: CareNavigationSurvey },
     ],
   },
 ]);

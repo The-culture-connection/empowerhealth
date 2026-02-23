@@ -3901,15 +3901,38 @@ function parseFhirResource(resource) {
       for (const addr of addresses) {
         if (addr && (addr.line || addr.city)) {
           const addressLines = Array.isArray(addr.line) 
-            ? addr.line.map((l) => l.toString()) 
+            ? addr.line.map((l) => {
+                // Handle JSON string in line field (e.g., "[{\"ADDRESS_1\":\"4365 READING RD\",\"ADDRESS_2\":\" \"}]")
+                const lineStr = l.toString();
+                if (lineStr.startsWith('[') && lineStr.includes('ADDRESS_1')) {
+                  try {
+                    const parsed = JSON.parse(lineStr);
+                    if (Array.isArray(parsed) && parsed[0]) {
+                      const addrObj = parsed[0];
+                      const addr1 = addrObj.ADDRESS_1 || '';
+                      const addr2 = addrObj.ADDRESS_2 || '';
+                      // Combine ADDRESS_1 and ADDRESS_2, filtering out empty strings
+                      const combined = [addr1, addr2].filter(a => a && a.trim() !== '').join(' ');
+                      return combined.trim();
+                    }
+                  } catch (e) {
+                    // If JSON parsing fails, use the original string
+                    console.log(`[parseFhirResource] Could not parse address JSON: ${lineStr.substring(0, 50)}`);
+                  }
+                }
+                return lineStr;
+              }).filter(l => l && l.trim() !== '')
             : (addr.line ? [addr.line.toString()] : []);
           
-          locations.push({
-            address: addressLines.join(", "),
-            city: addr.city || "",
-            state: addr.state || "OH",
-            zip: addr.postalCode || "",
-          });
+          // Only add location if we have address lines or city
+          if (addressLines.length > 0 || addr.city) {
+            locations.push({
+              address: addressLines.join(", "),
+              city: addr.city || "",
+              state: addr.state || "OH",
+              zip: addr.postalCode || "",
+            });
+          }
         }
       }
     }

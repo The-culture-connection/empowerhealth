@@ -300,21 +300,37 @@ class ProviderRepository {
         }
       }
 
-      // Try by name + city match (only if NPI lookup failed)
+      // Try by name + location match (only if NPI lookup failed)
       // Note: This query may also fail due to permissions or missing index
+      // We query by name first, then filter by location in memory since Firestore doesn't support array-contains-any for nested fields easily
       if (provider.locations.isNotEmpty) {
         try {
-          final city = provider.locations.first.city;
-          if (city.isNotEmpty) {
-            final query = await _firestore
+          final loc = provider.locations.first;
+          final city = loc.city;
+          final zip = loc.zip;
+          
+          if (city.isNotEmpty || zip.isNotEmpty) {
+            // Query by name first
+            final nameQuery = await _firestore
                 .collection('providers')
                 .where('name', isEqualTo: provider.name)
-                .where('locations.city', isEqualTo: city)
-                .limit(1)
+                .limit(10) // Get multiple matches, then filter by location
                 .get();
 
-            if (query.docs.isNotEmpty) {
-              return Provider.fromMap(query.docs.first.data(), id: query.docs.first.id);
+            // Filter by location in memory
+            for (var doc in nameQuery.docs) {
+              final data = doc.data();
+              if (data['locations'] != null && data['locations'] is List) {
+                final locations = data['locations'] as List;
+                final match = locations.any((l) => 
+                  l is Map && 
+                  (city.isEmpty || (l['city']?.toString().toUpperCase() ?? '') == city.toUpperCase()) &&
+                  (zip.isEmpty || l['zip']?.toString() == zip)
+                );
+                if (match) {
+                  return Provider.fromMap(doc.data(), id: doc.id);
+                }
+              }
             }
           }
         } catch (e) {
@@ -344,13 +360,96 @@ class ProviderRepository {
     return null;
   }
 
+  /// Enrich a provider with reviews by finding it in Firestore first
+  /// This ensures we use the correct Firestore ID that was used when reviews were saved
+  Future<Provider> enrichProviderWithReviews(Provider provider) async {
+    try {
+      print('🔍 [ProviderRepository] Enriching provider with reviews: ${provider.name}');
+      
+      // First, try to find the provider in Firestore to get its Firestore ID
+      final firestoreProvider = await _findProviderInFirestore(provider);
+      String? reviewProviderId;
+      
+      if (firestoreProvider != null && firestoreProvider.id != null) {
+        // Use Firestore ID if we found the provider
+        reviewProviderId = firestoreProvider.id;
+        print('✅ [ProviderRepository] Found provider in Firestore with ID: $reviewProviderId');
+      } else {
+        // Fallback: construct ID from available data
+        if (provider.npi != null && provider.npi!.isNotEmpty) {
+          reviewProviderId = 'npi_${provider.npi}';
+        } else if (provider.locations.isNotEmpty) {
+          final loc = provider.locations.first;
+          final namePart = provider.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+          reviewProviderId = 'api_${namePart}_${loc.city}_${loc.zip}';
+        } else if (provider.name.isNotEmpty) {
+          final namePart = provider.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+          reviewProviderId = 'name_$namePart';
+        }
+        print('ℹ️ [ProviderRepository] Provider not in Firestore, using constructed ID: $reviewProviderId');
+      }
+      
+      // Fetch reviews using the provider ID
+      if (reviewProviderId != null && reviewProviderId.isNotEmpty) {
+        final reviews = await getProviderReviews(reviewProviderId);
+        if (reviews.isNotEmpty) {
+          final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
+          final averageRating = totalRating / reviews.length;
+          print('✅ [ProviderRepository] Found ${reviews.length} reviews for ${provider.name}, rating: $averageRating');
+          
+          // Update provider with Firestore ID if we found it, and add reviews/rating
+          return provider.copyWith(
+            id: firestoreProvider?.id ?? provider.id,
+            rating: averageRating,
+            reviewCount: reviews.length,
+          );
+        } else {
+          print('ℹ️ [ProviderRepository] No reviews found for ${provider.name}');
+        }
+      }
+      
+      // Return provider with Firestore ID if we found it, even if no reviews
+      if (firestoreProvider != null && firestoreProvider.id != null) {
+        return provider.copyWith(id: firestoreProvider.id);
+      }
+      
+      return provider;
+    } catch (e, stackTrace) {
+      print('⚠️ [ProviderRepository] Error enriching provider with reviews: $e');
+      print('⚠️ [ProviderRepository] Stack trace: $stackTrace');
+      return provider; // Return original provider on error
+    }
+  }
+
   /// Get reviews for a provider
   /// Can search by Firestore ID, NPI (with 'npi_' prefix), or composite API ID
+  /// Also checks for reviews saved with Firestore provider ID
   Future<List<ProviderReview>> getProviderReviews(String providerId) async {
     try {
       print('🔍 [ProviderRepository] Getting reviews for providerId: $providerId');
       
-      // If providerId starts with 'npi_', try to find Firestore provider first
+      final allReviews = <ProviderReview>[];
+      final seenReviewIds = <String>{};
+      
+      // First, try to get reviews by the provided providerId
+      try {
+        final reviewsQuery = await _firestore
+            .collection('reviews')
+            .where('providerId', isEqualTo: providerId)
+            .get();
+        
+        for (var doc in reviewsQuery.docs) {
+          if (!seenReviewIds.contains(doc.id)) {
+            seenReviewIds.add(doc.id);
+            allReviews.add(ProviderReview.fromMap(doc.data(), id: doc.id));
+          }
+        }
+        print('✅ [ProviderRepository] Found ${reviewsQuery.docs.length} reviews by providerId: $providerId');
+      } catch (e) {
+        print('⚠️ [ProviderRepository] Error getting reviews by providerId: $e');
+      }
+      
+      // If providerId starts with 'npi_', try to find Firestore provider and get reviews by Firestore ID
       if (providerId.startsWith('npi_')) {
         final npi = providerId.substring(4);
         print('🔍 [ProviderRepository] NPI-based ID detected, NPI: $npi');
@@ -367,87 +466,93 @@ class ProviderRepository {
             final firestoreProviderId = providerQuery.docs.first.id;
             print('✅ [ProviderRepository] Found Firestore provider with ID: $firestoreProviderId');
             // Search reviews by Firestore ID
-            final reviewsQuery = await _firestore
-                .collection('reviews')
-                .where('providerId', isEqualTo: firestoreProviderId)
-                .get();
-            
-        // Sort in memory to avoid index requirement and deduplicate
-        final reviews = reviewsQuery.docs
-            .map((doc) => ProviderReview.fromMap(doc.data(), id: doc.id))
-            .toList();
-        
-        // Deduplicate reviews
-        final uniqueReviews = <String, ProviderReview>{};
-        for (final review in reviews) {
-          if (review.id != null) {
-            uniqueReviews[review.id!] = review;
-          } else {
-            final key = '${review.userId}_${review.providerId}_${review.rating}_${review.createdAt.millisecondsSinceEpoch}';
-            if (!uniqueReviews.containsKey(key)) {
-              uniqueReviews[key] = review;
+            try {
+              final reviewsQuery = await _firestore
+                  .collection('reviews')
+                  .where('providerId', isEqualTo: firestoreProviderId)
+                  .get();
+              
+              for (var doc in reviewsQuery.docs) {
+                if (!seenReviewIds.contains(doc.id)) {
+                  seenReviewIds.add(doc.id);
+                  allReviews.add(ProviderReview.fromMap(doc.data(), id: doc.id));
+                }
+              }
+              print('✅ [ProviderRepository] Found ${reviewsQuery.docs.length} additional reviews by Firestore ID: $firestoreProviderId');
+            } catch (e) {
+              print('⚠️ [ProviderRepository] Error getting reviews by Firestore ID: $e');
             }
-          }
-        }
-        
-        final deduplicatedReviews = uniqueReviews.values.toList();
-        deduplicatedReviews.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        print('✅ [ProviderRepository] Found ${reviews.length} reviews by Firestore ID, ${deduplicatedReviews.length} unique');
-        return deduplicatedReviews.take(50).toList();
           }
         } catch (e) {
           print('⚠️ [ProviderRepository] Error finding Firestore provider by NPI: $e');
         }
-        
-        // If no Firestore provider found, search reviews by the NPI-based ID
-        print('🔍 [ProviderRepository] Searching reviews by NPI-based ID: $providerId');
-        final reviewsQuery = await _firestore
-            .collection('reviews')
-            .where('providerId', isEqualTo: providerId)
-            .get();
-        
-        final reviews = reviewsQuery.docs
-            .map((doc) => ProviderReview.fromMap(doc.data(), id: doc.id))
-            .toList();
-        
-        // Deduplicate reviews
-        final uniqueReviews = <String, ProviderReview>{};
-        for (final review in reviews) {
-          if (review.id != null) {
-            uniqueReviews[review.id!] = review;
-          } else {
-            final key = '${review.userId}_${review.providerId}_${review.rating}_${review.createdAt.millisecondsSinceEpoch}';
-            if (!uniqueReviews.containsKey(key)) {
-              uniqueReviews[key] = review;
-            }
-          }
-        }
-        
-        final deduplicatedReviews = uniqueReviews.values.toList();
-        deduplicatedReviews.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        print('✅ [ProviderRepository] Found ${reviews.length} reviews by NPI-based ID, ${deduplicatedReviews.length} unique');
-        return deduplicatedReviews.take(50).toList();
       }
       
-      // Standard search by providerId
-      print('🔍 [ProviderRepository] Searching reviews by providerId: $providerId');
-      final query = await _firestore
-          .collection('reviews')
-          .where('providerId', isEqualTo: providerId)
-          .get();
-
-      // Sort in memory to avoid index requirement
-      final reviews = query.docs
-          .map((doc) => ProviderReview.fromMap(doc.data(), id: doc.id))
-          .toList();
+      // Also try to find provider by composite ID patterns and get reviews by Firestore ID
+      if (providerId.startsWith('api_') || providerId.startsWith('name_')) {
+        try {
+          // Try to find provider by extracting info from composite ID
+          String? searchName;
+          String? searchCity;
+          
+          if (providerId.startsWith('api_')) {
+            final parts = providerId.substring(4).split('_');
+            if (parts.length >= 3) {
+              searchName = parts[0].replaceAll('_', ' ');
+              searchCity = parts[parts.length - 2]; // City is second to last
+            }
+          } else if (providerId.startsWith('name_')) {
+            searchName = providerId.substring(5).replaceAll('_', ' ');
+          }
+          
+          if (searchName != null) {
+            // Try to find provider by name
+            final nameQuery = await _firestore
+                .collection('providers')
+                .where('name', isEqualTo: searchName)
+                .limit(5)
+                .get();
+            
+            for (var doc in nameQuery.docs) {
+              final providerData = doc.data();
+              // If we have city, match it
+              if (searchCity == null || 
+                  (providerData['locations'] != null && 
+                   providerData['locations'] is List &&
+                   (providerData['locations'] as List).any((l) => 
+                     l is Map && (l['city']?.toString()?.toUpperCase() ?? '') == (searchCity?.toUpperCase() ?? '')))) {
+                final firestoreProviderId = doc.id;
+                try {
+                  final reviewsQuery = await _firestore
+                      .collection('reviews')
+                      .where('providerId', isEqualTo: firestoreProviderId)
+                      .get();
+                  
+                  for (var reviewDoc in reviewsQuery.docs) {
+                    if (!seenReviewIds.contains(reviewDoc.id)) {
+                      seenReviewIds.add(reviewDoc.id);
+                      allReviews.add(ProviderReview.fromMap(reviewDoc.data(), id: reviewDoc.id));
+                    }
+                  }
+                  print('✅ [ProviderRepository] Found ${reviewsQuery.docs.length} additional reviews by Firestore ID from composite ID: $firestoreProviderId');
+                } catch (e) {
+                  print('⚠️ [ProviderRepository] Error getting reviews for Firestore provider: $e');
+                }
+                break; // Use first match
+              }
+            }
+          }
+        } catch (e) {
+          print('⚠️ [ProviderRepository] Error finding provider by composite ID: $e');
+        }
+      }
       
-      // Deduplicate reviews by ID (in case of any duplicates)
+      // Deduplicate and sort all reviews
       final uniqueReviews = <String, ProviderReview>{};
-      for (final review in reviews) {
+      for (final review in allReviews) {
         if (review.id != null) {
           uniqueReviews[review.id!] = review;
         } else {
-          // If no ID, use a combination of userId, providerId, rating, and createdAt as key
           final key = '${review.userId}_${review.providerId}_${review.rating}_${review.createdAt.millisecondsSinceEpoch}';
           if (!uniqueReviews.containsKey(key)) {
             uniqueReviews[key] = review;
@@ -457,7 +562,7 @@ class ProviderRepository {
       
       final deduplicatedReviews = uniqueReviews.values.toList();
       deduplicatedReviews.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      print('✅ [ProviderRepository] Found ${reviews.length} reviews, ${deduplicatedReviews.length} unique');
+      print('✅ [ProviderRepository] Total reviews found: ${allReviews.length}, unique: ${deduplicatedReviews.length}');
       return deduplicatedReviews.take(50).toList();
     } catch (e, stackTrace) {
       print('❌ [ProviderRepository] Error getting reviews: $e');

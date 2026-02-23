@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/provider.dart';
 import '../models/provider_review.dart';
 import '../services/provider_repository.dart';
@@ -28,6 +29,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   bool _isSaved = false;
   bool _showMamaApprovedInfo = false;
   bool _showTagInfo = false;
+  bool _reviewSubmitted = false; // Track if a review was submitted
 
   @override
   void initState() {
@@ -74,55 +76,45 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Future<void> _loadReviews() async {
-    // Use the same logic as review submission to get providerId
-    String? reviewProviderId = _provider?.id;
-    if (reviewProviderId == null || reviewProviderId.isEmpty) {
-      // Try NPI
-      if (_provider?.npi != null && _provider!.npi!.isNotEmpty) {
-        reviewProviderId = 'npi_${_provider!.npi}';
-      } else if (widget.providerId != null && widget.providerId!.isNotEmpty) {
-        reviewProviderId = widget.providerId;
-      } else if (_provider?.locations.isNotEmpty == true) {
-        // Create composite ID from name + location
-        final loc = _provider!.locations.first;
-        final namePart = _provider!.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
-        reviewProviderId = 'api_${namePart}_${loc.city}_${loc.zip}';
-      } else if (_provider?.name.isNotEmpty == true) {
-        // Last resort: use name only (sanitized)
-        final namePart = _provider!.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
-        reviewProviderId = 'name_$namePart';
-      }
-    }
-    
-    if (reviewProviderId == null || reviewProviderId.isEmpty) {
-      print('⚠️ [ProviderProfile] Cannot load reviews: No provider ID available');
-      print('⚠️ [ProviderProfile] Provider name: ${_provider?.name}, NPI: ${_provider?.npi}, Locations: ${_provider?.locations.length}');
+    if (_provider == null) {
+      print('⚠️ [ProviderProfile] Cannot load reviews: Provider is null');
       return;
     }
     
-    print('🔍 [ProviderProfile] Using providerId for reviews: $reviewProviderId');
+    print('🔍 [ProviderProfile] Loading reviews for provider: ${_provider!.name}');
     
     try {
-      print('🔍 [ProviderProfile] Loading reviews for providerId: $reviewProviderId');
-      final reviews = await _repository.getProviderReviews(reviewProviderId);
-      print('✅ [ProviderProfile] Loaded ${reviews.length} reviews');
+      // Use the repository method to enrich provider with reviews
+      // This will find the provider in Firestore first, then fetch reviews using the correct ID
+      final enrichedProvider = await _repository.enrichProviderWithReviews(_provider!);
       
-      // Calculate average rating from reviews
-      double? averageRating;
-      if (reviews.isNotEmpty) {
-        final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
-        averageRating = totalRating / reviews.length;
+      // Get reviews separately to display them
+      String? reviewProviderId = enrichedProvider.id ?? _provider!.id;
+      if (reviewProviderId == null || reviewProviderId.isEmpty) {
+        // Fallback: construct ID
+        if (_provider!.npi != null && _provider!.npi!.isNotEmpty) {
+          reviewProviderId = 'npi_${_provider!.npi}';
+        } else if (_provider!.locations.isNotEmpty) {
+          final loc = _provider!.locations.first;
+          final namePart = _provider!.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+          reviewProviderId = 'api_${namePart}_${loc.city}_${loc.zip}';
+        } else if (_provider!.name.isNotEmpty) {
+          final namePart = _provider!.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+          reviewProviderId = 'name_$namePart';
+        }
       }
+      
+      List<ProviderReview> reviews = [];
+      if (reviewProviderId != null && reviewProviderId.isNotEmpty) {
+        reviews = await _repository.getProviderReviews(reviewProviderId);
+      }
+      
+      print('✅ [ProviderProfile] Loaded ${reviews.length} reviews');
       
       setState(() {
         _reviews = reviews;
-        // Update provider rating if we have reviews
-        if (averageRating != null && _provider != null) {
-          _provider = _provider!.copyWith(
-            rating: averageRating,
-            reviewCount: reviews.length,
-          );
-        }
+        // Update provider with enriched data (Firestore ID, rating, review count)
+        _provider = enrichedProvider;
       });
     } catch (e, stackTrace) {
       print('❌ [ProviderProfile] Error loading reviews: $e');
@@ -175,7 +167,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   children: [
                     IconButton(
                       icon: Icon(Icons.arrow_back, color: AppTheme.textMuted),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => Navigator.pop(context, _reviewSubmitted),
                     ),
                     Expanded(
                       child: Text(
@@ -436,24 +428,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12), // gap-3
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () {
-                // TODO: Implement booking
-              },
-              icon: const Icon(Icons.calendar_today, size: 18),
-              label: const Text('Book Appointment'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.textMuted,
-                side: BorderSide(color: AppTheme.borderLight),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
                 ),
               ),
             ),
@@ -1088,38 +1062,83 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       ),
                     ),
                   );
-                  if (result == true && mounted) {
-                    // Reload reviews after submission using the same providerId logic
-                    await _loadReviews();
-                    // Update review count in provider
-                    if (_provider != null) {
+                  if (result != null && mounted) {
+                    // Mark that a review was submitted
+                    _reviewSubmitted = true;
+                    print('✅ [ProviderProfile] Review submitted, result: $result');
+                    
+                    // Result is the Firestore provider ID (or original providerId if no Firestore ID)
+                    final returnedProviderId = result is String ? result : null;
+                    
+                    // Immediately update provider ID if we got a Firestore ID back
+                    if (returnedProviderId != null && _provider != null && 
+                        (returnedProviderId != _provider!.id) &&
+                        !returnedProviderId.startsWith('api_') && 
+                        !returnedProviderId.startsWith('name_') &&
+                        !returnedProviderId.startsWith('npi_')) {
                       setState(() {
-                        _provider = Provider(
-                          id: _provider!.id,
-                          name: _provider!.name,
-                          specialty: _provider!.specialty,
-                          practiceName: _provider!.practiceName,
-                          npi: _provider!.npi,
-                          locations: _provider!.locations,
-                          providerTypes: _provider!.providerTypes,
-                          specialties: _provider!.specialties,
-                          phone: _provider!.phone,
-                          email: _provider!.email,
-                          website: _provider!.website,
-                          acceptingNewPatients: _provider!.acceptingNewPatients,
-                          acceptsPregnantWomen: _provider!.acceptsPregnantWomen,
-                          acceptsNewborns: _provider!.acceptsNewborns,
-                          telehealth: _provider!.telehealth,
-                          rating: _provider!.rating,
-                          reviewCount: _reviews.length, // Update with actual count
-                          mamaApproved: _provider!.mamaApproved,
-                          mamaApprovedCount: _provider!.mamaApprovedCount,
-                          identityTags: _provider!.identityTags,
-                          createdAt: _provider!.createdAt,
-                          updatedAt: _provider!.updatedAt,
-                          source: _provider!.source,
+                        _provider = _provider!.copyWith(id: returnedProviderId);
+                      });
+                      print('✅ [ProviderProfile] Updated provider with Firestore ID from review: $returnedProviderId');
+                    }
+                    
+                    // Wait a moment for Firestore to index the new review
+                    await Future.delayed(const Duration(milliseconds: 1000));
+                    
+                    // Reload reviews immediately using the Firestore ID
+                    final reviewIdToUse = _provider?.id ?? returnedProviderId ?? reviewProviderId;
+                    print('🔄 [ProviderProfile] Reloading reviews with providerId: $reviewIdToUse');
+                    await _loadReviews();
+                    print('✅ [ProviderProfile] Reviews reloaded: ${_reviews.length} reviews');
+                    
+                    // Also reload provider to get updated review count from Firestore
+                    // Use the Firestore ID if available (either from returnedProviderId or _provider.id)
+                    final providerIdToReload = returnedProviderId ?? _provider?.id;
+                    if (providerIdToReload != null && 
+                        providerIdToReload.isNotEmpty &&
+                        !providerIdToReload.startsWith('api_') && 
+                        !providerIdToReload.startsWith('name_') &&
+                        !providerIdToReload.startsWith('npi_')) {
+                      try {
+                        print('🔄 [ProviderProfile] Reloading provider from Firestore with ID: $providerIdToReload');
+                        final updatedProvider = await _repository.getProvider(providerIdToReload);
+                        if (updatedProvider != null && mounted) {
+                          setState(() {
+                            _provider = updatedProvider.copyWith(
+                              // Use reviews we just loaded for rating/count
+                              rating: _reviews.isNotEmpty
+                                  ? _reviews.fold<double>(0.0, (sum, r) => sum + r.rating) / _reviews.length
+                                  : updatedProvider.rating,
+                              reviewCount: _reviews.length,
+                            );
+                          });
+                          print('✅ [ProviderProfile] Provider updated: rating=${_provider!.rating}, reviewCount=${_provider!.reviewCount}');
+                        }
+                      } catch (e) {
+                        print('⚠️ [ProviderProfile] Could not reload provider: $e');
+                        // Still update with current review count
+                        if (_provider != null && mounted) {
+                          setState(() {
+                            _provider = _provider!.copyWith(
+                              reviewCount: _reviews.length,
+                              rating: _reviews.isNotEmpty
+                                  ? _reviews.fold<double>(0.0, (sum, r) => sum + r.rating) / _reviews.length
+                                  : null,
+                            );
+                          });
+                        }
+                      }
+                    } else if (_provider != null && mounted) {
+                      // Update with current review count even if no Firestore ID
+                      setState(() {
+                        _provider = _provider!.copyWith(
+                          reviewCount: _reviews.length,
+                          rating: _reviews.isNotEmpty
+                              ? _reviews.fold<double>(0.0, (sum, r) => sum + r.rating) / _reviews.length
+                              : null,
                         );
                       });
+                      print('✅ [ProviderProfile] Provider updated (no Firestore ID): rating=${_provider!.rating}, reviewCount=${_provider!.reviewCount}');
                     }
                   }
                 },

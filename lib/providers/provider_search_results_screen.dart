@@ -36,6 +36,103 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
     _performSearch();
   }
 
+  /// Refresh provider data after returning from profile screen
+  Future<void> _refreshProviderData(Provider provider) async {
+    try {
+      print('🔄 [ResultsScreen] Refreshing provider data for: ${provider.name}');
+      // Wait a moment for Firestore to index the new review
+      await Future.delayed(const Duration(milliseconds: 1000));
+      
+      // Find the provider in the list (it may have been updated with Firestore ID)
+      final index = _providers.indexWhere((p) => 
+        p.name == provider.name && 
+        (p.id == provider.id || 
+         (p.locations.isNotEmpty && provider.locations.isNotEmpty && 
+          p.locations.first.city == provider.locations.first.city))
+      );
+      
+      if (index >= 0) {
+        final currentProvider = _providers[index];
+        final providerIdToUse = currentProvider.id ?? provider.id;
+        
+        // Try to reload from Firestore if we have a valid Firestore ID
+        if (providerIdToUse != null && 
+            providerIdToUse.isNotEmpty &&
+            !providerIdToUse.startsWith('api_') && 
+            !providerIdToUse.startsWith('name_') &&
+            !providerIdToUse.startsWith('npi_')) {
+          try {
+            final updatedProvider = await _repository.getProvider(providerIdToUse);
+            if (updatedProvider != null && mounted) {
+              setState(() {
+                _providers[index] = updatedProvider;
+              });
+              print('✅ [ResultsScreen] Updated provider at index $index with Firestore data: reviewCount=${updatedProvider.reviewCount}');
+              return;
+            }
+          } catch (e) {
+            print('⚠️ [ResultsScreen] Could not reload provider from Firestore: $e');
+          }
+        }
+        
+        // Fallback: reload reviews and update rating
+        await _reloadProviderReviews(currentProvider);
+      } else {
+        // Provider not in list, try to reload reviews anyway
+        await _reloadProviderReviews(provider);
+      }
+    } catch (e) {
+      print('⚠️ [ResultsScreen] Error refreshing provider data: $e');
+      // Still try to reload reviews
+      await _reloadProviderReviews(provider);
+    }
+  }
+
+  /// Reload reviews for a provider and update its rating
+  Future<void> _reloadProviderReviews(Provider provider) async {
+    try {
+      // Determine providerId for reviews (same logic as profile screen)
+      String? reviewProviderId = provider.id;
+      if (reviewProviderId == null || reviewProviderId.isEmpty) {
+        if (provider.npi != null && provider.npi!.isNotEmpty) {
+          reviewProviderId = 'npi_${provider.npi}';
+        } else if (provider.locations.isNotEmpty) {
+          final loc = provider.locations.first;
+          final namePart = provider.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+          reviewProviderId = 'api_${namePart}_${loc.city}_${loc.zip}';
+        } else if (provider.name.isNotEmpty) {
+          final namePart = provider.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+          reviewProviderId = 'name_$namePart';
+        }
+      }
+      
+      if (reviewProviderId != null && reviewProviderId.isNotEmpty) {
+        final reviews = await _repository.getProviderReviews(reviewProviderId);
+        if (reviews.isNotEmpty && mounted) {
+          final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
+          final averageRating = totalRating / reviews.length;
+          
+          setState(() {
+            final index = _providers.indexWhere((p) => 
+              p.name == provider.name && 
+              (p.locations.isEmpty || provider.locations.isEmpty || 
+               p.locations.first.city == provider.locations.first.city)
+            );
+            if (index >= 0) {
+              _providers[index] = _providers[index].copyWith(
+                rating: averageRating,
+                reviewCount: reviews.length,
+              );
+              print('✅ [ResultsScreen] Updated provider rating: $averageRating, review count: ${reviews.length}');
+            }
+          });
+        }
+      }
+    } catch (e) {
+      print('⚠️ [ResultsScreen] Error reloading reviews: $e');
+    }
+  }
+
   Future<void> _performSearch() async {
     print('🔍 [ResultsScreen] Search started');
     setState(() {
@@ -224,24 +321,16 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
         // Debug: log rating info
         print('🔍 [ResultsScreen] Provider: ${provider.name}, Rating: ${provider.rating}, ReviewCount: ${provider.reviewCount}, ID: ${provider.id}');
         
-        // If provider has no rating but has an ID, try to calculate from reviews
-        if ((provider.rating == null || provider.rating == 0) && provider.id != null && provider.id!.isNotEmpty) {
-          try {
-            final reviews = await _repository.getProviderReviews(provider.id!);
-            if (reviews.isNotEmpty) {
-              final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
-              final averageRating = totalRating / reviews.length;
-              print('✅ [ResultsScreen] Calculated rating for ${provider.name}: $averageRating from ${reviews.length} reviews');
-              return provider.copyWith(
-                rating: averageRating,
-                reviewCount: reviews.length,
-              );
-            }
-          } catch (e) {
-            print('⚠️ [ResultsScreen] Could not calculate rating for ${provider.id}: $e');
-          }
+        // Use the repository method to enrich provider with reviews
+        // This will find the provider in Firestore first, then fetch reviews using the correct ID
+        try {
+          final enrichedProvider = await _repository.enrichProviderWithReviews(provider);
+          print('✅ [ResultsScreen] Enriched ${provider.name}: rating=${enrichedProvider.rating}, reviewCount=${enrichedProvider.reviewCount}, FirestoreID=${enrichedProvider.id}');
+          return enrichedProvider;
+        } catch (e) {
+          print('⚠️ [ResultsScreen] Error enriching provider ${provider.name}: $e');
+          return provider; // Return original provider on error
         }
-        return provider;
       }));
 
       // Store match info for display
@@ -610,8 +699,8 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                                           matchedFilters: (matchInfo['filters'] as List<String>?) ?? [],
                                           matchScore: (matchInfo['score'] as int?) ?? 0,
                                           searchProviderTypeIds: _searchProviderTypeIds,
-                                          onTap: () {
-                                            Navigator.push(
+                                          onTap: () async {
+                                            final result = await Navigator.push(
                                               context,
                                               MaterialPageRoute(
                                                 builder: (context) => ProviderProfileScreen(
@@ -620,6 +709,36 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                                                 ),
                                               ),
                                             );
+                                            // If a review was submitted, refresh the provider data
+                                            if (result != null && mounted) {
+                                              // Result contains the Firestore provider ID
+                                              final firestoreProviderId = result is String ? result : null;
+                                              print('✅ [ResultsScreen] Review submitted, Firestore ID: $firestoreProviderId');
+                                              
+                                              // Update provider ID if we got a Firestore ID
+                                              if (firestoreProviderId != null && 
+                                                  firestoreProviderId != provider.id &&
+                                                  !firestoreProviderId.startsWith('api_') && 
+                                                  !firestoreProviderId.startsWith('name_') &&
+                                                  !firestoreProviderId.startsWith('npi_')) {
+                                                // Update the provider in the list with the Firestore ID
+                                                final index = _providers.indexWhere((p) => 
+                                                  p.name == provider.name && 
+                                                  (p.id == provider.id || 
+                                                   (p.locations.isNotEmpty && provider.locations.isNotEmpty && 
+                                                    p.locations.first.city == provider.locations.first.city))
+                                                );
+                                                if (index >= 0) {
+                                                  setState(() {
+                                                    _providers[index] = _providers[index].copyWith(id: firestoreProviderId);
+                                                  });
+                                                  print('✅ [ResultsScreen] Updated provider ID to Firestore ID: $firestoreProviderId');
+                                                }
+                                              }
+                                              
+                                              // Refresh this provider's data (reviews, rating, etc.)
+                                              await _refreshProviderData(provider);
+                                            }
                                           },
                                         );
                                       }).toList(),

@@ -93,9 +93,11 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
       String? firestoreProviderId;
       if (widget.provider != null) {
         firestoreProviderId = await _repository.saveProviderOnReview(widget.provider!);
+        print('✅ [ProviderReview] Provider saved with Firestore ID: $firestoreProviderId');
       }
       
       await _repository.submitProviderReview(review, firestoreProviderId: firestoreProviderId);
+      print('✅ [ProviderReview] Review submitted with providerId: ${firestoreProviderId ?? review.providerId}');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -105,7 +107,8 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
             duration: Duration(seconds: 2),
           ),
         );
-        Navigator.pop(context, true); // Return true to indicate review was submitted
+        // Return the Firestore provider ID so the calling screen can use it immediately
+        Navigator.pop(context, firestoreProviderId ?? review.providerId);
       }
     } catch (e) {
       setState(() => _isSubmitting = false);

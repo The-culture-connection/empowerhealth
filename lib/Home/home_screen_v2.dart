@@ -165,18 +165,13 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
       body: Stack(
         children: [
           // Subtle warm texture overlay (matching NewUI exactly)
+          // Using CustomPaint instead of NetworkImage to avoid data URI issues
           Positioned.fill(
             child: Opacity(
               opacity: 0.02,
-              child: Container(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: NetworkImage(
-                      "data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23663399' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E",
-                    ),
-                    repeat: ImageRepeat.repeat,
-                  ),
-                ),
+              child: CustomPaint(
+                painter: _PatternPainter(),
+                size: Size.infinite,
               ),
             ),
           ),
@@ -354,29 +349,30 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                 Positioned.fill(
                                   child: Opacity(
                                     opacity: 0.3,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    child: Stack(
                                       children: [
-                                        Container(
-                                          width: 160, // w-40
-                                          height: 160, // h-40
-                                          decoration: BoxDecoration(
-                                            color: Color(0xFFD4C5E0), // bg-[#d4c5e0]
-                                            shape: BoxShape.circle,
-                                          ),
+                                        Positioned(
+                                          top: 0,
+                                          right: 0,
                                           child: Container(
+                                            width: 160, // w-40
+                                            height: 160, // h-40
                                             decoration: BoxDecoration(
-                                              color: Color(0xFFD4C5E0),
+                                              color: Color(0xFFD4C5E0), // bg-[#d4c5e0]
                                               shape: BoxShape.circle,
                                             ),
                                           ),
                                         ),
-                                        Container(
-                                          width: 192, // w-48
-                                          height: 192, // h-48
-                                          decoration: BoxDecoration(
-                                            color: Color(0xFFE6D5B8), // bg-[#e6d5b8]
-                                            shape: BoxShape.circle,
+                                        Positioned(
+                                          bottom: 0,
+                                          left: 0,
+                                          child: Container(
+                                            width: 192, // w-48
+                                            height: 192, // h-48
+                                            decoration: BoxDecoration(
+                                              color: Color(0xFFE6D5B8), // bg-[#e6d5b8]
+                                              shape: BoxShape.circle,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -392,6 +388,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
+                                          flex: 1,
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
@@ -411,6 +408,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                                   fontWeight: FontWeight.w400, // font-normal
                                                   color: Color(0xFF2D2733), // text-[#2d2733]
                                                 ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                               const SizedBox(height: 8), // mb-2
                                               Text(
@@ -424,6 +423,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                             ],
                                           ),
                                         ),
+                                        const SizedBox(width: 12), // Add spacing between text and icon
                                         Container(
                                           width: 64, // w-16
                                           height: 64, // h-16
@@ -1445,4 +1445,51 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
       ),
     );
   }
+}
+
+// Custom painter for the subtle pattern overlay (replaces SVG data URI)
+class _PatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF663399)
+      ..style = PaintingStyle.fill;
+
+    const tileSize = 60.0;
+    final tileCountX = (size.width / tileSize).ceil() + 1;
+    final tileCountY = (size.height / tileSize).ceil() + 1;
+
+    for (int x = 0; x < tileCountX; x++) {
+      for (int y = 0; y < tileCountY; y++) {
+        final offsetX = x * tileSize;
+        final offsetY = y * tileSize;
+        
+        // Draw the pattern (simplified version of the SVG pattern)
+        // This creates a subtle dot pattern
+        canvas.drawCircle(
+          Offset(offsetX + 6, offsetY + 6),
+          2,
+          paint,
+        );
+        canvas.drawCircle(
+          Offset(offsetX + 36, offsetY + 6),
+          2,
+          paint,
+        );
+        canvas.drawCircle(
+          Offset(offsetX + 6, offsetY + 36),
+          2,
+          paint,
+        );
+        canvas.drawCircle(
+          Offset(offsetX + 36, offsetY + 36),
+          2,
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

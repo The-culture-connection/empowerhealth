@@ -796,90 +796,91 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         }
       },
       child: Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
-            ),
-          ),
-          child: SafeArea(
-            child: Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
+        backgroundColor: AppTheme.backgroundWarm, // Matching NewUI background
+        body: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24), // p-6 matching NewUI
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                    // Header (matching NewUI)
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Expanded(
+                        IconButton(
+                          icon: Icon(Icons.arrow_back, color: AppTheme.textMuted),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Birth Plan Builder',
+                                'Birth plan',
                                 style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                  fontSize: 24, // text-2xl
+                                  fontWeight: FontWeight.w400, // font-normal
+                                  color: AppTheme.textSecondary, // text-[#4a3f52]
                                 ),
                               ),
-                              SizedBox(height: 4),
+                              const SizedBox(height: 4), // mb-2
                               Text(
                                 'Share your preferences with your care team',
                                 style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey,
+                                  fontSize: 14, // text-sm
+                                  color: AppTheme.textLight, // text-[#8b7a95]
+                                  fontWeight: FontWeight.w300, // font-light
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(context),
-                        ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 32), // mb-8
 
-                    // Intro Card
+                    // Intro Card (matching NewUI)
                     Container(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(28), // p-7
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                        gradient: LinearGradient(
+                          colors: [
+                            Color(0xFFEBE4F3), // from-[#ebe4f3]
+                            Color(0xFFE0D5EB), // via-[#e0d5eb]
+                            Color(0xFFE8DFE8), // to-[#e8dfe8]
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(32), // rounded-[32px]
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF663399).withOpacity(0.3),
-                            blurRadius: 12,
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 24,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: const Column(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Your Voice Matters',
+                            'Your voice matters',
                             style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 18, // text-lg
+                              fontWeight: FontWeight.w400, // font-normal
+                              color: AppTheme.textSecondary, // text-[#4a3f52]
                             ),
                           ),
-                          SizedBox(height: 8),
+                          const SizedBox(height: 8), // mb-2
                           Text(
                             'This plan helps you communicate your wishes. Remember: plans can change, and that\'s okay. This is about starting a conversation with your care team.',
                             style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
+                              fontSize: 14, // text-sm
+                              color: AppTheme.textMuted, // text-[#6b5c75]
+                              fontWeight: FontWeight.w300, // font-light
+                              height: 1.5, // leading-relaxed
                             ),
                           ),
                         ],
@@ -887,45 +888,45 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                     ),
                     const SizedBox(height: 24),
               
-              // Section 1: Parent Information
-              _buildSection1(),
-              const SizedBox(height: 24),
+                    // Section 1: Parent Information
+                    _buildSection1(),
+                    const SizedBox(height: 24),
               
-              // Section 2: Environment
-              _buildSection2(),
-              const SizedBox(height: 24),
+                    // Section 2: Environment
+                    _buildSection2(),
+                    const SizedBox(height: 24),
               
-              // Section 3: Labor
-              _buildSection3(),
-              const SizedBox(height: 24),
+                    // Section 3: Labor
+                    _buildSection3(),
+                    const SizedBox(height: 24),
               
-              // Section 4: Pushing
-              _buildSection4(),
-              const SizedBox(height: 24),
+                    // Section 4: Pushing
+                    _buildSection4(),
+                    const SizedBox(height: 24),
               
-              // Section 5: Newborn Care
-              _buildSection5(),
-              const SizedBox(height: 24),
+                    // Section 5: Newborn Care
+                    _buildSection5(),
+                    const SizedBox(height: 24),
               
-              // Section 6: Feeding
-              _buildSection6(),
-              const SizedBox(height: 24),
+                    // Section 6: Feeding
+                    _buildSection6(),
+                    const SizedBox(height: 24),
               
-              // Section 7: Postpartum
-              _buildSection7(),
-              const SizedBox(height: 24),
+                    // Section 7: Postpartum
+                    _buildSection7(),
+                    const SizedBox(height: 24),
               
-              // Section 8: Cesarean
-              _buildSection8(),
-              const SizedBox(height: 24),
+                    // Section 8: Cesarean
+                    _buildSection8(),
+                    const SizedBox(height: 24),
               
-              // Section 9: Special Considerations
-              _buildSection9(),
-              const SizedBox(height: 24),
+                    // Section 9: Special Considerations
+                    _buildSection9(),
+                    const SizedBox(height: 24),
               
-              // Section 10: In My Own Words
-              _buildSection10(),
-              const SizedBox(height: 32),
+                    // Section 10: In My Own Words
+                    _buildSection10(),
+                    const SizedBox(height: 32),
               
                     // Generate Button
                     Row(
@@ -984,8 +985,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                       ],
                     ),
                     const SizedBox(height: 24),
-                  ],
-                ),
+                ],
               ),
             ),
           ),

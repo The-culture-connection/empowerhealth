@@ -574,13 +574,18 @@ class ProviderRepository {
   /// Submit a provider review
   /// Prevents duplicates by checking for existing review from same user for same provider within last minute
   /// Also ensures provider is saved to Firestore and review count is updated
-  Future<void> submitProviderReview(ProviderReview review, {String? firestoreProviderId}) async {
+  /// If markMamaApproved is true, marks the provider as Mama Approved
+  Future<void> submitProviderReview(
+    ProviderReview review, {
+    String? firestoreProviderId,
+    bool markMamaApproved = false,
+  }) async {
     try {
       print('💾 [ProviderRepository] Submitting review for providerId: ${review.providerId}');
       if (firestoreProviderId != null) {
         print('💾 [ProviderRepository] Using Firestore provider ID: $firestoreProviderId');
       }
-      print('💾 [ProviderRepository] Review data: rating=${review.rating}, wouldRecommend=${review.wouldRecommend}, hasText=${review.reviewText != null}');
+      print('💾 [ProviderRepository] Review data: rating=${review.rating}, wouldRecommend=${review.wouldRecommend}, hasText=${review.reviewText != null}, markMamaApproved=$markMamaApproved');
       
       // Use Firestore provider ID if available, otherwise use original providerId
       final effectiveProviderId = firestoreProviderId ?? review.providerId;
@@ -595,6 +600,36 @@ class ProviderRepository {
       
       // Update provider's review count after saving review
       await _updateProviderReviewCount(effectiveProviderId);
+      
+      // If admin marked as Mama Approved, update provider
+      if (markMamaApproved && effectiveProviderId.isNotEmpty) {
+        try {
+          // Check if provider exists in Firestore
+          final providerDoc = await _firestore.collection('providers').doc(effectiveProviderId).get();
+          if (providerDoc.exists) {
+            // Update existing provider
+            await _firestore.collection('providers').doc(effectiveProviderId).update({
+              'mamaApproved': true,
+              'mamaApprovedCount': FieldValue.increment(1),
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+            print('✅ [ProviderRepository] Provider marked as Mama Approved: $effectiveProviderId');
+          } else {
+            // Provider doesn't exist in Firestore yet
+            // Try to find it by the original providerId pattern or save it
+            print('⚠️ [ProviderRepository] Provider not found in Firestore with ID: $effectiveProviderId');
+            print('⚠️ [ProviderRepository] Attempting to find or create provider...');
+            
+            // If we have a provider object from the review screen, try to save it
+            // This should have been done earlier, but if not, we'll need the provider data
+            // For now, log that we need the provider to be saved first
+            print('⚠️ [ProviderRepository] Provider must be saved to Firestore first before marking as Mama Approved');
+          }
+        } catch (e) {
+          print('⚠️ [ProviderRepository] Error marking provider as Mama Approved: $e');
+          // Don't fail the review submission if this fails
+        }
+      }
     } catch (e, stackTrace) {
       print('❌ [ProviderRepository] Error submitting review: $e');
       print('❌ [ProviderRepository] Stack trace: $stackTrace');
@@ -605,7 +640,8 @@ class ProviderRepository {
   /// Save provider to Firestore when a review is submitted
   /// This ensures providers are saved with all their data for easy retrieval
   /// Returns the Firestore provider ID
-  Future<String?> saveProviderOnReview(Provider provider) async {
+  /// If markMamaApproved is true, also marks the provider as Mama Approved
+  Future<String?> saveProviderOnReview(Provider provider, {bool markMamaApproved = false}) async {
     try {
       print('💾 [ProviderRepository] Saving provider to Firestore: ${provider.name}');
       
@@ -696,17 +732,29 @@ class ProviderRepository {
       // Add reviewCount index for easy sorting
       providerData['reviewCount'] = reviewCount;
       
+      // If marking as Mama Approved, add that flag
+      if (markMamaApproved) {
+        providerData['mamaApproved'] = true;
+        if (providerId != null) {
+          // Increment count for existing provider
+          providerData['mamaApprovedCount'] = FieldValue.increment(1);
+        } else {
+          // Set initial count for new provider
+          providerData['mamaApprovedCount'] = 1;
+        }
+      }
+      
       if (providerId != null) {
         // Update existing provider
         await _firestore.collection('providers').doc(providerId).update(providerData);
-        print('✅ [ProviderRepository] Updated provider: $providerId');
+        print('✅ [ProviderRepository] Updated provider: $providerId${markMamaApproved ? " (Mama Approved)" : ""}');
       } else {
         // Create new provider
         providerData['createdAt'] = FieldValue.serverTimestamp();
         providerData['source'] = provider.source ?? 'review_submission';
         final docRef = await _firestore.collection('providers').add(providerData);
         providerId = docRef.id;
-        print('✅ [ProviderRepository] Created new provider: $providerId');
+        print('✅ [ProviderRepository] Created new provider: $providerId${markMamaApproved ? " (Mama Approved)" : ""}');
       }
       
       return providerId;

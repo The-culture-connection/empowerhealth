@@ -5,6 +5,8 @@ import '../app_router.dart';
 import '../services/provider_repository.dart';
 import '../services/firebase_functions_service.dart';
 import '../models/provider.dart';
+import '../constants/provider_types.dart';
+import '../cors/ui_theme.dart';
 import 'provider_profile_screen.dart';
 import 'add_provider_screen.dart';
 
@@ -42,68 +44,56 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
     try {
       print('🔍 [ProviderSearch] Loading top-rated providers...');
       
-      // Query providers with reviews, sorted by reviewCount (highest first)
-      // If index doesn't exist, fall back to getting all providers and sorting in memory
       QuerySnapshot providersQuery;
       try {
         providersQuery = await FirebaseFirestore.instance
             .collection('providers')
             .where('reviewCount', isGreaterThan: 0)
             .orderBy('reviewCount', descending: true)
-            .limit(20) // Get more to sort by Mama Approved
+            .limit(20)
             .get();
       } catch (e) {
-        // If index doesn't exist, get all providers and filter/sort in memory
         print('⚠️ [ProviderSearch] Index error, falling back to in-memory sort: $e');
         providersQuery = await FirebaseFirestore.instance
             .collection('providers')
-            .limit(100) // Get more to filter
+            .limit(100)
             .get();
       }
       
       print('✅ [ProviderSearch] Found ${providersQuery.docs.length} providers');
       
-      // Load providers and filter/sort
       final providers = <Provider>[];
       for (var doc in providersQuery.docs) {
         try {
           final data = doc.data() as Map<String, dynamic>;
           final reviewCount = data['reviewCount'] as int? ?? 0;
           
-          // Only include providers with reviews
           if (reviewCount > 0) {
             final provider = Provider.fromMap(data, id: doc.id);
             providers.add(provider);
-            print('✅ [ProviderSearch] Loaded provider: ${provider.name}, rating: ${provider.rating}, reviews: ${provider.reviewCount}, Mama Approved: ${provider.mamaApproved}');
           }
         } catch (e) {
           print('⚠️ [ProviderSearch] Error parsing provider ${doc.id}: $e');
         }
       }
       
-      // Sort: Mama Approved first, then by review count (highest first), then by rating
+      // Sort: Mama Approved first, then by review count, then by rating
       providers.sort((a, b) {
-        // Mama Approved first
         if (a.mamaApproved && !b.mamaApproved) return -1;
         if (!a.mamaApproved && b.mamaApproved) return 1;
         
-        // Then by review count (highest first)
         final countA = a.reviewCount ?? 0;
         final countB = b.reviewCount ?? 0;
         if (countA != countB) {
           return countB.compareTo(countA);
         }
         
-        // Then by rating (highest first)
         final ratingA = a.rating ?? 0.0;
         final ratingB = b.rating ?? 0.0;
         return ratingB.compareTo(ratingA);
       });
       
-      // Take top 10 after sorting
       final topProviders = providers.take(10).toList();
-      
-      print('✅ [ProviderSearch] Loaded ${topProviders.length} top-rated providers (${topProviders.where((p) => p.mamaApproved).length} Mama Approved)');
       
       if (mounted) {
         setState(() {
@@ -122,286 +112,491 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Hero Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Find Your Care Team',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        if (_isAdmin)
-                          IconButton(
-                            icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-                            tooltip: 'Upload Mama Approved Provider',
-                            onPressed: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => AddProviderScreen(
-                                    isMamaApproved: true, // Mark as Mama Approved
-                                  ),
-                                ),
-                              );
-                              if (result == true) {
-                                // Reload providers after adding
-                                _loadReviewedProviders();
-                              }
-                            },
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Trusted providers reviewed by mothers like you',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Search Bar
-                    InkWell(
-                      onTap: () {
-                        Navigator.pushNamed(context, Routes.providerSearch);
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+      backgroundColor: AppTheme.backgroundWarm,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header (matching image exactly)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20), // px-5 pt-4 pb-5
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top row with location tag
+                  Row(
+                    children: [
+                      Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.backgroundWarm,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: AppTheme.borderLight,
+                            width: 1,
+                          ),
                         ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.search, color: Colors.grey[400]),
-                            const SizedBox(width: 12),
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: Color(0xFFF97316), // orange-500
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
                             Text(
-                              'Search providers, specialties, or location',
+                              'Ohio providers',
                               style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 14,
+                                fontSize: 12,
+                                color: AppTheme.textMuted,
+                                fontWeight: FontWeight.w300,
                               ),
                             ),
                           ],
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 16), // mb-4
+                  // Title
+                  Text(
+                    'Find your care team',
+                    style: TextStyle(
+                      fontSize: 28, // text-3xl
+                      fontWeight: FontWeight.w400, // font-normal
+                      color: AppTheme.textPrimary,
                     ),
-                  ],
-                ),
-              ),
-
-              // Content - Show reviewed providers or landing page
-              Expanded(
-                child: _isLoadingProviders
-                    ? const Center(child: CircularProgressIndicator())
-                    : _reviewedProviders.isNotEmpty
-                        ? SingleChildScrollView(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Top-Rated Providers',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                ..._reviewedProviders.map((provider) {
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 16),
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.05),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: ListTile(
-                                      leading: CircleAvatar(
-                                        backgroundColor: const Color(0xFF663399),
-                                        child: Text(
-                                          provider.name.isNotEmpty
-                                              ? provider.name[0].toUpperCase()
-                                              : '?',
-                                          style: const TextStyle(color: Colors.white),
-                                        ),
-                                      ),
-                                      title: Text(
-                                        provider.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      subtitle: Text(
-                                        provider.specialty ?? 'Provider',
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      trailing: provider.rating != null && provider.rating! > 0
-                                          ? Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.star, size: 16, color: Colors.amber),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  provider.rating!.toStringAsFixed(1),
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ],
-                                            )
-                                          : null,
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => ProviderProfileScreen(
-                                              provider: provider,
-                                              providerId: provider.id,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  );
-                                }).toList(),
-                                const SizedBox(height: 24),
-                                Center(
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pushNamed(context, Routes.providerSearch);
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF663399),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 32,
-                                        vertical: 16,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Search More Providers',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(32),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.search,
-                                    size: 64,
-                                    color: Colors.purple.shade300,
-                                  ),
-                                  const SizedBox(height: 24),
-                                  const Text(
-                                    'Find Your Care Team',
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Search for trusted providers reviewed by mothers like you',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 32),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pushNamed(context, Routes.providerSearch);
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF663399),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 32,
-                                        vertical: 16,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Start Searching',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                  ),
+                  const SizedBox(height: 8), // mb-2
+                  // Subtitle
+                  Text(
+                    'Trusted providers who listen and support you',
+                    style: TextStyle(
+                      fontSize: 14, // text-sm
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w300, // font-light
+                    ),
+                  ),
+                  const SizedBox(height: 20), // mb-5
+                  // Search Bar
+                  InkWell(
+                    onTap: () {
+                      Navigator.pushNamed(context, Routes.providerSearch);
+                    },
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24), // rounded-2xl
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                        border: Border.all(
+                          color: AppTheme.borderLight,
+                          width: 1,
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.search, color: AppTheme.textMuted, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Search by name, location, or specialty...',
+                              style: TextStyle(
+                                color: AppTheme.textMuted,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w300,
                               ),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            ),
+
+            // Content
+            Expanded(
+              child: _isLoadingProviders
+                  ? const Center(child: CircularProgressIndicator())
+                  : _reviewedProviders.isEmpty
+                      ? _buildEmptyState()
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20), // px-5
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Mama Approved Section
+                              Container(
+                                padding: const EdgeInsets.all(16), // p-4
+                                decoration: BoxDecoration(
+                                  color: Color(0xFFFEF9F5), // warm background
+                                  borderRadius: BorderRadius.circular(24), // rounded-3xl
+                                  border: Border.all(
+                                    color: AppTheme.borderLight,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Color(0xFFFEF3F3), // rose-50
+                                            Color(0xFFFFF0F8), // pink-50
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        Icons.verified,
+                                        color: Color(0xFFE11D48), // rose-600
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Mama Approved™ providers',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: AppTheme.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Verified by community trust indicators and identity transparency.',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: AppTheme.textMuted,
+                                              fontWeight: FontWeight.w300,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 20), // mb-5
+
+                              // Provider Cards
+                              ..._reviewedProviders.map((provider) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 20), // space-y-5
+                                  child: _buildProviderCard(provider),
+                                );
+                              }).toList(),
+
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search,
+              size: 64,
+              color: AppTheme.brandPurple.withOpacity(0.3),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Find Your Care Team',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w400,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Search for trusted providers reviewed by mothers like you',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: AppTheme.textMuted,
+                fontWeight: FontWeight.w300,
+              ),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, Routes.providerSearch);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.brandPurple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              child: const Text(
+                'Start Searching',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProviderCard(Provider provider) {
+    // Get specialties from the specialties array
+    final specialties = provider.specialties.isNotEmpty
+        ? provider.specialties
+        : (provider.specialty != null ? [provider.specialty!] : []);
+
+    // Get location info
+    final location = provider.locations.isNotEmpty ? provider.locations.first : null;
+    final locationText = location != null
+        ? '${location.city}, ${location.state}'
+        : 'Location not available';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24), // rounded-3xl
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(
+          color: AppTheme.borderLight,
+          width: 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProviderProfileScreen(
+                provider: provider,
+                providerId: provider.id,
+              ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(24),
+        child: Padding(
+          padding: const EdgeInsets.all(20), // p-5
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Name and Badges Row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                provider.name,
+                                style: TextStyle(
+                                  fontSize: 18, // text-lg
+                                  fontWeight: FontWeight.w400,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                            if (provider.mamaApproved)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Icon(
+                                  Icons.verified,
+                                  size: 18,
+                                  color: Color(0xFFE11D48), // rose-600
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          provider.specialty ?? 'Provider',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.textMuted,
+                            fontWeight: FontWeight.w300,
+                          ),
+                        ),
+                        if (provider.practiceName != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            provider.practiceName!,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.textMuted,
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: AppTheme.textMuted,
+                    size: 24,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12), // mb-3
+
+              // Rating and Distance
+              Row(
+                children: [
+                  Icon(Icons.star, size: 16, color: Colors.amber),
+                  const SizedBox(width: 4),
+                  Text(
+                    provider.rating?.toStringAsFixed(1) ?? 'N/A',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    ' (${provider.reviewCount ?? 0})',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(Icons.location_on, size: 16, color: AppTheme.textMuted),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      locationText,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w300,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12), // mb-3
+
+              // Accepting Badge
+              if (provider.acceptingNewPatients == true)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFD1FAE5), // green-100
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Color(0xFF86EFAC), // green-200
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      'Accepting new patients',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF15803D), // green-700
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Specialties Tags
+              if (specialties.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: specialties.take(3).map((specialty) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Color(0xFFF5F0F8), // purple-50
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Color(0xFFE8DFE8), // purple-100
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        specialty,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.brandPurple,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
             ],
           ),
         ),
@@ -409,4 +604,3 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
     );
   }
 }
-

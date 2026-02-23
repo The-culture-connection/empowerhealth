@@ -124,58 +124,194 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset('assets/Authscreen.jpeg', fit: BoxFit.cover),
-          Container(color: Colors.black.withOpacity(0.4)),
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text('Create account', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _email,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: InputDecoration(
-                              labelText: 'Email',
-                              suffixIcon: IconButton(
-                                icon: Icon(Icons.keyboard_hide, 
-                                    color: Colors.grey[400], size: 20),
-                                onPressed: () => FocusScope.of(context).unfocus(),
-                                tooltip: 'Dismiss keyboard',
+      backgroundColor: AppTheme.backgroundWarm,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white,
+              Color(0xFFF8F6F8), // #f8f6f8
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 400),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32), // rounded-3xl
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(
+                    color: AppTheme.borderLight,
+                    width: 1,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(32), // p-8
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Header
+                        Center(
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppTheme.brandPurple,
+                                      AppTheme.brandPurpleLight,
+                                    ],
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    '🤰',
+                                    style: TextStyle(fontSize: 32),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Create Account',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w400, // font-normal
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Start your empowered pregnancy journey',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textMuted,
+                                  fontWeight: FontWeight.w300, // font-light
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        // Email field
+                        TextFormField(
+                          controller: _email,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Email',
+                            labelStyle: TextStyle(color: AppTheme.textMuted),
+                            filled: true,
+                            fillColor: Color(0xFFF9FAFB), // bg-gray-50
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24), // rounded-2xl
+                              borderSide: BorderSide(color: AppTheme.borderLight),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(color: AppTheme.borderLight),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(
+                                color: AppTheme.brandPurple.withOpacity(0.3),
+                                width: 2,
                               ),
                             ),
-                            validator: (v) => (v == null || v.isEmpty) ? 'Enter your email' : null,
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                Icons.keyboard_hide,
+                                color: Colors.grey[400],
+                                size: 20,
+                              ),
+                              onPressed: () => FocusScope.of(context).unfocus(),
+                              tooltip: 'Dismiss keyboard',
+                            ),
                           ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _password,
-                            obscureText: true,
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              suffixIcon: IconButton(
-                                icon: Icon(Icons.keyboard_hide, 
-                                    color: Colors.grey[400], size: 20),
-                                onPressed: () => FocusScope.of(context).unfocus(),
-                                tooltip: 'Dismiss keyboard',
+                          validator: (v) => (v == null || v.isEmpty) ? 'Enter your email' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        // Password field
+                        TextFormField(
+                          controller: _password,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            labelStyle: TextStyle(color: AppTheme.textMuted),
+                            filled: true,
+                            fillColor: Color(0xFFF9FAFB), // bg-gray-50
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24), // rounded-2xl
+                              borderSide: BorderSide(color: AppTheme.borderLight),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(color: AppTheme.borderLight),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(
+                                color: AppTheme.brandPurple.withOpacity(0.3),
+                                width: 2,
                               ),
                             ),
-                            validator: (v) => (v == null || v.length < 6) ? 'Min 6 characters' : null,
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                Icons.keyboard_hide,
+                                color: Colors.grey[400],
+                                size: 20,
+                              ),
+                              onPressed: () => FocusScope.of(context).unfocus(),
+                              tooltip: 'Dismiss keyboard',
+                            ),
                           ),
-                          const SizedBox(height: 20),
-                          ElevatedButton(
+                          validator: (v) => (v == null || v.length < 6) ? 'Min 6 characters' : null,
+                        ),
+                        const SizedBox(height: 24),
+                        // Sign up button
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppTheme.brandPurple,
+                                AppTheme.brandPurpleLight,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(24), // rounded-2xl
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.brandPurple.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
                             onPressed: _isLoading ? null : _signUp,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                            ),
                             child: _isLoading
                                 ? const SizedBox(
                                     height: 20,
@@ -185,51 +321,110 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                     ),
                                   )
-                                : const Text('Sign Up'),
+                                : const Text(
+                                    'Create Account',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w400,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                           ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(child: Divider(color: Colors.grey[300])),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text('OR', style: TextStyle(color: Colors.grey[600])),
+                        ),
+                        const SizedBox(height: 24),
+                        // Divider
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Divider(
+                                color: AppTheme.borderLight,
+                                thickness: 1,
                               ),
-                              Expanded(child: Divider(color: Colors.grey[300])),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          OutlinedButton.icon(
-                            onPressed: _isLoading ? null : _signInWithGoogle,
-                            icon: const Icon(Icons.g_mobiledata, size: 24),
-                            label: const Text('Continue with Google'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'or',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textMuted,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(
+                                color: AppTheme.borderLight,
+                                thickness: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        // Google button
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _signInWithGoogle,
+                          icon: const Icon(Icons.g_mobiledata, size: 24),
+                          label: const Text('Continue with Google'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.textPrimary,
+                            side: BorderSide(color: AppTheme.borderLight),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: _isLoading ? null : _signInWithApple,
-                            icon: const Icon(Icons.apple, size: 24),
-                            label: const Text('Continue with Apple'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        const SizedBox(height: 12),
+                        // Apple button
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _signInWithApple,
+                          icon: const Icon(Icons.apple, size: 24),
+                          label: const Text('Continue with Apple'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.textPrimary,
+                            side: BorderSide(color: AppTheme.borderLight),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          TextButton(
+                        ),
+                        const SizedBox(height: 24),
+                        // Login link
+                        Center(
+                          child: TextButton(
                             onPressed: () => Navigator.pushReplacementNamed(context, Routes.login),
-                            child: const Text('Already have an account? Log In'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppTheme.textMuted,
+                            ),
+                            child: RichText(
+                              text: TextSpan(
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textMuted,
+                                ),
+                                children: [
+                                  const TextSpan(text: 'Already have an account? '),
+                                  TextSpan(
+                                    text: 'Sign in',
+                                    style: TextStyle(
+                                      color: AppTheme.brandPurple,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

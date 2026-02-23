@@ -6,6 +6,7 @@ import '../Community/community_screen.dart';
 import '../assistant/assistant_screen.dart';
 import '../editprofile/edit_profile_screen.dart';
 import '../Home/Learning Modules/learning_modules_screen_v2.dart';
+import 'ui_theme.dart';
 
 class MainNavigationScaffold extends StatefulWidget {
   const MainNavigationScaffold({super.key});
@@ -91,7 +92,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
         width: 56,
         height: 56,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             colors: [AppTheme.gradientPurpleStart, AppTheme.gradientPurpleEnd],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,

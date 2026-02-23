@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../cors/ui_theme.dart';
 import 'create_post_screen.dart';
 import 'post_detail_screen.dart';
 import 'seed_mock_posts.dart';
@@ -48,7 +49,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppTheme.backgroundWarm,
         ),
         child: SafeArea(
@@ -60,7 +61,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Community',
                       style: TextStyle(
                         fontSize: 24,
@@ -69,7 +70,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Connect with others on the same journey',
                       style: TextStyle(
                         fontSize: 14,
@@ -87,7 +88,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       colors: [
                         Color(0xFFEBE4F3), // #ebe4f3
                         Color(0xFFE0D5EB), // #e0d5eb
@@ -117,7 +118,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                               Container(
                                 width: 128,
                                 height: 128,
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   color: Colors.white,
                                   shape: BoxShape.circle,
                                 ),
@@ -125,7 +126,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                               Container(
                                 width: 160,
                                 height: 160,
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   color: AppTheme.gradientBeigeStart,
                                   shape: BoxShape.circle,
                                 ),
@@ -152,34 +153,34 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                 ),
                               ],
                             ),
-                            child: const Icon(Icons.favorite, color: AppTheme.textMuted, size: 20),
+                            child: Icon(Icons.favorite, color: AppTheme.textMuted, size: 20),
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'A safe space',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondary,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w400,
-                                  ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'A safe space',
+                                      style: TextStyle(
+                                        color: AppTheme.textSecondary,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Share your experiences, ask questions, and support others. All discussions are moderated to keep this space respectful and supportive.',
+                                      style: TextStyle(
+                                        color: AppTheme.textMuted,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w300,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Share your experiences, ask questions, and support others. All discussions are moderated to keep this space respectful and supportive.',
-                                  style: TextStyle(
-                                    color: AppTheme.textMuted,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w300,
-                                    height: 1.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                              ),
                         ],
                       ),
                     ],
@@ -424,7 +425,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                             ),
                                             child: Text(
                                               category,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 12,
                                                 color: AppTheme.textLight,
                                                 fontWeight: FontWeight.w300,
@@ -436,7 +437,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                       const SizedBox(height: 8),
                                       Text(
                                         title,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w400,
                                           color: AppTheme.textSecondary,
@@ -449,7 +450,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                         children: [
                                           Text(
                                             authorName,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 12,
                                               color: AppTheme.textLightest,
                                               fontWeight: FontWeight.w300,
@@ -457,7 +458,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                           ),
                                           Text(
                                             ' • ',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               color: AppTheme.textBarelyVisible,
                                             ),
                                           ),
@@ -467,7 +468,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                           const SizedBox(width: 4),
                                           Text(
                                             '${replies.length} replies',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 12,
                                               color: AppTheme.textLightest,
                                               fontWeight: FontWeight.w300,
@@ -475,7 +476,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                           ),
                                           Text(
                                             ' • ',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               color: AppTheme.textBarelyVisible,
                                             ),
                                           ),
@@ -485,7 +486,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                           const SizedBox(width: 4),
                                           Text(
                                             '${likes.length}',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 12,
                                               color: AppTheme.textLightest,
                                               fontWeight: FontWeight.w300,
@@ -494,13 +495,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                           if (createdAt != null) ...[
                                             Text(
                                               ' • ',
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 color: AppTheme.textBarelyVisible,
                                               ),
                                             ),
                                             Text(
                                               _formatDate(createdAt),
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 12,
                                                 color: AppTheme.textLightest,
                                                 fontWeight: FontWeight.w300,
@@ -528,12 +529,12 @@ class _CommunityScreenState extends State<CommunityScreen> {
       floatingActionButton: Container(
         width: 56,
         height: 56,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppTheme.gradientPurpleStart, AppTheme.gradientPurpleEnd],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppTheme.gradientPurpleStart, AppTheme.gradientPurpleEnd],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
@@ -604,7 +605,7 @@ class _CategoryChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
           gradient: isSelected
-              ? const LinearGradient(
+              ? LinearGradient(
                   colors: [AppTheme.gradientBeigeStart, AppTheme.textLightest],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,

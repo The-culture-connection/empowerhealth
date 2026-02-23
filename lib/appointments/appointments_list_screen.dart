@@ -15,55 +15,66 @@ class AppointmentsListScreen extends StatelessWidget {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
-          ),
+        decoration: BoxDecoration(
+          color: AppTheme.backgroundWarm,
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // Header
+              // Header (matching NewUI)
               Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24), // p-6
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'After Visit Summary',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'After Visit Summary',
+                            style: TextStyle(
+                              fontSize: 24, // text-2xl
+                              fontWeight: FontWeight.w400, // font-normal
+                              color: AppTheme.textSecondary, // text-[#4a3f52]
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Your visit explained in simple terms',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
+                          const SizedBox(height: 8), // mb-2
+                          Text(
+                            'Your visit explained in simple terms',
+                            style: TextStyle(
+                              fontSize: 14, // text-sm
+                              color: AppTheme.textLight, // text-[#8b7a95]
+                              fontWeight: FontWeight.w300, // font-light
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const UploadVisitSummaryScreen(),
-                          ),
-                        );
-                      },
-                      tooltip: 'Add Visit Summary',
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Color(0xFFD4C5E0),
+                            Color(0xFFA89CB5),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.add, color: Colors.white),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const UploadVisitSummaryScreen(),
+                            ),
+                          );
+                        },
+                        tooltip: 'Add Visit Summary',
+                      ),
                     ),
                   ],
                 ),
@@ -94,8 +105,11 @@ class AppointmentsListScreen extends StatelessWidget {
                                 width: 80,
                                 height: 80,
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Color(0xFF663399),
+                                      Color(0xFF8855BB),
+                                    ],
                                   ),
                                   borderRadius: BorderRadius.circular(40),
                                 ),
@@ -106,41 +120,58 @@ class AppointmentsListScreen extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 24),
-                              const Text(
+                              Text(
                                 'No Visit Summaries Yet',
                                 style: TextStyle(
                                   fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppTheme.textSecondary,
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Upload your first appointment summary to get started',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey[600]),
+                                style: TextStyle(
+                                  color: AppTheme.textMuted,
+                                  fontWeight: FontWeight.w300,
+                                ),
                               ),
                               const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const UploadVisitSummaryScreen(),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.add),
-                                label: const Text('Add Visit Summary'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF663399),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 16,
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Color(0xFFD4C5E0),
+                                      Color(0xFFA89CB5),
+                                    ],
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const UploadVisitSummaryScreen(),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.add, color: Colors.white),
+                                  label: const Text(
+                                    'Add Visit Summary',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -273,7 +304,7 @@ class AppointmentsListScreen extends StatelessWidget {
                     });
                     
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 24), // px-6
                       itemCount: uniqueDocs.length,
                       itemBuilder: (context, index) {
                         final doc = uniqueDocs[index];
@@ -287,88 +318,103 @@ class AppointmentsListScreen extends StatelessWidget {
                                 : (data['summary']?.toString() ?? null));
 
                         return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(20),
+                          margin: const EdgeInsets.only(bottom: 20), // space-y-5
+                          padding: const EdgeInsets.all(24), // p-6
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: Colors.grey.shade100),
+                            color: Colors.white.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(32), // rounded-[32px]
+                            border: Border.all(
+                              color: AppTheme.borderLighter.withOpacity(0.5),
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                                color: Colors.black.withOpacity(0.06),
+                                blurRadius: 24,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(32),
                             onTap: () {
                               _showSummaryDialog(context, data);
                             },
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue.shade50,
-                                        borderRadius: BorderRadius.circular(16),
+                                Container(
+                                  width: 48, // w-12
+                                  height: 48, // h-12
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Color(0xFFE8E0F0), // from-[#e8e0f0]
+                                        Color(0xFFEDE7F3), // to-[#ede7f3]
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(20), // rounded-[20px]
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
                                       ),
-                                      child: Icon(
-                                        Icons.medical_information,
-                                        color: Colors.blue.shade500,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Visit on ${_formatDate(appointmentDate)}',
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            data['readingLevel'] ?? '6th grade level',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey[500],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Icon(Icons.chevron_right, color: Colors.grey[400]),
-                                  ],
-                                ),
-                                if (summary != null) ...[
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    _extractPreviewText(
-                                      summary is String 
-                                          ? summary 
-                                          : (data['summaryData'] is Map
-                                              ? _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>)
-                                              : summary.toString())
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[700],
-                                    ),
+                                    ],
                                   ),
-                                ],
+                                  child: Icon(
+                                    Icons.medical_information,
+                                    color: Color(0xFF8B7AA8), // text-[#8b7aa8]
+                                    size: 20, // w-5 h-5
+                                  ),
+                                ),
+                                const SizedBox(width: 16), // gap-4
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Visit on ${_formatDate(appointmentDate)}',
+                                        style: TextStyle(
+                                          fontSize: 16, // text-base
+                                          fontWeight: FontWeight.w400, // font-normal
+                                          color: Color(0xFF2D2733), // text-[#2d2733]
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4), // mb-1
+                                      Text(
+                                        data['readingLevel'] ?? '6th grade level',
+                                        style: TextStyle(
+                                          fontSize: 12, // text-xs
+                                          color: Color(0xFF9D8FB5), // text-[#9d8fb5]
+                                          fontWeight: FontWeight.w300, // font-light
+                                        ),
+                                      ),
+                                      if (summary != null) ...[
+                                        const SizedBox(height: 8), // mb-2
+                                        Text(
+                                          _extractPreviewText(
+                                            summary is String 
+                                                ? summary 
+                                                : (data['summaryData'] is Map
+                                                    ? _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>)
+                                                    : summary.toString())
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 14, // text-sm
+                                            color: Color(0xFF6B5C75), // text-[#6b5c75]
+                                            fontWeight: FontWeight.w300, // font-light
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: Color(0xFFB5A8C2), // text-[#b5a8c2]
+                                  size: 20, // w-5 h-5
+                                ),
                               ],
                             ),
                           ),

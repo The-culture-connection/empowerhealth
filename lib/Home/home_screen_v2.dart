@@ -161,41 +161,45 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
     final progress = weeksPregnant > 0 ? (weeksPregnant / 40) : 0.0;
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
-          ),
+          color: AppTheme.backgroundWarm, // Matching NewUI background
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24), // p-6 matching NewUI
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with Avatar and Greeting
+                // Header with Avatar and Greeting (matching NewUI)
                 Row(
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: 56,
+                      height: 56,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF663399), Color(0xFFCBBEC9)],
+                          colors: [AppTheme.gradientPurpleStart, AppTheme.gradientGoldEnd],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.brandPurple.withOpacity(0.25),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
                       child: Center(
                         child: Text(
                           _getInitials(_userName),
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
@@ -207,17 +211,18 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                         children: [
                           Text(
                             '${_getGreeting()},',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 14,
-                              color: Colors.grey[600],
+                              color: AppTheme.textLightest,
+                              fontWeight: FontWeight.w300,
                             ),
                           ),
                           Text(
                             _userName ?? 'User',
                             style: const TextStyle(
                               fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              fontWeight: FontWeight.w400, // Lighter weight matching NewUI
+                              color: AppTheme.textPrimary,
                             ),
                           ),
                         ],
@@ -225,32 +230,36 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
-                // Search Bar
+                // Search Bar (matching NewUI)
                 InkWell(
                   onTap: () {
                     Navigator.pushNamed(context, Routes.providers);
                   },
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(28),
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.grey.shade200),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: AppTheme.borderLight),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                          color: AppTheme.brandPurple.withOpacity(0.08),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
                     child: TextField(
                       enabled: false,
                       decoration: InputDecoration(
-                        hintText: 'Search topics, providers, or questions',
-                        prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                        hintText: 'Find trusted providers near you',
+                        hintStyle: const TextStyle(
+                          color: AppTheme.textBarelyVisible,
+                          fontWeight: FontWeight.w300,
+                        ),
+                        prefixIcon: Icon(Icons.search, color: AppTheme.textLightest, size: 20),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 20,
@@ -262,96 +271,171 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                 ),
                 const SizedBox(height: 24),
 
-                // Pregnancy Journey Card
+                // Pregnancy Journey Card (matching NewUI)
                 if (dueDate != null && weeksPregnant > 0) ...[
                   const Text(
-                    'Your Pregnancy Journey',
+                    'Your pregnancy journey',
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: AppTheme.textSecondary,
+                      letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(28),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                        colors: [
+                          Color(0xFFEBE4F3), // #ebe4f3
+                          Color(0xFFE6D8ED), // #e6d8ed
+                          Color(0xFFEAD9E0), // #ead9e0
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(
+                        color: const Color(0xFFE0D3E8).withOpacity(0.5),
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF663399).withOpacity(0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+                          color: AppTheme.brandPurple.withOpacity(0.12),
+                          blurRadius: 32,
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Stack(
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Week $weeksPregnant of 40',
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
+                        // Subtle background glow
+                        Positioned.fill(
+                          child: Opacity(
+                            opacity: 0.3,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  width: 160,
+                                  height: 160,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.gradientBeigeStart,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.gradientBeigeStart,
+                                      shape: BoxShape.circle,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '$trimester Trimester',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                ),
+                                Container(
+                                  width: 192,
+                                  height: 192,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.gradientGoldStart,
+                                    shape: BoxShape.circle,
                                   ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    "You're doing beautifully",
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                            Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(32),
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  '🤰',
-                                  style: TextStyle(fontSize: 32),
+                          ),
+                        ),
+                        // Content
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Week $weeksPregnant of 40',
+                                        style: const TextStyle(
+                                          color: AppTheme.textMuted,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w300,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        "You're in your $trimester trimester",
+                                        style: const TextStyle(
+                                          color: AppTheme.textPrimary,
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                        "You're doing beautifully",
+                                        style: TextStyle(
+                                          color: AppTheme.brandGold,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  width: 64,
+                                  height: 64,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.6),
+                                    borderRadius: BorderRadius.circular(32),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppTheme.brandPurple.withOpacity(0.15),
+                                        blurRadius: 16,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      '🤰',
+                                      style: TextStyle(fontSize: 32),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: FractionallySizedBox(
+                                  alignment: Alignment.centerLeft,
+                                  widthFactor: progress.clamp(0.0, 1.0),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [AppTheme.gradientPurpleStart, AppTheme.brandGold],
+                                      ),
+                                      borderRadius: BorderRadius.circular(6),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppTheme.gradientPurpleStart.withOpacity(0.4),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 16),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: progress.clamp(0.0, 1.0),
-                            backgroundColor: Colors.white.withOpacity(0.2),
-                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                            minHeight: 8,
-                          ),
                         ),
                       ],
                     ),
@@ -359,16 +443,17 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                   const SizedBox(height: 24),
                 ],
 
-                // Today's Support Section
+                // Support for Today Section (matching NewUI)
                 const Text(
-                  "Today's Support",
+                  'Support for today',
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    color: AppTheme.textSecondary,
+                    letterSpacing: 0.5,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 
                 // Most Recent Appointment Analysis
                 StreamBuilder<QuerySnapshot>(
@@ -493,31 +578,17 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                 ),
                 const SizedBox(height: 24),
 
-                // Learning Modules Section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Learning Modules',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pushNamed(context, Routes.learning),
-                      child: const Text(
-                        'See all',
-                        style: TextStyle(
-                          color: Color(0xFF663399),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
+                // Your Care Tools Section (matching NewUI)
+                const Text(
+                  'Your care tools',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    color: AppTheme.textSecondary,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 
                 // Active Learning Modules Widget
                 StreamBuilder<QuerySnapshot>(
@@ -681,16 +752,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                 ),
                 const SizedBox(height: 24),
 
-                // Quick Tools Section
-                const Text(
-                  'Quick Tools',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 12),
+                // Quick Tools Section (removed - functionality preserved in care tools)
+                const SizedBox(height: 24),
                 _QuickToolCard(
                   icon: Icons.assignment,
                   iconColor: const Color(0xFF663399),
@@ -879,22 +942,22 @@ class _SupportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(32),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           gradient: gradient,
           color: gradient == null ? Colors.white : null,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(32),
           border: Border.all(
-            color: borderColor ?? Colors.grey.shade100,
+            color: borderColor ?? AppTheme.borderLight,
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: AppTheme.brandPurple.withOpacity(0.1),
+              blurRadius: 24,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -904,10 +967,25 @@ class _SupportCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(16),
+                gradient: gradient == null
+                    ? LinearGradient(
+                        colors: [
+                          AppTheme.gradientBeigeStart.withOpacity(0.6),
+                          AppTheme.gradientBeigeEnd.withOpacity(0.6),
+                        ],
+                      )
+                    : null,
+                color: gradient == null ? iconBg : null,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: Icon(icon, color: iconColor, size: 24),
+              child: Icon(icon, color: iconColor, size: 20),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -918,32 +996,34 @@ class _SupportCard extends StatelessWidget {
                     title,
                     style: const TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      fontWeight: FontWeight.w400,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[600],
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w300,
                     ),
                   ),
                   if (description != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       description!,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[500],
+                        color: AppTheme.textLight,
+                        fontWeight: FontWeight.w300,
                       ),
                     ),
                   ],
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey[400]),
+            Icon(Icons.chevron_right, color: AppTheme.textBarelyVisible, size: 20),
           ],
         ),
       ),
@@ -972,18 +1052,18 @@ class _ModuleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(28),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: AppTheme.borderLight),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: AppTheme.brandPurple.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -991,11 +1071,23 @@ class _ModuleCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.gradientBeigeStart.withOpacity(0.6),
+                    AppTheme.gradientBeigeEnd.withOpacity(0.6),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Icon(icon, color: iconColor, size: 20),
             ),
@@ -1004,16 +1096,17 @@ class _ModuleCard extends StatelessWidget {
               title,
               style: const TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                fontWeight: FontWeight.w400,
+                color: AppTheme.textPrimary,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
-                color: Colors.grey[500],
+                color: AppTheme.textLightest,
+                fontWeight: FontWeight.w300,
               ),
             ),
           ],
@@ -1044,18 +1137,18 @@ class _QuickToolCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(28),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: AppTheme.borderLight),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: AppTheme.brandPurple.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -1065,10 +1158,22 @@ class _QuickToolCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.gradientBeigeStart.withOpacity(0.6),
+                    AppTheme.gradientBeigeEnd.withOpacity(0.6),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: Icon(icon, color: iconColor, size: 24),
+              child: Icon(icon, color: iconColor, size: 20),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -1079,22 +1184,23 @@ class _QuickToolCard extends StatelessWidget {
                     title,
                     style: const TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      fontWeight: FontWeight.w400,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[500],
+                      color: AppTheme.textLightest,
+                      fontWeight: FontWeight.w300,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey[400]),
+            Icon(Icons.chevron_right, color: AppTheme.textBarelyVisible, size: 20),
           ],
         ),
       ),

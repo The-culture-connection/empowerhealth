@@ -28,12 +28,20 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.white.withOpacity(0.9),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.brandPurple.withOpacity(0.08),
+              blurRadius: 32,
+              offset: const Offset(0, -8),
+            ),
+          ],
           border: Border(
-            top: BorderSide(color: Colors.grey.shade200, width: 1),
+            top: BorderSide(color: AppTheme.borderLight, width: 1),
           ),
         ),
         child: SafeArea(
@@ -79,13 +87,34 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
         ),
       ),
       // Floating AI Assistant Button (matching NewUI)
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, '/assistant');
-        },
-        backgroundColor: const Color(0xFF663399),
-        child: const Icon(Icons.support_agent, color: Colors.white),
-        heroTag: 'assistant',
+      floatingActionButton: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppTheme.gradientPurpleStart, AppTheme.gradientPurpleEnd],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.brandPurple.withOpacity(0.3),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(28),
+            onTap: () {
+              Navigator.pushNamed(context, '/assistant');
+            },
+            child: const Icon(Icons.support_agent, color: Colors.white, size: 24),
+          ),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
@@ -118,15 +147,15 @@ class _NavItem extends StatelessWidget {
             Icon(
               icon,
               size: 20,
-              color: isSelected ? const Color(0xFF663399) : Colors.grey.shade500,
+              color: isSelected ? AppTheme.brandPurple : AppTheme.textLightest,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: isSelected ? const Color(0xFF663399) : Colors.grey.shade500,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected ? AppTheme.brandPurple : AppTheme.textLightest,
+                fontWeight: FontWeight.w300, // Lighter weight matching NewUI
               ),
             ),
           ],

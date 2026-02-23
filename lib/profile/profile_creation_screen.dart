@@ -118,6 +118,10 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         {'title': 'Nutrition & Wellness', 'description': 'What to eat and how to stay healthy'},
         {'title': 'Know Your Rights', 'description': 'Patient advocacy in maternity care'},
         {'title': 'Preparing for Appointments', 'description': 'Making the most of your visits'},
+        {'title': 'Hospital Admission Checklist', 'description': 'What to bring and prepare for your hospital stay'},
+        {'title': 'Triage Education', 'description': 'Understanding the triage process and what to expect'},
+        {'title': 'What to Expect During Delivery', 'description': 'A guide to the delivery process and stages'},
+        {'title': 'When and How to Speak Up', 'description': 'Advocacy skills for communicating with your care team'},
       ];
 
       // Add condition-specific module if needed

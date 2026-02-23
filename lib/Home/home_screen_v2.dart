@@ -1302,7 +1302,7 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
   double _progress = 0.0;
   String _currentTask = 'Preparing your personalized learning plan...';
   int _completedModules = 0;
-  int _totalModules = 4;
+  int _totalModules = 8;
 
   @override
   void initState() {
@@ -1327,6 +1327,10 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
       {'title': 'Nutrition & Wellness', 'description': 'What to eat and how to stay healthy'},
       {'title': 'Know Your Rights', 'description': 'Patient advocacy in maternity care'},
       {'title': 'Preparing for Appointments', 'description': 'Making the most of your visits'},
+      {'title': 'Hospital Admission Checklist', 'description': 'What to bring and prepare for your hospital stay'},
+      {'title': 'Triage Education', 'description': 'Understanding the triage process and what to expect'},
+      {'title': 'What to Expect During Delivery', 'description': 'A guide to the delivery process and stages'},
+      {'title': 'When and How to Speak Up', 'description': 'Advocacy skills for communicating with your care team'},
     ];
 
     if (widget.profile.chronicConditions != null && widget.profile.chronicConditions.isNotEmpty) {
@@ -1334,7 +1338,7 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
         'title': 'Managing ${widget.profile.chronicConditions.first}',
         'description': 'Special considerations during pregnancy',
       });
-      _totalModules = 5;
+      _totalModules = 9;
     }
 
     for (int i = 0; i < modules.length; i++) {

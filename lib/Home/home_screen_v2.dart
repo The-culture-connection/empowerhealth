@@ -656,10 +656,28 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                               }
                             }
 
+                            // Get provider information from visit summary if available
+                            String description = '';
+                            final providerName = data['providerName'] as String?;
+                            final practiceName = data['practiceName'] as String?;
+                            final provider = data['provider'] as String?;
+                            
+                            if (providerName != null && providerName.isNotEmpty) {
+                              if (practiceName != null && practiceName.isNotEmpty) {
+                                description = '$providerName • $practiceName';
+                              } else {
+                                description = providerName;
+                              }
+                            } else if (provider != null && provider.isNotEmpty) {
+                              description = provider;
+                            } else if (practiceName != null && practiceName.isNotEmpty) {
+                              description = practiceName;
+                            }
+
                             return _AppointmentCard(
                               title: 'Prenatal appointment',
                               subtitle: 'Visit on $dateText',
-                              description: 'Dr. Johnson • Valley Health Center',
+                              description: description,
                               onTap: () {
                                 Navigator.push(
                                   context,

@@ -1360,6 +1360,58 @@ class _ProviderCard extends StatelessWidget {
                               ),
                             ),
                           
+                          // Identity Tags (including BIPOC)
+                          ...provider.identityTags.map((tag) {
+                            final isVerified = tag.verificationStatus == 'verified';
+                            final isBipoc = tag.name.toLowerCase() == 'bipoc';
+                            
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isBipoc
+                                    ? Color(0xFFE8F5E9).withOpacity(0.9) // Green background for BIPOC
+                                    : (isVerified
+                                        ? Color(0xFFE3F2FD).withOpacity(0.8) // Blue for verified
+                                        : Color(0xFFFFF3E0).withOpacity(0.8)), // Orange for pending
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isBipoc
+                                      ? Color(0xFF4CAF50).withOpacity(0.4) // Green border for BIPOC
+                                      : (isVerified
+                                          ? Color(0xFF2196F3).withOpacity(0.3) // Blue border
+                                          : Color(0xFFFF9800).withOpacity(0.3)), // Orange border
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isVerified || isBipoc)
+                                    Icon(
+                                      isBipoc ? Icons.verified : Icons.check_circle,
+                                      size: 14,
+                                      color: isBipoc ? Color(0xFF2E7D32) : Color(0xFF1976D2),
+                                    ),
+                                  if (isVerified || isBipoc) const SizedBox(width: 4),
+                                  Text(
+                                    tag.name,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isBipoc
+                                          ? Color(0xFF2E7D32) // Dark green for BIPOC
+                                          : (isVerified
+                                              ? Color(0xFF1976D2) // Blue for verified
+                                              : Color(0xFFE65100)), // Orange for pending
+                                      fontWeight: FontWeight.w500, // Slightly bolder for visibility
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                          
                           // Match Score Indicator
                           if (matchScore > 0)
                             Container(

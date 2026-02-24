@@ -76,8 +76,14 @@ class ProviderTypes {
   };
 
   // Display name -> Provider type ID (reverse lookup)
+  // Includes aliases for common search terms
   static final Map<String, String> displayToId = {
-    for (var entry in typeMap.entries) entry.value: entry.key
+    for (var entry in typeMap.entries) entry.value: entry.key,
+    // Aliases for common search terms
+    'Therapist': '47', // Map to Clinical Counseling
+    'Mental Health Therapist': '47',
+    'Counselor': '47',
+    'Therapy': '47',
   };
 
   // MVP Priority types (most commonly searched)

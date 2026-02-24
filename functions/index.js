@@ -4,8 +4,28 @@ const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const {OpenAI} = require("openai");
 const axios = require("axios");
+const XLSX = require("xlsx");
+const path = require("path");
+const fs = require("fs");
+// Import BIPOC provider import function (lazy load to avoid initialization issues)
+let importBipocProviders = null;
+function getImportBipocProviders() {
+  if (importBipocProviders === null) {
+    try {
+      const importModule = require("./importBipocProviders");
+      importBipocProviders = importModule.importBipocProviders;
+    } catch (error) {
+      console.warn("Could not load importBipocProviders module:", error.message);
+      importBipocProviders = false; // Use false to indicate tried and failed
+    }
+  }
+  return importBipocProviders || null;
+}
 
-admin.initializeApp();
+// Initialize Firebase Admin (only if not already initialized)
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 // Define the OpenAI API key as a secret
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
@@ -3286,6 +3306,7 @@ exports.searchProviders = onCall(async (request) => {
     acceptsPregnantWomen,
     acceptsNewborns,
     telehealth,
+    identityTags, // Identity & Cultural match filters
   } = request.data;
 
   // Validate required parameters
@@ -3580,30 +3601,127 @@ exports.searchProviders = onCall(async (request) => {
     console.log(`[searchProviders] Total providers: ${providers.length}`);
     console.log(`[searchProviders] ==========================================\n`);
 
-    // 3. Deduplicate providers by NPI or name+location
+    // 3. Search Firestore for providers that match search criteria (including BIPOC directory providers)
+    try {
+      console.log(`\n[searchProviders] ==========================================`);
+      console.log(`[searchProviders] SEARCHING FIRESTORE FOR MATCHING PROVIDERS`);
+      console.log(`[searchProviders] ==========================================`);
+      
+      // Search Firestore for providers with matching zip code and provider types
+      // This includes BIPOC directory providers and other Firestore-only providers
+      const firestoreProviders = await searchFirestoreProviders({
+        zip: zip,
+        city: city,
+        radius: radius,
+        providerTypeIds: normalizedProviderTypeIds,
+        specialty: specialty,
+      });
+      
+      if (firestoreProviders.length > 0) {
+        console.log(`[searchProviders] Found ${firestoreProviders.length} providers in Firestore`);
+        providers.push(...firestoreProviders);
+      } else {
+        console.log(`[searchProviders] No additional providers found in Firestore`);
+      }
+      console.log(`[searchProviders] ==========================================\n`);
+    } catch (error) {
+      console.error(`[searchProviders] Error searching Firestore:`, error);
+      // Continue with API results only
+    }
+
+    // 3b. Read BIPOC providers from Excel file (for Clinical Counselor searches)
+    try {
+      console.log(`\n[searchProviders] ==========================================`);
+      console.log(`[searchProviders] READING BIPOC PROVIDERS FROM EXCEL FILE`);
+      console.log(`[searchProviders] ==========================================`);
+      
+      // Check if searching for Clinical Counselor (provider type '47')
+      const isClinicalCounselorSearch = normalizedProviderTypeIds.some(id => 
+        id === "47" || id.toLowerCase().includes("counselor") || id.toLowerCase().includes("therapist")
+      );
+
+      if (isClinicalCounselorSearch) {
+        const excelProviders = await readBipocProvidersFromExcel({
+          zip: zip,
+          city: city,
+          radius: radius,
+          providerTypeIds: normalizedProviderTypeIds,
+          specialty: specialty,
+        });
+        
+        if (excelProviders.length > 0) {
+          console.log(`[searchProviders] Found ${excelProviders.length} BIPOC providers from Excel file`);
+          providers.push(...excelProviders);
+        } else {
+          console.log(`[searchProviders] No BIPOC providers found in Excel file`);
+        }
+      } else {
+        console.log(`[searchProviders] Skipping Excel file (not a Clinical Counselor search)`);
+      }
+      console.log(`[searchProviders] ==========================================\n`);
+    } catch (error) {
+      console.error(`[searchProviders] Error reading BIPOC providers from Excel:`, error);
+      // Continue with other results
+    }
+
+    // 4. Deduplicate providers by NPI or name+location
     const deduplicatedProviders = deduplicateProviders(providers);
     console.log(`[searchProviders] After deduplication: ${deduplicatedProviders.length} providers`);
 
-    // 4. Enrich with Firestore data (reviews, identity tags, Mama Approved)
+    // 5. Enrich with Firestore data (reviews, identity tags, Mama Approved)
     const enrichedProviders = await enrichProvidersWithFirestore(deduplicatedProviders);
     console.log(`[searchProviders] After enrichment: ${enrichedProviders.length} providers`);
 
-    // 5. Sort providers: Mama Approved first, then by rating (highest reviewed first)
+    // 5. Sort providers with prioritization
     console.log(`[searchProviders] Before sorting: ${enrichedProviders.length} providers`);
+    
+    // Check if identity tags are selected (Identity & Cultural match)
+    const hasIdentityTags = identityTags && Array.isArray(identityTags) && identityTags.length > 0;
+    console.log(`[searchProviders] Identity tags selected: ${hasIdentityTags ? identityTags.join(", ") : "none"}`);
+    
+    // Helper to check if provider has BIPOC tag
+    const hasBipocTag = (provider) => {
+      if (!provider.identityTags || !Array.isArray(provider.identityTags)) return false;
+      return provider.identityTags.some(tag => 
+        (tag.name && tag.name.toLowerCase() === "bipoc") || 
+        (tag.id && tag.id.toLowerCase() === "bipoc")
+      );
+    };
+    
     enrichedProviders.sort((a, b) => {
-      // Mama Approved providers first
+      const aHasBipoc = hasBipocTag(a);
+      const bHasBipoc = hasBipocTag(b);
+      
+      // If identity tags are selected, prioritize BIPOC providers first
+      if (hasIdentityTags) {
+        if (aHasBipoc && !bHasBipoc) return -1;
+        if (!aHasBipoc && bHasBipoc) return 1;
+      }
+      
+      // Mama Approved providers next
       if (a.mamaApproved && !b.mamaApproved) return -1;
       if (!a.mamaApproved && b.mamaApproved) return 1;
+      
+      // If identity tags selected and both have BIPOC, prioritize BIPOC with Mama Approved
+      if (hasIdentityTags && aHasBipoc && bHasBipoc) {
+        if (a.mamaApproved && !b.mamaApproved) return -1;
+        if (!a.mamaApproved && b.mamaApproved) return 1;
+      }
+      
       // Then by rating (highest first)
       const ratingA = a.rating || 0;
       const ratingB = b.rating || 0;
       if (ratingA !== ratingB) return ratingB - ratingA;
+      
       // Then by review count (more reviews = higher priority)
       const countA = a.reviewCount || 0;
       const countB = b.reviewCount || 0;
       return countB - countA;
     });
+    
     console.log(`[searchProviders] After sorting: ${enrichedProviders.length} providers`);
+    const bipocCount = enrichedProviders.filter(p => hasBipocTag(p)).length;
+    console.log(`[searchProviders] BIPOC providers in results: ${bipocCount}`);
 
     // 6. Serialize providers to ensure JSON-compatible format
     const serializedProviders = enrichedProviders.map(serializeProvider);
@@ -4202,7 +4320,11 @@ function serializeProvider(provider) {
           id: tag.id || null,
           name: tag.name || null,
           category: tag.category || null,
-          verified: tag.verified === true,
+          source: tag.source || null,
+          verificationStatus: tag.verificationStatus || tag.verified ? "verified" : "pending",
+          verified: tag.verified === true || tag.verificationStatus === "verified",
+          verifiedAt: tag.verifiedAt || null,
+          verifiedBy: tag.verifiedBy || null,
         };
       }
       return tag;
@@ -4210,6 +4332,397 @@ function serializeProvider(provider) {
   };
   
   return serialized;
+}
+
+/**
+ * Create BIPOC identity tag
+ */
+function createBipocTag() {
+  return {
+    id: "bipoc",
+    name: "BIPOC",
+    category: "identity",
+    source: "admin",
+    verificationStatus: "verified",
+    verifiedAt: new Date().toISOString(),
+    verifiedBy: "system",
+  };
+}
+
+/**
+ * Parse phone number to standard format
+ */
+function parsePhone(phoneString) {
+  if (!phoneString) return null;
+  const digits = phoneString.toString().replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}`;
+  }
+  return phoneString;
+}
+
+/**
+ * Parse address string into components
+ */
+function parseAddress(addressString) {
+  if (!addressString) return null;
+  const parts = addressString.toString().split(",").map(p => p.trim());
+  
+  if (parts.length >= 2) {
+    // Try to extract ZIP from last part
+    const lastPart = parts[parts.length - 1];
+    const zipMatch = lastPart.match(/(\d{5}(?:-\d{4})?)/);
+    const zip = zipMatch ? zipMatch[1].substring(0, 5) : null;
+    
+    return {
+      address: parts[0],
+      address2: parts.length > 3 ? parts.slice(1, -2).join(", ") : null,
+      city: parts.length >= 3 ? parts[parts.length - 2] : (zip ? parts[parts.length - 1].replace(/\d{5}.*/, "").trim() : null),
+      state: "OH",
+      zip: zip,
+    };
+  }
+  
+  return {
+    address: addressString.toString(),
+    address2: null,
+    city: null,
+    state: "OH",
+    zip: null,
+  };
+}
+
+/**
+ * Read BIPOC providers from Excel file and return as provider objects
+ * This function reads from Firebase Storage or local file system
+ */
+async function readBipocProvidersFromExcel(searchParams) {
+  const { zip, city, providerTypeIds } = searchParams;
+  const providers = [];
+
+  console.log(`[readBipocProvidersFromExcel] Starting - city: ${city}, zip: ${zip}`);
+
+  // Only include BIPOC providers when user is in Cincinnati
+  const isCincinnati = city && city.toLowerCase().includes("cincinnati");
+  if (!isCincinnati) {
+    console.log(`[readBipocProvidersFromExcel] Skipping - user is not in Cincinnati (city: ${city})`);
+    return providers;
+  }
+
+  console.log(`[readBipocProvidersFromExcel] User is in Cincinnati, proceeding...`);
+
+  try {
+    let excelFilePath = null;
+    let excelBuffer = null;
+
+    // First, try to read from Firebase Storage
+    try {
+      console.log(`[readBipocProvidersFromExcel] Attempting to read from Firebase Storage...`);
+      const bucket = admin.storage().bucket();
+      // Try multiple possible storage paths
+      const possibleStoragePaths = [
+        "BIPOC Provider Directory.xlsx", // Root of bucket (where user uploaded it)
+        "bipoc-directory/BIPOC Provider Directory.xlsx", // Subdirectory
+      ];
+      
+      let storagePath = null;
+      let file = null;
+      
+      for (const path of possibleStoragePaths) {
+        const testFile = bucket.file(path);
+        const [exists] = await testFile.exists();
+        if (exists) {
+          storagePath = path;
+          file = testFile;
+          break;
+        }
+      }
+      
+      if (!file) {
+        console.log(`[readBipocProvidersFromExcel] File not found in Storage. Tried: ${possibleStoragePaths.join(", ")}`);
+      } else {
+        console.log(`[readBipocProvidersFromExcel] Found file in Firebase Storage: ${storagePath}`);
+        const [buffer] = await file.download();
+        excelBuffer = buffer;
+        console.log(`[readBipocProvidersFromExcel] Downloaded ${buffer.length} bytes from Storage`);
+      }
+    } catch (storageError) {
+      console.log(`[readBipocProvidersFromExcel] Error reading from Storage (will try local):`, storageError.message);
+    }
+
+    // If not in Storage, try local file system (for local development)
+    if (!excelBuffer) {
+      console.log(`[readBipocProvidersFromExcel] Trying local file system...`);
+      const possiblePaths = [
+        path.join(__dirname, "..", "BIPOC Provider Directory.xlsx"),
+        path.join(process.cwd(), "BIPOC Provider Directory.xlsx"),
+        path.join(__dirname, "BIPOC Provider Directory.xlsx"),
+      ];
+
+      for (const filePath of possiblePaths) {
+        try {
+          if (fs.existsSync(filePath)) {
+            excelFilePath = filePath;
+            console.log(`[readBipocProvidersFromExcel] Found local file: ${excelFilePath}`);
+            break;
+          }
+        } catch (e) {
+          // Continue to next path
+        }
+      }
+    }
+
+    if (!excelBuffer && !excelFilePath) {
+      console.log("[readBipocProvidersFromExcel] Excel file not found in Storage or local filesystem");
+      console.log("[readBipocProvidersFromExcel] To fix: Upload 'BIPOC Provider Directory.xlsx' to Firebase Storage at 'bipoc-directory/BIPOC Provider Directory.xlsx'");
+      return providers;
+    }
+
+    // Read Excel file
+    let workbook;
+    if (excelBuffer) {
+      console.log(`[readBipocProvidersFromExcel] Reading from buffer...`);
+      workbook = XLSX.read(excelBuffer, { type: 'buffer' });
+    } else {
+      console.log(`[readBipocProvidersFromExcel] Reading from file: ${excelFilePath}`);
+      workbook = XLSX.readFile(excelFilePath);
+    }
+
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    
+    // Convert to JSON with headers
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    
+    if (rows.length < 2) {
+      console.log("[readBipocProvidersFromExcel] Excel file is empty or has no data rows");
+      return providers;
+    }
+
+    // First row is headers
+    const headers = rows[0].map(h => h ? h.toString().trim() : "");
+    console.log(`[readBipocProvidersFromExcel] Headers: ${headers.join(", ")}`);
+    console.log(`[readBipocProvidersFromExcel] Total rows: ${rows.length}`);
+
+    // Helper to get value from row by header name (case-insensitive)
+    const getValue = (rowObj, headerVariations) => {
+      for (const variation of headerVariations) {
+        const key = headers.find(h => h.toLowerCase().includes(variation.toLowerCase()));
+        if (key && rowObj[key] !== undefined && rowObj[key] !== null && rowObj[key] !== "") {
+          return rowObj[key].toString().trim();
+        }
+      }
+      return null;
+    };
+
+    // Process data rows
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length === 0) continue;
+
+      // Convert row array to object
+      const rowObj = {};
+      headers.forEach((header, index) => {
+        rowObj[header] = row[index] !== undefined && row[index] !== null ? row[index].toString().trim() : "";
+      });
+
+      const name = getValue(rowObj, ["Provider Name", "name", "provider name"]);
+      if (!name || name === "") continue;
+
+      const providerType = getValue(rowObj, ["Provider Type", "provider type", "type"]);
+      const email = getValue(rowObj, ["Email", "email", "e-mail"]);
+      const phone = parsePhone(getValue(rowObj, ["Phone number", "phone", "phone number", "telephone"]));
+      const website = getValue(rowObj, ["Website", "website", "url", "web"]);
+      const address = getValue(rowObj, ["Address", "address", "street"]);
+      const specialties = getValue(rowObj, ["Specialities", "specialties", "specialty"]);
+
+      // Check if searching for Clinical Counselor (provider type '47')
+      // If so, include ALL BIPOC providers from the directory (they're all mental health providers)
+      const isClinicalCounselorSearch = providerTypeIds && providerTypeIds.some(id => 
+        id === "47" || id === "Clinical Counseling" || id.toLowerCase().includes("counselor") || id.toLowerCase().includes("therapist")
+      );
+
+      if (!isClinicalCounselorSearch) {
+        continue; // Only include for Clinical Counselor searches
+      }
+
+      // Include all BIPOC providers when searching for Clinical Counselor
+      // (The BIPOC directory contains mental health providers who can provide counseling/therapy)
+
+      // Parse address
+      const location = address ? parseAddress(address) : null;
+      if (!location) {
+        continue;
+      }
+
+      // Check if provider is in Cincinnati
+      // Since user is searching in Cincinnati, include all BIPOC providers from the directory
+      // (they're all in the Cincinnati area based on the directory)
+      const providerCity = location.city ? location.city.toLowerCase() : "";
+      const isProviderInCincinnati = providerCity.includes("cincinnati") || 
+                                     providerCity.includes("cincy") ||
+                                     (location.zip && location.zip.startsWith("45")); // Cincinnati ZIP codes start with 45
+
+      // For now, include all providers from the BIPOC directory when user searches in Cincinnati
+      // The directory is specifically for Cincinnati area providers
+      if (!isProviderInCincinnati && location.zip && !location.zip.startsWith("45")) {
+        console.log(`[readBipocProvidersFromExcel] Skipping ${name} - not in Cincinnati area (city: ${location.city}, zip: ${location.zip})`);
+        continue;
+      }
+
+      console.log(`[readBipocProvidersFromExcel] Processing provider: ${name} (city: ${location.city}, zip: ${location.zip})`);
+
+      // Create provider object
+      const provider = {
+        name: name,
+        practiceName: null,
+        specialty: specialties || "Clinical Counseling",
+        npi: null,
+        locations: location ? [{
+          address: location.address || "",
+          address2: location.address2 || null,
+          city: location.city || "",
+          state: location.state || "OH",
+          zip: location.zip || "",
+          phone: phone || null,
+          latitude: null,
+          longitude: null,
+        }] : [],
+        providerTypes: ["47"], // Clinical Counseling
+        specialties: specialties ? [specialties] : ["Clinical Counseling"],
+        phone: phone,
+        email: email || null,
+        website: website || null,
+        acceptingNewPatients: null,
+        acceptsPregnantWomen: null,
+        acceptsNewborns: null,
+        telehealth: null,
+        rating: null,
+        reviewCount: 0,
+        mamaApproved: false,
+        mamaApprovedCount: 0,
+        identityTags: [createBipocTag()],
+        source: "bipoc_directory_excel",
+      };
+
+      providers.push(provider);
+      console.log(`[readBipocProvidersFromExcel] ✅ Added BIPOC provider: ${name} with BIPOC tag`);
+    }
+
+    console.log(`[readBipocProvidersFromExcel] ✅ Successfully processed ${providers.length} BIPOC providers from Excel`);
+    return providers;
+  } catch (error) {
+    console.error(`[readBipocProvidersFromExcel] ❌ Error reading Excel file:`, error);
+    console.error(`[readBipocProvidersFromExcel] Error stack:`, error.stack);
+    return [];
+  }
+}
+
+/**
+ * Search Firestore for providers matching search criteria
+ * This includes BIPOC directory providers and other Firestore-only providers
+ */
+async function searchFirestoreProviders(searchParams) {
+  const { zip, city, radius, providerTypeIds, specialty } = searchParams;
+  const providers = [];
+
+  try {
+    // Query Firestore for providers with matching zip code
+    // Note: We'll need to filter by distance after fetching
+    // Firestore doesn't support geospatial queries directly, so we'll fetch by zip and filter
+    
+    let query = admin.firestore().collection("providers");
+    
+    // If we have provider types, filter by them
+    // Note: This is a simplified approach - Firestore doesn't support array-contains-any easily
+    // We'll fetch and filter in memory
+    
+    const snapshot = await query
+      .where("source", "in", ["bipoc_directory", "admin_added", "user_submission"])
+      .limit(500) // Limit to avoid too many reads
+      .get();
+
+    console.log(`[searchFirestoreProviders] Found ${snapshot.size} Firestore-only providers to check`);
+
+    // Filter providers by location and provider types
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      
+      // Check if provider has locations matching the search
+      if (!data.locations || !Array.isArray(data.locations) || data.locations.length === 0) {
+        continue;
+      }
+
+      // Check each location
+      for (const location of data.locations) {
+        // Check if zip matches (simple check - could be enhanced with radius calculation)
+        if (location.zip && location.zip.substring(0, 5) === zip.substring(0, 5)) {
+          // Check if provider types match (if specified)
+          if (providerTypeIds && providerTypeIds.length > 0) {
+            const providerTypes = data.providerTypes || [];
+            const hasMatchingType = providerTypeIds.some(typeId => 
+              providerTypes.includes(typeId) || providerTypes.includes(typeId.padStart(2, '0'))
+            );
+            if (!hasMatchingType) {
+              continue;
+            }
+          }
+
+          // Check specialty if specified
+          if (specialty) {
+            const specialties = data.specialties || [];
+            const providerSpecialty = data.specialty || "";
+            if (!specialties.includes(specialty) && providerSpecialty !== specialty) {
+              continue;
+            }
+          }
+
+          // Convert Firestore provider to API format
+          const provider = {
+            id: doc.id,
+            name: data.name || "",
+            specialty: data.specialty || null,
+            practiceName: data.practiceName || null,
+            npi: data.npi || null,
+            locations: [{
+              address: location.address || "",
+              address2: location.address2 || null,
+              city: location.city || "",
+              state: location.state || "OH",
+              zip: location.zip || "",
+              phone: location.phone || data.phone || null,
+              latitude: location.latitude || null,
+              longitude: location.longitude || null,
+            }],
+            providerTypes: data.providerTypes || [],
+            specialties: data.specialties || [],
+            phone: data.phone || null,
+            email: data.email || null,
+            website: data.website || null,
+            acceptingNewPatients: data.acceptingNewPatients || null,
+            acceptsPregnantWomen: data.acceptsPregnantWomen || null,
+            acceptsNewborns: data.acceptsNewborns || null,
+            telehealth: data.telehealth || null,
+            rating: data.rating || null,
+            reviewCount: data.reviewCount || 0,
+            mamaApproved: data.mamaApproved || false,
+            mamaApprovedCount: data.mamaApprovedCount || 0,
+            identityTags: data.identityTags || [],
+            source: data.source || "firestore",
+          };
+
+          providers.push(provider);
+          break; // Only add provider once, even if multiple locations match
+        }
+      }
+    }
+
+    console.log(`[searchFirestoreProviders] Returning ${providers.length} matching providers`);
+    return providers;
+  } catch (error) {
+    console.error(`[searchFirestoreProviders] Error:`, error);
+    return [];
+  }
 }
 
 // Helper function to enrich providers with Firestore data
@@ -4755,5 +5268,89 @@ exports.OhioMaximusSearch = onCall(async (request) => {
     
     // Re-throw the error
     throw error;
+  }
+});
+
+/**
+ * Import BIPOC providers from Excel file
+ * Can be called with a file path or storage path
+ */
+exports.importBipocProviders = onCall(async (request) => {
+  // Validate authentication
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated");
+  }
+
+  const { uid } = request.auth;
+  
+  // TODO: Add admin check here
+  // const userDoc = await admin.firestore().collection("users").doc(uid).get();
+  // if (!userDoc.exists || userDoc.data().role !== "admin") {
+  //   throw new HttpsError("permission-denied", "Admin access required");
+  // }
+
+  const { filePath, storagePath } = request.data;
+
+  if (!filePath && !storagePath) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Either filePath (local) or storagePath (Firebase Storage) is required"
+    );
+  }
+
+  const importFn = getImportBipocProviders();
+  if (!importFn) {
+    throw new HttpsError(
+      "unavailable",
+      "Import function not available. Please ensure importBipocProviders.js is properly configured."
+    );
+  }
+
+  try {
+    let excelFilePath = filePath;
+
+    // If storagePath is provided, download from Firebase Storage
+    if (storagePath) {
+      const bucket = admin.storage().bucket();
+      const file = bucket.file(storagePath);
+      const [exists] = await file.exists();
+      
+      if (!exists) {
+        throw new HttpsError("not-found", `File not found in storage: ${storagePath}`);
+      }
+
+      // Download to temp location
+      const path = require("path");
+      const os = require("os");
+      const fs = require("fs");
+      const tempDir = os.tmpdir();
+      const tempFilePath = path.join(tempDir, `bipoc_providers_${Date.now()}.xlsx`);
+      
+      await file.download({ destination: tempFilePath });
+      excelFilePath = tempFilePath;
+      
+      console.log(`Downloaded file from storage to: ${tempFilePath}`);
+    }
+
+    // Import providers
+    await importFn(excelFilePath);
+
+    // Clean up temp file if it was downloaded
+    if (storagePath && excelFilePath) {
+      const fs = require("fs");
+      try {
+        fs.unlinkSync(excelFilePath);
+      } catch (e) {
+        console.warn("Failed to delete temp file:", e);
+      }
+    }
+
+    return {
+      success: true,
+      message: "BIPOC providers imported successfully",
+    };
+  } catch (error) {
+    console.error("Error importing BIPOC providers:", error);
+    throw new HttpsError("internal", "Failed to import providers: " + error.message);
   }
 });

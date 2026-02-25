@@ -32,20 +32,45 @@ class DemographicsStep extends StatelessWidget {
             // Race/Ethnicity
             DropdownButtonFormField<String>(
               value: provider.raceEthnicity,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Race/Ethnicity',
                 hintText: 'Select your race/ethnicity',
                 prefixIcon: Icon(Icons.people_outline),
               ),
               items: const [
-                DropdownMenuItem(value: 'American Indian or Alaska Native', child: Text('American Indian or Alaska Native')),
-                DropdownMenuItem(value: 'Asian', child: Text('Asian')),
-                DropdownMenuItem(value: 'Black or African American', child: Text('Black or African American')),
-                DropdownMenuItem(value: 'Hispanic or Latino', child: Text('Hispanic or Latino')),
-                DropdownMenuItem(value: 'Native Hawaiian or Pacific Islander', child: Text('Native Hawaiian or Pacific Islander')),
-                DropdownMenuItem(value: 'White', child: Text('White')),
-                DropdownMenuItem(value: 'Two or More Races', child: Text('Two or More Races')),
-                DropdownMenuItem(value: 'Prefer not to say', child: Text('Prefer not to say')),
+                DropdownMenuItem(
+                  value: 'American Indian or Alaska Native',
+                  child: Text('American Indian or Alaska Native', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'Asian',
+                  child: Text('Asian', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'Black or African American',
+                  child: Text('Black or African American', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'Hispanic or Latino',
+                  child: Text('Hispanic or Latino', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'Native Hawaiian or Pacific Islander',
+                  child: Text('Native Hawaiian or Pacific Islander', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'White',
+                  child: Text('White', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'Two or More Races',
+                  child: Text('Two or More Races', overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'Prefer not to say',
+                  child: Text('Prefer not to say', overflow: TextOverflow.ellipsis),
+                ),
               ],
               onChanged: (value) {
                 provider.updateDemographics(raceEthnicity: value);

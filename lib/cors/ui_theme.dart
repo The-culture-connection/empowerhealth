@@ -210,4 +210,79 @@ class AppTheme {
       color: color ?? brandBlack,
     );
   }
+
+  // Helper for responsive body text style
+  static TextStyle responsiveBodyStyle(BuildContext context, {
+    Color? color,
+    FontWeight? fontWeight,
+    double? baseSize,
+  }) {
+    return TextStyle(
+      fontSize: responsiveFontSize(context, baseSize: baseSize ?? 14),
+      fontWeight: fontWeight ?? FontWeight.w400,
+      color: color ?? brandBlack,
+    );
+  }
+
+  // Helper for responsive button text style
+  static TextStyle responsiveButtonStyle(BuildContext context, {
+    Color? color,
+    FontWeight? fontWeight,
+    double? baseSize,
+  }) {
+    return TextStyle(
+      fontSize: responsiveFontSize(context, baseSize: baseSize ?? 16),
+      fontWeight: fontWeight ?? FontWeight.w600,
+      color: color ?? Colors.white,
+    );
+  }
+
+  // Helper for responsive caption/small text style
+  static TextStyle responsiveCaptionStyle(BuildContext context, {
+    Color? color,
+    FontWeight? fontWeight,
+    double? baseSize,
+  }) {
+    return TextStyle(
+      fontSize: responsiveFontSize(context, baseSize: baseSize ?? 12),
+      fontWeight: fontWeight ?? FontWeight.w400,
+      color: color ?? Colors.grey.shade600,
+    );
+  }
+
+  // Safe text widget that prevents overflow
+  static Widget safeText(
+    String text, {
+    TextStyle? style,
+    int? maxLines,
+    TextAlign? textAlign,
+    TextOverflow? overflow,
+  }) {
+    return Text(
+      text,
+      style: style,
+      maxLines: maxLines,
+      textAlign: textAlign,
+      overflow: overflow ?? TextOverflow.ellipsis,
+      softWrap: true,
+    );
+  }
+
+  // Responsive padding based on screen size
+  static EdgeInsets responsivePadding(BuildContext context, {
+    double? horizontal,
+    double? vertical,
+    double? all,
+  }) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final multiplier = screenWidth < 360 ? 0.75 : (screenWidth > 600 ? 1.25 : 1.0);
+    
+    if (all != null) {
+      return EdgeInsets.all(all * multiplier);
+    }
+    return EdgeInsets.symmetric(
+      horizontal: (horizontal ?? 16) * multiplier,
+      vertical: (vertical ?? 16) * multiplier,
+    );
+  }
 }

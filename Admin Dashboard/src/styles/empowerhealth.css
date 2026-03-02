@@ -1,0 +1,33 @@
+/* EmpowerHealth Custom Theme - Warm, Calm, Trustworthy */
+
+:root {
+  /* Soft lavender and purple accents */
+  --lavender-50: #f9f7fc;
+  --lavender-100: #f2edf9;
+  --lavender-200: #e8dff5;
+  --lavender-300: #d4bfe9;
+  --lavender-400: #b694d8;
+  --lavender-500: #9b72c9;
+  --lavender-600: #8053b8;
+  
+  /* Warm neutrals */
+  --warm-50: #fafaf9;
+  --warm-100: #f5f5f4;
+  --warm-200: #e7e5e4;
+  --warm-300: #d6d3d1;
+  --warm-400: #a8a29e;
+  --warm-500: #78716c;
+  --warm-600: #57534e;
+  
+  /* Status colors - soft versions */
+  --success-light: #d1f4e0;
+  --success: #4ade80;
+  --warning-light: #fef3c7;
+  --warning: #fbbf24;
+  
+  /* EmpowerHealth Brand */
+  --eh-primary: var(--lavender-500);
+  --eh-primary-light: var(--lavender-300);
+  --eh-surface: var(--lavender-50);
+  --eh-background: #fdfcfe;
+}

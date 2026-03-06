@@ -3,20 +3,20 @@
  */
 
 import * as functions from 'firebase-functions';
+import * as functionsV1 from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 
 admin.initializeApp();
 
 const db = admin.firestore();
-const auth = admin.auth();
 
 /**
  * Upload Build Version
  * Called from CI/CD or manual script to upload build version info
  */
-export const uploadBuildVersion = functions.https.onCall(async (data, context) => {
+export const uploadBuildVersion = functions.https.onCall(async (data: any, context: any) => {
   // Verify caller is authenticated
-  if (!context.auth) {
+  if (!context || !context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
@@ -64,8 +64,8 @@ export const uploadBuildVersion = functions.https.onCall(async (data, context) =
  * Log Analytics Event
  * Handles anonymization server-side
  */
-export const logAnalyticsEvent = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
+export const logAnalyticsEvent = functions.https.onCall(async (data: any, context: any) => {
+  if (!context || !context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
@@ -74,7 +74,8 @@ export const logAnalyticsEvent = functions.https.onCall(async (data, context) =>
 
   // Generate anonymized user ID (salted hash)
   const crypto = require('crypto');
-  const salt = functions.config().analytics?.salt || 'default-salt-change-in-production';
+  const config: any = (functions as any).config();
+  const salt = config.analytics?.salt || 'default-salt-change-in-production';
   const anonUserId = crypto
     .createHash('sha256')
     .update(uid + salt)
@@ -117,8 +118,8 @@ export const logAnalyticsEvent = functions.https.onCall(async (data, context) =>
  * Get Analytics Data
  * Aggregates analytics data with role-based access
  */
-export const getAnalyticsData = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
+export const getAnalyticsData = functions.https.onCall(async (data: any, context: any) => {
+  if (!context || !context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
@@ -127,7 +128,6 @@ export const getAnalyticsData = functions.https.onCall(async (data, context) => 
 
   // Check user role
   const isAdmin = await checkUserRole(uid, 'admin');
-  const isResearchPartner = await checkUserRole(uid, 'research_partner');
 
   // Research partners can only access anonymized data
   if (!anonymized && !isAdmin) {
@@ -147,14 +147,14 @@ export const getAnalyticsData = functions.https.onCall(async (data, context) => 
   }
 
   const snapshot = await query.get();
-  const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const events: any[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
   // Aggregate data
-  const activeUsers = new Set(events.map(e => anonymized ? e.anonUserId : e.uid)).size;
+  const activeUsers = new Set(events.map((e: any) => anonymized ? e.anonUserId : e.uid)).size;
   const featureUsage: Record<string, number> = {};
   const featureDurations: Record<string, number[]> = {};
 
-  events.forEach(event => {
+  events.forEach((event: any) => {
     const feat = event.feature || 'unknown';
     featureUsage[feat] = (featureUsage[feat] || 0) + 1;
     
@@ -184,8 +184,8 @@ export const getAnalyticsData = functions.https.onCall(async (data, context) => 
  * Generate Report
  * Creates comprehensive reports with insights
  */
-export const generateReport = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
+export const generateReport = functions.https.onCall(async (data: any, context: any) => {
+  if (!context || !context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
@@ -291,11 +291,245 @@ function generateReportByType(
 }
 
 /**
+ * Get Feature Analytics
+ * Aggregates analytics data for a specific feature
+ */
+export const getFeatureAnalytics = functions.https.onCall(async (data: any, context: any) => {
+  if (!context || !context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const { featureId, dateRange, anonymized = true } = data;
+  const uid = context.auth.uid;
+
+  if (!featureId) {
+    throw new functions.https.HttpsError('invalid-argument', 'featureId is required');
+  }
+
+  // Check user role
+  const isAdmin = await checkUserRole(uid, 'admin');
+  const isResearchPartner = await checkUserRole(uid, 'research_partner');
+  const isCommunityManager = await checkUserRole(uid, 'community_manager');
+
+  if (!isAdmin && !isResearchPartner && !isCommunityManager) {
+    throw new functions.https.HttpsError('permission-denied', 'Insufficient permissions');
+  }
+
+  // Research partners can only access anonymized data
+  if (!anonymized && !isAdmin) {
+    throw new functions.https.HttpsError('permission-denied', 'Only admins can access unanonymized data');
+  }
+
+  const collectionName = anonymized ? 'analytics_events' : 'analytics_events_private';
+  
+  // Build query for this feature
+  let query: admin.firestore.Query = db.collection(collectionName)
+    .where('feature', '==', featureId);
+
+  // Apply date range if provided
+  if (dateRange) {
+    const startDate = dateRange.start ? admin.firestore.Timestamp.fromDate(new Date(dateRange.start)) : null;
+    const endDate = dateRange.end ? admin.firestore.Timestamp.fromDate(new Date(dateRange.end)) : null;
+    
+    if (startDate) {
+      query = query.where('timestamp', '>=', startDate);
+    }
+    if (endDate) {
+      query = query.where('timestamp', '<=', endDate);
+    }
+  }
+
+  const snapshot = await query.get();
+  const events: any[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  // Get total user count for adoption rate calculation
+  const totalUsersSnapshot = await db.collection('users').limit(1).get();
+  const totalUsers = totalUsersSnapshot.size > 0 
+    ? (await db.collection('users').count().get()).data().count 
+    : 0;
+
+  // Calculate active users (unique users in date range)
+  const activeUsers = new Set(events.map((e: any) => anonymized ? e.anonUserId : e.uid)).size;
+
+  // Calculate adoption rate
+  const adoptionRate = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0;
+
+  // Calculate engagement trend (daily active users)
+  const engagementTrendMap: Record<string, Set<string>> = {};
+  events.forEach((event: any) => {
+    const date = event.timestamp?.toDate();
+    if (date) {
+      const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+      if (!engagementTrendMap[dateKey]) {
+        engagementTrendMap[dateKey] = new Set();
+      }
+      const userId = anonymized ? event.anonUserId : event.uid;
+      if (userId) {
+        engagementTrendMap[dateKey].add(userId);
+      }
+    }
+  });
+
+  const engagementTrend = Object.entries(engagementTrendMap)
+    .map(([date, users]) => ({
+      date: date.split('-').slice(1).join('/'), // MM/DD format
+      value: users.size,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Calculate usage by week
+  const usageByWeekMap: Record<string, number> = {};
+  events.forEach((event: any) => {
+    const date = event.timestamp?.toDate();
+    if (date) {
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
+      const weekKey = `Week ${Math.ceil((weekStart.getTime() - new Date(weekStart.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))}`;
+      usageByWeekMap[weekKey] = (usageByWeekMap[weekKey] || 0) + 1;
+    }
+  });
+
+  const usageByWeek = Object.entries(usageByWeekMap)
+    .map(([week, sessions]) => ({ week, sessions }))
+    .sort((a, b) => a.week.localeCompare(b.week));
+
+  // Calculate KPIs (feature-specific metrics)
+  const completionEvents = events.filter((e: any) => e.eventName === 'feature_completion' || e.eventName === 'feature_view_end');
+  const exportEvents = events.filter((e: any) => e.eventName === 'feature_export');
+  const viewStartEvents = events.filter((e: any) => e.eventName === 'feature_view_start');
+  const durations = events.filter((e: any) => e.durationMs).map((e: any) => e.durationMs);
+
+  const avgDuration = durations.length > 0
+    ? durations.reduce((a, b) => a + b, 0) / durations.length
+    : 0;
+
+  const completionRate = viewStartEvents.length > 0
+    ? Math.round((completionEvents.length / viewStartEvents.length) * 100 * 10) / 10
+    : 0;
+
+  const exportRate = viewStartEvents.length > 0
+    ? Math.round((exportEvents.length / viewStartEvents.length) * 100 * 10) / 10
+    : 0;
+
+  const kpis = [
+    {
+      name: 'Completion Rate',
+      value: `${completionRate}%`,
+      trend: completionRate > 0 ? `+${completionRate}%` : '0%',
+      target: '75%',
+      impact: 'Measures how many users complete the feature workflow',
+    },
+    {
+      name: 'Export Utilization',
+      value: `${exportRate}%`,
+      trend: exportRate > 0 ? `+${exportRate}%` : '0%',
+      target: '50%',
+      impact: 'Shows adoption of export/sharing capabilities',
+    },
+    {
+      name: 'Average Duration',
+      value: `${Math.round(avgDuration / 1000 / 60 * 10) / 10} min`,
+      trend: avgDuration > 0 ? 'Active' : 'N/A',
+      target: '10 min',
+      impact: 'Average time users spend engaging with the feature',
+    },
+  ];
+
+  return {
+    activeUsers,
+    adoptionRate,
+    engagementTrend,
+    usageByWeek,
+    kpis,
+    totalEvents: events.length,
+  };
+});
+
+/**
+ * Update Feature
+ * Admin-only function to update feature metadata
+ */
+export const updateFeature = functions.https.onCall(async (data: any, context: any) => {
+  if (!context || !context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const { featureId, updates } = data;
+  const uid = context.auth.uid;
+
+  if (!featureId || !updates) {
+    throw new functions.https.HttpsError('invalid-argument', 'featureId and updates are required');
+  }
+
+  // Check if user is admin
+  const isAdmin = await checkUserRole(uid, 'admin');
+  if (!isAdmin) {
+    throw new functions.https.HttpsError('permission-denied', 'Only admins can update features');
+  }
+
+  const featureRef = db.collection('technology_features').doc(featureId);
+  const featureDoc = await featureRef.get();
+
+  if (!featureDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Feature not found');
+  }
+
+  const currentData = featureDoc.data();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  // Prepare update data
+  const updateData: any = {
+    ...updates,
+    updatedAt: now,
+    updatedBy: uid,
+  };
+
+  // Check if description or updateHighlight changed (for change history)
+  const descriptionChanged = updates.description && updates.description !== currentData?.description;
+  const highlightChanged = updates.updateHighlight && updates.updateHighlight !== currentData?.updateHighlight;
+
+  // Update feature document
+  await featureRef.update(updateData);
+
+  // Add change history entry if description or highlight changed
+  if (descriptionChanged || highlightChanged) {
+    // Get latest release build number for version
+    const latestReleaseSnapshot = await db.collection('releases')
+      .orderBy('buildNumber', 'desc')
+      .limit(1)
+      .get();
+    
+    const latestRelease = latestReleaseSnapshot.empty ? null : latestReleaseSnapshot.docs[0].data();
+    const version = latestRelease ? latestRelease.fullVersion : 'Unknown';
+
+    await featureRef.collection('change_history').add({
+      version,
+      date: now,
+      change: descriptionChanged 
+        ? `Description updated: ${updates.description?.substring(0, 100)}...`
+        : `Update highlight changed: ${updates.updateHighlight}`,
+      releaseBuildNumber: latestRelease ? latestRelease.buildNumber : null,
+      createdBy: uid,
+    });
+  }
+
+  // Log audit event
+  await db.collection('audit_logs').add({
+    action: 'feature_updated',
+    featureId,
+    performedBy: uid,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return { success: true, featureId };
+});
+
+/**
  * Publish Release
  * Called from GitHub Actions to publish a new release
  * Handles both pilot (push to main) and production (tag prod-v*) releases
  */
-export const publishRelease = functions.https.onCall(async (data, context) => {
+export const publishRelease = functions.https.onCall(async (data: any, context?: any) => {
   // Allow unauthenticated calls from GitHub Actions (using secret token)
   const { 
     pubspecVersionLine, 
@@ -310,7 +544,8 @@ export const publishRelease = functions.https.onCall(async (data, context) => {
 
   // Verify secret token if provided (for GitHub Actions)
   if (secretToken) {
-    const expectedToken = functions.config().github?.secret_token;
+    const config: any = (functions as any).config();
+    const expectedToken = config.github?.secret_token;
     if (!expectedToken || secretToken !== expectedToken) {
       throw new functions.https.HttpsError('permission-denied', 'Invalid secret token');
     }
@@ -373,6 +608,26 @@ export const publishRelease = functions.https.onCall(async (data, context) => {
       : admin.firestore.FieldValue.serverTimestamp(),
   } : null;
 
+  // Extract functional updates from featureDossier.categories
+  const functionalUpdates: Record<string, any[]> = {};
+  if (featureDossier.categories && Array.isArray(featureDossier.categories)) {
+    featureDossier.categories.forEach((category: any) => {
+      const domainKey = category.name?.toLowerCase().replace(/\s+/g, '-') || 'other';
+      if (!functionalUpdates[domainKey]) {
+        functionalUpdates[domainKey] = [];
+      }
+      if (category.items && Array.isArray(category.items)) {
+        category.items.forEach((item: any) => {
+          functionalUpdates[domainKey].push({
+            name: item.name || 'Unnamed Update',
+            description: item.description || '',
+            domain: category.name || 'Other',
+          });
+        });
+      }
+    });
+  }
+
   // Create release document
   const releaseDoc = {
     fullVersion,
@@ -382,12 +637,85 @@ export const publishRelease = functions.https.onCall(async (data, context) => {
     git: gitInfo,
     railway: railwayInfo,
     featureDossier,
+    functionalUpdates, // Add extracted functional updates
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    createdBy: context.auth?.uid || 'system',
+    createdBy: context?.auth?.uid || 'system',
   };
 
   // Upsert to releases collection (docId = buildNumber)
   await db.collection('releases').doc(buildNumber.toString()).set(releaseDoc, { merge: true });
+
+  // Auto-create/update technology_features documents based on dossier categories
+  if (featureDossier.categories && Array.isArray(featureDossier.categories)) {
+    const featureIdMap: Record<string, string> = {
+      'After Visit Summary': 'visit-summary',
+      'Learning Modules': 'learning-modules',
+      'Provider Search': 'provider-search',
+      'Community': 'community-support',
+      'Journal': 'journal',
+      'Birth Plan': 'birth-plan',
+      'Notifications': 'notifications',
+      'Admin': 'admin',
+    };
+
+    const domainMap: Record<string, string> = {
+      'After Visit Summary': 'Care Understanding',
+      'Learning Modules': 'Care Preparation',
+      'Provider Search': 'Care Navigation',
+      'Community': 'Community Support',
+      'Journal': 'Self-Reflection',
+      'Birth Plan': 'Care Preparation',
+      'Notifications': 'Care Navigation',
+      'Admin': 'Admin',
+    };
+
+    for (const category of featureDossier.categories) {
+      const categoryName = category.name || 'Other';
+      const featureId = featureIdMap[categoryName] || categoryName.toLowerCase().replace(/\s+/g, '-');
+      const domain = domainMap[categoryName] || 'Other';
+
+      const featureRef = db.collection('technology_features').doc(featureId);
+      const featureDoc = await featureRef.get();
+
+      const now = admin.firestore.FieldValue.serverTimestamp();
+      const featureData: any = {
+        id: featureId,
+        name: categoryName,
+        domain,
+        category: categoryName,
+        description: featureDoc.exists 
+          ? featureDoc.data()?.description || `Feature updates in ${categoryName}`
+          : `Feature updates in ${categoryName}`,
+        lastUpdated: now,
+        visible: true,
+        displayOrder: Object.keys(featureIdMap).indexOf(categoryName) >= 0 
+          ? Object.keys(featureIdMap).indexOf(categoryName) 
+          : 999,
+        tags: [categoryName.toLowerCase().replace(/\s+/g, '-')],
+        updatedAt: now,
+        updatedBy: context?.auth?.uid || 'system',
+      };
+
+      if (!featureDoc.exists) {
+        featureData.createdAt = now;
+      }
+
+      await featureRef.set(featureData, { merge: true });
+
+      // Add change history entry for each feature item in this category
+      if (category.items && Array.isArray(category.items)) {
+        for (const item of category.items) {
+          await featureRef.collection('change_history').add({
+            version: fullVersion,
+            date: now,
+            change: item.description || item.name || 'Feature updated',
+            releaseBuildNumber: buildNumber,
+            createdBy: context?.auth?.uid || 'system',
+          });
+        }
+      }
+    }
+  }
 
   // Log audit event
   await db.collection('audit_logs').add({
@@ -396,7 +724,7 @@ export const publishRelease = functions.https.onCall(async (data, context) => {
     fullVersion,
     channel,
     gitTag: gitTag || null,
-    performedBy: context.auth?.uid || 'system',
+    performedBy: context?.auth?.uid || 'system',
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
   });
 
@@ -407,7 +735,7 @@ export const publishRelease = functions.https.onCall(async (data, context) => {
  * Poll System Health
  * Scheduled function that checks system health every 5 minutes
  */
-export const pollSystemHealth = functions.pubsub.schedule('every 5 minutes').onRun(async (context) => {
+export const pollSystemHealth = functionsV1.pubsub.schedule('every 5 minutes').onRun(async (context: any) => {
   const checks = await performHealthChecks();
   
   // Write results to system_health collection
@@ -431,8 +759,8 @@ export const pollSystemHealth = functions.pubsub.schedule('every 5 minutes').onR
  * Run Health Check Now
  * Manual health check trigger (Admin only)
  */
-export const runHealthCheckNow = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
+export const runHealthCheckNow = functions.https.onCall(async (data: any, context: any) => {
+  if (!context || !context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
@@ -475,10 +803,12 @@ export const runHealthCheckNow = functions.https.onCall(async (data, context) =>
  */
 async function performHealthChecks(): Promise<Record<string, any>> {
   const checks: Record<string, any> = {};
+  const config: any = (functions as any).config();
 
   // Check Railway API
+  let railwayUrl = 'https://api.railway.app/health';
   try {
-    const railwayUrl = functions.config().railway?.health_url || 'https://api.railway.app/health';
+    railwayUrl = config.railway?.health_url || 'https://api.railway.app/health';
     const startTime = Date.now();
     // Use node-fetch for Node.js environment
     const nodeFetch = require('node-fetch');
@@ -512,7 +842,7 @@ async function performHealthChecks(): Promise<Record<string, any>> {
         message: `Railway API check failed: ${error.message}`,
         latencyMs: null,
         errorCode: 'TIMEOUT',
-        url: functions.config().railway?.health_url || 'https://api.railway.app/health',
+        url: railwayUrl,
       },
     };
   }

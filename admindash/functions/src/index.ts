@@ -71,6 +71,23 @@ export const logAnalyticsEvent = functions.https.onCall(async (data: any, contex
 
   const { eventName, feature, metadata, durationMs, sessionId } = data;
   const uid = context.auth.uid;
+  
+  // Validate feature ID
+  const validFeatures = [
+    'provider-search',
+    'authentication-onboarding',
+    'user-feedback',
+    'appointment-summarizing',
+    'journal',
+    'learning-modules',
+    'birth-plan-generator',
+    'community',
+    'profile-editing'
+  ];
+  
+  if (feature && !validFeatures.includes(feature)) {
+    console.warn(`Invalid feature ID: ${feature}, using 'unknown'`);
+  }
 
   // Generate anonymized user ID (salted hash)
   const crypto = require('crypto');
@@ -646,16 +663,20 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
   await db.collection('releases').doc(buildNumber.toString()).set(releaseDoc, { merge: true });
 
   // Auto-create/update technology_features documents based on dossier categories
+  // Also process feature changes from FEATURES.md (if available via GitHub)
   if (featureDossier.categories && Array.isArray(featureDossier.categories)) {
     const featureIdMap: Record<string, string> = {
-      'After Visit Summary': 'visit-summary',
+      'After Visit Summary': 'appointment-summarizing',
       'Learning Modules': 'learning-modules',
       'Provider Search': 'provider-search',
-      'Community': 'community-support',
+      'Community': 'community',
       'Journal': 'journal',
-      'Birth Plan': 'birth-plan',
+      'Birth Plan': 'birth-plan-generator',
       'Notifications': 'notifications',
       'Admin': 'admin',
+      'User Feedback': 'user-feedback',
+      'Authentication': 'authentication-onboarding',
+      'Profile': 'profile-editing',
     };
 
     const domainMap: Record<string, string> = {

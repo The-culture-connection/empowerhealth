@@ -124,17 +124,31 @@ jobs:
           COMMIT_AUTHOR=$(git log -1 --format=%an "${{ steps.commit-info.outputs.commit_sha }}")
           COMMIT_MESSAGE=$(git log -1 --format=%B "${{ steps.commit-info.outputs.commit_sha }}" | jq -Rs .)
           
-          # Call Cloud Function to process features
-          firebase functions:call processFeatureChanges \
-            --data "{
-              \"commitSha\": \"${{ steps.commit-info.outputs.commit_sha }}\",
-              \"commitMessage\": $COMMIT_MESSAGE,
-              \"commitDate\": \"$COMMIT_DATE\",
-              \"commitAuthor\": \"$COMMIT_AUTHOR\",
-              \"featuresMarkdown\": $FEATURES_JSON,
-              \"secretToken\": \"${{ secrets.FIREBASE_FUNCTIONS_SECRET_TOKEN }}\"
-            }" \
-            --project "${{ secrets.FIREBASE_PROJECT_ID }}"
+          # Prepare request payload
+          REQUEST_BODY=$(jq -n \
+            --arg commitSha "${{ steps.commit-info.outputs.commit_sha }}" \
+            --argjson commitMessage "$COMMIT_MESSAGE" \
+            --arg commitDate "$COMMIT_DATE" \
+            --arg commitAuthor "$COMMIT_AUTHOR" \
+            --argjson featuresMarkdown "$FEATURES_JSON" \
+            --arg secretToken "${{ secrets.FIREBASE_FUNCTIONS_SECRET_TOKEN }}" \
+            '{
+              "data": {
+                "commitSha": $commitSha,
+                "commitMessage": $commitMessage,
+                "commitDate": $commitDate,
+                "commitAuthor": $commitAuthor,
+                "featuresMarkdown": $featuresMarkdown,
+                "secretToken": $secretToken
+              }
+            }')
+          
+          # Call Cloud Function via HTTPS endpoint using curl
+          curl -X POST \
+            "https://us-central1-${{ secrets.FIREBASE_PROJECT_ID }}.cloudfunctions.net/processFeatureChanges" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.FIREBASE_TOKEN }}" \
+            -d "$REQUEST_BODY" || true
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         continue-on-error: true  # Don't fail if features haven't changed
@@ -153,27 +167,54 @@ jobs:
 
       - name: Call publishRelease Cloud Function
         run: |
-          # Call the Cloud Function with codebase flag
-          firebase functions:call publishRelease \
-            --data '{
-              "pubspecVersionLine": "${{ steps.parse-version.outputs.version_line }}",
-              "commitSha": "${{ steps.commit-info.outputs.commit_sha }}",
-              "branch": "${{ steps.commit-info.outputs.branch }}",
-              "gitTag": "${{ steps.commit-info.outputs.git_tag }}",
-              "featureDossierJson": ${{ steps.feature-dossier.outputs.dossier_json }},
-              "environment": "${{ steps.environment.outputs.environment }}",
-              "commitMessage": ${{ steps.commit-details.outputs.commit_message }},
-              "commitAuthor": "${{ steps.commit-details.outputs.commit_author }}",
-              "commitDate": "${{ steps.commit-details.outputs.commit_date }}",
-              "railwayDeployment": {
-                "deploymentId": "${{ steps.railway-info.outputs.deployment_id }}",
-                "deploymentUrl": "${{ steps.railway-info.outputs.deployment_url }}",
-                "status": "${{ steps.railway-info.outputs.deployment_status }}",
-                "deployedAt": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"
-              },
-              "secretToken": "${{ secrets.FIREBASE_FUNCTIONS_SECRET_TOKEN }}"
-            }' \
-            --project "${{ secrets.FIREBASE_PROJECT_ID }}" \
-            --codebase admindashboard
+          # Prepare Railway deployment data
+          RAILWAY_DEPLOYMENT=$(jq -n \
+            --arg deploymentId "${{ steps.railway-info.outputs.deployment_id }}" \
+            --arg deploymentUrl "${{ steps.railway-info.outputs.deployment_url }}" \
+            --arg status "${{ steps.railway-info.outputs.deployment_status }}" \
+            --arg deployedAt "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+            '{
+              "deploymentId": $deploymentId,
+              "deploymentUrl": $deploymentUrl,
+              "status": $status,
+              "deployedAt": $deployedAt
+            }')
+          
+          # Prepare request payload
+          REQUEST_DATA=$(jq -n \
+            --arg versionLine "${{ steps.parse-version.outputs.version_line }}" \
+            --arg commitSha "${{ steps.commit-info.outputs.commit_sha }}" \
+            --arg branch "${{ steps.commit-info.outputs.branch }}" \
+            --arg gitTag "${{ steps.commit-info.outputs.git_tag }}" \
+            --argjson dossier "${{ steps.feature-dossier.outputs.dossier_json }}" \
+            --arg environment "${{ steps.environment.outputs.environment }}" \
+            --argjson commitMessage "${{ steps.commit-details.outputs.commit_message }}" \
+            --arg commitAuthor "${{ steps.commit-details.outputs.commit_author }}" \
+            --arg commitDate "${{ steps.commit-details.outputs.commit_date }}" \
+            --argjson railwayDeployment "$RAILWAY_DEPLOYMENT" \
+            --arg secretToken "${{ secrets.FIREBASE_FUNCTIONS_SECRET_TOKEN }}" \
+            '{
+              "data": {
+                "pubspecVersionLine": $versionLine,
+                "commitSha": $commitSha,
+                "branch": $branch,
+                "gitTag": $gitTag,
+                "featureDossierJson": $dossier,
+                "environment": $environment,
+                "commitMessage": $commitMessage,
+                "commitAuthor": $commitAuthor,
+                "commitDate": $commitDate,
+                "railwayDeployment": $railwayDeployment,
+                "secretToken": $secretToken
+              }
+            }')
+          
+          # Call Cloud Function via HTTPS endpoint using curl
+          # For callable functions, we need to use the function URL directly
+          curl -X POST \
+            "https://us-central1-${{ secrets.FIREBASE_PROJECT_ID }}.cloudfunctions.net/publishRelease" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.FIREBASE_TOKEN }}" \
+            -d "$REQUEST_DATA"
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

@@ -106,26 +106,6 @@
         }
       ]
     },
-    {
-      "collectionGroup": "releases",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "buildNumber",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "incidents",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "startedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    }
   ],
   "fieldOverrides": []
 }

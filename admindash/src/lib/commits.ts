@@ -19,31 +19,46 @@ export interface Commit {
   createdAt: Timestamp | Date;
 }
 
+function processCommits(snapshot: any): Commit[] {
+  return snapshot.docs.map((doc: any) => {
+    const data = doc.data();
+    return {
+      commitSha: data.commitSha || doc.id,
+      commitMessage: data.commitMessage || '',
+      commitAuthor: data.commitAuthor || 'Unknown',
+      commitDate: data.commitDate?.toDate ? data.commitDate.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : new Date()),
+      branch: data.branch || 'main',
+      gitTag: data.gitTag || null,
+      buildNumber: data.buildNumber,
+      fullVersion: data.fullVersion,
+      channel: data.channel,
+      releaseDocId: data.releaseDocId,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+    } as Commit;
+  });
+}
+
 /**
  * Get latest commits from Firestore
  */
 export async function getLatestCommits(count: number = 20): Promise<Commit[]> {
   try {
     const commitsRef = collection(firestore, 'commits');
-    const q = query(commitsRef, orderBy('commitDate', 'desc'), limit(count));
-    const snapshot = await getDocs(q);
-    
-    return snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        commitSha: data.commitSha || doc.id,
-        commitMessage: data.commitMessage || '',
-        commitAuthor: data.commitAuthor || 'Unknown',
-        commitDate: data.commitDate?.toDate ? data.commitDate.toDate() : new Date(data.commitDate),
-        branch: data.branch || 'main',
-        gitTag: data.gitTag || null,
-        buildNumber: data.buildNumber,
-        fullVersion: data.fullVersion,
-        channel: data.channel,
-        releaseDocId: data.releaseDocId,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
-      } as Commit;
-    });
+    // Try orderBy commitDate first, fallback to createdAt if index not ready
+    try {
+      const q = query(commitsRef, orderBy('commitDate', 'desc'), limit(count));
+      const snapshot = await getDocs(q);
+      return processCommits(snapshot);
+    } catch (indexError: any) {
+      // If index error, try createdAt instead
+      if (indexError.code === 'failed-precondition' || indexError.message?.includes('index')) {
+        console.warn('commitDate index not ready, using createdAt');
+        const q = query(commitsRef, orderBy('createdAt', 'desc'), limit(count));
+        const snapshot = await getDocs(q);
+        return processCommits(snapshot);
+      }
+      throw indexError;
+    }
   } catch (error) {
     console.error('Error fetching commits:', error);
     throw error;
@@ -86,5 +101,7 @@ export async function getCommitBySha(commitSha: string): Promise<Commit | null> 
  */
 export function getGitHubCommitUrl(commitSha: string, repoUrl?: string): string {
   const baseUrl = repoUrl || 'https://github.com/The-culture-connection/empowerhealth';
-  return `${baseUrl}/commit/${commitSha}`;
+  // Remove .git if present
+  const cleanUrl = baseUrl.replace(/\.git$/, '');
+  return `${cleanUrl}/commit/${commitSha}`;
 }

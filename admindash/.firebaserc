@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "your-project-id",
+    "admindashboard": "empower-health-watch"
+  },
+  "targets": {},
+  "etags": {}
+}

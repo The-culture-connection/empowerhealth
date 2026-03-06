@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fix ADMIN Document</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .code-block {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #4f46e5;
+        }
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fix ADMIN Document Structure</h1>
+    <p>This will migrate your ADMIN document from auto-generated ID to uid-based ID.</p>
+    
+    <div class="code-block">
+        <strong>Your current situation:</strong><br>
+        Document ID: <code>ASftE2NiYG8sQzQfd48x</code> (auto-generated)<br>
+        Should be: <code>pPw9YOT2DGWLDqREGPPRAef6zh82</code> (your uid)
+    </div>
+
+    <h2>Option 1: Quick Fix via Browser Console</h2>
+    <p>Open your browser console (F12) on the admin dashboard and run:</p>
+    <div class="code-block">
+        <pre>// Get your current user
+const auth = getAuth();
+const user = auth.currentUser;
+
+if (!user) {
+  console.error('Not logged in');
+} else {
+  const db = getFirestore();
+  const adminRef = collection(db, 'ADMIN');
+  const q = query(adminRef, where('email', '==', user.email));
+  
+  getDocs(q).then(snapshot => {
+    snapshot.forEach(async (docSnap) => {
+      const data = docSnap.data();
+      if (docSnap.id !== user.uid) {
+        console.log('Migrating:', docSnap.id, '→', user.uid);
+        // Create new document with uid as ID
+        await setDoc(doc(db, 'ADMIN', user.uid), data);
+        // Delete old document
+        await deleteDoc(doc(db, 'ADMIN', docSnap.id));
+        console.log('✓ Migration complete! Refresh the page.');
+      }
+    });
+  });
+}</pre>
+    </div>
+
+    <h2>Option 2: Manual Fix in Firestore Console</h2>
+    <ol>
+        <li>Go to <a href="https://console.firebase.google.com" target="_blank">Firebase Console</a></li>
+        <li>Navigate to Firestore Database</li>
+        <li>Open the <code>ADMIN</code> collection</li>
+        <li>Find the document with ID <code>ASftE2NiYG8sQzQfd48x</code></li>
+        <li>Click on it and copy all the data</li>
+        <li>Create a new document with ID = <code>pPw9YOT2DGWLDqREGPPRAef6zh82</code></li>
+        <li>Paste the data into the new document</li>
+        <li>Delete the old document (<code>ASftE2NiYG8sQzQfd48x</code>)</li>
+        <li>Refresh your admin dashboard</li>
+    </ol>
+
+    <h2>Option 3: Use Admin Dashboard (After you fix one admin)</h2>
+    <p>Once you manually fix your own admin document, you can use the Admin Dashboard's "Users & Roles" page to reassign roles to other users. The updated code will automatically create documents with uid-based IDs.</p>
+</body>
+</html>

@@ -5,6 +5,7 @@
 import * as functions from 'firebase-functions';
 import * as functionsV1 from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
+import { defineString } from 'firebase-functions/params';
 
 admin.initializeApp();
 
@@ -91,8 +92,8 @@ export const logAnalyticsEvent = functions.https.onCall(async (data: any, contex
 
   // Generate anonymized user ID (salted hash)
   const crypto = require('crypto');
-  const config: any = (functions as any).config();
-  const salt = config.analytics?.salt || 'default-salt-change-in-production';
+  const analyticsSalt = defineString('ANALYTICS_SALT', { default: 'default-salt-change-in-production' });
+  const salt = analyticsSalt.value();
   const anonUserId = crypto
     .createHash('sha256')
     .update(uid + salt)
@@ -542,6 +543,223 @@ export const updateFeature = functions.https.onCall(async (data: any, context: a
 });
 
 /**
+ * Process Feature Changes from FEATURES.md
+ * Called from GitHub Actions to update feature descriptions and change history
+ */
+export const processFeatureChanges = functions.https.onCall(async (data: any, context?: any) => {
+  // Allow unauthenticated calls from GitHub Actions (using secret token)
+  const { 
+    commitSha,
+    commitMessage,
+    commitDate,
+    commitAuthor,
+    secretToken,
+    featuresMarkdown
+  } = data;
+
+  // Verify secret token if provided (for GitHub Actions)
+  if (secretToken) {
+    const githubSecretToken = defineString('GITHUB_SECRET_TOKEN');
+    const expectedToken = githubSecretToken.value();
+    if (!expectedToken || secretToken !== expectedToken) {
+      throw new functions.https.HttpsError('permission-denied', 'Invalid secret token');
+    }
+  } else if (!context?.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  if (!commitSha || !featuresMarkdown) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: commitSha, featuresMarkdown');
+  }
+
+  try {
+    // Parse features from markdown
+    const features = parseFeaturesMarkdown(featuresMarkdown);
+    
+    // Update features in Firestore
+    const batch = db.batch();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const commitDateTimestamp = commitDate 
+      ? admin.firestore.Timestamp.fromDate(new Date(commitDate))
+      : now;
+
+    for (const [featureId, featureData] of Object.entries(features)) {
+      const featureRef = db.collection('technology_features').doc(featureId);
+      
+      // Get existing feature
+      const featureDoc = await featureRef.get();
+      const existingData: any = featureDoc.exists ? featureDoc.data() : {};
+      
+      // Update feature document
+      const featureUpdate: any = {
+        name: featureData.name,
+        description: featureData.description,
+        domain: getDomainFromFeatureId(featureId),
+        status: existingData?.status || 'active',
+        displayOrder: existingData?.displayOrder || getDefaultDisplayOrder(featureId),
+        tags: existingData?.tags || [featureId],
+        updatedAt: now,
+        updatedBy: 'system',
+        lastProcessedCommit: commitSha,
+      };
+
+      if (!featureDoc.exists) {
+        featureUpdate.createdAt = now;
+        featureUpdate.visible = true;
+      }
+
+      batch.set(featureRef, featureUpdate, { merge: true });
+      
+      // Add new change history entries
+      const latestChanges = featureData.changeHistory.filter((change: any) => 
+        !existingData?.lastProcessedCommit || 
+        change.commitSha !== existingData.lastProcessedCommit
+      );
+      
+      for (const change of latestChanges) {
+        const changeRef = featureRef.collection('change_history').doc();
+        batch.set(changeRef, {
+          version: commitSha.substring(0, 7),
+          date: commitDateTimestamp,
+          change: change.description,
+          title: change.title,
+          commitSha: change.commitSha,
+          commitMessage: commitMessage || '',
+          commitAuthor: commitAuthor || 'system',
+          releaseBuildNumber: null,
+          createdBy: 'system',
+          createdAt: now
+        });
+      }
+    }
+
+    await batch.commit();
+
+    // Log audit event
+    await db.collection('audit_logs').add({
+      action: 'feature_changes_processed',
+      commitSha,
+      commitMessage: commitMessage || '',
+      featuresUpdated: Object.keys(features).length,
+      performedBy: context?.auth?.uid || 'system',
+      timestamp: now,
+    });
+
+    return { 
+      success: true, 
+      featuresUpdated: Object.keys(features).length,
+      commitSha 
+    };
+  } catch (error: any) {
+    console.error('Error processing feature changes:', error);
+    throw new functions.https.HttpsError('internal', `Failed to process feature changes: ${error.message}`);
+  }
+});
+
+/**
+ * Parse FEATURES.md markdown content
+ */
+function parseFeaturesMarkdown(content: string): Record<string, any> {
+  const features: Record<string, any> = {};
+  const sections = content.split(/^## \d+\. /m);
+  
+  sections.forEach((section, index) => {
+    if (index === 0) return; // Skip header
+    
+    const lines = section.split('\n');
+    const featureName = lines[0].trim();
+    
+    let currentSection = '';
+    let description = '';
+    const changeHistory: any[] = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      if (line === '### Current Functionality') {
+        currentSection = 'description';
+      } else if (line === '### Change History') {
+        currentSection = 'changes';
+      } else if (line.startsWith('- **') && currentSection === 'changes') {
+        // Parse: - **[Date]** - **[Commit SHA]** - **[Title]**: [Description]
+        const match = line.match(/^- \*\*(\d{4}-\d{2}-\d{2})\*\* - \*\*([a-f0-9]+)\*\* - \*\*([^\*]+)\*\*: (.+)$/);
+        if (match) {
+          changeHistory.push({
+            date: match[1],
+            commitSha: match[2],
+            title: match[3],
+            description: match[4]
+          });
+        }
+      } else if (currentSection === 'description' && line && !line.startsWith('---')) {
+        description += (description ? '\n' : '') + line;
+      }
+    }
+    
+    // Map feature names to IDs
+    const featureIdMap: Record<string, string> = {
+      'Provider Search': 'provider-search',
+      'Authentication and Onboarding': 'authentication-onboarding',
+      'User Feedback': 'user-feedback',
+      'Appointment Summarizing': 'appointment-summarizing',
+      'Journal': 'journal',
+      'Learning Modules': 'learning-modules',
+      'Birth Plan Generator': 'birth-plan-generator',
+      'Community': 'community',
+      'Profile Editing': 'profile-editing'
+    };
+    
+    const featureId = featureIdMap[featureName] || featureName.toLowerCase().replace(/\s+/g, '-');
+    
+    features[featureId] = {
+      name: featureName,
+      description: description.trim(),
+      changeHistory: changeHistory
+    };
+  });
+  
+  return features;
+}
+
+/**
+ * Get domain from feature ID
+ */
+function getDomainFromFeatureId(featureId: string): string {
+  const domainMap: Record<string, string> = {
+    'provider-search': 'Care Navigation',
+    'authentication-onboarding': 'User Experience',
+    'user-feedback': 'User Engagement',
+    'appointment-summarizing': 'Care Understanding',
+    'journal': 'Self-Reflection',
+    'learning-modules': 'Care Preparation',
+    'birth-plan-generator': 'Care Preparation',
+    'community': 'Community Support',
+    'profile-editing': 'User Experience'
+  };
+  
+  return domainMap[featureId] || 'Other';
+}
+
+/**
+ * Get default display order for feature
+ */
+function getDefaultDisplayOrder(featureId: string): number {
+  const orderMap: Record<string, number> = {
+    'provider-search': 1,
+    'authentication-onboarding': 2,
+    'user-feedback': 3,
+    'appointment-summarizing': 4,
+    'journal': 5,
+    'learning-modules': 6,
+    'birth-plan-generator': 7,
+    'community': 8,
+    'profile-editing': 9
+  };
+  
+  return orderMap[featureId] || 999;
+}
+
+/**
  * Publish Release
  * Called from GitHub Actions to publish a new release
  * Handles both pilot (push to main) and production (tag prod-v*) releases
@@ -556,13 +774,16 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
     featureDossierJson, 
     environment,
     railwayDeployment,
-    secretToken 
+    secretToken,
+    commitMessage,
+    commitAuthor,
+    commitDate
   } = data;
 
   // Verify secret token if provided (for GitHub Actions)
   if (secretToken) {
-    const config: any = (functions as any).config();
-    const expectedToken = config.github?.secret_token;
+    const githubSecretToken = defineString('GITHUB_SECRET_TOKEN');
+    const expectedToken = githubSecretToken.value();
     if (!expectedToken || secretToken !== expectedToken) {
       throw new functions.https.HttpsError('permission-denied', 'Invalid secret token');
     }
@@ -612,6 +833,9 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
       ? `${repoUrl}/compare/${gitTag}...main`
       : `${repoUrl}/compare/${commitSha}...main`,
     commitUrl: `${repoUrl}/commit/${commitSha}`,
+    commitMessage: commitMessage || '',
+    commitAuthor: commitAuthor || '',
+    commitDate: commitDate ? admin.firestore.Timestamp.fromDate(new Date(commitDate)) : admin.firestore.FieldValue.serverTimestamp(),
   };
 
   // Build railway info
@@ -661,6 +885,21 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
 
   // Upsert to releases collection (docId = buildNumber)
   await db.collection('releases').doc(buildNumber.toString()).set(releaseDoc, { merge: true });
+
+  // Also create a commit tracking document for this commit
+  await db.collection('commits').doc(commitSha).set({
+    commitSha,
+    commitMessage: commitMessage || '',
+    commitAuthor: commitAuthor || '',
+    commitDate: commitDate ? admin.firestore.Timestamp.fromDate(new Date(commitDate)) : admin.firestore.FieldValue.serverTimestamp(),
+    branch: branch || 'main',
+    gitTag: gitTag || null,
+    buildNumber,
+    fullVersion,
+    channel,
+    releaseDocId: buildNumber.toString(),
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
 
   // Auto-create/update technology_features documents based on dossier categories
   // Also process feature changes from FEATURES.md (if available via GitHub)
@@ -824,12 +1063,11 @@ export const runHealthCheckNow = functions.https.onCall(async (data: any, contex
  */
 async function performHealthChecks(): Promise<Record<string, any>> {
   const checks: Record<string, any> = {};
-  const config: any = (functions as any).config();
 
   // Check Railway API
-  let railwayUrl = 'https://api.railway.app/health';
+  const railwayHealthUrl = defineString('RAILWAY_HEALTH_URL', { default: 'https://api.railway.app/health' });
+  let railwayUrl = railwayHealthUrl.value();
   try {
-    railwayUrl = config.railway?.health_url || 'https://api.railway.app/health';
     const startTime = Date.now();
     // Use node-fetch for Node.js environment
     const nodeFetch = require('node-fetch');

@@ -1657,43 +1657,43 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-        TextFormField(
-          controller: _religiousConsiderationsController,
-          decoration: const InputDecoration(labelText: 'Religious Considerations'),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _culturalConsiderationsController,
-          decoration: const InputDecoration(labelText: 'Cultural Considerations'),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _accessibilityNeedsController,
-          decoration: const InputDecoration(labelText: 'Accessibility Needs'),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _traumaHistoryController,
-          decoration: const InputDecoration(labelText: 'History of Trauma (only if you choose)'),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-        _buildListInput('Anxiety Triggers', _anxietyTriggerController, _anxietyTriggers, (item) {
-          setState(() => _anxietyTriggers.add(item));
-          _anxietyTriggerController.clear();
-        }, (index) {
-          setState(() => _anxietyTriggers.removeAt(index));
-        }),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Requests for More Consent-Based Care'),
-          value: _consentBasedCare,
-          onChanged: (v) => setState(() => _consentBasedCare = v),
-        ),
-        const SizedBox(height: 16),
+                TextFormField(
+                  controller: _religiousConsiderationsController,
+                  decoration: const InputDecoration(labelText: 'Religious Considerations'),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _culturalConsiderationsController,
+                  decoration: const InputDecoration(labelText: 'Cultural Considerations'),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _accessibilityNeedsController,
+                  decoration: const InputDecoration(labelText: 'Accessibility Needs'),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _traumaHistoryController,
+                  decoration: const InputDecoration(labelText: 'History of Trauma (only if you choose)'),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                _buildListInput('Anxiety Triggers', _anxietyTriggerController, _anxietyTriggers, (item) {
+                  setState(() => _anxietyTriggers.add(item));
+                  _anxietyTriggerController.clear();
+                }, (index) {
+                  setState(() => _anxietyTriggers.removeAt(index));
+                }),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Requests for More Consent-Based Care'),
+                  value: _consentBasedCare,
+                  onChanged: (v) => setState(() => _consentBasedCare = v),
+                ),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(labelText: 'Preferred Ways to Receive Bad News'),
                   items: ['Private conversation', 'With partner present', 'Written first, then discussion', 'Direct and clear'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),

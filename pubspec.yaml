@@ -55,6 +55,7 @@ dependencies:
   
   # HTTP and API
   http: ^1.2.0
+  crypto: ^3.0.5
   
   # PDF and sharing
   pdf: ^3.10.8

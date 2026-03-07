@@ -6,7 +6,16 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import '../models/user_profile.dart';
+import '../models/analytics_event.dart';
+import '../models/micro_measure.dart';
+import '../models/helpfulness_survey.dart';
+import '../models/milestone_checkin.dart';
+import '../models/care_navigation_outcome.dart';
 import '../utils/pregnancy_utils.dart';
 
 /// Queued analytics event
@@ -41,7 +50,16 @@ class AnalyticsService {
   // Firebase Analytics instance for standard analytics dashboard
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
   
+  // Firestore instance for direct analytics writes
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
   String? _sessionId;
+  DateTime? _sessionStartTime;
+  String? _sessionEntryPoint;
+  
+  // Cached user context for performance
+  Map<String, dynamic>? _cachedUserContext;
+  DateTime? _contextCacheTime;
   
   // Event queue for when auth is not ready
   final List<_QueuedEvent> _eventQueue = [];
@@ -168,6 +186,42 @@ class AnalyticsService {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     final random = DateTime.now().millisecondsSinceEpoch;
     return List.generate(9, (index) => chars[(random + index) % chars.length]).join();
+  }
+  
+  /// Generate stable anonymized user ID from UID
+  /// Uses SHA-256 hash with salt for consistent anonymization
+  Future<String> getAnonUserId(String uid) async {
+    try {
+      // Check if user already has anonUserId stored
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      if (userDoc.exists && userDoc.data()?['anonUserId'] != null) {
+        return userDoc.data()!['anonUserId'] as String;
+      }
+      
+      // Generate new anonUserId using SHA-256 hash
+      // Use a consistent salt (in production, this should be from environment/config)
+      const salt = 'empower-health-analytics-salt-2024';
+      final bytes = utf8.encode('$uid$salt');
+      final digest = sha256.convert(bytes);
+      final anonId = digest.toString().substring(0, 16); // Use first 16 chars
+      
+      // Store it in user document for future use
+      try {
+        await _firestore.collection('users').doc(uid).set({
+          'anonUserId': anonId,
+        }, SetOptions(merge: true));
+      } catch (e) {
+        // Best effort - if write fails, still return the anonId
+        print('⚠️ Analytics: Failed to store anonUserId: $e');
+      }
+      
+      return anonId;
+    } catch (e) {
+      // Fallback: generate a simple hash
+      print('⚠️ Analytics: Error generating anonUserId: $e');
+      final simpleHash = uid.hashCode.abs().toRadixString(36).substring(0, 16);
+      return simpleHash;
+    }
   }
 
   /// Get user lifecycle context from user profile
@@ -355,12 +409,26 @@ class AnalyticsService {
           throw Exception('Function returned success=false: ${result.data}');
         } else {
           // Success - result.data exists and success is not false
-          print('✅ Analytics: [$status] Event "$eventName" logged successfully to Firestore');
+          print('✅ Analytics: [$status] Event "$eventName" logged successfully to Firestore via Cloud Function');
         }
       } else {
         print('⚠️ Analytics: [$status] Event "$eventName" call returned null result');
         // Null result might be OK for some functions, but log it
         print('✅ Analytics: [$status] Event "$eventName" completed (null result)');
+      }
+      
+      // Also save directly to Firestore for query-friendly schema - best effort
+      try {
+        await _saveEventToFirestore(
+          eventName: eventName,
+          feature: feature,
+          metadata: metadata,
+          userProfile: userProfile,
+        );
+        print('✅ Analytics: [$status] Event "$eventName" also saved to Firestore analytics_events');
+    } catch (e) {
+        // Don't fail if Firestore write fails - Cloud Function already handled it
+        print('⚠️ Analytics: Failed to save to Firestore directly (non-critical): $e');
       }
       
       // Also log to Firebase Analytics (standard dashboard) - best effort, don't block
@@ -578,6 +646,446 @@ class AnalyticsService {
       // Don't throw - Firebase Analytics failures shouldn't break the app
       // Just log the error
       print('⚠️ Analytics: Firebase Analytics logging error (non-critical): $e');
+    }
+  }
+  
+  /// Save event directly to Firestore analytics_events collection
+  /// This provides query-friendly schema alongside Cloud Function writes
+  Future<void> _saveEventToFirestore({
+    required String eventName,
+    required String feature,
+    Map<String, dynamic>? metadata,
+    UserProfile? userProfile,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
+      if (userId == null) {
+        // Can't save without user ID
+        return;
+      }
+      
+      // Get anonUserId
+      final anonUserId = await getAnonUserId(userId);
+      
+      // Get user context
+      final lifecycleContext = await getUserLifecycleContext(userProfile);
+      
+      // Extract cohort type, gestational week, trimester from context
+      final cohortType = lifecycleContext['cohort_type'] as String?;
+      final gestationalWeek = lifecycleContext['pregnancy_week'] as int?;
+      final trimester = lifecycleContext['trimester'] as String?;
+      
+      // Create event document
+      final eventData = {
+        'userId': userId,
+        'anonUserId': anonUserId,
+        'eventName': eventName,
+        'feature': feature,
+        'timestamp': FieldValue.serverTimestamp(),
+        'sessionId': getSessionId(),
+        'cohortType': cohortType,
+        'gestationalWeek': gestationalWeek,
+        'trimester': trimester,
+        'metadata': metadata ?? {},
+      };
+      
+      // Save to analytics_events collection
+      await _firestore.collection('analytics_events').add(eventData);
+      
+      // Update user context in users collection (best effort)
+      _updateUserContext(userId, userProfile).catchError((e) {
+        print('⚠️ Analytics: Failed to update user context: $e');
+      });
+      
+    } catch (e) {
+      // Best effort - don't throw
+      print('⚠️ Analytics: Error saving event to Firestore: $e');
+    }
+  }
+  
+  /// Update user context in users collection for analytics
+  Future<void> _updateUserContext(String userId, UserProfile? userProfile) async {
+    try {
+      final updateData = <String, dynamic>{
+        'lastActiveAt': FieldValue.serverTimestamp(),
+      };
+      
+      if (userProfile != null) {
+        // Cohort type
+        if (userProfile.hasPrimaryProvider != null) {
+          updateData['cohortType'] = userProfile.hasPrimaryProvider! ? 'navigator' : 'self_directed';
+        }
+        
+        // Pregnancy info
+        if (userProfile.dueDate != null) {
+          updateData['dueDate'] = Timestamp.fromDate(userProfile.dueDate!);
+          
+          // Calculate gestational week
+          final now = DateTime.now();
+          final dueDate = userProfile.dueDate!;
+          final difference = dueDate.difference(now).inDays;
+          final pregnancyWeek = ((280 - difference) / 7).ceil();
+          if (pregnancyWeek >= 0 && pregnancyWeek <= 40) {
+            updateData['gestationalWeek'] = pregnancyWeek;
+          }
+          
+          // Trimester
+          final trimester = PregnancyUtils.calculateTrimester(userProfile.dueDate);
+          if (trimester != null) {
+            updateData['trimester'] = trimester.toLowerCase();
+          }
+        }
+        
+        // Postpartum
+        if (userProfile.isPostpartum == true) {
+          updateData['postpartum'] = true;
+          if (userProfile.dueDate != null) {
+            final now = DateTime.now();
+            final dueDate = userProfile.dueDate!;
+            final postpartumDays = now.difference(dueDate).inDays;
+            if (postpartumDays > 0) {
+              updateData['postpartumWeeks'] = (postpartumDays / 7).ceil();
+            }
+          }
+        }
+        
+        // Insurance
+        if (userProfile.insuranceType != null) {
+          updateData['insuranceType'] = userProfile.insuranceType;
+        }
+        
+        // Navigator ID
+        if (userProfile.primaryProviderId != null) {
+          updateData['navigatorId'] = userProfile.primaryProviderId;
+        }
+        
+        // Support person
+        if (userProfile.hasSupportPerson != null) {
+          updateData['supportPerson'] = userProfile.hasSupportPerson;
+        }
+        
+        // Segments (array of strings for user segmentation)
+        final segments = <String>[];
+        if (userProfile.hasPrimaryProvider == true) segments.add('navigator');
+        if (userProfile.hasPrimaryProvider == false) segments.add('self_directed');
+        if (userProfile.isPostpartum == true) segments.add('postpartum');
+        if (userProfile.isPostpartum == false && userProfile.dueDate != null) {
+          final trimester = PregnancyUtils.calculateTrimester(userProfile.dueDate);
+          if (trimester != null) segments.add(trimester.toLowerCase());
+        }
+        if (segments.isNotEmpty) {
+          updateData['segments'] = segments;
+        }
+      }
+      
+      // Update user document
+      await _firestore.collection('users').doc(userId).set(
+        updateData,
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      // Best effort - don't throw
+      print('⚠️ Analytics: Error updating user context: $e');
+    }
+  }
+  
+  /// Start a new session
+  Future<void> startSession({String? entryPoint}) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
+      if (userId == null) {
+        // Can't track session without user
+        return;
+      }
+      
+      final sessionId = getSessionId();
+      _sessionStartTime = DateTime.now();
+      _sessionEntryPoint = entryPoint;
+      
+      // Get anonUserId
+      final anonUserId = await getAnonUserId(userId);
+      
+      // Determine platform
+      final platform = _getPlatform();
+      
+      // Create/update session document
+      await _firestore.collection('user_sessions').doc(sessionId).set({
+        'userId': userId,
+        'anonUserId': anonUserId,
+        'startedAt': FieldValue.serverTimestamp(),
+        'endedAt': null,
+        'durationSeconds': null,
+        'entryPoint': entryPoint,
+        'platform': platform,
+      }, SetOptions(merge: true));
+      
+      print('✅ Analytics: Session started: $sessionId');
+    } catch (e) {
+      print('⚠️ Analytics: Error starting session: $e');
+    }
+  }
+  
+  /// End current session
+  Future<void> endSession() async {
+    try {
+      if (_sessionId == null || _sessionStartTime == null) {
+        return;
+      }
+      
+      final sessionId = _sessionId!;
+      final endTime = DateTime.now();
+      final duration = endTime.difference(_sessionStartTime!).inSeconds;
+      
+      // Update session document
+      await _firestore.collection('user_sessions').doc(sessionId).update({
+        'endedAt': FieldValue.serverTimestamp(),
+        'durationSeconds': duration,
+      });
+      
+      print('✅ Analytics: Session ended: $sessionId (duration: ${duration}s)');
+      
+      // Reset session tracking
+      _sessionId = null;
+      _sessionStartTime = null;
+      _sessionEntryPoint = null;
+    } catch (e) {
+      print('⚠️ Analytics: Error ending session: $e');
+    }
+  }
+  
+  /// Get platform identifier
+  String _getPlatform() {
+    if (kIsWeb) {
+      return 'web';
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return 'ios';
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'android';
+    } else {
+      return 'unknown';
+    }
+  }
+  
+  /// Save micro measure (confidence signal) to specialized collection
+  Future<void> saveMicroMeasure({
+    required String feature,
+    String? sourceId,
+    int? understandMeaningScore,
+    int? knowNextStepScore,
+    int? confidenceScore,
+    UserProfile? userProfile,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
+      if (userId == null) {
+        return;
+      }
+      
+      final anonUserId = await getAnonUserId(userId);
+      
+      final microMeasure = MicroMeasure(
+        userId: userId,
+        anonUserId: anonUserId,
+        feature: feature,
+        sourceId: sourceId,
+        timestamp: DateTime.now(),
+        understandMeaningScore: understandMeaningScore,
+        knowNextStepScore: knowNextStepScore,
+        confidenceScore: confidenceScore,
+      );
+      
+      final data = microMeasure.toFirestore();
+      data['timestamp'] = FieldValue.serverTimestamp();
+      
+      // Save to micro_measures collection
+      await _firestore.collection('micro_measures').add(data);
+      
+      // Also log as event
+      await logEvent(
+        eventName: 'micro_measure_submitted',
+        feature: feature,
+        parameters: {
+          if (sourceId != null) 'source_id': sourceId,
+          if (understandMeaningScore != null) 'understand_meaning_score': understandMeaningScore,
+          if (knowNextStepScore != null) 'know_next_step_score': knowNextStepScore,
+          if (confidenceScore != null) 'confidence_score': confidenceScore,
+        },
+        userProfile: userProfile,
+      );
+      
+      print('✅ Analytics: Micro measure saved');
+    } catch (e) {
+      print('⚠️ Analytics: Error saving micro measure: $e');
+    }
+  }
+  
+  /// Save helpfulness survey to specialized collection
+  Future<void> saveHelpfulnessSurvey({
+    required String feature,
+    String? sourceId,
+    int? helpfulnessRating,
+    bool? didHelpNextStep,
+    String? notes,
+    UserProfile? userProfile,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
+      if (userId == null) {
+        return;
+      }
+      
+      final anonUserId = await getAnonUserId(userId);
+      
+      final survey = HelpfulnessSurvey(
+        userId: userId,
+        anonUserId: anonUserId,
+        feature: feature,
+        sourceId: sourceId,
+        timestamp: DateTime.now(),
+        helpfulnessRating: helpfulnessRating,
+        didHelpNextStep: didHelpNextStep,
+        notes: notes,
+      );
+      
+      final data = survey.toFirestore();
+      data['timestamp'] = FieldValue.serverTimestamp();
+      
+      // Save to helpfulness_surveys collection
+      await _firestore.collection('helpfulness_surveys').add(data);
+      
+      // Also log as event
+      await logEvent(
+        eventName: 'helpfulness_survey_submitted',
+        feature: feature,
+        parameters: {
+          if (sourceId != null) 'source_id': sourceId,
+          if (helpfulnessRating != null) 'helpfulness_rating': helpfulnessRating,
+          if (didHelpNextStep != null) 'did_help_next_step': didHelpNextStep,
+          if (notes != null) 'notes': notes,
+        },
+        userProfile: userProfile,
+      );
+      
+      print('✅ Analytics: Helpfulness survey saved');
+    } catch (e) {
+      print('⚠️ Analytics: Error saving helpfulness survey: $e');
+    }
+  }
+  
+  /// Save milestone checkin to specialized collection
+  Future<void> saveMilestoneCheckin({
+    String? phase,
+    bool? hadHealthQuestion,
+    bool? feltClearOnNextStep,
+    bool? appHelpedTakeNextStep,
+    UserProfile? userProfile,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
+      if (userId == null) {
+        return;
+      }
+      
+      final anonUserId = await getAnonUserId(userId);
+      
+      final checkin = MilestoneCheckin(
+        userId: userId,
+        anonUserId: anonUserId,
+        timestamp: DateTime.now(),
+        phase: phase,
+        hadHealthQuestion: hadHealthQuestion,
+        feltClearOnNextStep: feltClearOnNextStep,
+        appHelpedTakeNextStep: appHelpedTakeNextStep,
+      );
+      
+      final data = checkin.toFirestore();
+      data['timestamp'] = FieldValue.serverTimestamp();
+      
+      // Save to milestone_checkins collection
+      await _firestore.collection('milestone_checkins').add(data);
+      
+      // Also log as event
+      await logEvent(
+        eventName: 'milestone_checkin_submitted',
+        feature: 'user-feedback',
+        parameters: {
+          if (phase != null) 'phase': phase,
+          if (hadHealthQuestion != null) 'had_health_question': hadHealthQuestion,
+          if (feltClearOnNextStep != null) 'felt_clear_on_next_step': feltClearOnNextStep,
+          if (appHelpedTakeNextStep != null) 'app_helped_take_next_step': appHelpedTakeNextStep,
+        },
+        userProfile: userProfile,
+      );
+      
+      print('✅ Analytics: Milestone checkin saved');
+    } catch (e) {
+      print('⚠️ Analytics: Error saving milestone checkin: $e');
+    }
+  }
+  
+  /// Save care navigation outcome to specialized collection
+  Future<void> saveCareNavigationOutcome({
+    required String needType,
+    String? sourceFeature,
+    required bool neededHelp,
+    required String outcome, // "yes" | "partly" | "no" | "didnt_try" | "didnt_know_how" | "couldnt_access"
+    String? notes,
+    UserProfile? userProfile,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final userId = user?.uid;
+      
+      if (userId == null) {
+        return;
+      }
+      
+      final anonUserId = await getAnonUserId(userId);
+      
+      final navigationOutcome = CareNavigationOutcome(
+        userId: userId,
+        anonUserId: anonUserId,
+        timestamp: DateTime.now(),
+        needType: needType,
+        sourceFeature: sourceFeature,
+        neededHelp: neededHelp,
+        outcome: outcome,
+        notes: notes,
+      );
+      
+      final data = navigationOutcome.toFirestore();
+      data['timestamp'] = FieldValue.serverTimestamp();
+      
+      // Save to care_navigation_outcomes collection
+      await _firestore.collection('care_navigation_outcomes').add(data);
+      
+      // Also log as event
+      await logEvent(
+        eventName: 'care_navigation_outcome_submitted',
+        feature: sourceFeature ?? 'app',
+        parameters: {
+          'need_type': needType,
+          if (sourceFeature != null) 'source_feature': sourceFeature,
+          'needed_help': neededHelp,
+          'outcome': outcome,
+          if (notes != null) 'notes': notes,
+        },
+        userProfile: userProfile,
+      );
+      
+      print('✅ Analytics: Care navigation outcome saved');
+    } catch (e) {
+      print('⚠️ Analytics: Error saving care navigation outcome: $e');
     }
   }
 
@@ -1101,45 +1609,52 @@ class AnalyticsService {
   // ========== Surveys / Micro Measures Events ==========
   
   Future<void> logConfidenceSignalSubmitted({
+    String? sourceId,
     int? understandMeaningScore,
     int? knowNextStepScore,
     int? confidenceScore,
     UserProfile? userProfile,
   }) async {
-    await logEvent(
-      eventName: 'confidence_signal_submitted',
+    // Save to specialized micro_measures collection
+    await saveMicroMeasure(
       feature: 'user-feedback',
-      parameters: {
-        if (understandMeaningScore != null) 'understand_meaning_score': understandMeaningScore,
-        if (knowNextStepScore != null) 'know_next_step_score': knowNextStepScore,
-        if (confidenceScore != null) 'confidence_score': confidenceScore,
-      },
+      sourceId: sourceId,
+      understandMeaningScore: understandMeaningScore,
+      knowNextStepScore: knowNextStepScore,
+      confidenceScore: confidenceScore,
       userProfile: userProfile,
     );
   }
 
   Future<void> logHelpfulnessSurveySubmitted({
+    String? sourceId,
     int? helpfulnessRating,
     bool? tookNextStep,
     UserProfile? userProfile,
   }) async {
-    await logEvent(
-      eventName: 'helpfulness_survey_submitted',
+    // Save to specialized helpfulness_surveys collection
+    await saveHelpfulnessSurvey(
       feature: 'user-feedback',
-      parameters: {
-        if (helpfulnessRating != null) 'helpfulness_rating': helpfulnessRating,
-        if (tookNextStep != null) 'took_next_step': tookNextStep,
-      },
+      sourceId: sourceId,
+      helpfulnessRating: helpfulnessRating,
+      didHelpNextStep: tookNextStep,
       userProfile: userProfile,
     );
   }
 
   Future<void> logMilestoneCheckinSubmitted({
+    String? phase,
+    bool? hadHealthQuestion,
+    bool? feltClearOnNextStep,
+    bool? appHelpedTakeNextStep,
     UserProfile? userProfile,
   }) async {
-    await logEvent(
-      eventName: 'milestone_checkin_submitted',
-      feature: 'user-feedback',
+    // Save to specialized milestone_checkins collection
+    await saveMilestoneCheckin(
+      phase: phase,
+      hadHealthQuestion: hadHealthQuestion,
+      feltClearOnNextStep: feltClearOnNextStep,
+      appHelpedTakeNextStep: appHelpedTakeNextStep,
       userProfile: userProfile,
     );
   }
@@ -1147,11 +1662,19 @@ class AnalyticsService {
   // ========== System Metrics Events ==========
   
   Future<void> logSessionStarted({
+    String? entryPoint,
     UserProfile? userProfile,
   }) async {
+    // Start session tracking in user_sessions collection
+    await startSession(entryPoint: entryPoint);
+    
+    // Also log as event
     await logEvent(
       eventName: 'session_started',
       feature: 'app',
+      parameters: {
+        if (entryPoint != null) 'entry_point': entryPoint,
+      },
       userProfile: userProfile,
     );
   }
@@ -1160,6 +1683,10 @@ class AnalyticsService {
     int? durationSeconds,
     UserProfile? userProfile,
   }) async {
+    // End session tracking in user_sessions collection
+    await endSession();
+    
+    // Also log as event
     await logEvent(
       eventName: 'session_ended',
       feature: 'app',

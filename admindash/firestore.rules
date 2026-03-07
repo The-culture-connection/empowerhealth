@@ -147,8 +147,17 @@ service cloud.firestore {
     // Analytics - anonymized for research partners, full access for admins
     // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
     match /analytics_events/{eventId} {
+      // Mobile app: authenticated users can create their own events
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
       allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
-      allow write: if false; // Only via Cloud Function
+      // Mobile app: users can read their own events
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
     }
     
     match /analytics_events_private/{eventId} {
@@ -161,6 +170,84 @@ service cloud.firestore {
     match /analytics_daily/{date} {
       allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
       allow write: if false; // Only via Cloud Function
+    }
+    
+    // User sessions - mobile app can create/update, admin dashboard can read all
+    match /user_sessions/{sessionId} {
+      // Mobile app: authenticated users can create/update their own sessions
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own sessions
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if false; // Sessions should not be deleted
+    }
+    
+    // Micro measures - mobile app can create, admin dashboard can read all
+    match /micro_measures/{measureId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Helpfulness surveys - mobile app can create, admin dashboard can read all
+    match /helpfulness_surveys/{surveyId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Milestone checkins - mobile app can create, admin dashboard can read all
+    match /milestone_checkins/{checkinId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Care navigation outcomes - mobile app can create, admin dashboard can read all
+    match /care_navigation_outcomes/{outcomeId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
     }
     
     // Technology features - authenticated users with admin dashboard roles can read, only admins can write

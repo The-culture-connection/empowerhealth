@@ -311,5 +311,102 @@ service cloud.firestore {
       // Only admins can update/delete
       allow update, delete: if isAdmin();
     }
+    
+    // ============================================
+    // ANALYTICS COLLECTIONS
+    // ============================================
+    
+    // Analytics events - authenticated users can create their own events
+    // Admins can read all for reporting
+    match /analytics_events/{eventId} {
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // User sessions - authenticated users can create/update their own sessions
+    // Admins can read all for reporting
+    match /user_sessions/{sessionId} {
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow delete: if false; // Sessions should not be deleted
+    }
+    
+    // Micro measures - authenticated users can create their own
+    // Admins can read all for reporting
+    match /micro_measures/{measureId} {
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Helpfulness surveys - authenticated users can create their own
+    // Admins can read all for reporting
+    match /helpfulness_surveys/{surveyId} {
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Milestone checkins - authenticated users can create their own
+    // Admins can read all for reporting
+    match /milestone_checkins/{checkinId} {
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Care navigation outcomes - authenticated users can create their own
+    // Admins can read all for reporting
+    match /care_navigation_outcomes/{outcomeId} {
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
   }
 }

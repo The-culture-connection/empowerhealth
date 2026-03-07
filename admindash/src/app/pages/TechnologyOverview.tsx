@@ -12,6 +12,7 @@ import {
 import { getLatestCommits, Commit, getGitHubCommitUrl as getCommitUrl, getCommitBySha } from "../../lib/commits";
 import { getAllFeatures, TechnologyFeature, getFeatureChangeHistory, getFeatureById } from "../../lib/features";
 import { getFeatureAnalytics, FeatureAnalytics } from "../../lib/featureAnalytics";
+import { getFeatureAnalyticsSummary, FeatureAnalyticsSummary } from "../../lib/firestoreAnalytics";
 import { useAuth } from "../../contexts/AuthContext";
 import { FeatureEditModal } from "../components/FeatureEditModal";
 
@@ -21,6 +22,7 @@ export function TechnologyOverview() {
   const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<TechnologyFeature | null>(null);
   const [selectedFeatureAnalytics, setSelectedFeatureAnalytics] = useState<FeatureAnalytics | null>(null);
+  const [selectedFeatureFirestoreAnalytics, setSelectedFeatureFirestoreAnalytics] = useState<FeatureAnalyticsSummary | null>(null);
   const [selectedFeatureChangeHistory, setSelectedFeatureChangeHistory] = useState<any[]>([]);
   const [editingFeature, setEditingFeature] = useState<TechnologyFeature | null>(null);
   const [commitFeatureChanges, setCommitFeatureChanges] = useState<any[]>([]);
@@ -174,8 +176,22 @@ export function TechnologyOverview() {
         start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
         end: new Date(),
       };
-      const analytics = await getFeatureAnalytics(featureId, dateRange, true);
-      setSelectedFeatureAnalytics(analytics);
+      
+      // Try to load from Cloud Function (legacy)
+      try {
+        const analytics = await getFeatureAnalytics(featureId, dateRange, true);
+        setSelectedFeatureAnalytics(analytics);
+      } catch (err) {
+        console.warn('Cloud Function analytics not available, using Firestore:', err);
+      }
+      
+      // Load from Firestore (new direct queries)
+      try {
+        const firestoreAnalytics = await getFeatureAnalyticsSummary(featureId, dateRange);
+        setSelectedFeatureFirestoreAnalytics(firestoreAnalytics);
+      } catch (err) {
+        console.error('Failed to load Firestore analytics:', err);
+      }
     } catch (err: any) {
       console.error('Failed to load feature analytics:', err);
     } finally {
@@ -1031,7 +1047,7 @@ export function TechnologyOverview() {
                     >
                       <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Active Users</div>
                       <div className="text-2xl mb-1" style={{ color: '#424242' }}>
-                        {selectedFeatureAnalytics?.activeUsers || 0}
+                        {selectedFeatureAnalytics?.activeUsers || selectedFeatureFirestoreAnalytics?.uniqueUsers || 0}
                       </div>
                       <div className="text-xs" style={{ color: '#2e7d32' }}>
                         <TrendingUp className="w-3 h-3 inline mr-1" />
@@ -1063,6 +1079,106 @@ export function TechnologyOverview() {
                   </div>
                 </div>
               </div>
+              
+              {/* Firestore Analytics Data */}
+              {selectedFeatureFirestoreAnalytics && (
+                <div
+                  className="p-6 rounded-xl border mb-8"
+                  style={{
+                    backgroundColor: '#fafafa',
+                    borderColor: '#e0e0e0',
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-4">
+                    <BarChart3 className="w-5 h-5" style={{ color: '#9575cd' }} />
+                    <h3 className="text-lg" style={{ color: '#424242' }}>
+                      Real-Time Analytics (Last 30 Days)
+                    </h3>
+                  </div>
+                  
+                  <div className="grid gap-6 md:grid-cols-3 mb-6">
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
+                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Total Events</div>
+                      <div className="text-2xl" style={{ color: '#424242' }}>
+                        {selectedFeatureFirestoreAnalytics.totalEvents.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
+                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Unique Users</div>
+                      <div className="text-2xl" style={{ color: '#424242' }}>
+                        {selectedFeatureFirestoreAnalytics.uniqueUsers.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
+                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Unique Sessions</div>
+                      <div className="text-2xl" style={{ color: '#424242' }}>
+                        {selectedFeatureFirestoreAnalytics.uniqueSessions.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-6 md:grid-cols-2 mb-6">
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
+                      <h4 className="text-sm mb-3" style={{ color: '#424242' }}>Events by Type</h4>
+                      <div className="space-y-2">
+                        {Object.entries(selectedFeatureFirestoreAnalytics.eventsByType)
+                          .sort(([, a], [, b]) => b - a)
+                          .slice(0, 5)
+                          .map(([eventName, count]) => (
+                            <div key={eventName} className="flex justify-between items-center">
+                              <span className="text-sm" style={{ color: '#616161' }}>
+                                {eventName.replace(/_/g, ' ')}
+                              </span>
+                              <span className="text-sm font-semibold" style={{ color: '#424242' }}>
+                                {count.toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
+                      <h4 className="text-sm mb-3" style={{ color: '#424242' }}>Cohort Breakdown</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm" style={{ color: '#616161' }}>Navigator</span>
+                          <span className="text-sm font-semibold" style={{ color: '#424242' }}>
+                            {selectedFeatureFirestoreAnalytics.cohortBreakdown.navigator.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm" style={{ color: '#616161' }}>Self-Directed</span>
+                          <span className="text-sm font-semibold" style={{ color: '#424242' }}>
+                            {selectedFeatureFirestoreAnalytics.cohortBreakdown.self_directed.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm" style={{ color: '#616161' }}>Unknown</span>
+                          <span className="text-sm font-semibold" style={{ color: '#424242' }}>
+                            {selectedFeatureFirestoreAnalytics.cohortBreakdown.unknown.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
+                    <h4 className="text-sm mb-3" style={{ color: '#424242' }}>Trimester Breakdown</h4>
+                    <div className="grid grid-cols-5 gap-2">
+                      {Object.entries(selectedFeatureFirestoreAnalytics.trimesterBreakdown).map(([trimester, count]) => (
+                        <div key={trimester} className="text-center">
+                          <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>
+                            {trimester.charAt(0).toUpperCase() + trimester.slice(1)}
+                          </div>
+                          <div className="text-lg font-semibold" style={{ color: '#424242' }}>
+                            {count.toLocaleString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Charts */}
               <div className="grid gap-6 md:grid-cols-2 mb-8">

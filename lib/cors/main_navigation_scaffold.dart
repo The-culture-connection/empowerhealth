@@ -34,16 +34,19 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
   @override
   void initState() {
     super.initState();
-    _trackScreenView();
+    _trackScreenViewAfterAuth();
   }
 
-  Future<void> _trackScreenView() async {
+  /// Wait for auth to be ready before tracking screen view
+  Future<void> _trackScreenViewAfterAuth() async {
     try {
-      // Wait a bit to ensure auth token is fully ready
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Wait for auth to be fully restored
+      final user = await _analytics.waitForInitialAuthResolution();
       
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        debugPrint('⚠️ Analytics: No authenticated user - screen view tracking skipped');
+        return;
+      }
       
       final userProfile = await _databaseService.getUserProfile(user.uid);
       await _analytics.logScreenView(
@@ -52,18 +55,30 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
       );
     } catch (e) {
       debugPrint('⚠️ Analytics: Failed to track screen view: $e');
+      // Best-effort: don't block navigation
     }
   }
 
   void _onTabChanged(int newIndex) {
     setState(() => _index = newIndex);
+    // Track tab change asynchronously - don't block UI
     _trackTabView(newIndex);
   }
 
   Future<void> _trackTabView(int tabIndex) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        // Event will be queued by analytics service
+        final screenNames = ['home', 'learn', 'journal', 'community', 'profile'];
+        if (tabIndex < screenNames.length) {
+          await _analytics.logScreenView(
+            screenName: screenNames[tabIndex],
+            userProfile: null,
+          );
+        }
+        return;
+      }
       
       final userProfile = await _databaseService.getUserProfile(user.uid);
       final screenNames = ['home', 'learn', 'journal', 'community', 'profile'];
@@ -75,6 +90,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
       }
     } catch (e) {
       debugPrint('⚠️ Analytics: Failed to track tab view: $e');
+      // Best-effort: don't block navigation
     }
   }
 

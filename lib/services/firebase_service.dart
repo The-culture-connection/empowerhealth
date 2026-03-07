@@ -12,16 +12,18 @@ class FirebaseService {
         print('Firebase initialized successfully');
       }
       
-      // TEMPORARILY DISABLED: App Check activation
-      // App Check is causing "Too many attempts" errors because debug token isn't registered
-      // TODO: Re-enable after adding debug token to Firebase Console
-      // Debug token: 8c88f9e4-b464-4115-aa74-e972fff7e419
+      // TODO: App Check is currently failing for iOS app
+      // Error: "App not registered: 1:725364003316:ios:f627cbea909c143e8229a1"
+      // This is separate from auth race condition and should not block analytics queueing
       // 
-      // To re-enable:
-      // 1. Go to Firebase Console → App Check → your app → Manage debug tokens
-      // 2. Add token: 8c88f9e4-b464-4115-aa74-e972fff7e419
-      // 3. Uncomment the code below
-      // 4. Also disable App Check enforcement in Firebase Console if needed
+      // To fix App Check:
+      // 1. Go to Firebase Console → App Check → your app → Manage apps
+      // 2. Register iOS app: 1:725364003316:ios:f627cbea909c143e8229a1
+      // 3. For development, add debug token: 8c88f9e4-b464-4115-aa74-e972fff7e419
+      // 4. Uncomment the code below
+      // 5. Also disable App Check enforcement in Firebase Console if needed
+      //
+      // Note: Analytics queueing works independently of App Check status
       
       /*
       try {

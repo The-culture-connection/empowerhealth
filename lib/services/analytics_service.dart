@@ -8,6 +8,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_profile.dart';
 import '../utils/pregnancy_utils.dart';
 
+/// Queued analytics event
+class _QueuedEvent {
+  final String eventName;
+  final String feature;
+  final Map<String, dynamic>? parameters;
+  final int? durationMs;
+  final UserProfile? userProfile;
+  final DateTime queuedAt;
+  int retryCount;
+
+  _QueuedEvent({
+    required this.eventName,
+    required this.feature,
+    this.parameters,
+    this.durationMs,
+    this.userProfile,
+  })  : queuedAt = DateTime.now(),
+        retryCount = 0;
+}
+
 class AnalyticsService {
   static final AnalyticsService _instance = AnalyticsService._internal();
   factory AnalyticsService() => _instance;
@@ -18,6 +38,119 @@ class AnalyticsService {
     region: 'us-central1',
   );
   String? _sessionId;
+  
+  // Event queue for when auth is not ready
+  final List<_QueuedEvent> _eventQueue = [];
+  bool _isFlushingQueue = false;
+  bool _authReady = false;
+  
+  // TODO: App Check is currently failing for iOS app
+  // Error: "App not registered: 1:725364003316:ios:f627cbea909c143e8229a1"
+  // This is separate from auth race condition and should not block analytics queueing
+  // To fix: Register iOS app in Firebase Console → App Check → Manage apps
+  
+  AnalyticsService._internal() {
+    // Listen for auth state changes to flush queued events
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user != null && !_authReady) {
+        _authReady = true;
+        _flushEventQueue();
+      } else if (user == null) {
+        _authReady = false;
+      }
+    });
+  }
+  
+  /// Wait for initial auth resolution
+  /// Returns the authenticated user once auth state is resolved, or null if not authenticated
+  Future<User?> waitForInitialAuthResolution() async {
+    // First check if user is already available with valid token
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      try {
+        // Verify token is ready
+        await currentUser.getIdToken();
+        _authReady = true;
+        return currentUser;
+      } catch (e) {
+        // Token not ready yet, wait for auth state change
+        print('📊 Analytics: Token not ready, waiting for auth state...');
+      }
+    }
+    
+    // Wait for auth state to resolve (first event from stream)
+    try {
+      final resolvedUser = await FirebaseAuth.instance.authStateChanges()
+          .first
+          .timeout(const Duration(seconds: 5));
+      
+      if (resolvedUser != null) {
+        try {
+          // Verify token is ready
+          await resolvedUser.getIdToken();
+          _authReady = true;
+          print('✅ Analytics: Auth resolved, token ready');
+        } catch (e) {
+          // Token still not ready, but user exists - mark as ready anyway
+          // The function will handle token refresh
+          _authReady = true;
+          print('⚠️ Analytics: Auth resolved but token not ready yet: $e');
+        }
+      } else {
+        print('📊 Analytics: Auth resolved - no authenticated user');
+      }
+      
+      return resolvedUser;
+    } catch (e) {
+      // Timeout or error - return current user or null
+      print('⚠️ Analytics: Auth resolution timeout/error: $e');
+      final fallbackUser = FirebaseAuth.instance.currentUser;
+      if (fallbackUser != null) {
+        _authReady = true;
+      }
+      return fallbackUser;
+    }
+  }
+  
+  /// Flush queued events when auth becomes available
+  Future<void> _flushEventQueue() async {
+    if (_isFlushingQueue || _eventQueue.isEmpty) return;
+    _isFlushingQueue = true;
+    
+    print('📊 Analytics: Flushing ${_eventQueue.length} queued events');
+    
+    final eventsToFlush = List<_QueuedEvent>.from(_eventQueue);
+    _eventQueue.clear();
+    
+    for (final event in eventsToFlush) {
+      try {
+        await _sendEvent(
+          eventName: event.eventName,
+          feature: event.feature,
+          parameters: event.parameters,
+          durationMs: event.durationMs,
+          userProfile: event.userProfile,
+          status: 'sent (queued)',
+        );
+      } catch (e) {
+        // If still failing, re-queue with retry limit
+        if (event.retryCount < 3) {
+          event.retryCount++;
+          _eventQueue.add(event);
+          print('📊 Analytics: [retrying] Re-queued event "${event.eventName}" (retry ${event.retryCount}/3)');
+        } else {
+          print('📊 Analytics: [dropped] Event "${event.eventName}" after 3 retries');
+        }
+      }
+    }
+    
+    _isFlushingQueue = false;
+    
+    // If there are still events in queue (retries), try again after delay
+    if (_eventQueue.isNotEmpty) {
+      Future.delayed(const Duration(seconds: 2), () => _flushEventQueue());
+    }
+  }
 
   /// Get or create session ID (persists for browser/app session)
   String getSessionId() {
@@ -105,6 +238,7 @@ class AnalyticsService {
   }
 
   /// Log an analytics event with user lifecycle context
+  /// Events are queued if auth is not ready, then sent when auth becomes available
   Future<void> logEvent({
     required String eventName,
     required String feature,
@@ -113,33 +247,66 @@ class AnalyticsService {
     UserProfile? userProfile,
   }) async {
     try {
-      // Check if user is authenticated (function requires auth)
+      // Check if user is authenticated and auth is ready
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        print('⚠️ Analytics: User not authenticated - skipping event "$eventName"');
+      
+      if (user == null || !_authReady) {
+        // Queue event for later when auth is ready
+        _eventQueue.add(_QueuedEvent(
+          eventName: eventName,
+          feature: feature,
+          parameters: parameters,
+          durationMs: durationMs,
+          userProfile: userProfile,
+        ));
+        print('📊 Analytics: Queued event "$eventName" (auth not ready, ${_eventQueue.length} in queue)');
         return;
       }
       
-      print('📊 Analytics: Starting to log event "$eventName" for feature "$feature"');
+      // Auth is ready, send immediately
+      await _sendEvent(
+        eventName: eventName,
+        feature: feature,
+        parameters: parameters,
+        durationMs: durationMs,
+        userProfile: userProfile,
+        status: 'sent',
+      );
+    } catch (e) {
+      // Best-effort: never crash the app
+      print('⚠️ Analytics: Error queuing event "$eventName": $e');
+    }
+  }
+  
+  /// Internal method to actually send an event to Cloud Function
+  Future<void> _sendEvent({
+    required String eventName,
+    required String feature,
+    Map<String, dynamic>? parameters,
+    int? durationMs,
+    UserProfile? userProfile,
+    required String status, // 'sent', 'sent (queued)', 'retrying'
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      print('📊 Analytics: [$status] Event "$eventName" for feature "$feature"');
       print('📊 Analytics: User ID: ${user.uid}');
       
-      // Force refresh auth token to ensure it's valid and wait for it
+      // Force refresh auth token to ensure it's valid
       String? token;
       try {
         token = await user.getIdToken(true); // Force refresh
-        print('✅ Analytics: Auth token refreshed (${token?.length ?? 0} chars)');
         if (token == null) {
-          print('⚠️ Analytics: No token available - skipping event');
-          return;
+          throw Exception('No token available');
         }
       } catch (e) {
         print('❌ Analytics: Token refresh failed: $e');
-        print('⚠️ Analytics: Skipping event due to auth failure');
-        return;
+        throw Exception('Token refresh failed: $e');
       }
-      
-      // Small delay to ensure token is propagated
-      await Future.delayed(const Duration(milliseconds: 100));
       
       // Get user lifecycle context
       final lifecycleContext = await getUserLifecycleContext(userProfile);
@@ -150,18 +317,13 @@ class AnalyticsService {
         ...(parameters ?? {}),
       };
 
-      // Call Cloud Function with explicit auth
+      // Call Cloud Function
       final callable = _functions.httpsCallable(
         'logAnalyticsEvent',
         options: HttpsCallableOptions(
           timeout: const Duration(seconds: 30),
         ),
       );
-      
-      print('📊 Analytics: Session ID: ${getSessionId()}');
-      print('📊 Analytics: Metadata keys: ${metadata.keys.toList()}');
-      print('📊 Analytics: Calling Cloud Function...');
-      print('📊 Analytics: Auth state: ${FirebaseAuth.instance.currentUser != null ? "Authenticated" : "Not authenticated"}');
       
       final result = await callable.call({
         'eventName': eventName,
@@ -171,19 +333,37 @@ class AnalyticsService {
         'sessionId': getSessionId(),
       });
       
-      print('✅ Analytics: Event "$eventName" logged successfully');
-      print('✅ Analytics: Function response: ${result.data}');
+      // Only log success if function actually succeeded
+      if (result.data != null && result.data['success'] != false) {
+        print('✅ Analytics: [$status] Event "$eventName" logged successfully');
+      } else {
+        print('⚠️ Analytics: [$status] Event "$eventName" call returned unexpected result: ${result.data}');
+        throw Exception('Function returned unexpected result');
+      }
     } catch (e, stackTrace) {
-      // Log detailed error information for debugging
-      print('❌ Analytics error for event "$eventName" (feature: "$feature"):');
-      print('❌ Error: $e');
-      print('❌ Stack trace: $stackTrace');
-      
-      // Check for specific error types
       final errorString = e.toString().toLowerCase();
+      
+      // If unauthenticated error, queue for retry instead of failing
       if (errorString.contains('unauthenticated') || errorString.contains('permission')) {
-        print('⚠️ Analytics: Authentication issue - user may not be logged in');
-      } else if (errorString.contains('not found') || errorString.contains('404')) {
+        print('📊 Analytics: Retrying event "$eventName" (auth issue)');
+        // Re-queue the event
+        _eventQueue.add(_QueuedEvent(
+          eventName: eventName,
+          feature: feature,
+          parameters: parameters,
+          durationMs: durationMs,
+          userProfile: userProfile,
+        ));
+        // Try to flush queue after a delay
+        Future.delayed(const Duration(seconds: 2), () => _flushEventQueue());
+        return;
+      }
+      
+      // Log other errors but don't crash
+      print('❌ Analytics: [$status] Error sending event "$eventName" (feature: "$feature"):');
+      print('❌ Error: $e');
+      
+      if (errorString.contains('not found') || errorString.contains('404')) {
         print('⚠️ Analytics: Cloud Function "logAnalyticsEvent" not found - may need deployment');
       } else if (errorString.contains('timeout') || errorString.contains('deadline')) {
         print('⚠️ Analytics: Request timeout - Cloud Function may be slow or unavailable');

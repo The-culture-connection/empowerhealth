@@ -87,20 +87,33 @@ class _AuthWrapperState extends State<_AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    _trackSessionStart();
+    _initializeWithAuth();
+  }
+
+  /// Wait for auth to be fully restored before sending analytics
+  Future<void> _initializeWithAuth() async {
+    // Wait for initial auth resolution before proceeding
+    final user = await _analytics.waitForInitialAuthResolution();
+    
+    if (user != null) {
+      // Auth is ready, track session start
+      _trackSessionStart();
+    } else {
+      debugPrint('⚠️ Analytics: No authenticated user - session tracking skipped');
+    }
+    
+    // Continue with profile check regardless of auth status
     _checkProfile();
   }
 
   Future<void> _trackSessionStart() async {
     try {
-      // Wait a bit to ensure auth token is fully ready
-      await Future.delayed(const Duration(milliseconds: 500));
-      
       final userProfile = await _databaseService.getUserProfile(widget.userId);
       await _analytics.logSessionStarted(userProfile: userProfile);
       debugPrint('✅ Analytics: Session started tracked');
     } catch (e) {
       debugPrint('⚠️ Analytics: Failed to track session start: $e');
+      // Best-effort: don't block app initialization
     }
   }
 

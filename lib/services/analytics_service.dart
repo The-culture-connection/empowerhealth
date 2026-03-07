@@ -332,29 +332,108 @@ class AnalyticsService {
         'sessionId': getSessionId(),
       });
       
-      // Only log success if function actually succeeded
-      if (result.data != null && result.data['success'] != false) {
-        print('✅ Analytics: [$status] Event "$eventName" logged successfully');
+      // Log the full result for debugging
+      print('📊 Analytics: [$status] Function call result for "$eventName": ${result.data}');
+      
+      // Check if result indicates success
+      // Cloud Function returns { success: true } or the event data
+      if (result.data != null) {
+        final resultData = result.data as Map<String, dynamic>?;
+        if (resultData != null && resultData['success'] == false) {
+          print('⚠️ Analytics: [$status] Event "$eventName" call returned success=false: ${result.data}');
+          // Don't throw - this might be a transient issue, but also don't retry App Check errors
+          final errorMsg = resultData['error']?.toString().toLowerCase() ?? '';
+          if (errorMsg.contains('app check') || errorMsg.contains('appcheck') || errorMsg.contains('app not registered')) {
+            print('⚠️ Analytics: App Check error in function response - not retrying');
+            return;
+          }
+          throw Exception('Function returned success=false: ${result.data}');
+        } else {
+          // Success - result.data exists and success is not false
+          print('✅ Analytics: [$status] Event "$eventName" logged successfully');
+        }
       } else {
-        print('⚠️ Analytics: [$status] Event "$eventName" call returned unexpected result: ${result.data}');
-        throw Exception('Function returned unexpected result');
+        print('⚠️ Analytics: [$status] Event "$eventName" call returned null result');
+        // Null result might be OK for some functions, but log it
+        print('✅ Analytics: [$status] Event "$eventName" completed (null result)');
       }
     } catch (e, stackTrace) {
       final errorString = e.toString().toLowerCase();
+      final user = FirebaseAuth.instance.currentUser;
       
-      // If unauthenticated error, queue for retry instead of failing
-      if (errorString.contains('unauthenticated') || errorString.contains('permission')) {
-        print('📊 Analytics: Retrying event "$eventName" (auth issue)');
-        // Re-queue the event
-        _eventQueue.add(_QueuedEvent(
-          eventName: eventName,
-          feature: feature,
-          parameters: parameters,
-          durationMs: durationMs,
-          userProfile: userProfile,
-        ));
-        // Try to flush queue after a delay
-        Future.delayed(const Duration(seconds: 2), () => _flushEventQueue());
+      // Log full error details for debugging
+      print('❌ Analytics: [$status] Full error for "$eventName": $e');
+      print('❌ Analytics: Error type: ${e.runtimeType}');
+      
+      // Check if this is a FirebaseFunctionsException and inspect its code
+      if (e is FirebaseFunctionsException) {
+        print('❌ Analytics: Firebase Functions error code: ${e.code}');
+        print('❌ Analytics: Firebase Functions error message: ${e.message}');
+        print('❌ Analytics: Firebase Functions error details: ${e.details}');
+        
+        // Check for App Check related error codes
+        if (e.code == 'failed-precondition' || 
+            e.code == 'permission-denied' ||
+            (e.code == 'unauthenticated' && user != null)) {
+          // If user is authenticated but getting these errors, it's likely App Check
+          print('⚠️ Analytics: [$status] Event "$eventName" failed - likely App Check issue (code: ${e.code})');
+          print('⚠️ Analytics: User is authenticated but function rejected request');
+          print('⚠️ Analytics: This is expected - App Check is disabled. Event will not be retried.');
+          print('⚠️ Analytics: To fix: Register iOS app in Firebase Console → App Check');
+          return;
+        }
+      }
+      
+      // Check if this is an App Check error (not a real auth issue)
+      // App Check failures can manifest as various errors, so check multiple patterns
+      final isAppCheckError = errorString.contains('app check') || 
+                              errorString.contains('appcheck') ||
+                              errorString.contains('app not registered') ||
+                              errorString.contains('failed_precondition') ||
+                              errorString.contains('failed-precondition') ||
+                              errorString.contains('devicecheck');
+      
+      // Also check if we're seeing App Check warnings in the logs (heuristic)
+      // If the user is authenticated but getting permission errors, it's likely App Check
+      if (user != null && errorString.contains('permission') && !errorString.contains('token')) {
+        // User is authenticated but getting permission error - likely App Check
+        print('⚠️ Analytics: [$status] Event "$eventName" failed - likely App Check issue (user authenticated but permission denied)');
+        print('⚠️ Analytics: This is expected - App Check is disabled. Event will not be retried.');
+        print('⚠️ Analytics: To fix: Register iOS app in Firebase Console → App Check');
+        // Don't retry - App Check won't resolve until fixed
+        return;
+      }
+      
+      if (isAppCheckError) {
+        // App Check is failing but this is expected - don't retry
+        print('⚠️ Analytics: [$status] Event "$eventName" failed due to App Check (app not registered)');
+        print('⚠️ Analytics: This is expected - App Check is disabled. Event will not be retried.');
+        print('⚠️ Analytics: To fix: Register iOS app in Firebase Console → App Check');
+        // Don't retry App Check errors - they won't resolve until App Check is fixed
+        return;
+      }
+      
+      // If unauthenticated error (but not App Check), queue for retry
+      // Only retry if user is actually not authenticated
+      if (errorString.contains('unauthenticated')) {
+        if (user == null) {
+          print('📊 Analytics: Retrying event "$eventName" (user not authenticated)');
+          // Re-queue the event
+          _eventQueue.add(_QueuedEvent(
+            eventName: eventName,
+            feature: feature,
+            parameters: parameters,
+            durationMs: durationMs,
+            userProfile: userProfile,
+          ));
+          // Try to flush queue after a delay
+          Future.delayed(const Duration(seconds: 2), () => _flushEventQueue());
+        } else {
+          // User is authenticated but getting unauthenticated error - likely App Check
+          print('⚠️ Analytics: [$status] Event "$eventName" failed - user authenticated but getting unauthenticated error (likely App Check)');
+          print('⚠️ Analytics: This is expected - App Check is disabled. Event will not be retried.');
+          return;
+        }
         return;
       }
       

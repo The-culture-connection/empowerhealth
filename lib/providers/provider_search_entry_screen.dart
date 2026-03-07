@@ -89,6 +89,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
   void initState() {
     super.initState();
     _trackScreenView();
+    _loadUserProfileForAutofill();
   }
 
   Future<void> _trackScreenView() async {
@@ -106,8 +107,6 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     } catch (e) {
       print('Error tracking provider search entry screen view: $e');
     }
-  }
-    _loadUserProfileForAutofill();
   }
 
   @override
@@ -274,7 +273,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     });
   }
 
-  void _handleSearch() {
+  Future<void> _handleSearch() async {
     if (!_canSearch) return;
 
     // Convert provider type display names to IDs
@@ -308,16 +307,10 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
       if (userId != null) {
         final userProfile = await databaseService.getUserProfile(userId);
         await analytics.logProviderSearchInitiated(
-          searchType: providerTypeIds.isNotEmpty ? providerTypeIds.first : 'general',
-          filtersApplied: {
-            'radius': int.parse(_radius),
-            'healthPlan': _healthPlan != null,
-            'telehealth': _telehealth,
-            'acceptsPregnant': _acceptsPregnant,
-            'mamaApprovedOnly': _mamaApprovedOnly,
-            'identityTagsCount': _selectedIdentityTags.length,
-            'languagesCount': _selectedLanguages.length,
-          },
+          searchRadius: int.parse(_radius).toDouble(),
+          providerType: providerTypeIds.isNotEmpty ? providerTypeIds.first : null,
+          insuranceFilter: _healthPlan.isNotEmpty ? _healthPlan : null,
+          telehealth: _telehealth,
           userProfile: userProfile,
         );
       }

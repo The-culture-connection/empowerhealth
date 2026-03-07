@@ -84,7 +84,7 @@ class _JournalScreenState extends State<JournalScreen> {
         final databaseService = DatabaseService();
         final userProfile = await databaseService.getUserProfile(userId);
         await analytics.logJournalEntryCreated(
-          entryId: entryRef.id,
+          entryLength: _entryController.text.length,
           userProfile: userProfile,
         );
       } catch (e) {
@@ -145,7 +145,7 @@ class _JournalScreenState extends State<JournalScreen> {
         final databaseService = DatabaseService();
         final userProfile = await databaseService.getUserProfile(userId);
         await analytics.logJournalMoodSelected(
-          mood: label,
+          moodType: label,
           userProfile: userProfile,
         );
       } catch (e) {

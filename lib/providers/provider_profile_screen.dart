@@ -71,7 +71,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         final userProfile = await databaseService.getUserProfile(userId);
         await analytics.logProviderProfileViewed(
           providerId: _provider!.id ?? 'unknown',
-          providerName: _provider!.name,
           userProfile: userProfile,
         );
       }

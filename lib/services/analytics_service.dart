@@ -31,7 +31,6 @@ class _QueuedEvent {
 class AnalyticsService {
   static final AnalyticsService _instance = AnalyticsService._internal();
   factory AnalyticsService() => _instance;
-  AnalyticsService._internal();
 
   // Use us-central1 region explicitly to match deployed functions
   final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(

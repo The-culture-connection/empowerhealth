@@ -5,6 +5,7 @@
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import '../models/user_profile.dart';
 import '../utils/pregnancy_utils.dart';
 
@@ -36,6 +37,10 @@ class AnalyticsService {
   final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
     region: 'us-central1',
   );
+  
+  // Firebase Analytics instance for standard analytics dashboard
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  
   String? _sessionId;
   
   // Event queue for when auth is not ready
@@ -350,12 +355,27 @@ class AnalyticsService {
           throw Exception('Function returned success=false: ${result.data}');
         } else {
           // Success - result.data exists and success is not false
-          print('✅ Analytics: [$status] Event "$eventName" logged successfully');
+          print('✅ Analytics: [$status] Event "$eventName" logged successfully to Firestore');
         }
       } else {
         print('⚠️ Analytics: [$status] Event "$eventName" call returned null result');
         // Null result might be OK for some functions, but log it
         print('✅ Analytics: [$status] Event "$eventName" completed (null result)');
+      }
+      
+      // Also log to Firebase Analytics (standard dashboard) - best effort, don't block
+      try {
+        await _logToFirebaseAnalytics(
+          eventName: eventName,
+          feature: feature,
+          parameters: parameters,
+          durationMs: durationMs,
+          metadata: metadata,
+        );
+        print('✅ Analytics: [$status] Event "$eventName" also logged to Firebase Analytics');
+      } catch (e) {
+        // Don't fail if Firebase Analytics logging fails - it's supplementary
+        print('⚠️ Analytics: Failed to log to Firebase Analytics (non-critical): $e');
       }
     } catch (e, stackTrace) {
       final errorString = e.toString().toLowerCase();
@@ -449,7 +469,115 @@ class AnalyticsService {
         print('⚠️ Analytics: Service unavailable - check network connection');
       }
       
+      // Still try to log to Firebase Analytics even if Cloud Function failed
+      // They're independent systems, so one can succeed while the other fails
+      try {
+        final lifecycleContext = await getUserLifecycleContext(userProfile);
+        final metadata = {
+          ...lifecycleContext,
+          ...(parameters ?? {}),
+        };
+        await _logToFirebaseAnalytics(
+          eventName: eventName,
+          feature: feature,
+          parameters: parameters,
+          durationMs: durationMs,
+          metadata: metadata,
+        );
+        print('✅ Analytics: Event "$eventName" logged to Firebase Analytics despite Cloud Function failure');
+      } catch (analyticsError) {
+        print('⚠️ Analytics: Also failed to log to Firebase Analytics: $analyticsError');
+      }
+      
       // Don't throw - analytics shouldn't break the app
+    }
+  }
+  
+  /// Log event to Firebase Analytics (standard dashboard)
+  /// This runs in parallel with the custom Firestore analytics
+  Future<void> _logToFirebaseAnalytics({
+    required String eventName,
+    required String feature,
+    Map<String, dynamic>? parameters,
+    int? durationMs,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      // Convert event name to Firebase Analytics format (40 char limit, snake_case)
+      // Firebase Analytics event names should be lowercase with underscores
+      String analyticsEventName = eventName;
+      if (analyticsEventName.length > 40) {
+        // Truncate if too long
+        analyticsEventName = analyticsEventName.substring(0, 40);
+      }
+      
+      // Prepare parameters for Firebase Analytics
+      // Firebase Analytics parameters must be strings, numbers, or booleans
+      // Parameter names must be 40 chars or less
+      final Map<String, Object> analyticsParams = {
+        'feature': feature.length > 40 ? feature.substring(0, 40) : feature,
+      };
+      
+      // Add feature-specific parameters (limit to 40 chars for names and values)
+      if (parameters != null) {
+        for (final entry in parameters.entries) {
+          final key = entry.key.length > 40 ? entry.key.substring(0, 40) : entry.key;
+          final value = entry.value;
+          
+          // Convert value to Firebase Analytics compatible type
+          if (value is String) {
+            analyticsParams[key] = value.length > 100 ? value.substring(0, 100) : value;
+          } else if (value is num || value is bool) {
+            analyticsParams[key] = value;
+          } else if (value != null) {
+            // Convert other types to string
+            final strValue = value.toString();
+            analyticsParams[key] = strValue.length > 100 ? strValue.substring(0, 100) : strValue;
+          }
+        }
+      }
+      
+      // Add duration if provided
+      if (durationMs != null) {
+        analyticsParams['duration_ms'] = durationMs;
+      }
+      
+      // Add key lifecycle context from metadata if available
+      if (metadata != null) {
+        if (metadata['cohort_type'] != null) {
+          final cohort = metadata['cohort_type'].toString();
+          analyticsParams['cohort_type'] = cohort.length > 100 ? cohort.substring(0, 100) : cohort;
+        }
+        if (metadata['trimester'] != null) {
+          final trimester = metadata['trimester'].toString();
+          analyticsParams['trimester'] = trimester.length > 100 ? trimester.substring(0, 100) : trimester;
+        }
+        if (metadata['pregnancy_week'] != null) {
+          analyticsParams['pregnancy_week'] = metadata['pregnancy_week'] is num 
+              ? metadata['pregnancy_week'] 
+              : int.tryParse(metadata['pregnancy_week'].toString()) ?? 0;
+        }
+        if (metadata['navigator'] != null) {
+          analyticsParams['navigator'] = metadata['navigator'] is bool 
+              ? metadata['navigator'] 
+              : metadata['navigator'].toString().toLowerCase() == 'true';
+        }
+        if (metadata['self_directed'] != null) {
+          analyticsParams['self_directed'] = metadata['self_directed'] is bool 
+              ? metadata['self_directed'] 
+              : metadata['self_directed'].toString().toLowerCase() == 'true';
+        }
+      }
+      
+      // Log to Firebase Analytics
+      await _analytics.logEvent(
+        name: analyticsEventName,
+        parameters: analyticsParams,
+      );
+    } catch (e) {
+      // Don't throw - Firebase Analytics failures shouldn't break the app
+      // Just log the error
+      print('⚠️ Analytics: Firebase Analytics logging error (non-critical): $e');
     }
   }
 

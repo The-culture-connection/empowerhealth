@@ -175,11 +175,13 @@ The analytics system uses a three-layer data architecture:
 
 **C. Implementation Architecture:**
 - **Flutter Analytics Service** (`lib/services/analytics_service.dart`) - Client-side service with helper methods for each event type
-- **Cloud Function** (`logAnalyticsEvent`) - Server-side handler that:
-  - Validates events and features
-  - Generates anonymized user IDs (SHA-256 hash with salt)
-  - Extracts and enriches metadata with lifecycle context
-  - Writes to both `analytics_events` (anonymized) and `analytics_events_private` (admin-only)
+- **Dual Tracking System**:
+  - **Custom Firestore Analytics** - Cloud Function (`logAnalyticsEvent`) that:
+    - Validates events and features
+    - Generates anonymized user IDs (SHA-256 hash with salt)
+    - Extracts and enriches metadata with lifecycle context
+    - Writes to both `analytics_events` (anonymized) and `analytics_events_private` (admin-only)
+  - **Firebase Analytics (Standard Dashboard)** - Logs all events to Firebase Analytics dashboard for real-time insights and standard analytics reports
 - **Event Parameters** - Each event includes feature-specific parameters (module_id, summary_id, provider_id, etc.) merged with lifecycle context
 - **Session Management** - Session IDs persist for browser/app session duration
 
@@ -197,6 +199,8 @@ Events follow Firebase naming convention: `feature_action_object` (e.g., `learni
 ### Change History
 - **2024-12-19** - **analytics_initial** - **App open tracking**: Added automatic tracking of app opens with session ID generation. Events are logged with metadata including timestamp, user agent, and platform information. Integrated with existing Cloud Function-based analytics infrastructure for server-side anonymization.
 - **2025-03-07** - **analytics_expansion** - **Comprehensive event tracking**: Expanded analytics system to track 30+ events across all platform features. Added user lifecycle context (cohort_type, navigator, self_directed, pregnancy_week, trimester) automatically attached to every event. Implemented Flutter analytics service with helper methods for Learning Modules (6 events), After Visit Summary (5 events), Birth Plan Builder (6 events), Provider Search (6 events), Journal (5 events), Community Forums (6 events), Surveys/Micro Measures (3 events), and System Metrics (5 events). Updated Cloud Function to extract and enrich metadata with lifecycle context for cohort analysis. Events support derived metrics calculation for research outcomes including Health Understanding Impact, Self Advocacy Confidence, Care Navigation Success, Care Preparation, Engagement Pathway, and Community Support reports.
+- **2025-03-07** - **analytics_auth_fix** - **Fixed authentication and App Check issues**: Resolved analytics events not being logged to Firestore due to Firebase Functions v2 context structure mismatch. Updated `logAnalyticsEvent` Cloud Function to use correct v2 `CallableRequest` format (`request.auth.uid` instead of `context.auth.uid`). Disabled App Check enforcement (`enforceAppCheck: false`) to allow analytics without App Check registration. Implemented event queuing system in Flutter app to handle auth race conditions at startup. Added comprehensive error handling to distinguish App Check failures from authentication errors. Events now successfully write to `analytics_events` and `analytics_events_private` collections in Firestore using authenticated user's UID for data correlation.
+- **2025-03-07** - **analytics_dual_tracking** - **Dual analytics tracking**: Added Firebase Analytics (standard dashboard) tracking alongside existing custom Firestore analytics. All events are now logged to both systems simultaneously - custom Firestore collections for detailed analysis with user lifecycle context, and Firebase Analytics dashboard for real-time insights and standard reports. Firebase Analytics events include feature, lifecycle context (cohort_type, trimester, pregnancy_week, navigator, self_directed), and event-specific parameters. Both systems operate independently, so events are logged to Firebase Analytics even if the Cloud Function fails, ensuring comprehensive tracking coverage.
 
 ---
 

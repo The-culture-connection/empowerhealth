@@ -38,7 +38,9 @@ export interface TechnologyFeature {
   domain: string;
   category: string;
   description: string;
+  howItWorks?: string; // How the feature works - detailed explanation
   updateHighlight?: string;
+  recentUpdates?: string[]; // Array of recent updates/changes
   lastUpdated: any;
   visible: boolean;
   displayOrder: number;
@@ -77,6 +79,8 @@ export async function getAllFeatures(): Promise<TechnologyFeature[]> {
     const data = doc.data();
     return {
       ...data,
+      howItWorks: data.howItWorks || undefined,
+      recentUpdates: data.recentUpdates || undefined,
       lastUpdated: data.lastUpdated?.toDate(),
       createdAt: data.createdAt?.toDate(),
       updatedAt: data.updatedAt?.toDate(),
@@ -121,6 +125,8 @@ export async function getFeaturesByDomain(domain: string): Promise<TechnologyFea
     const data = doc.data();
     return {
       ...data,
+      howItWorks: data.howItWorks || undefined,
+      recentUpdates: data.recentUpdates || undefined,
       lastUpdated: data.lastUpdated?.toDate(),
       createdAt: data.createdAt?.toDate(),
       updatedAt: data.updatedAt?.toDate(),

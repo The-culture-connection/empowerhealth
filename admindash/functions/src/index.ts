@@ -663,57 +663,83 @@ function parseFeaturesMarkdown(content: string): Record<string, any> {
   const features: Record<string, any> = {};
   const sections = content.split(/^## \d+\. /m);
   
+  // Map feature names to IDs
+  const featureIdMap: Record<string, string> = {
+    'Provider Search': 'provider-search',
+    'Authentication and Onboarding': 'authentication-onboarding',
+    'User Feedback': 'user-feedback',
+    'Appointment Summarizing': 'appointment-summarizing',
+    'Journal': 'journal',
+    'Learning Modules': 'learning-modules',
+    'Birth Plan Generator': 'birth-plan-generator',
+    'Community': 'community',
+    'Profile Editing': 'profile-editing'
+  };
+  
   sections.forEach((section, index) => {
     if (index === 0) return; // Skip header
     
     const lines = section.split('\n');
     const featureName = lines[0].trim();
+    const featureId = featureIdMap[featureName] || featureName.toLowerCase().replace(/\s+/g, '-');
     
     let currentSection = '';
     let description = '';
+    let howItWorks = '';
     const changeHistory: any[] = [];
+    const recentUpdates: string[] = [];
     
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       
       if (line === '### Current Functionality') {
-        currentSection = 'description';
+        currentSection = 'functionality';
+        howItWorks = ''; // Reset
       } else if (line === '### Change History') {
         currentSection = 'changes';
+      } else if (line.startsWith('---')) {
+        // End of section
+        break;
       } else if (line.startsWith('- **') && currentSection === 'changes') {
         // Parse: - **[Date]** - **[Commit SHA]** - **[Title]**: [Description]
-        const match = line.match(/^- \*\*(\d{4}-\d{2}-\d{2})\*\* - \*\*([a-f0-9]+)\*\* - \*\*([^\*]+)\*\*: (.+)$/);
-        if (match) {
+        // Or: - **[Date]** - **[Title]**: [Description] (without commit SHA)
+        const matchWithCommit = line.match(/^- \*\*(\d{4}-\d{2}-\d{2})\*\* - \*\*([a-f0-9]+)\*\* - \*\*([^\*]+)\*\*: (.+)$/);
+        const matchWithoutCommit = line.match(/^- \*\*(\d{4}-\d{2}-\d{2})\*\* - \*\*([^\*]+)\*\*: (.+)$/);
+        
+        if (matchWithCommit) {
+          const updateText = `${matchWithCommit[3]}: ${matchWithCommit[4]}`;
           changeHistory.push({
-            date: match[1],
-            commitSha: match[2],
-            title: match[3],
-            description: match[4]
+            date: matchWithCommit[1],
+            commitSha: matchWithCommit[2],
+            title: matchWithCommit[3],
+            description: matchWithCommit[4]
           });
+          recentUpdates.push(updateText);
+        } else if (matchWithoutCommit) {
+          const updateText = `${matchWithoutCommit[2]}: ${matchWithoutCommit[3]}`;
+          changeHistory.push({
+            date: matchWithoutCommit[1],
+            commitSha: null,
+            title: matchWithoutCommit[2],
+            description: matchWithoutCommit[3]
+          });
+          recentUpdates.push(updateText);
+        } else if (line.startsWith('- *No changes tracked yet*')) {
+          // Skip "No changes tracked yet" entries
         }
+      } else if (currentSection === 'functionality' && line && !line.startsWith('---')) {
+        // Collect "How the feature works" from Current Functionality section
+        howItWorks += (howItWorks ? '\n' : '') + line;
       } else if (currentSection === 'description' && line && !line.startsWith('---')) {
         description += (description ? '\n' : '') + line;
       }
     }
     
-    // Map feature names to IDs
-    const featureIdMap: Record<string, string> = {
-      'Provider Search': 'provider-search',
-      'Authentication and Onboarding': 'authentication-onboarding',
-      'User Feedback': 'user-feedback',
-      'Appointment Summarizing': 'appointment-summarizing',
-      'Journal': 'journal',
-      'Learning Modules': 'learning-modules',
-      'Birth Plan Generator': 'birth-plan-generator',
-      'Community': 'community',
-      'Profile Editing': 'profile-editing'
-    };
-    
-    const featureId = featureIdMap[featureName] || featureName.toLowerCase().replace(/\s+/g, '-');
-    
     features[featureId] = {
       name: featureName,
       description: description.trim(),
+      howItWorks: howItWorks.trim(), // Extract "How the feature works"
+      recentUpdates: recentUpdates, // Extract recent updates
       changeHistory: changeHistory
     };
   });
@@ -807,7 +833,8 @@ export const publishRelease = functions.https.onRequest({
       secretToken,
       commitMessage,
       commitAuthor,
-      commitDate
+      commitDate,
+      featuresMarkdown  // FEATURES.md content
     } = payload;
 
     // Verify secret token if provided (for GitHub Actions)
@@ -944,9 +971,79 @@ export const publishRelease = functions.https.onRequest({
     }, { merge: true });
     console.log('[publishRelease] Commit document created successfully:', commitSha);
 
-  // Auto-create/update technology_features documents based on dossier categories
-  // Also process feature changes from FEATURES.md (if available via GitHub)
-  if (featureDossier.categories && Array.isArray(featureDossier.categories)) {
+    // Process FEATURES.md if provided (extract "How the feature works" and "Updates")
+    if (featuresMarkdown) {
+      try {
+        console.log('[publishRelease] Processing FEATURES.md content');
+        const features = parseFeaturesMarkdown(featuresMarkdown);
+        
+        for (const [featureId, featureData] of Object.entries(features)) {
+          const featureRef = db.collection('technology_features').doc(featureId);
+          const featureDoc = await featureRef.get();
+          const existingData: any = featureDoc.exists ? featureDoc.data() : {};
+          
+          const now = admin.firestore.FieldValue.serverTimestamp();
+          const featureUpdate: any = {
+            name: featureData.name,
+            description: featureData.description || existingData?.description || '',
+            howItWorks: featureData.howItWorks || existingData?.howItWorks || '', // Update "How the feature works"
+            domain: getDomainFromFeatureId(featureId),
+            status: existingData?.status || 'active',
+            displayOrder: existingData?.displayOrder || getDefaultDisplayOrder(featureId),
+            tags: existingData?.tags || [featureId],
+            updatedAt: now,
+            updatedBy: 'system',
+            lastProcessedCommit: commitSha,
+          };
+          
+          // Update recentUpdates array (keep existing + add new ones, limit to last 10)
+          const existingUpdates = existingData?.recentUpdates || [];
+          const newUpdates = featureData.recentUpdates || [];
+          // Combine and deduplicate, keeping most recent
+          const allUpdates = [...newUpdates, ...existingUpdates];
+          const uniqueUpdates = Array.from(new Set(allUpdates)); // Simple deduplication
+          featureUpdate.recentUpdates = uniqueUpdates.slice(0, 10); // Keep last 10 updates
+          
+          if (!featureDoc.exists) {
+            featureUpdate.createdAt = now;
+            featureUpdate.visible = true;
+          }
+          
+          await featureRef.set(featureUpdate, { merge: true });
+          console.log(`[publishRelease] Updated feature ${featureId} with howItWorks and recentUpdates`);
+          
+          // Add change history entries for new changes
+          if (featureData.changeHistory && featureData.changeHistory.length > 0) {
+            const latestChanges = featureData.changeHistory.filter((change: any) => 
+              !existingData?.lastProcessedCommit || 
+              change.commitSha !== existingData.lastProcessedCommit
+            );
+            
+            for (const change of latestChanges) {
+              await featureRef.collection('change_history').add({
+                version: commitSha.substring(0, 7),
+                date: commitDate ? admin.firestore.Timestamp.fromDate(new Date(commitDate)) : now,
+                change: change.description,
+                title: change.title,
+                commitSha: change.commitSha,
+                commitMessage: commitMessage || '',
+                commitAuthor: commitAuthor || 'system',
+                releaseBuildNumber: buildNumber,
+                createdBy: 'system',
+                createdAt: now
+              });
+            }
+          }
+        }
+        console.log('[publishRelease] Successfully processed FEATURES.md');
+      } catch (error: any) {
+        console.error('[publishRelease] Error processing FEATURES.md:', error);
+        // Don't fail the entire release if FEATURES.md parsing fails
+      }
+    }
+
+    // Auto-create/update technology_features documents based on dossier categories
+    if (featureDossier.categories && Array.isArray(featureDossier.categories)) {
     const featureIdMap: Record<string, string> = {
       'After Visit Summary': 'appointment-summarizing',
       'Learning Modules': 'learning-modules',

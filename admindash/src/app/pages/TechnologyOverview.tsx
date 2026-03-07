@@ -606,6 +606,40 @@ export function TechnologyOverview() {
                 {feature.description.slice(0, 100)}...
               </p>
 
+              {/* How the Feature Works - Preview */}
+              {feature.howItWorks && (
+                <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: '#f3e5f5' }}>
+                  <div className="text-xs font-semibold mb-1" style={{ color: '#7e57c2' }}>
+                    How it works:
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: '#616161' }}>
+                    {feature.howItWorks.slice(0, 80)}...
+                  </p>
+                </div>
+              )}
+
+              {/* Recent Updates - Preview */}
+              {feature.recentUpdates && feature.recentUpdates.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-xs font-semibold mb-1" style={{ color: '#9575cd' }}>
+                    Recent Updates:
+                  </div>
+                  <ul className="text-xs space-y-1" style={{ color: '#757575' }}>
+                    {feature.recentUpdates.slice(0, 2).map((update: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-1">
+                        <span className="text-[#9575cd] mt-0.5">•</span>
+                        <span>{update.slice(0, 60)}...</span>
+                      </li>
+                    ))}
+                    {feature.recentUpdates.length > 2 && (
+                      <li className="text-xs" style={{ color: '#9e9e9e' }}>
+                        +{feature.recentUpdates.length - 2} more
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
               {feature.lastUpdated && (
                 <div className="text-xs mb-3" style={{ color: '#9e9e9e' }}>
                   Updated {formatDate(feature.lastUpdated)}
@@ -941,6 +975,69 @@ export function TechnologyOverview() {
                 </div>
               </div>
 
+              {/* How the Feature Works */}
+              {selectedFeature.howItWorks && (
+                <div
+                  className="p-6 rounded-xl border mb-8"
+                  style={{
+                    backgroundColor: '#fafafa',
+                    borderColor: '#e0e0e0',
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-4">
+                    <Code2 className="w-5 h-5" style={{ color: '#9575cd' }} />
+                    <h3 className="text-lg" style={{ color: '#424242' }}>
+                      How the Feature Works
+                    </h3>
+                  </div>
+                  <div className="prose max-w-none">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#616161' }}>
+                      {selectedFeature.howItWorks}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Updates */}
+              {selectedFeature.recentUpdates && selectedFeature.recentUpdates.length > 0 && (
+                <div
+                  className="p-6 rounded-xl border mb-8"
+                  style={{
+                    backgroundColor: '#fafafa',
+                    borderColor: '#e0e0e0',
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="w-5 h-5" style={{ color: '#9575cd' }} />
+                    <h3 className="text-lg" style={{ color: '#424242' }}>
+                      Recent Updates
+                    </h3>
+                  </div>
+                  <div className="space-y-3">
+                    {selectedFeature.recentUpdates.map((update, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 rounded-lg"
+                        style={{
+                          backgroundColor: 'white',
+                          border: '1px solid #e0e0e0',
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
+                            style={{ backgroundColor: '#9575cd' }}
+                          />
+                          <p className="text-sm leading-relaxed flex-1" style={{ color: '#616161' }}>
+                            {update}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* KPIs */}
               <div
                 className="p-6 rounded-xl border mb-8"
@@ -956,45 +1053,49 @@ export function TechnologyOverview() {
                   </h3>
                 </div>
                 <div className="space-y-4">
-                  {selectedFeatureAnalytics?.kpis?.map((kpi, idx) => (
-                    <div
-                      key={idx}
-                      className="p-5 rounded-xl"
-                      style={{
-                        backgroundColor: 'white',
-                        border: '1px solid #e0e0e0',
-                      }}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="text-sm mb-1" style={{ color: '#424242' }}>
-                            {kpi.name}
-                          </h4>
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl" style={{ color: '#424242' }}>
-                              {kpi.value}
-                            </span>
-                            <span
-                              className="text-sm px-2 py-1 rounded-md"
-                              style={{
-                                backgroundColor: kpi.trend.includes('New') ? '#e8eaf6' : '#e8f5e9',
-                                color: kpi.trend.includes('New') ? '#5e35b1' : '#2e7d32',
-                              }}
-                            >
-                              {kpi.trend}
-                            </span>
+                  {selectedFeatureAnalytics?.kpis && Array.isArray(selectedFeatureAnalytics.kpis) ? (
+                    selectedFeatureAnalytics.kpis.map((kpi: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="p-5 rounded-xl"
+                        style={{
+                          backgroundColor: 'white',
+                          border: '1px solid #e0e0e0',
+                        }}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h4 className="text-sm mb-1" style={{ color: '#424242' }}>
+                              {kpi.name}
+                            </h4>
+                            <div className="flex items-center gap-3">
+                              <span className="text-2xl" style={{ color: '#424242' }}>
+                                {kpi.value}
+                              </span>
+                              <span
+                                className="text-sm px-2 py-1 rounded-md"
+                                style={{
+                                  backgroundColor: kpi.trend?.includes('New') ? '#e8eaf6' : '#e8f5e9',
+                                  color: kpi.trend?.includes('New') ? '#5e35b1' : '#2e7d32',
+                                }}
+                              >
+                                {kpi.trend}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Target</div>
+                            <div className="text-sm" style={{ color: '#757575' }}>{kpi.target}</div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Target</div>
-                          <div className="text-sm" style={{ color: '#757575' }}>{kpi.target}</div>
-                        </div>
+                        <p className="text-sm leading-relaxed" style={{ color: '#757575' }}>
+                          {kpi.impact}
+                        </p>
                       </div>
-                      <p className="text-sm leading-relaxed" style={{ color: '#757575' }}>
-                        {kpi.impact}
-                      </p>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <div className="text-sm" style={{ color: '#757575' }}>No KPI data available.</div>
+                  )}
                 </div>
               </div>
 

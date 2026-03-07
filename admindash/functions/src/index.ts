@@ -663,6 +663,8 @@ function parseFeaturesMarkdown(content: string): Record<string, any> {
   const features: Record<string, any> = {};
   const sections = content.split(/^## \d+\. /m);
   
+  console.log(`[parseFeaturesMarkdown] Found ${sections.length} sections after splitting`);
+  
   // Map feature names to IDs
   const featureIdMap: Record<string, string> = {
     'Provider Search': 'provider-search',
@@ -682,6 +684,8 @@ function parseFeaturesMarkdown(content: string): Record<string, any> {
     const lines = section.split('\n');
     const featureName = lines[0].trim();
     const featureId = featureIdMap[featureName] || featureName.toLowerCase().replace(/\s+/g, '-');
+    
+    console.log(`[parseFeaturesMarkdown] Processing section ${index}: featureName="${featureName}", featureId="${featureId}"`);
     
     let currentSection = '';
     let description = '';
@@ -742,8 +746,16 @@ function parseFeaturesMarkdown(content: string): Record<string, any> {
       recentUpdates: recentUpdates, // Extract recent updates
       changeHistory: changeHistory
     };
+    
+    console.log(`[parseFeaturesMarkdown] Added feature ${featureId}:`, {
+      hasHowItWorks: !!howItWorks.trim(),
+      howItWorksLength: howItWorks.trim().length,
+      recentUpdatesCount: recentUpdates.length,
+      changeHistoryCount: changeHistory.length
+    });
   });
   
+  console.log(`[parseFeaturesMarkdown] Returning ${Object.keys(features).length} features:`, Object.keys(features));
   return features;
 }
 
@@ -988,8 +1000,15 @@ export const publishRelease = functions.https.onRequest({
       try {
         console.log('[publishRelease] Processing FEATURES.md content, length:', featuresMarkdown.length);
         const features = parseFeaturesMarkdown(featuresMarkdown);
+        console.log(`[publishRelease] Parsed ${Object.keys(features).length} features from FEATURES.md`);
         
         for (const [featureId, featureData] of Object.entries(features)) {
+          console.log(`[publishRelease] Processing feature ${featureId}:`, {
+            name: featureData.name,
+            hasHowItWorks: !!featureData.howItWorks,
+            howItWorksLength: featureData.howItWorks?.length || 0,
+            recentUpdatesCount: featureData.recentUpdates?.length || 0
+          });
           const featureRef = db.collection('technology_features').doc(featureId);
           const featureDoc = await featureRef.get();
           const existingData: any = featureDoc.exists ? featureDoc.data() : {};

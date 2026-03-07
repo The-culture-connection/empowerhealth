@@ -11,6 +11,7 @@ import 'privacy/consent_screen.dart';
 import 'services/firebase_service.dart';
 import 'services/auth_service.dart';
 import 'services/database_service.dart';
+import 'services/analytics_service.dart';
 import 'providers/profile_creation_provider.dart';
 
 void main() async {
@@ -79,13 +80,25 @@ class _AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<_AuthWrapper> {
   final DatabaseService _databaseService = DatabaseService();
+  final AnalyticsService _analytics = AnalyticsService();
   bool _isChecking = true;
   Widget? _targetScreen;
 
   @override
   void initState() {
     super.initState();
+    _trackSessionStart();
     _checkProfile();
+  }
+
+  Future<void> _trackSessionStart() async {
+    try {
+      final userProfile = await _databaseService.getUserProfile(widget.userId);
+      await _analytics.logSessionStarted(userProfile: userProfile);
+      debugPrint('✅ Analytics: Session started tracked');
+    } catch (e) {
+      debugPrint('⚠️ Analytics: Failed to track session start: $e');
+    }
   }
 
   Future<void> _checkProfile() async {

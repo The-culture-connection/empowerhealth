@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../Home/home_screen_v2.dart';
 import '../Journal/Journal_screen.dart';
@@ -6,6 +7,8 @@ import '../Community/community_screen.dart';
 import '../assistant/assistant_screen.dart';
 import '../editprofile/edit_profile_screen.dart';
 import '../Home/Learning Modules/learning_modules_screen_v2.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
 import 'ui_theme.dart';
 
 class MainNavigationScaffold extends StatefulWidget {
@@ -16,6 +19,8 @@ class MainNavigationScaffold extends StatefulWidget {
 }
 
 class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
   int _index = 0;
 
   final _pages = const [
@@ -25,6 +30,50 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
     CommunityScreen(),
     EditProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _trackScreenView();
+  }
+
+  Future<void> _trackScreenView() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      
+      final userProfile = await _databaseService.getUserProfile(user.uid);
+      await _analytics.logScreenView(
+        screenName: 'main_navigation',
+        userProfile: userProfile,
+      );
+    } catch (e) {
+      debugPrint('⚠️ Analytics: Failed to track screen view: $e');
+    }
+  }
+
+  void _onTabChanged(int newIndex) {
+    setState(() => _index = newIndex);
+    _trackTabView(newIndex);
+  }
+
+  Future<void> _trackTabView(int tabIndex) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      
+      final userProfile = await _databaseService.getUserProfile(user.uid);
+      final screenNames = ['home', 'learn', 'journal', 'community', 'profile'];
+      if (tabIndex < screenNames.length) {
+        await _analytics.logScreenView(
+          screenName: screenNames[tabIndex],
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      debugPrint('⚠️ Analytics: Failed to track tab view: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,31 +105,31 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
                   icon: Icons.home_rounded,
                   label: 'Home',
                   isSelected: _index == 0,
-                  onTap: () => setState(() => _index = 0),
+                  onTap: () => _onTabChanged(0),
                 ),
                 _NavItem(
                   icon: Icons.book_outlined,
                   label: 'Learn',
                   isSelected: _index == 1,
-                  onTap: () => setState(() => _index = 1),
+                  onTap: () => _onTabChanged(1),
                 ),
                 _NavItem(
                   icon: Icons.favorite_outline,
                   label: 'Journal',
                   isSelected: _index == 2,
-                  onTap: () => setState(() => _index = 2),
+                  onTap: () => _onTabChanged(2),
                 ),
                 _NavItem(
                   icon: Icons.people_outline,
                   label: 'Community',
                   isSelected: _index == 3,
-                  onTap: () => setState(() => _index = 3),
+                  onTap: () => _onTabChanged(3),
                 ),
                 _NavItem(
                   icon: Icons.person_outline,
                   label: 'Profile',
                   isSelected: _index == 4,
-                  onTap: () => setState(() => _index = 4),
+                  onTap: () => _onTabChanged(4),
                 ),
               ],
             ),

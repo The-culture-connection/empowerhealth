@@ -765,6 +765,16 @@ function getDefaultDisplayOrder(featureId: string): number {
  * Handles both pilot (push to main) and production (tag prod-v*) releases
  */
 export const publishRelease = functions.https.onCall(async (data: any, context?: any) => {
+  // For callable functions called via HTTP, data is wrapped in {data: {...}}
+  // Extract the actual payload
+  const payload = data?.data || data;
+  
+  console.log('[publishRelease] Received request:', {
+    hasDataWrapper: !!data?.data,
+    commitSha: payload?.commitSha,
+    hasSecretToken: !!payload?.secretToken
+  });
+  
   // Allow unauthenticated calls from GitHub Actions (using secret token)
   const { 
     pubspecVersionLine, 
@@ -778,7 +788,7 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
     commitMessage,
     commitAuthor,
     commitDate
-  } = data;
+  } = payload;
 
   // Verify secret token if provided (for GitHub Actions)
   if (secretToken) {
@@ -887,19 +897,26 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
   await db.collection('releases').doc(buildNumber.toString()).set(releaseDoc, { merge: true });
 
   // Also create a commit tracking document for this commit
-  await db.collection('commits').doc(commitSha).set({
-    commitSha,
-    commitMessage: commitMessage || '',
-    commitAuthor: commitAuthor || '',
-    commitDate: commitDate ? admin.firestore.Timestamp.fromDate(new Date(commitDate)) : admin.firestore.FieldValue.serverTimestamp(),
-    branch: branch || 'main',
-    gitTag: gitTag || null,
-    buildNumber,
-    fullVersion,
-    channel,
-    releaseDocId: buildNumber.toString(),
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  }, { merge: true });
+  console.log('[publishRelease] Creating commit document:', commitSha);
+  try {
+    await db.collection('commits').doc(commitSha).set({
+      commitSha,
+      commitMessage: commitMessage || '',
+      commitAuthor: commitAuthor || '',
+      commitDate: commitDate ? admin.firestore.Timestamp.fromDate(new Date(commitDate)) : admin.firestore.FieldValue.serverTimestamp(),
+      branch: branch || 'main',
+      gitTag: gitTag || null,
+      buildNumber,
+      fullVersion,
+      channel,
+      releaseDocId: buildNumber.toString(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    console.log('[publishRelease] Commit document created successfully:', commitSha);
+  } catch (error: any) {
+    console.error('[publishRelease] Error creating commit document:', error);
+    throw error;
+  }
 
   // Auto-create/update technology_features documents based on dossier categories
   // Also process feature changes from FEATURES.md (if available via GitHub)
@@ -988,7 +1005,14 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  return { success: true, buildNumber, channel, fullVersion };
+  console.log('[publishRelease] Function completed successfully:', {
+    buildNumber,
+    fullVersion,
+    channel,
+    commitSha
+  });
+
+  return { success: true, buildNumber, channel, fullVersion, commitSha };
 });
 
 /**

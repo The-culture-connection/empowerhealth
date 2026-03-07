@@ -13,7 +13,10 @@ class AnalyticsService {
   factory AnalyticsService() => _instance;
   AnalyticsService._internal();
 
-  final FirebaseFunctions _functions = FirebaseFunctions.instance;
+  // Use us-central1 region explicitly to match deployed functions
+  final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
+    region: 'us-central1',
+  );
   String? _sessionId;
 
   /// Get or create session ID (persists for browser/app session)
@@ -34,7 +37,11 @@ class AnalyticsService {
   Future<Map<String, dynamic>> getUserLifecycleContext(UserProfile? userProfile) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      return {};
+      print('⚠️ Analytics: No authenticated user - returning empty context');
+      return {
+        'session_id': getSessionId(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
     }
 
     final context = <String, dynamic>{
@@ -106,6 +113,16 @@ class AnalyticsService {
     UserProfile? userProfile,
   }) async {
     try {
+      // Check if user is authenticated (function requires auth)
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('⚠️ Analytics: User not authenticated - skipping event "$eventName"');
+        return;
+      }
+      
+      print('📊 Analytics: Starting to log event "$eventName" for feature "$feature"');
+      print('📊 Analytics: User ID: ${user.uid}');
+      
       // Get user lifecycle context
       final lifecycleContext = await getUserLifecycleContext(userProfile);
       
@@ -116,17 +133,46 @@ class AnalyticsService {
       };
 
       // Call Cloud Function
-      final callable = _functions.httpsCallable('logAnalyticsEvent');
-      await callable.call({
+      final callable = _functions.httpsCallable(
+        'logAnalyticsEvent',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 30),
+        ),
+      );
+      
+      print('📊 Analytics: Session ID: ${getSessionId()}');
+      print('📊 Analytics: Metadata keys: ${metadata.keys.toList()}');
+      print('📊 Analytics: Calling Cloud Function...');
+      
+      final result = await callable.call({
         'eventName': eventName,
         'feature': feature,
         'metadata': metadata,
         'durationMs': durationMs,
         'sessionId': getSessionId(),
       });
-    } catch (e) {
-      // Silently fail - analytics shouldn't break the app
-      print('Analytics error: $e');
+      
+      print('✅ Analytics: Event "$eventName" logged successfully');
+      print('✅ Analytics: Function response: ${result.data}');
+    } catch (e, stackTrace) {
+      // Log detailed error information for debugging
+      print('❌ Analytics error for event "$eventName" (feature: "$feature"):');
+      print('❌ Error: $e');
+      print('❌ Stack trace: $stackTrace');
+      
+      // Check for specific error types
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('unauthenticated') || errorString.contains('permission')) {
+        print('⚠️ Analytics: Authentication issue - user may not be logged in');
+      } else if (errorString.contains('not found') || errorString.contains('404')) {
+        print('⚠️ Analytics: Cloud Function "logAnalyticsEvent" not found - may need deployment');
+      } else if (errorString.contains('timeout') || errorString.contains('deadline')) {
+        print('⚠️ Analytics: Request timeout - Cloud Function may be slow or unavailable');
+      } else if (errorString.contains('unavailable') || errorString.contains('unreachable')) {
+        print('⚠️ Analytics: Service unavailable - check network connection');
+      }
+      
+      // Don't throw - analytics shouldn't break the app
     }
   }
 

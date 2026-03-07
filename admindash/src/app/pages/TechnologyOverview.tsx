@@ -161,12 +161,31 @@ export function TechnologyOverview() {
 
   const domainOptions = ["all", ...Array.from(new Set(platformFeatures.map(f => f.domain)))];
 
-  // Get recently updated features (updated in last 7 days)
-  const recentlyUpdatedFeatures = platformFeatures.filter(f => {
-    if (!f.lastUpdated) return false;
-    const daysSinceUpdate = (Date.now() - f.lastUpdated.getTime()) / (1000 * 60 * 60 * 24);
-    return daysSinceUpdate <= 7;
-  });
+  // Create a flat list of all feature updates with feature reference
+  interface FeatureUpdate {
+    id: string;
+    update: string;
+    feature: TechnologyFeature;
+    updateIndex: number;
+  }
+
+  const allFeatureUpdates: FeatureUpdate[] = platformFeatures
+    .filter(f => f.recentUpdates && f.recentUpdates.length > 0)
+    .flatMap(feature => 
+      feature.recentUpdates!.map((update, idx) => ({
+        id: `${feature.id}-update-${idx}`,
+        update,
+        feature,
+        updateIndex: idx
+      }))
+    )
+    .sort((a, b) => {
+      // Sort by feature lastUpdated date (most recent first)
+      const dateA = a.feature.lastUpdated?.getTime() || 0;
+      const dateB = b.feature.lastUpdated?.getTime() || 0;
+      return dateB - dateA;
+    })
+    .slice(0, 10); // Show latest 10 updates
 
   // Helper functions
   const getStatusColor = (status: string) => {
@@ -362,7 +381,7 @@ export function TechnologyOverview() {
                 Recent platform improvements and feature releases
               </p>
             </div>
-            {recentlyUpdatedFeatures.length > 0 && (
+            {allFeatureUpdates.length > 0 && (
               <div
                 className="px-4 py-2 rounded-full text-sm"
                 style={{
@@ -370,141 +389,142 @@ export function TechnologyOverview() {
                   color: '#7e57c2',
                 }}
               >
-                {recentlyUpdatedFeatures.length} new updates
+                {allFeatureUpdates.length} updates
               </div>
             )}
           </div>
 
           {/* Feed-style updates */}
-          {recentlyUpdatedFeatures.length === 0 ? (
+          {allFeatureUpdates.length === 0 ? (
             <div className="text-center py-8" style={{ color: '#757575' }}>
-              No recent feature updates in the last 7 days.
+              No feature updates available.
             </div>
           ) : (
             <div className="space-y-4">
-              {recentlyUpdatedFeatures.map((feature) => (
-            <div
-              key={feature.id}
-              className="p-6 rounded-xl border transition-all"
-              style={{
-                backgroundColor: '#fafafa',
-                borderColor: '#e0e0e0',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'white';
-                e.currentTarget.style.borderColor = '#9575cd';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#fafafa';
-                e.currentTarget.style.borderColor = '#e0e0e0';
-              }}
-            >
-              {/* Post Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center"
-                    style={{
-                      backgroundColor: '#e8eaf6',
-                    }}
-                  >
-                    <Sparkles className="w-6 h-6" style={{ color: '#7e57c2' }} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm" style={{ color: '#424242' }}>
-                        Platform Engineering Team
-                      </span>
-                      <span className="text-xs" style={{ color: '#9e9e9e' }}>•</span>
-                      <span className="text-xs" style={{ color: '#9e9e9e' }}>
-                        {feature.lastUpdated ? formatDate(feature.lastUpdated) : 'Unknown'}
-                      </span>
-                    </div>
-                    <div className="text-xs" style={{ color: '#757575' }}>
-                      Feature Update · {feature.domain}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Post Content */}
-              <div className="mb-4">
-                {feature.updateHighlight && (
-                  <h3 className="text-base mb-2" style={{ color: '#424242' }}>
-                    {feature.updateHighlight}
-                  </h3>
-                )}
-                <p className="text-sm leading-relaxed mb-3" style={{ color: '#616161' }}>
-                  {feature.description}
-                </p>
-
-                {/* Feature Tags */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <div
-                    className="px-3 py-1 rounded-full text-xs flex items-center gap-1"
-                    style={{
-                      backgroundColor: '#e8eaf6',
-                      color: '#5e35b1',
-                    }}
-                  >
-                    #{feature.name.toLowerCase().replace(/\s+/g, '-')}
-                  </div>
-                  <div
-                    className="px-3 py-1 rounded-full text-xs"
-                    style={{
-                      backgroundColor: '#f3e5f5',
-                      color: '#7e57c2',
-                    }}
-                  >
-                    #{feature.domain.toLowerCase().replace(/\s+/g, '-')}
-                  </div>
-                  <div
-                    className="px-3 py-1 rounded-full text-xs"
-                    style={{
-                      backgroundColor: '#f5f5f5',
-                      color: '#616161',
-                    }}
-                  >
-                    #{feature.category.toLowerCase()}
-                  </div>
-                </div>
-              </div>
-
-              {/* Post Metrics & CTA */}
-              <div
-                className="pt-4 border-t flex items-center justify-between"
-                style={{ borderColor: '#e0e0e0' }}
-              >
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4" style={{ color: '#757575' }} />
-                    <span className="text-sm" style={{ color: '#757575' }}>
-                      View analytics
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedFeature(feature)}
-                  className="px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2"
+              {allFeatureUpdates.map((featureUpdate) => (
+                <div
+                  key={featureUpdate.id}
+                  onClick={() => setSelectedFeature(featureUpdate.feature)}
+                  className="p-6 rounded-xl border transition-all cursor-pointer"
                   style={{
-                    backgroundColor: 'transparent',
-                    color: '#9575cd',
-                    border: '1px solid #9575cd',
+                    backgroundColor: '#fafafa',
+                    borderColor: '#e0e0e0',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#9575cd';
-                    e.currentTarget.style.color = 'white';
+                    e.currentTarget.style.backgroundColor = 'white';
+                    e.currentTarget.style.borderColor = '#9575cd';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#9575cd';
+                    e.currentTarget.style.backgroundColor = '#fafafa';
+                    e.currentTarget.style.borderColor = '#e0e0e0';
                   }}
                 >
-                  View Analytics
-                  <ArrowUpRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+                  {/* Post Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-12 h-12 rounded-full flex items-center justify-center"
+                        style={{
+                          backgroundColor: '#e8eaf6',
+                        }}
+                      >
+                        <Sparkles className="w-6 h-6" style={{ color: '#7e57c2' }} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold" style={{ color: '#424242' }}>
+                            {featureUpdate.feature.name}
+                          </span>
+                          <span className="text-xs" style={{ color: '#9e9e9e' }}>•</span>
+                          <span className="text-xs" style={{ color: '#9e9e9e' }}>
+                            {featureUpdate.feature.lastUpdated ? formatDate(featureUpdate.feature.lastUpdated) : 'Unknown'}
+                          </span>
+                        </div>
+                        <div className="text-xs" style={{ color: '#757575' }}>
+                          Feature Update · {featureUpdate.feature.domain}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Update Content */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      {featureUpdate.update.includes('[production]') && (
+                        <span
+                          className="px-2 py-0.5 rounded text-xs font-semibold"
+                          style={{
+                            backgroundColor: '#e8f5e9',
+                            color: '#2e7d32',
+                          }}
+                        >
+                          Production
+                        </span>
+                      )}
+                      {featureUpdate.update.includes('[pilot]') && !featureUpdate.update.includes('[production]') && (
+                        <span
+                          className="px-2 py-0.5 rounded text-xs font-semibold"
+                          style={{
+                            backgroundColor: '#fff3e0',
+                            color: '#e65100',
+                          }}
+                        >
+                          Pilot
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm leading-relaxed mb-3" style={{ color: '#616161' }}>
+                      {featureUpdate.update.replace(/^\[(production|pilot)\]\s*/, '')}
+                    </p>
+
+                    {/* Feature Tags */}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <div
+                        className="px-3 py-1 rounded-full text-xs flex items-center gap-1"
+                        style={{
+                          backgroundColor: '#e8eaf6',
+                          color: '#5e35b1',
+                        }}
+                      >
+                        #{featureUpdate.feature.name.toLowerCase().replace(/\s+/g, '-')}
+                      </div>
+                      <div
+                        className="px-3 py-1 rounded-full text-xs"
+                        style={{
+                          backgroundColor: '#f3e5f5',
+                          color: '#7e57c2',
+                        }}
+                      >
+                        #{featureUpdate.feature.domain.toLowerCase().replace(/\s+/g, '-')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Post Metrics & CTA */}
+                  <div
+                    className="pt-4 border-t flex items-center justify-between"
+                    style={{ borderColor: '#e0e0e0' }}
+                  >
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4" style={{ color: '#757575' }} />
+                        <span className="text-sm" style={{ color: '#757575' }}>
+                          View analytics
+                        </span>
+                      </div>
+                    </div>
+                    <div className="px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+                      style={{
+                        backgroundColor: 'transparent',
+                        color: '#9575cd',
+                        border: '1px solid #9575cd',
+                      }}
+                    >
+                      View Feature Details
+                      <ArrowUpRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -625,12 +645,38 @@ export function TechnologyOverview() {
                     Recent Updates:
                   </div>
                   <ul className="text-xs space-y-1" style={{ color: '#757575' }}>
-                    {feature.recentUpdates.slice(0, 2).map((update: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-1">
-                        <span className="text-[#9575cd] mt-0.5">•</span>
-                        <span>{update.slice(0, 60)}...</span>
-                      </li>
-                    ))}
+                    {feature.recentUpdates.slice(0, 2).map((update: string, idx: number) => {
+                      const isProduction = update.includes('[production]');
+                      const isPilot = update.includes('[pilot]');
+                      const updateText = update.replace(/^\[(production|pilot)\]\s*/, '');
+                      
+                      return (
+                        <li key={idx} className="flex items-start gap-1">
+                          <span 
+                            className="mt-0.5" 
+                            style={{ 
+                              color: isProduction ? '#4caf50' : isPilot ? '#ff9800' : '#9575cd' 
+                            }}
+                          >
+                            •
+                          </span>
+                          <span className="flex items-center gap-1">
+                            {isProduction && (
+                              <span
+                                className="px-1 py-0.5 rounded text-[10px] font-semibold"
+                                style={{
+                                  backgroundColor: '#e8f5e9',
+                                  color: '#2e7d32',
+                                }}
+                              >
+                                PROD
+                              </span>
+                            )}
+                            <span>{updateText.slice(0, 50)}...</span>
+                          </span>
+                        </li>
+                      );
+                    })}
                     {feature.recentUpdates.length > 2 && (
                       <li className="text-xs" style={{ color: '#9e9e9e' }}>
                         +{feature.recentUpdates.length - 2} more
@@ -1014,26 +1060,61 @@ export function TechnologyOverview() {
                     </h3>
                   </div>
                   <div className="space-y-3">
-                    {selectedFeature.recentUpdates.map((update, idx) => (
-                      <div
-                        key={idx}
-                        className="p-4 rounded-lg"
-                        style={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e0e0e0',
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
-                            style={{ backgroundColor: '#9575cd' }}
-                          />
-                          <p className="text-sm leading-relaxed flex-1" style={{ color: '#616161' }}>
-                            {update}
-                          </p>
+                    {selectedFeature.recentUpdates.map((update, idx) => {
+                      // Check if update is tagged with [production] or [pilot]
+                      const isProduction = update.includes('[production]');
+                      const isPilot = update.includes('[pilot]');
+                      const updateText = update.replace(/^\[(production|pilot)\]\s*/, '');
+                      
+                      return (
+                        <div
+                          key={idx}
+                          className="p-4 rounded-lg"
+                          style={{
+                            backgroundColor: 'white',
+                            border: '1px solid #e0e0e0',
+                          }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
+                              style={{ 
+                                backgroundColor: isProduction ? '#4caf50' : isPilot ? '#ff9800' : '#9575cd' 
+                              }}
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                {isProduction && (
+                                  <span
+                                    className="px-2 py-0.5 rounded text-xs font-semibold"
+                                    style={{
+                                      backgroundColor: '#e8f5e9',
+                                      color: '#2e7d32',
+                                    }}
+                                  >
+                                    Production
+                                  </span>
+                                )}
+                                {isPilot && !isProduction && (
+                                  <span
+                                    className="px-2 py-0.5 rounded text-xs font-semibold"
+                                    style={{
+                                      backgroundColor: '#fff3e0',
+                                      color: '#e65100',
+                                    }}
+                                  >
+                                    Pilot
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm leading-relaxed" style={{ color: '#616161' }}>
+                                {updateText}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

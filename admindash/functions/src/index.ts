@@ -877,9 +877,11 @@ export const publishRelease = functions.https.onRequest({
   const buildNumber = parseInt(versionMatch[2], 10);
   const fullVersion = `${versionName}+${buildNumber}`;
 
-  // Determine channel based on git tag
+  // Determine channel based on git tag or branch
   let channel: 'pilot' | 'production' = 'pilot';
   if (gitTag && gitTag.startsWith('prod-v')) {
+    channel = 'production';
+  } else if (branch === 'production') {
     channel = 'production';
   }
 
@@ -1007,10 +1009,21 @@ export const publishRelease = functions.https.onRequest({
           };
           
           // Update recentUpdates array (keep existing + add new ones, limit to last 10)
+          // Tag updates with channel (production/pilot) for tracking
           const existingUpdates = existingData?.recentUpdates || [];
           const newUpdates = featureData.recentUpdates || [];
+          // Tag new updates with channel
+          const taggedNewUpdates = newUpdates.map((update: string) => {
+            // Add channel tag if not already present
+            if (channel === 'production' && !update.includes('[production]')) {
+              return `[production] ${update}`;
+            } else if (channel === 'pilot' && !update.includes('[pilot]') && !update.includes('[production]')) {
+              return `[pilot] ${update}`;
+            }
+            return update;
+          });
           // Combine and deduplicate, keeping most recent
-          const allUpdates = [...newUpdates, ...existingUpdates];
+          const allUpdates = [...taggedNewUpdates, ...existingUpdates];
           const uniqueUpdates = Array.from(new Set(allUpdates)); // Simple deduplication
           featureUpdate.recentUpdates = uniqueUpdates.slice(0, 10); // Keep last 10 updates
           

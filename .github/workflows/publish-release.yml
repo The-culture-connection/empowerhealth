@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - production
     tags:
       - 'prod-v*'
 
@@ -86,7 +87,7 @@ jobs:
       - name: Determine environment
         id: environment
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/prod-v* ]]; then
+          if [[ "${{ github.ref }}" == refs/tags/prod-v* ]] || [[ "${{ github.ref }}" == refs/heads/production ]]; then
             echo "environment=production" >> $GITHUB_OUTPUT
             echo "channel=production" >> $GITHUB_OUTPUT
           else

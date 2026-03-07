@@ -4,12 +4,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../cors/ui_theme.dart';
 import '../../learning/notes_dialog.dart';
+import '../../services/analytics_service.dart';
+import '../../services/database_service.dart';
 
-class LearningModuleDetailScreen extends StatelessWidget {
+class LearningModuleDetailScreen extends StatefulWidget {
   final String title;
   final String content;
   final String icon;
   final String? taskId; // Add taskId to track which module this survey is for
+  final String? moduleId; // Module ID for analytics
 
   const LearningModuleDetailScreen({
     super.key,
@@ -17,7 +20,49 @@ class LearningModuleDetailScreen extends StatelessWidget {
     required this.content,
     required this.icon,
     this.taskId,
+    this.moduleId,
   });
+
+  @override
+  State<LearningModuleDetailScreen> createState() => _LearningModuleDetailScreenState();
+}
+
+class _LearningModuleDetailScreenState extends State<LearningModuleDetailScreen> {
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
+  DateTime? _viewStartTime;
+  bool _hasTrackedView = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _trackModuleView();
+  }
+
+  Future<void> _trackModuleView() async {
+    if (_hasTrackedView) return;
+    _hasTrackedView = true;
+    _viewStartTime = DateTime.now();
+    
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+    
+    try {
+      final userProfile = await _databaseService.getUserProfile(userId);
+      await _analytics.logLearningModuleViewed(
+        moduleId: widget.moduleId ?? widget.taskId ?? 'unknown',
+        moduleTopic: widget.title,
+        userProfile: userProfile,
+      );
+      await _analytics.logLearningModuleStarted(
+        moduleId: widget.moduleId ?? widget.taskId ?? 'unknown',
+        moduleTopic: widget.title,
+        userProfile: userProfile,
+      );
+    } catch (e) {
+      print('Error tracking module view: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -211,6 +256,8 @@ class _ModuleReviewSection extends StatefulWidget {
 }
 
 class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
   int _understandingRating = 0;
   int _nextStepsRating = 0;
   int _confidenceRating = 0;
@@ -318,6 +365,28 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
         _isSubmitting = false;
         _hasSubmitted = true;
       });
+
+      // Track quiz submission
+      try {
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+        if (userId != null) {
+          final userProfile = await _databaseService.getUserProfile(userId);
+          final avgScore = ((_understandingRating + _nextStepsRating + _confidenceRating) / 3).round();
+          await _analytics.logLearningModuleQuizSubmitted(
+            moduleId: widget.taskId ?? 'unknown',
+            quizScore: avgScore,
+            userProfile: userProfile,
+          );
+          await _analytics.logConfidenceSignalSubmitted(
+            understandMeaningScore: _understandingRating,
+            knowNextStepScore: _nextStepsRating,
+            confidenceScore: _confidenceRating,
+            userProfile: userProfile,
+          );
+        }
+      } catch (e) {
+        print('Error tracking quiz submission: $e');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

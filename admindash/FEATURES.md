@@ -97,13 +97,106 @@ The Profile Editing feature allows users to manage their account information, pr
 ## 10. Analytics and Event Tracking
 
 ### Current Functionality
-The Analytics and Event Tracking system provides comprehensive tracking of user interactions and app usage patterns. The system tracks app opens, feature views, and user engagement metrics. Events are logged through a Cloud Function that handles anonymization server-side, ensuring user privacy while providing valuable insights. The system generates unique session IDs for each app session to track user engagement over time. App open events capture metadata including timestamp, user agent, and platform information to help understand usage patterns and device distribution.
+The Analytics and Event Tracking system provides comprehensive tracking of user interactions and app usage patterns across all platform features. The system tracks 30+ distinct events covering Learning Modules, After Visit Summary, Birth Plan Builder, Provider Search, Journal, Community Forums, Surveys/Micro Measures, and System Metrics. Events are logged through a Cloud Function that handles anonymization server-side, ensuring user privacy while providing valuable insights. The system generates unique session IDs for each app session and automatically attaches user lifecycle context (user_id, cohort_type, navigator, self_directed, pregnancy_week, trimester, session_id, timestamp) to every event for cohort analysis and research outcomes.
 
 ### How the feature works
-When the app initializes, it automatically tracks an "app_open" event using the existing analytics infrastructure. The system generates a unique session ID that persists for the duration of the browser session (stored in sessionStorage). Each app open event includes metadata such as timestamp, user agent, and platform information. Events are sent to a Cloud Function (`logAnalyticsEvent`) which handles server-side processing and anonymization. The analytics data can be viewed in the Analytics dashboard by authorized users (admin, research partner, or community manager roles).
+The analytics system uses a three-layer data architecture:
+
+**A. User Lifecycle Context** - Automatically attached to every event:
+- `user_id` - Authenticated user ID
+- `cohort_type` - Derived from user profile (navigator/self_directed)
+- `navigator` - Boolean indicating if user has primary provider
+- `self_directed` - Boolean indicating self-directed care
+- `pregnancy_week` - Calculated from due date
+- `trimester` - First/Second/Third trimester
+- `session_id` - Unique session identifier
+- `timestamp` - Event timestamp
+- Optional: `provider_selected`, `appointment_upcoming`, `postpartum_phase`
+
+**B. Event Taxonomy** - 30+ events organized by feature:
+
+**Learning Modules (6 events):**
+- `learning_module_viewed` - Module detail page viewed
+- `learning_module_started` - User begins reading module
+- `learning_module_completed` - Module fully read
+- `learning_module_video_played` - Video content started
+- `learning_module_video_completed` - Video finished
+- `learning_module_quiz_submitted` - Survey/quiz completed with scores
+
+**After Visit Summary (5 events):**
+- `visit_summary_created` - New summary uploaded/created
+- `visit_summary_edited` - Summary modified
+- `visit_summary_exported_pdf` - PDF export generated
+- `visit_summary_shared_provider` - Summary shared with provider
+- `visit_summary_voice_note_added` - Voice note attached
+
+**Birth Plan Builder (6 events):**
+- `birth_plan_started` - Plan creation initiated
+- `birth_plan_template_selected` - Template chosen
+- `birth_plan_completed` - Plan finalized
+- `birth_plan_updated` - Plan modified
+- `birth_plan_shared_provider` - Plan shared
+- `birth_plan_downloaded_pdf` - PDF downloaded
+
+**Provider Search (6 events):**
+- `provider_search_initiated` - Search started
+- `provider_filter_applied` - Filter used
+- `provider_profile_viewed` - Profile detail viewed
+- `provider_contact_clicked` - Contact action taken
+- `provider_saved` - Provider favorited
+- `provider_review_viewed` - Review read
+
+**Journal (5 events):**
+- `journal_entry_created` - New entry written
+- `journal_entry_updated` - Entry modified
+- `journal_entry_deleted` - Entry removed
+- `journal_mood_selected` - Mood indicator used
+- `journal_entry_shared` - Entry shared
+
+**Community Forums (6 events):**
+- `community_post_created` - New post published
+- `community_post_viewed` - Post detail viewed
+- `community_reply_created` - Reply posted
+- `community_post_liked` - Post liked
+- `community_post_reported` - Post reported
+- `community_support_request` - Support requested
+
+**Surveys/Micro Measures (3 events):**
+- `confidence_signal_submitted` - Confidence survey completed (understand_meaning_score, know_next_step_score, confidence_score)
+- `helpfulness_survey_submitted` - Helpfulness rating submitted
+- `milestone_checkin_submitted` - Milestone check-in completed
+
+**System Metrics (5 events):**
+- `session_started` - App session begins
+- `session_ended` - App session ends
+- `screen_view` - Screen/page viewed
+- `notification_opened` - Notification tapped
+- `notification_received` - Notification delivered
+
+**C. Implementation Architecture:**
+- **Flutter Analytics Service** (`lib/services/analytics_service.dart`) - Client-side service with helper methods for each event type
+- **Cloud Function** (`logAnalyticsEvent`) - Server-side handler that:
+  - Validates events and features
+  - Generates anonymized user IDs (SHA-256 hash with salt)
+  - Extracts and enriches metadata with lifecycle context
+  - Writes to both `analytics_events` (anonymized) and `analytics_events_private` (admin-only)
+- **Event Parameters** - Each event includes feature-specific parameters (module_id, summary_id, provider_id, etc.) merged with lifecycle context
+- **Session Management** - Session IDs persist for browser/app session duration
+
+**D. Derived Metrics & Reports:**
+The system supports calculation of outcome metrics for research:
+- **Health Understanding Impact**: learning_module_completion_rate, visit_summary_usage_rate, birth_plan_completion_rate, confidence_signal_avg
+- **Self Advocacy Confidence**: journal_frequency, visit_summary_documentation_rate, milestone_checkin_completion, helpfulness_rating, next_step_action_rate
+- **Care Navigation Success**: provider_search_success_rate, provider_contact_rate, average_search_refinements, successful_provider_match_rate
+- **Care Preparation**: birth_plan_completion_rate, learning_module_usage_pre_appointment, journal_usage_pre_milestone
+- **Engagement Pathway**: Feature usage frequency, session frequency, modules completed, segmented by navigator/self_directed cohorts
+- **Community Support**: peer_interaction_rate, support_request_rate, reply_rate, community_engagement_score
+
+Events follow Firebase naming convention: `feature_action_object` (e.g., `learning_module_completed`, `provider_profile_viewed`).
 
 ### Change History
 - **2024-12-19** - **analytics_initial** - **App open tracking**: Added automatic tracking of app opens with session ID generation. Events are logged with metadata including timestamp, user agent, and platform information. Integrated with existing Cloud Function-based analytics infrastructure for server-side anonymization.
+- **2025-03-07** - **analytics_expansion** - **Comprehensive event tracking**: Expanded analytics system to track 30+ events across all platform features. Added user lifecycle context (cohort_type, navigator, self_directed, pregnancy_week, trimester) automatically attached to every event. Implemented Flutter analytics service with helper methods for Learning Modules (6 events), After Visit Summary (5 events), Birth Plan Builder (6 events), Provider Search (6 events), Journal (5 events), Community Forums (6 events), Surveys/Micro Measures (3 events), and System Metrics (5 events). Updated Cloud Function to extract and enrich metadata with lifecycle context for cohort analysis. Events support derived metrics calculation for research outcomes including Health Understanding Impact, Self Advocacy Confidence, Care Navigation Success, Care Preparation, Engagement Pathway, and Community Support reports.
 
 ---
 

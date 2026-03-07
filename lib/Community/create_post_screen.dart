@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -66,7 +68,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final userData = userDoc.data();
       final authorName = userData?['username'] ?? 'Anonymous';
 
-      await FirebaseFirestore.instance.collection('community_posts').add({
+      final postRef = await FirebaseFirestore.instance.collection('community_posts').add({
         'userId': userId,
         'authorName': authorName,
         'title': _titleController.text.trim(),
@@ -77,6 +79,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Track community post creation
+      try {
+        final analytics = AnalyticsService();
+        final databaseService = DatabaseService();
+        final userProfile = await databaseService.getUserProfile(userId);
+        await analytics.logCommunityPostCreated(
+          topicCategory: _selectedCategory,
+          userProfile: userProfile,
+        );
+      } catch (e) {
+        print('Error tracking community post creation: $e');
+      }
 
       if (mounted) {
         Navigator.of(context).pop();

@@ -511,6 +511,22 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         _pdfFileName = null;
       });
 
+      // Track visit summary creation
+      try {
+        final analytics = AnalyticsService();
+        final summaryId = analysisResult['summaryId'] as String?;
+        if (summaryId != null) {
+          await analytics.logVisitSummaryCreated(
+            summaryId: summaryId,
+            appointmentType: 'prenatal',
+            timeToComplete: DateTime.now().difference(_selectedDate ?? DateTime.now()).inSeconds,
+            userProfile: _userProfile,
+          );
+        }
+      } catch (e) {
+        print('Error tracking visit summary creation: $e');
+      }
+
       // Show success message with counts
       final todosCount = (analysisResult['todos'] as List?)?.length ?? 0;
       final modulesCount = (analysisResult['learningModules'] as List?)?.length ?? 0;

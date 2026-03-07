@@ -83,7 +83,8 @@ export const logAnalyticsEvent = functions.https.onCall(async (data: any, contex
     'learning-modules',
     'birth-plan-generator',
     'community',
-    'profile-editing'
+    'profile-editing',
+    'app' // For system-level events
   ];
   
   if (feature && !validFeatures.includes(feature)) {
@@ -102,12 +103,37 @@ export const logAnalyticsEvent = functions.https.onCall(async (data: any, contex
 
   const timestamp = admin.firestore.FieldValue.serverTimestamp();
 
+  // Extract user lifecycle context from metadata
+  // These fields are attached to every event for cohort analysis
+  const lifecycleContext: Record<string, any> = {};
+  if (metadata) {
+    // Core lifecycle fields
+    if (metadata.user_id) lifecycleContext.user_id = metadata.user_id;
+    if (metadata.cohort_type) lifecycleContext.cohort_type = metadata.cohort_type;
+    if (metadata.navigator !== undefined) lifecycleContext.navigator = metadata.navigator;
+    if (metadata.self_directed !== undefined) lifecycleContext.self_directed = metadata.self_directed;
+    if (metadata.pregnancy_week !== undefined) lifecycleContext.pregnancy_week = metadata.pregnancy_week;
+    if (metadata.trimester) lifecycleContext.trimester = metadata.trimester;
+    if (metadata.session_id) lifecycleContext.session_id = metadata.session_id;
+    
+    // Optional lifecycle fields
+    if (metadata.provider_selected !== undefined) lifecycleContext.provider_selected = metadata.provider_selected;
+    if (metadata.appointment_upcoming !== undefined) lifecycleContext.appointment_upcoming = metadata.appointment_upcoming;
+    if (metadata.postpartum_phase) lifecycleContext.postpartum_phase = metadata.postpartum_phase;
+  }
+
+  // Merge lifecycle context with event-specific metadata
+  const enrichedMetadata = {
+    ...lifecycleContext,
+    ...(metadata || {}),
+  };
+
   // Write anonymized event
   const anonEvent = {
     anonUserId,
     eventName,
     feature,
-    metadata: metadata || {},
+    metadata: enrichedMetadata,
     durationMs: durationMs || null,
     sessionId: sessionId || null,
     timestamp,
@@ -121,7 +147,7 @@ export const logAnalyticsEvent = functions.https.onCall(async (data: any, contex
     anonUserId,
     eventName,
     feature,
-    metadata: metadata || {},
+    metadata: enrichedMetadata,
     durationMs: durationMs || null,
     sessionId: sessionId || null,
     timestamp,

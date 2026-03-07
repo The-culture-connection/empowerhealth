@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/birth_plan.dart';
 import '../models/user_profile.dart';
 import '../services/database_service.dart';
+import '../services/analytics_service.dart';
 import '../cors/ui_theme.dart';
 import 'birth_plan_display_screen.dart';
 import 'birth_plan_formatter.dart';
@@ -439,6 +440,18 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
 
       // Generate and save todos
       await _generateTodos(updatedPlan);
+
+      // Track birth plan completion
+      try {
+        final analytics = AnalyticsService();
+        await analytics.logBirthPlanCompleted(
+          completionTime: DateTime.now().millisecondsSinceEpoch,
+          sectionsCompleted: 10, // Approximate number of sections
+          userProfile: profile,
+        );
+      } catch (e) {
+        print('Error tracking birth plan completion: $e');
+      }
 
       setState(() => _isLoading = false);
 

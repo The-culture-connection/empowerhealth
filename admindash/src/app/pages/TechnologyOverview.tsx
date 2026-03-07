@@ -1045,25 +1045,29 @@ export function TechnologyOverview() {
                       className="p-4 rounded-xl"
                       style={{ backgroundColor: '#fafafa' }}
                     >
-                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Active Users</div>
+                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Users This Week</div>
                       <div className="text-2xl mb-1" style={{ color: '#424242' }}>
-                        {selectedFeatureAnalytics?.activeUsers || selectedFeatureFirestoreAnalytics?.uniqueUsers || 0}
+                        {selectedFeatureFirestoreAnalytics?.usersThisWeek || 0}
                       </div>
                       <div className="text-xs" style={{ color: '#2e7d32' }}>
                         <TrendingUp className="w-3 h-3 inline mr-1" />
-                        Growing
+                        {selectedFeatureFirestoreAnalytics && selectedFeatureFirestoreAnalytics.usersThisWeek > 0 
+                          ? 'Active' 
+                          : 'No activity'}
                       </div>
                     </div>
                     <div
                       className="p-4 rounded-xl"
                       style={{ backgroundColor: '#fafafa' }}
                     >
-                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Adoption Rate</div>
+                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Returning Users</div>
                       <div className="text-2xl mb-1" style={{ color: '#424242' }}>
-                        {selectedFeatureAnalytics?.adoptionRate || 0}%
+                        {selectedFeatureFirestoreAnalytics?.returningUsers || 0}
                       </div>
                       <div className="text-xs" style={{ color: '#757575' }}>
-                        Of total users
+                        {selectedFeatureFirestoreAnalytics && selectedFeatureFirestoreAnalytics.usersThisWeek > 0
+                          ? `${Math.round((selectedFeatureFirestoreAnalytics.returningUsers / selectedFeatureFirestoreAnalytics.usersThisWeek) * 100)}% of this week's users`
+                          : 'From previous use'}
                       </div>
                     </div>
                 <div
@@ -1080,105 +1084,6 @@ export function TechnologyOverview() {
                 </div>
               </div>
               
-              {/* Firestore Analytics Data */}
-              {selectedFeatureFirestoreAnalytics && (
-                <div
-                  className="p-6 rounded-xl border mb-8"
-                  style={{
-                    backgroundColor: '#fafafa',
-                    borderColor: '#e0e0e0',
-                  }}
-                >
-                  <div className="flex items-center gap-2 mb-4">
-                    <BarChart3 className="w-5 h-5" style={{ color: '#9575cd' }} />
-                    <h3 className="text-lg" style={{ color: '#424242' }}>
-                      Real-Time Analytics (Last 30 Days)
-                    </h3>
-                  </div>
-                  
-                  <div className="grid gap-6 md:grid-cols-3 mb-6">
-                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
-                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Total Events</div>
-                      <div className="text-2xl" style={{ color: '#424242' }}>
-                        {selectedFeatureFirestoreAnalytics.totalEvents.toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
-                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Unique Users</div>
-                      <div className="text-2xl" style={{ color: '#424242' }}>
-                        {selectedFeatureFirestoreAnalytics.uniqueUsers.toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
-                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Unique Sessions</div>
-                      <div className="text-2xl" style={{ color: '#424242' }}>
-                        {selectedFeatureFirestoreAnalytics.uniqueSessions.toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="grid gap-6 md:grid-cols-2 mb-6">
-                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
-                      <h4 className="text-sm mb-3" style={{ color: '#424242' }}>Events by Type</h4>
-                      <div className="space-y-2">
-                        {Object.entries(selectedFeatureFirestoreAnalytics.eventsByType)
-                          .sort(([, a], [, b]) => b - a)
-                          .slice(0, 5)
-                          .map(([eventName, count]) => (
-                            <div key={eventName} className="flex justify-between items-center">
-                              <span className="text-sm" style={{ color: '#616161' }}>
-                                {eventName.replace(/_/g, ' ')}
-                              </span>
-                              <span className="text-sm font-semibold" style={{ color: '#424242' }}>
-                                {count.toLocaleString()}
-                              </span>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                    
-                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
-                      <h4 className="text-sm mb-3" style={{ color: '#424242' }}>Cohort Breakdown</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm" style={{ color: '#616161' }}>Navigator</span>
-                          <span className="text-sm font-semibold" style={{ color: '#424242' }}>
-                            {selectedFeatureFirestoreAnalytics.cohortBreakdown.navigator.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm" style={{ color: '#616161' }}>Self-Directed</span>
-                          <span className="text-sm font-semibold" style={{ color: '#424242' }}>
-                            {selectedFeatureFirestoreAnalytics.cohortBreakdown.self_directed.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm" style={{ color: '#616161' }}>Unknown</span>
-                          <span className="text-sm font-semibold" style={{ color: '#424242' }}>
-                            {selectedFeatureFirestoreAnalytics.cohortBreakdown.unknown.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4 rounded-xl" style={{ backgroundColor: 'white' }}>
-                    <h4 className="text-sm mb-3" style={{ color: '#424242' }}>Trimester Breakdown</h4>
-                    <div className="grid grid-cols-5 gap-2">
-                      {Object.entries(selectedFeatureFirestoreAnalytics.trimesterBreakdown).map(([trimester, count]) => (
-                        <div key={trimester} className="text-center">
-                          <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>
-                            {trimester.charAt(0).toUpperCase() + trimester.slice(1)}
-                          </div>
-                          <div className="text-lg font-semibold" style={{ color: '#424242' }}>
-                            {count.toLocaleString()}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Charts */}
               <div className="grid gap-6 md:grid-cols-2 mb-8">

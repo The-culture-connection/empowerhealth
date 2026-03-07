@@ -4,7 +4,7 @@
  */
 
 import { collection, query, where, getDocs, Timestamp, orderBy, limit, startAt, endAt } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { firestore } from '../firebase/firebase';
 
 export interface AnalyticsEvent {
   id: string;
@@ -25,6 +25,8 @@ export interface FeatureAnalyticsSummary {
   totalEvents: number;
   uniqueUsers: number;
   uniqueSessions: number;
+  usersThisWeek: number;
+  returningUsers: number;
   eventsByType: Record<string, number>;
   recentEvents: AnalyticsEvent[];
   cohortBreakdown: {
@@ -52,7 +54,7 @@ export async function getFeatureEvents(
   }
 ): Promise<AnalyticsEvent[]> {
   try {
-    const eventsRef = collection(db, 'analytics_events');
+    const eventsRef = collection(firestore, 'analytics_events');
     const q = query(
       eventsRef,
       where('feature', '==', feature),
@@ -95,7 +97,44 @@ export async function getFeatureAnalyticsSummary(
     end: new Date()
   }
 ): Promise<FeatureAnalyticsSummary> {
-  const events = await getFeatureEvents(feature, dateRange);
+  // Get events for the full date range (to check for returning users)
+  const allEvents = await getFeatureEvents(feature, dateRange);
+  
+  // Calculate this week's date range
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - 7);
+  weekStart.setHours(0, 0, 0, 0);
+  
+  // Get events from this week
+  const thisWeekEvents = allEvents.filter(event => 
+    event.timestamp >= weekStart && event.timestamp <= now
+  );
+  
+  // Get events from before this week (to identify returning users)
+  const beforeThisWeekEvents = allEvents.filter(event => 
+    event.timestamp < weekStart
+  );
+  
+  // Users this week
+  const usersThisWeekSet = new Set<string>();
+  thisWeekEvents.forEach(event => {
+    if (event.anonUserId) usersThisWeekSet.add(event.anonUserId);
+  });
+  
+  // Users from before this week
+  const previousUsersSet = new Set<string>();
+  beforeThisWeekEvents.forEach(event => {
+    if (event.anonUserId) previousUsersSet.add(event.anonUserId);
+  });
+  
+  // Returning users = users who used this week AND used before
+  const returningUsersSet = new Set<string>();
+  usersThisWeekSet.forEach(userId => {
+    if (previousUsersSet.has(userId)) {
+      returningUsersSet.add(userId);
+    }
+  });
   
   const uniqueUsers = new Set<string>();
   const uniqueSessions = new Set<string>();
@@ -113,7 +152,7 @@ export async function getFeatureAnalyticsSummary(
     unknown: 0,
   };
   
-  events.forEach(event => {
+  allEvents.forEach(event => {
     if (event.anonUserId) uniqueUsers.add(event.anonUserId);
     if (event.sessionId) uniqueSessions.add(event.sessionId);
     
@@ -147,11 +186,13 @@ export async function getFeatureAnalyticsSummary(
   
   return {
     feature,
-    totalEvents: events.length,
+    totalEvents: allEvents.length,
     uniqueUsers: uniqueUsers.size,
     uniqueSessions: uniqueSessions.size,
+    usersThisWeek: usersThisWeekSet.size,
+    returningUsers: returningUsersSet.size,
     eventsByType,
-    recentEvents: events.slice(0, 10),
+    recentEvents: allEvents.slice(0, 10),
     cohortBreakdown,
     trimesterBreakdown,
   };
@@ -167,7 +208,7 @@ export async function getAllFeaturesWithAnalytics(
   }
 ): Promise<Record<string, FeatureAnalyticsSummary>> {
   try {
-    const eventsRef = collection(db, 'analytics_events');
+    const eventsRef = collection(firestore, 'analytics_events');
     const q = query(
       eventsRef,
       where('timestamp', '>=', Timestamp.fromDate(dateRange.start)),
@@ -203,6 +244,42 @@ export async function getAllFeaturesWithAnalytics(
     const summaries: Record<string, FeatureAnalyticsSummary> = {};
     
     for (const [feature, events] of Object.entries(eventsByFeature)) {
+      // Calculate this week's date range
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - 7);
+      weekStart.setHours(0, 0, 0, 0);
+      
+      // Get events from this week
+      const thisWeekEvents = events.filter(event => 
+        event.timestamp >= weekStart && event.timestamp <= now
+      );
+      
+      // Get events from before this week (to identify returning users)
+      const beforeThisWeekEvents = events.filter(event => 
+        event.timestamp < weekStart
+      );
+      
+      // Users this week
+      const usersThisWeekSet = new Set<string>();
+      thisWeekEvents.forEach(event => {
+        if (event.anonUserId) usersThisWeekSet.add(event.anonUserId);
+      });
+      
+      // Users from before this week
+      const previousUsersSet = new Set<string>();
+      beforeThisWeekEvents.forEach(event => {
+        if (event.anonUserId) previousUsersSet.add(event.anonUserId);
+      });
+      
+      // Returning users = users who used this week AND used before
+      const returningUsersSet = new Set<string>();
+      usersThisWeekSet.forEach(userId => {
+        if (previousUsersSet.has(userId)) {
+          returningUsersSet.add(userId);
+        }
+      });
+      
       const uniqueUsers = new Set<string>();
       const uniqueSessions = new Set<string>();
       const eventsByType: Record<string, number> = {};
@@ -256,6 +333,8 @@ export async function getAllFeaturesWithAnalytics(
         totalEvents: events.length,
         uniqueUsers: uniqueUsers.size,
         uniqueSessions: uniqueSessions.size,
+        usersThisWeek: usersThisWeekSet.size,
+        returningUsers: returningUsersSet.size,
         eventsByType,
         recentEvents: events.slice(0, 10),
         cohortBreakdown,

@@ -818,7 +818,10 @@ export const publishRelease = functions.https.onRequest({
     console.log('[publishRelease] Received request:', {
       hasDataWrapper: !!req.body?.data,
       commitSha: payload?.commitSha,
-      hasSecretToken: !!payload?.secretToken
+      hasSecretToken: !!payload?.secretToken,
+      hasFeaturesMarkdown: !!payload?.featuresMarkdown,
+      featuresMarkdownLength: payload?.featuresMarkdown?.length || 0,
+      featuresMarkdownPreview: payload?.featuresMarkdown?.substring(0, 100) || 'none'
     });
   
     // Allow unauthenticated calls from GitHub Actions (using secret token)
@@ -972,9 +975,16 @@ export const publishRelease = functions.https.onRequest({
     console.log('[publishRelease] Commit document created successfully:', commitSha);
 
     // Process FEATURES.md if provided (extract "How the feature works" and "Updates")
-    if (featuresMarkdown) {
+    console.log('[publishRelease] Checking featuresMarkdown:', {
+      hasFeaturesMarkdown: !!featuresMarkdown,
+      type: typeof featuresMarkdown,
+      length: featuresMarkdown?.length || 0,
+      isEmpty: !featuresMarkdown || featuresMarkdown.trim().length === 0
+    });
+    
+    if (featuresMarkdown && featuresMarkdown.trim().length > 0) {
       try {
-        console.log('[publishRelease] Processing FEATURES.md content');
+        console.log('[publishRelease] Processing FEATURES.md content, length:', featuresMarkdown.length);
         const features = parseFeaturesMarkdown(featuresMarkdown);
         
         for (const [featureId, featureData] of Object.entries(features)) {

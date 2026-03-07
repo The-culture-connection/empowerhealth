@@ -125,6 +125,25 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   @override
   void initState() {
     super.initState();
+    _trackScreenView();
+  }
+
+  Future<void> _trackScreenView() async {
+    try {
+      final analytics = AnalyticsService();
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await _databaseService.getUserProfile(userId);
+        await analytics.logScreenView(
+          screenName: 'birth_plan_creator',
+          feature: 'birth-plan-generator',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking birth plan screen view: $e');
+    }
+  }
     _loadUserProfile();
     if (widget.savedProgress != null) {
       _loadSavedProgress();

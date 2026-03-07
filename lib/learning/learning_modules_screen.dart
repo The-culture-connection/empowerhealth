@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
+import '../services/analytics_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
 import 'module_detail_screen.dart';
@@ -18,6 +19,7 @@ class _LearningModulesScreenState extends State<LearningModulesScreen> with Sing
   late TabController _tabController;
   final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
   final DatabaseService _databaseService = DatabaseService();
+  final AnalyticsService _analytics = AnalyticsService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   UserProfile? _userProfile;
 
@@ -50,7 +52,24 @@ class _LearningModulesScreenState extends State<LearningModulesScreen> with Sing
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _trackScreenView();
     _loadUserProfile();
+  }
+
+  Future<void> _trackScreenView() async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await _databaseService.getUserProfile(userId);
+        await _analytics.logScreenView(
+          screenName: 'learning_modules',
+          feature: 'learning-modules',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking learning modules screen view: $e');
+    }
   }
 
   Future<void> _loadUserProfile() async {

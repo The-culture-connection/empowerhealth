@@ -717,8 +717,9 @@ class AnalyticsService {
       
       // Also save to technology_features/{featureId}/analytics_events subcollection
       final technologyFeatureId = _getTechnologyFeatureId(feature);
-      if (technologyFeatureId != null) {
+      if (technologyFeatureId != null && technologyFeatureId.isNotEmpty) {
         try {
+          print('💾 Analytics: Saving to technology_features/$technologyFeatureId/analytics_events');
           await _firestore
               .collection('technology_features')
               .doc(technologyFeatureId)
@@ -728,7 +729,10 @@ class AnalyticsService {
         } catch (e) {
           // Best effort - if subcollection write fails, log but don't throw
           print('⚠️ Analytics: Failed to save to technology_features subcollection: $e');
+          print('⚠️ Analytics: Feature ID was: $technologyFeatureId, Original feature: $feature');
         }
+      } else {
+        print('⚠️ Analytics: technologyFeatureId is null or empty for feature: $feature');
       }
       
       // Update user context in users collection (best effort)

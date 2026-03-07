@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
 import '../learning/notes_dialog.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
@@ -15,6 +17,30 @@ class JournalScreen extends StatefulWidget {
 class _JournalScreenState extends State<JournalScreen> {
   final TextEditingController _entryController = TextEditingController();
   bool _isSaving = false;
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
+
+  @override
+  void initState() {
+    super.initState();
+    _trackScreenView();
+  }
+
+  Future<void> _trackScreenView() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await _databaseService.getUserProfile(userId);
+        await _analytics.logScreenView(
+          screenName: 'journal',
+          feature: 'journal',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking journal screen view: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -41,7 +67,7 @@ class _JournalScreenState extends State<JournalScreen> {
         throw Exception('User not authenticated');
       }
 
-      await FirebaseFirestore.instance
+      final entryRef = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('notes')
@@ -51,6 +77,19 @@ class _JournalScreenState extends State<JournalScreen> {
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Track journal entry creation
+      try {
+        final analytics = AnalyticsService();
+        final databaseService = DatabaseService();
+        final userProfile = await databaseService.getUserProfile(userId);
+        await analytics.logJournalEntryCreated(
+          entryId: entryRef.id,
+          userProfile: userProfile,
+        );
+      } catch (e) {
+        print('Error tracking journal entry creation: $e');
+      }
 
       if (mounted) {
         _entryController.clear();
@@ -87,7 +126,7 @@ class _JournalScreenState extends State<JournalScreen> {
         throw Exception('User not authenticated');
       }
 
-      await FirebaseFirestore.instance
+      final entryRef = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('notes')
@@ -99,6 +138,19 @@ class _JournalScreenState extends State<JournalScreen> {
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Track journal mood selection
+      try {
+        final analytics = AnalyticsService();
+        final databaseService = DatabaseService();
+        final userProfile = await databaseService.getUserProfile(userId);
+        await analytics.logJournalMoodSelected(
+          mood: label,
+          userProfile: userProfile,
+        );
+      } catch (e) {
+        print('Error tracking journal mood selection: $e');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

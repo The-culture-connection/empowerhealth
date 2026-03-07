@@ -81,6 +81,7 @@ export async function getAllFeatures(): Promise<TechnologyFeature[]> {
   return snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
+      id: doc.id, // CRITICAL: Include the document ID
       ...data,
       howItWorks: data.howItWorks || undefined,
       recentUpdates: data.recentUpdates || undefined,
@@ -104,6 +105,7 @@ export async function getFeatureById(featureId: string): Promise<TechnologyFeatu
 
   const data = featureDoc.data();
   return {
+    id: featureDoc.id, // CRITICAL: Include the document ID
     ...data,
     lastUpdated: data.lastUpdated?.toDate(),
     createdAt: data.createdAt?.toDate(),

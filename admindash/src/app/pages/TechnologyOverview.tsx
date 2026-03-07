@@ -57,6 +57,19 @@ export function TechnologyOverview() {
   // Load analytics and change history when feature modal opens
   useEffect(() => {
     if (selectedFeature) {
+      console.log('🔍 [useEffect] selectedFeature changed:', {
+        id: selectedFeature.id,
+        name: selectedFeature.name,
+        hasId: !!selectedFeature.id,
+        featureObject: selectedFeature,
+      });
+      
+      // Validate that feature has an ID
+      if (!selectedFeature.id) {
+        console.error('❌ [useEffect] selectedFeature.id is undefined!', selectedFeature);
+        return;
+      }
+      
       if (!selectedFeatureAnalytics) {
         loadFeatureAnalytics(selectedFeature.id);
       }
@@ -172,10 +185,18 @@ export function TechnologyOverview() {
   async function loadFeatureAnalytics(featureId: string) {
     setLoadingAnalytics(true);
     try {
+      // Use a longer date range (90 days) to capture enough history to identify returning users
+      // This ensures we can see if users have used the feature before this week
       const dateRange = {
-        start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+        start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // Last 90 days
         end: new Date(),
       };
+      
+      console.log('📅 [loadFeatureAnalytics] Date range:', {
+        start: dateRange.start.toISOString(),
+        end: dateRange.end.toISOString(),
+        days: Math.round((dateRange.end.getTime() - dateRange.start.getTime()) / (24 * 60 * 60 * 1000)),
+      });
       
       // Try to load from Cloud Function (legacy)
       try {
@@ -187,10 +208,21 @@ export function TechnologyOverview() {
       
       // Load from Firestore (new direct queries)
       try {
+        console.log('🔄 [loadFeatureAnalytics] Loading Firestore analytics for feature:', featureId);
         const firestoreAnalytics = await getFeatureAnalyticsSummary(featureId, dateRange);
+        console.log('✅ [loadFeatureAnalytics] Analytics loaded:', {
+          feature: firestoreAnalytics.feature,
+          usersThisWeek: firestoreAnalytics.usersThisWeek,
+          returningUsers: firestoreAnalytics.returningUsers,
+          totalEvents: firestoreAnalytics.totalEvents,
+        });
         setSelectedFeatureFirestoreAnalytics(firestoreAnalytics);
       } catch (err) {
-        console.error('Failed to load Firestore analytics:', err);
+        console.error('❌ [loadFeatureAnalytics] Failed to load Firestore analytics:', err);
+        console.error('Error details:', {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
       }
     } catch (err: any) {
       console.error('Failed to load feature analytics:', err);
@@ -772,9 +804,10 @@ export function TechnologyOverview() {
                       const isProduction = update.includes('[production]');
                       const isPilot = update.includes('[pilot]');
                       const updateText = update.replace(/^\[(production|pilot)\]\s*/, '');
+                      const updateKey = `${feature.id || 'feature'}-update-${idx}`;
                       
                       return (
-                        <li key={idx} className="flex items-start gap-1">
+                        <li key={updateKey} className="flex items-start gap-1">
                           <span 
                             className="mt-0.5" 
                             style={{ 
@@ -1190,7 +1223,10 @@ export function TechnologyOverview() {
                   </div>
                   <div className="space-y-3">
                     {selectedFeature.recentUpdates.map((update, idx) => {
-                      const updateKey = `${selectedFeature.id}-update-${idx}`;
+                      // Create a unique key - use feature id if available, otherwise use index with update content hash
+                      const featureId = selectedFeature?.id || selectedFeature?.name?.toLowerCase().replace(/\s+/g, '-') || 'unknown';
+                      const updateHash = update.substring(0, 20).replace(/\s/g, '-').replace(/[^a-z0-9-]/gi, '');
+                      const updateKey = `${featureId}-update-${idx}-${updateHash}`;
                       // Check if update is tagged with [production] or [pilot]
                       const isProduction = update.includes('[production]');
                       const isPilot = update.includes('[pilot]');
@@ -1376,7 +1412,14 @@ export function TechnologyOverview() {
                     <div className="text-sm" style={{ color: '#757575' }}>No change history available.</div>
                   ) : (
                     selectedFeatureChangeHistory.map((change, idx) => {
-                      const changeKey = change.version || change.commitSha || `change-${idx}`;
+                      // Create a unique key with multiple fallbacks
+                      const changeKey = change.version 
+                        ? `${change.version}-${idx}`
+                        : change.commitSha 
+                        ? `${change.commitSha}-${idx}`
+                        : change.date 
+                        ? `change-${change.date.getTime?.() || change.date}-${idx}`
+                        : `change-${idx}-${Date.now()}`;
                       return (
                       <div
                         key={changeKey}

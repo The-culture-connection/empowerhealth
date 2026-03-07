@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/provider.dart';
 import '../models/provider_review.dart';
 import '../services/provider_repository.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
 import 'provider_review_screen.dart';
 
@@ -40,6 +43,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         _provider = widget.provider;
         _isLoading = false;
       });
+      // Track provider profile view and screen view
+      _trackProviderProfileView();
+      _trackScreenView();
       // Always try to load reviews, even if provider doesn't have Firestore ID
       // (might have NPI or composite ID)
       _loadReviews();
@@ -52,6 +58,43 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _trackProviderProfileView() async {
+    if (_provider == null) return;
+    try {
+      final analytics = AnalyticsService();
+      final databaseService = DatabaseService();
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await databaseService.getUserProfile(userId);
+        await analytics.logProviderProfileViewed(
+          providerId: _provider!.id ?? 'unknown',
+          providerName: _provider!.name,
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking provider profile view: $e');
+    }
+  }
+
+  Future<void> _trackScreenView() async {
+    try {
+      final analytics = AnalyticsService();
+      final databaseService = DatabaseService();
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await databaseService.getUserProfile(userId);
+        await analytics.logScreenView(
+          screenName: 'provider_profile',
+          feature: 'provider-search',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking provider profile screen view: $e');
     }
   }
 
@@ -68,6 +111,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         _provider = provider;
         _isLoading = false;
       });
+      // Track provider profile view after loading
+      if (provider != null) {
+        _trackProviderProfileView();
+      }
+      // Track provider profile view after loading
+      if (provider != null) {
+        _trackProviderProfileView();
+      }
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -412,6 +463,23 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               child: ElevatedButton.icon(
                 onPressed: _provider!.phone != null
                     ? () async {
+                        // Track provider contact click
+                        try {
+                          final analytics = AnalyticsService();
+                          final databaseService = DatabaseService();
+                          final userId = FirebaseAuth.instance.currentUser?.uid;
+                          if (userId != null) {
+                            final userProfile = await databaseService.getUserProfile(userId);
+                            await analytics.logProviderContactClicked(
+                              providerId: _provider!.id ?? 'unknown',
+                              contactMethod: 'phone',
+                              userProfile: userProfile,
+                            );
+                          }
+                        } catch (e) {
+                          print('Error tracking provider contact: $e');
+                        }
+                        
                         final uri = Uri.parse('tel:${_provider!.phone}');
                         if (await canLaunchUrl(uri)) {
                           await launchUrl(uri);
@@ -500,6 +568,23 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 const SizedBox(width: 12),
                 InkWell(
                   onTap: () async {
+                    // Track provider contact click
+                    try {
+                      final analytics = AnalyticsService();
+                      final databaseService = DatabaseService();
+                      final userId = FirebaseAuth.instance.currentUser?.uid;
+                      if (userId != null) {
+                        final userProfile = await databaseService.getUserProfile(userId);
+                        await analytics.logProviderContactClicked(
+                          providerId: _provider!.id ?? 'unknown',
+                          contactMethod: 'phone',
+                          userProfile: userProfile,
+                        );
+                      }
+                    } catch (e) {
+                      print('Error tracking provider contact: $e');
+                    }
+                    
                     final uri = Uri.parse('tel:${_provider!.phone}');
                     if (await canLaunchUrl(uri)) {
                       await launchUrl(uri);
@@ -529,6 +614,23 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 const SizedBox(width: 12),
                 InkWell(
                   onTap: () async {
+                    // Track provider contact click
+                    try {
+                      final analytics = AnalyticsService();
+                      final databaseService = DatabaseService();
+                      final userId = FirebaseAuth.instance.currentUser?.uid;
+                      if (userId != null) {
+                        final userProfile = await databaseService.getUserProfile(userId);
+                        await analytics.logProviderContactClicked(
+                          providerId: _provider!.id ?? 'unknown',
+                          contactMethod: 'email',
+                          userProfile: userProfile,
+                        );
+                      }
+                    } catch (e) {
+                      print('Error tracking provider contact: $e');
+                    }
+                    
                     final uri = Uri.parse('mailto:${_provider!.email}');
                     if (await canLaunchUrl(uri)) {
                       await launchUrl(uri);

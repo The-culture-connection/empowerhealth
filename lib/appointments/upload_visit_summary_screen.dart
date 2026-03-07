@@ -45,6 +45,25 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   @override
   void initState() {
     super.initState();
+    _trackScreenView();
+  }
+
+  Future<void> _trackScreenView() async {
+    try {
+      final analytics = AnalyticsService();
+      final userId = _auth.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await _databaseService.getUserProfile(userId);
+        await analytics.logScreenView(
+          screenName: 'upload_visit_summary',
+          feature: 'appointment-summarizing',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking visit summary screen view: $e');
+    }
+  }
     _loadUserProfile();
     _checkConsentAndShowPrivacyScreen();
   }

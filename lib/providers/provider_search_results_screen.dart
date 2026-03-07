@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/provider.dart';
 import '../services/provider_repository.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/provider_search_loading.dart';
 import '../constants/provider_types.dart';
@@ -33,7 +36,26 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
   @override
   void initState() {
     super.initState();
+    _trackScreenView();
     _performSearch();
+  }
+
+  Future<void> _trackScreenView() async {
+    try {
+      final analytics = AnalyticsService();
+      final databaseService = DatabaseService();
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await databaseService.getUserProfile(userId);
+        await analytics.logScreenView(
+          screenName: 'provider_search_results',
+          feature: 'provider-search',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking provider search results screen view: $e');
+    }
   }
 
   /// Refresh provider data after returning from profile screen
@@ -700,6 +722,23 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                                           matchScore: (matchInfo['score'] as int?) ?? 0,
                                           searchProviderTypeIds: _searchProviderTypeIds,
                                           onTap: () async {
+                                            // Track provider profile view
+                                            try {
+                                              final analytics = AnalyticsService();
+                                              final databaseService = DatabaseService();
+                                              final userId = FirebaseAuth.instance.currentUser?.uid;
+                                              if (userId != null) {
+                                                final userProfile = await databaseService.getUserProfile(userId);
+                                                await analytics.logProviderProfileViewed(
+                                                  providerId: provider.id ?? 'unknown',
+                                                  providerName: provider.name,
+                                                  userProfile: userProfile,
+                                                );
+                                              }
+                                            } catch (e) {
+                                              print('Error tracking provider profile view: $e');
+                                            }
+                                            
                                             final result = await Navigator.push(
                                               context,
                                               MaterialPageRoute(

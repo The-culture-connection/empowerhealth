@@ -5,6 +5,7 @@ import '../constants/provider_types.dart';
 import '../constants/ohio_medicaid_api_options.dart';
 import '../cors/ui_theme.dart';
 import '../services/database_service.dart';
+import '../services/analytics_service.dart';
 import '../models/user_profile.dart';
 import 'provider_search_results_screen.dart';
 
@@ -87,6 +88,25 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
   @override
   void initState() {
     super.initState();
+    _trackScreenView();
+  }
+
+  Future<void> _trackScreenView() async {
+    try {
+      final analytics = AnalyticsService();
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await _databaseService.getUserProfile(userId);
+        await analytics.logScreenView(
+          screenName: 'provider_search_entry',
+          feature: 'provider-search',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking provider search entry screen view: $e');
+    }
+  }
     _loadUserProfileForAutofill();
   }
 
@@ -279,6 +299,31 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     }
 
     print('🔍 [SearchEntry] Final provider type IDs: $providerTypeIds');
+
+    // Track provider search initiation
+    try {
+      final analytics = AnalyticsService();
+      final databaseService = DatabaseService();
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await databaseService.getUserProfile(userId);
+        await analytics.logProviderSearchInitiated(
+          searchType: providerTypeIds.isNotEmpty ? providerTypeIds.first : 'general',
+          filtersApplied: {
+            'radius': int.parse(_radius),
+            'healthPlan': _healthPlan != null,
+            'telehealth': _telehealth,
+            'acceptsPregnant': _acceptsPregnant,
+            'mamaApprovedOnly': _mamaApprovedOnly,
+            'identityTagsCount': _selectedIdentityTags.length,
+            'languagesCount': _selectedLanguages.length,
+          },
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking provider search: $e');
+    }
 
     Navigator.push(
       context,

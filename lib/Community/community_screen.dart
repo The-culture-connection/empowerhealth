@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
 import 'create_post_screen.dart';
 import 'post_detail_screen.dart';
 import 'seed_mock_posts.dart';
@@ -17,11 +19,30 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen> {
   String _selectedCategory = 'All';
   bool _hasSeeded = false;
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
 
   @override
   void initState() {
     super.initState();
+    _trackScreenView();
     _seedMockPostsIfNeeded();
+  }
+
+  Future<void> _trackScreenView() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await _databaseService.getUserProfile(userId);
+        await _analytics.logScreenView(
+          screenName: 'community',
+          feature: 'community',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking community screen view: $e');
+    }
   }
 
   Future<void> _seedMockPostsIfNeeded() async {

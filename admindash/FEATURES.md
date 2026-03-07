@@ -40,7 +40,7 @@ The User Feedback system encompasses two main components: Care Check-in surveys 
 The Appointment Summarizing feature (After Visit Summary) allows users to upload PDF visit summaries or enter text notes from medical appointments. The system uses AI to process and summarize these documents, extracting key information, medications, recommendations, and next steps. Summaries are simplified to a 6th-grade reading level for accessibility. Users can view, edit, and manage their visit summaries, which are stored securely and can be referenced for future appointments or shared with other healthcare providers.
 
 ### Change History
-- *No changes tracked yet*
+- **2024-12-13** - **uvw456rst** - **Feedback analytics dashboard**: Added real-time analytics for care check-in responses to help identify trends.
 
 ---
 
@@ -91,6 +91,19 @@ The Profile Editing feature allows users to manage their account information, pr
 
 ### Change History
 - *No changes tracked yet*
+
+---
+
+## 10. Analytics and Event Tracking
+
+### Current Functionality
+The Analytics and Event Tracking system provides comprehensive tracking of user interactions and app usage patterns. The system tracks app opens, feature views, and user engagement metrics. Events are logged through a Cloud Function that handles anonymization server-side, ensuring user privacy while providing valuable insights. The system generates unique session IDs for each app session to track user engagement over time. App open events capture metadata including timestamp, user agent, and platform information to help understand usage patterns and device distribution.
+
+### How the feature works
+When the app initializes, it automatically tracks an "app_open" event using the existing analytics infrastructure. The system generates a unique session ID that persists for the duration of the browser session (stored in sessionStorage). Each app open event includes metadata such as timestamp, user agent, and platform information. Events are sent to a Cloud Function (`logAnalyticsEvent`) which handles server-side processing and anonymization. The analytics data can be viewed in the Analytics dashboard by authorized users (admin, research partner, or community manager roles).
+
+### Change History
+- **2024-12-19** - **analytics_initial** - **App open tracking**: Added automatic tracking of app opens with session ID generation. Events are logged with metadata including timestamp, user agent, and platform information. Integrated with existing Cloud Function-based analytics infrastructure for server-side anonymization.
 
 ---
 

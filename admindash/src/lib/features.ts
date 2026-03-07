@@ -28,6 +28,9 @@ export interface FeatureChangeHistory {
   version: string;
   date: any;
   change: string;
+  title?: string;
+  description?: string;
+  commitSha?: string;
   releaseBuildNumber?: number;
   createdBy: string;
 }

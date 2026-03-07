@@ -3,13 +3,13 @@ import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { 
-  getCurrentProductionRelease, 
+  getCurrentProductionRelease,
   getLatestReleases, 
   extractFunctionalUpdates,
   getGitHubCommitUrl,
   Release 
 } from "../../lib/releases";
-import { getLatestCommits, Commit, getGitHubCommitUrl as getCommitUrl } from "../../lib/commits";
+import { getLatestCommits, Commit, getGitHubCommitUrl as getCommitUrl, getCommitBySha } from "../../lib/commits";
 import { getAllFeatures, TechnologyFeature, getFeatureChangeHistory, getFeatureById } from "../../lib/features";
 import { getFeatureAnalytics, FeatureAnalytics } from "../../lib/featureAnalytics";
 import { useAuth } from "../../contexts/AuthContext";
@@ -18,10 +18,12 @@ import { FeatureEditModal } from "../components/FeatureEditModal";
 export function TechnologyOverview() {
   const { isAdmin } = useAuth(); // Will be used for admin editing features
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
+  const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<TechnologyFeature | null>(null);
   const [selectedFeatureAnalytics, setSelectedFeatureAnalytics] = useState<FeatureAnalytics | null>(null);
   const [selectedFeatureChangeHistory, setSelectedFeatureChangeHistory] = useState<any[]>([]);
   const [editingFeature, setEditingFeature] = useState<TechnologyFeature | null>(null);
+  const [commitFeatureChanges, setCommitFeatureChanges] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
   const [featureSearchQuery, setFeatureSearchQuery] = useState("");
@@ -63,6 +65,39 @@ export function TechnologyOverview() {
     }
   }, [selectedFeature]);
 
+  // Load feature changes for selected commit
+  useEffect(() => {
+    if (selectedCommit) {
+      loadCommitFeatureChanges(selectedCommit.commitSha);
+    } else {
+      setCommitFeatureChanges([]);
+    }
+  }, [selectedCommit]);
+
+  async function loadCommitFeatureChanges(commitSha: string) {
+    try {
+      const changes: any[] = [];
+      // Get all features and check their change history for this commit
+      const features = await getAllFeatures();
+      for (const feature of features) {
+        const history = await getFeatureChangeHistory(feature.id);
+        const commitChanges = history.filter((change: any) => 
+          change.commitSha === commitSha || change.commitSha?.substring(0, 7) === commitSha.substring(0, 7)
+        );
+        if (commitChanges.length > 0) {
+          changes.push({
+            feature,
+            changes: commitChanges
+          });
+        }
+      }
+      setCommitFeatureChanges(changes);
+    } catch (err: any) {
+      console.error('Failed to load commit feature changes:', err);
+      setCommitFeatureChanges([]);
+    }
+  }
+
   async function loadFeatureChangeHistory(featureId: string) {
     try {
       const history = await getFeatureChangeHistory(featureId);
@@ -75,7 +110,15 @@ export function TechnologyOverview() {
   async function loadCurrentRelease() {
     setLoadingRelease(true);
     try {
-      const release = await getCurrentProductionRelease();
+      // Try production first, then latest release as fallback
+      let release = await getCurrentProductionRelease();
+      if (!release) {
+        // Fallback: get latest release if no production release
+        const latestReleases = await getLatestReleases(1);
+        if (latestReleases.length > 0) {
+          release = latestReleases[0];
+        }
+      }
       setCurrentRelease(release);
     } catch (err: any) {
       console.error('Failed to load current release:', err);
@@ -236,7 +279,7 @@ export function TechnologyOverview() {
 
   return (
     <div>
-      {/* Platform Status Summary */}
+      {/* Current Release Section */}
       {loadingRelease ? (
         <div className="flex items-center justify-center py-12 mb-8">
           <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#9575cd' }} />
@@ -253,10 +296,27 @@ export function TechnologyOverview() {
         </div>
       ) : (
         <div
-          className="p-8 rounded-2xl border mb-8"
+          className="p-8 rounded-2xl border mb-8 cursor-pointer transition-all"
           style={{
             backgroundColor: 'white',
             borderColor: '#e0e0e0',
+          }}
+          onClick={(e) => {
+            // Only trigger if clicking on the card itself, not on buttons/links inside
+            const target = e.target as HTMLElement;
+            if (target.closest('button') || target.closest('a')) {
+              return;
+            }
+            console.log('[TechnologyOverview] Card clicked, opening release:', currentRelease);
+            setSelectedRelease(currentRelease);
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#9575cd';
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(149, 117, 205, 0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#e0e0e0';
+            e.currentTarget.style.boxShadow = 'none';
           }}
         >
           <div className="mb-6">
@@ -281,7 +341,10 @@ export function TechnologyOverview() {
                   {currentRelease.versionName}+{currentRelease.buildNumber}
                 </span>
                 <button
-                  onClick={() => copyToClipboard(`${currentRelease.versionName}+${currentRelease.buildNumber}`)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copyToClipboard(`${currentRelease.versionName}+${currentRelease.buildNumber}`);
+                  }}
                   className="p-1 rounded transition-colors"
                   style={{ color: '#757575' }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = '#424242')}
@@ -324,10 +387,28 @@ export function TechnologyOverview() {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 no-click-through">
             <button
-              onClick={() => setSelectedRelease(currentRelease)}
-              className="px-6 py-2 rounded-xl transition-all"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (currentRelease.git?.commitSha) {
+                  console.log('[TechnologyOverview] Opening commit detail for:', currentRelease.git.commitSha);
+                  const commit = await getCommitBySha(currentRelease.git.commitSha);
+                  if (commit) {
+                    setSelectedCommit(commit);
+                  } else {
+                    // If commit not found, try to find it in commits list
+                    const commitsList = await getLatestCommits(50);
+                    const foundCommit = commitsList.find(c => c.commitSha === currentRelease.git.commitSha);
+                    if (foundCommit) {
+                      setSelectedCommit(foundCommit);
+                    } else {
+                      console.error('[TechnologyOverview] Commit not found:', currentRelease.git.commitSha);
+                    }
+                  }
+                }
+              }}
+              className="px-6 py-2 rounded-xl transition-all no-click-through"
               style={{
                 backgroundColor: '#9575cd',
                 color: 'white',
@@ -335,20 +416,21 @@ export function TechnologyOverview() {
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#7e57c2')}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#9575cd')}
             >
-              View Release Notes
+              View Commit Details
             </button>
             {currentRelease.git?.commitSha && (
               <a
                 href={getGitHubCommitUrl(currentRelease.git.commitSha, currentRelease.git.repoUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-6 py-2 rounded-xl transition-all flex items-center gap-2"
+                className="px-6 py-2 rounded-xl transition-all flex items-center gap-2 no-click-through"
                 style={{
                   backgroundColor: '#f5f5f5',
                   color: '#616161',
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#eeeeee')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
+                onClick={(e) => e.stopPropagation()}
               >
                 <GitCommit className="w-4 h-4" />
                 {currentRelease.git.commitSha.substring(0, 7)}
@@ -394,14 +476,38 @@ export function TechnologyOverview() {
             )}
           </div>
 
-          {/* Feed-style updates */}
+          {/* Feed-style updates - Scrollable with 3 visible */}
           {allFeatureUpdates.length === 0 ? (
             <div className="text-center py-8" style={{ color: '#757575' }}>
               No feature updates available.
             </div>
           ) : (
-            <div className="space-y-4">
-              {allFeatureUpdates.map((featureUpdate) => (
+            <div 
+              className="overflow-y-auto"
+              style={{
+                maxHeight: '540px', // Height for ~3 items (each ~180px)
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#9575cd #f5f5f5',
+              }}
+            >
+              <style>{`
+                div::-webkit-scrollbar {
+                  width: 8px;
+                }
+                div::-webkit-scrollbar-track {
+                  background: #f5f5f5;
+                  border-radius: 4px;
+                }
+                div::-webkit-scrollbar-thumb {
+                  background: #9575cd;
+                  border-radius: 4px;
+                }
+                div::-webkit-scrollbar-thumb:hover {
+                  background: #7e57c2;
+                }
+              `}</style>
+              <div className="space-y-4 pr-2">
+                {allFeatureUpdates.map((featureUpdate) => (
                 <div
                   key={featureUpdate.id}
                   onClick={() => setSelectedFeature(featureUpdate.feature)}
@@ -525,7 +631,8 @@ export function TechnologyOverview() {
                     </div>
                   </div>
                 </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -746,13 +853,14 @@ export function TechnologyOverview() {
                 {commits.map((commit, index) => (
                   <tr
                     key={commit.commitSha}
-                    className={`transition-colors ${
+                    className={`transition-colors cursor-pointer ${
                       index !== commits.length - 1 ? "border-b" : ""
                     }`}
                     style={{
                       borderColor: '#f5f5f5',
                       backgroundColor: 'transparent',
                     }}
+                    onClick={() => setSelectedCommit(commit)}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = '#fafafa';
                     }}
@@ -1275,6 +1383,320 @@ export function TechnologyOverview() {
               </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Commit Detail Drawer */}
+      {selectedCommit && (
+        <div className="fixed inset-0 z-50 flex items-start justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+            onClick={() => setSelectedCommit(null)}
+          />
+
+          {/* Drawer */}
+          <div
+            className="relative w-full max-w-3xl h-full overflow-y-auto shadow-2xl"
+            style={{ backgroundColor: '#fafafa' }}
+          >
+            {/* Drawer Header */}
+            <div
+              className="sticky top-0 p-6 border-b"
+              style={{
+                backgroundColor: 'white',
+                borderColor: '#e0e0e0',
+              }}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <GitCommit className="w-6 h-6" style={{ color: '#9575cd' }} />
+                    <h2 className="text-xl font-mono" style={{ color: '#424242' }}>
+                      {selectedCommit.commitSha.substring(0, 7)}
+                    </h2>
+                    {selectedCommit.channel && (
+                      <div
+                        className="px-3 py-1 rounded-md text-sm"
+                        style={{
+                          backgroundColor: selectedCommit.channel === 'production' ? '#e8f5e9' : '#fff3e0',
+                          color: selectedCommit.channel === 'production' ? '#2e7d32' : '#e65100',
+                        }}
+                      >
+                        {selectedCommit.channel === 'production' ? 'Production' : 'Pilot'}
+                      </div>
+                    )}
+                    {selectedCommit.fullVersion && (
+                      <div
+                        className="px-3 py-1 rounded-md text-sm"
+                        style={{
+                          backgroundColor: '#f5f5f5',
+                          color: '#616161',
+                        }}
+                      >
+                        v{selectedCommit.fullVersion}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm mb-2" style={{ color: '#757575' }}>
+                    {selectedCommit.commitMessage || 'No commit message'}
+                  </p>
+                  <div className="flex items-center gap-4 text-xs" style={{ color: '#9e9e9e' }}>
+                    <span>Author: {selectedCommit.commitAuthor || 'Unknown'}</span>
+                    <span>•</span>
+                    <span>Branch: {selectedCommit.branch || 'main'}</span>
+                    <span>•</span>
+                    <span>Date: {formatDate(selectedCommit.commitDate)}</span>
+                  </div>
+                  {selectedCommit.gitTag && (
+                    <div className="mt-2 text-xs" style={{ color: '#757575' }}>
+                      Tag: {selectedCommit.gitTag}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedCommit(null)}
+                  className="p-2 rounded-lg transition-colors"
+                  style={{ color: '#757575' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <a
+                  href={getCommitUrl(selectedCommit.commitSha)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-xl text-sm transition-all flex items-center gap-2"
+                  style={{
+                    backgroundColor: '#9575cd',
+                    color: 'white',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#7e57c2')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#9575cd')}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  View on GitHub
+                </a>
+                <button
+                  onClick={() => copyToClipboard(selectedCommit.commitSha)}
+                  className="px-4 py-2 rounded-xl text-sm transition-all flex items-center gap-2"
+                  style={{
+                    backgroundColor: '#f5f5f5',
+                    color: '#616161',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#eeeeee')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy SHA
+                </button>
+              </div>
+            </div>
+
+            {/* Commit Details Content */}
+            <div className="p-6">
+              {/* Commit Information */}
+              <div
+                className="p-6 rounded-xl border mb-6"
+                style={{
+                  backgroundColor: 'white',
+                  borderColor: '#e0e0e0',
+                }}
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className="w-5 h-5" style={{ color: '#9575cd' }} />
+                  <h3 className="text-lg" style={{ color: '#424242' }}>
+                    Commit Information
+                  </h3>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Full Commit SHA</div>
+                    <div className="font-mono text-sm" style={{ color: '#424242' }}>
+                      {selectedCommit.commitSha}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Commit Message</div>
+                    <div className="text-sm leading-relaxed" style={{ color: '#616161' }}>
+                      {selectedCommit.commitMessage || 'No commit message available'}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Author</div>
+                      <div className="text-sm" style={{ color: '#616161' }}>
+                        {selectedCommit.commitAuthor || 'Unknown'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Branch</div>
+                      <div className="text-sm" style={{ color: '#616161' }}>
+                        {selectedCommit.branch || 'main'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Commit Date</div>
+                      <div className="text-sm" style={{ color: '#616161' }}>
+                        {formatDate(selectedCommit.commitDate)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Recorded At</div>
+                      <div className="text-sm" style={{ color: '#616161' }}>
+                        {formatDate(selectedCommit.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                  {selectedCommit.buildNumber && (
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Build Number</div>
+                      <div className="text-sm" style={{ color: '#616161' }}>
+                        {selectedCommit.buildNumber}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Associated Release */}
+              {selectedCommit.fullVersion && (
+                <div
+                  className="p-6 rounded-xl border mb-6"
+                  style={{
+                    backgroundColor: 'white',
+                    borderColor: '#e0e0e0',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-5 h-5" style={{ color: '#9575cd' }} />
+                      <h3 className="text-lg" style={{ color: '#424242' }}>
+                        Associated Release
+                      </h3>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const release = releaseHistory.find(r => r.buildNumber === selectedCommit.buildNumber);
+                        if (release) {
+                          setSelectedRelease(release);
+                          setSelectedCommit(null);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-lg text-sm transition-all"
+                      style={{
+                        backgroundColor: '#9575cd',
+                        color: 'white',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#7e57c2')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#9575cd')}
+                    >
+                      View Release Notes
+                    </button>
+                  </div>
+                  <div className="text-sm" style={{ color: '#616161' }}>
+                    Version {selectedCommit.fullVersion} ({selectedCommit.channel || 'pilot'})
+                  </div>
+                </div>
+              )}
+
+              {/* Feature Changes */}
+              <div
+                className="p-6 rounded-xl border"
+                style={{
+                  backgroundColor: 'white',
+                  borderColor: '#e0e0e0',
+                }}
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-5 h-5" style={{ color: '#9575cd' }} />
+                  <h3 className="text-lg" style={{ color: '#424242' }}>
+                    Feature Changes
+                  </h3>
+                </div>
+                {commitFeatureChanges.length === 0 ? (
+                  <div className="text-sm" style={{ color: '#757575' }}>
+                    No feature changes associated with this commit.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {commitFeatureChanges.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 rounded-lg border"
+                        style={{
+                          backgroundColor: '#fafafa',
+                          borderColor: '#e0e0e0',
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-base font-semibold" style={{ color: '#424242' }}>
+                            {item.feature.name}
+                          </h4>
+                          <button
+                            onClick={() => {
+                              setSelectedFeature(item.feature);
+                              setSelectedCommit(null);
+                            }}
+                            className="px-3 py-1 rounded-lg text-xs transition-all"
+                            style={{
+                              backgroundColor: 'transparent',
+                              color: '#9575cd',
+                              border: '1px solid #9575cd',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#9575cd';
+                              e.currentTarget.style.color = 'white';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                              e.currentTarget.style.color = '#9575cd';
+                            }}
+                          >
+                            View Feature
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {item.changes.map((change: any, changeIdx: number) => (
+                            <div
+                              key={changeIdx}
+                              className="flex gap-3 pb-2 border-b last:border-b-0"
+                              style={{ borderColor: '#f0f0f0' }}
+                            >
+                              <div
+                                className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
+                                style={{ backgroundColor: '#9575cd' }}
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs font-semibold" style={{ color: '#616161' }}>
+                                    {change.title || 'Update'}
+                                  </span>
+                                  {change.date && (
+                                    <span className="text-xs" style={{ color: '#9e9e9e' }}>
+                                      • {formatDate(change.date)}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm leading-relaxed" style={{ color: '#757575' }}>
+                                  {change.description || change.change || 'No description'}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

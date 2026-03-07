@@ -74,15 +74,14 @@ jobs:
           
           if [ -z "$DOSSIER_FILE" ]; then
             echo "Warning: feature dossier file not found, using empty dossier"
-            echo 'dossier_json={"summary":"","categories":[]}' >> $GITHUB_OUTPUT
+            echo '{"summary":"","categories":[]}' | jq -c . > dossier_temp.json
           else
-            DOSSIER_JSON=$(cat "$DOSSIER_FILE")
-            # Escape JSON for GitHub Actions
-            DOSSIER_JSON_ESCAPED=$(echo "$DOSSIER_JSON" | jq -c .)
-            echo "dossier_json<<EOF" >> $GITHUB_OUTPUT
-            echo "$DOSSIER_JSON_ESCAPED" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            cat "$DOSSIER_FILE" | jq -c . > dossier_temp.json
           fi
+          # Store as base64 to avoid JSON escaping issues (compatible with both Linux and macOS)
+          DOSSIER_B64=$(base64 -w 0 dossier_temp.json 2>/dev/null || base64 dossier_temp.json | tr -d '\n')
+          echo "dossier_b64=$DOSSIER_B64" >> $GITHUB_OUTPUT
+          rm -f dossier_temp.json
 
       - name: Determine environment
         id: environment
@@ -161,12 +160,28 @@ jobs:
           COMMIT_AUTHOR=$(git log -1 --format=%an "$COMMIT_SHA")
           COMMIT_DATE=$(git log -1 --format=%ci "$COMMIT_SHA" | cut -d' ' -f1)
           
-          echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+          # Store commit message as base64 to avoid JSON escaping issues (compatible with both Linux and macOS)
+          COMMIT_MESSAGE_B64=$(echo "$COMMIT_MESSAGE" | base64 -w 0 2>/dev/null || echo "$COMMIT_MESSAGE" | base64 | tr -d '\n')
+          echo "commit_message_b64=$COMMIT_MESSAGE_B64" >> $GITHUB_OUTPUT
           echo "commit_author=$COMMIT_AUTHOR" >> $GITHUB_OUTPUT
           echo "commit_date=$COMMIT_DATE" >> $GITHUB_OUTPUT
 
       - name: Call publishRelease Cloud Function
         run: |
+          # Decode base64 values (compatible with both Linux and macOS)
+          DOSSIER_JSON=$(echo "${{ steps.feature-dossier.outputs.dossier_b64 }}" | base64 -d 2>/dev/null || echo "${{ steps.feature-dossier.outputs.dossier_b64 }}" | base64 -D)
+          COMMIT_MESSAGE=$(echo "${{ steps.commit-details.outputs.commit_message_b64 }}" | base64 -d 2>/dev/null || echo "${{ steps.commit-details.outputs.commit_message_b64 }}" | base64 -D)
+          
+          # Verify JSON is valid before using with --argjson
+          if ! echo "$DOSSIER_JSON" | jq . > /dev/null 2>&1; then
+            echo "Error: Invalid dossier JSON after decoding"
+            exit 1
+          fi
+          if ! echo "$COMMIT_MESSAGE" | jq . > /dev/null 2>&1; then
+            echo "Error: Invalid commit message JSON after decoding"
+            exit 1
+          fi
+          
           # Prepare Railway deployment data
           RAILWAY_DEPLOYMENT=$(jq -n \
             --arg deploymentId "${{ steps.railway-info.outputs.deployment_id }}" \
@@ -180,15 +195,15 @@ jobs:
               "deployedAt": $deployedAt
             }')
           
-          # Prepare request payload
+          # Prepare request payload using jq with proper JSON handling
           REQUEST_DATA=$(jq -n \
             --arg versionLine "${{ steps.parse-version.outputs.version_line }}" \
             --arg commitSha "${{ steps.commit-info.outputs.commit_sha }}" \
             --arg branch "${{ steps.commit-info.outputs.branch }}" \
             --arg gitTag "${{ steps.commit-info.outputs.git_tag }}" \
-            --argjson dossier "${{ steps.feature-dossier.outputs.dossier_json }}" \
+            --argjson dossier "$DOSSIER_JSON" \
             --arg environment "${{ steps.environment.outputs.environment }}" \
-            --argjson commitMessage "${{ steps.commit-details.outputs.commit_message }}" \
+            --argjson commitMessage "$COMMIT_MESSAGE" \
             --arg commitAuthor "${{ steps.commit-details.outputs.commit_author }}" \
             --arg commitDate "${{ steps.commit-details.outputs.commit_date }}" \
             --argjson railwayDeployment "$RAILWAY_DEPLOYMENT" \
@@ -210,7 +225,6 @@ jobs:
             }')
           
           # Call Cloud Function via HTTPS endpoint using curl
-          # For callable functions, we need to use the function URL directly
           curl -X POST \
             "https://us-central1-${{ secrets.FIREBASE_PROJECT_ID }}.cloudfunctions.net/publishRelease" \
             -H "Content-Type: application/json" \

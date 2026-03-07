@@ -39,6 +39,9 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
 
   Future<void> _trackScreenView() async {
     try {
+      // Wait a bit to ensure auth token is fully ready
+      await Future.delayed(const Duration(milliseconds: 500));
+      
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
       

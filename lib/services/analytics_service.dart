@@ -123,6 +123,24 @@ class AnalyticsService {
       print('📊 Analytics: Starting to log event "$eventName" for feature "$feature"');
       print('📊 Analytics: User ID: ${user.uid}');
       
+      // Force refresh auth token to ensure it's valid and wait for it
+      String? token;
+      try {
+        token = await user.getIdToken(true); // Force refresh
+        print('✅ Analytics: Auth token refreshed (${token?.length ?? 0} chars)');
+        if (token == null) {
+          print('⚠️ Analytics: No token available - skipping event');
+          return;
+        }
+      } catch (e) {
+        print('❌ Analytics: Token refresh failed: $e');
+        print('⚠️ Analytics: Skipping event due to auth failure');
+        return;
+      }
+      
+      // Small delay to ensure token is propagated
+      await Future.delayed(const Duration(milliseconds: 100));
+      
       // Get user lifecycle context
       final lifecycleContext = await getUserLifecycleContext(userProfile);
       
@@ -132,7 +150,7 @@ class AnalyticsService {
         ...(parameters ?? {}),
       };
 
-      // Call Cloud Function
+      // Call Cloud Function with explicit auth
       final callable = _functions.httpsCallable(
         'logAnalyticsEvent',
         options: HttpsCallableOptions(
@@ -143,6 +161,7 @@ class AnalyticsService {
       print('📊 Analytics: Session ID: ${getSessionId()}');
       print('📊 Analytics: Metadata keys: ${metadata.keys.toList()}');
       print('📊 Analytics: Calling Cloud Function...');
+      print('📊 Analytics: Auth state: ${FirebaseAuth.instance.currentUser != null ? "Authenticated" : "Not authenticated"}');
       
       final result = await callable.call({
         'eventName': eventName,

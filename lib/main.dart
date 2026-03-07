@@ -93,6 +93,9 @@ class _AuthWrapperState extends State<_AuthWrapper> {
 
   Future<void> _trackSessionStart() async {
     try {
+      // Wait a bit to ensure auth token is fully ready
+      await Future.delayed(const Duration(milliseconds: 500));
+      
       final userProfile = await _databaseService.getUserProfile(widget.userId);
       await _analytics.logSessionStarted(userProfile: userProfile);
       debugPrint('✅ Analytics: Session started tracked');

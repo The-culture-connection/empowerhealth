@@ -30,7 +30,7 @@ The Authentication and Onboarding system handles user account creation, login, p
 The User Feedback system encompasses two main components: Care Check-in surveys and Learning Module reviews. Care Check-in allows users to provide feedback about their healthcare experiences, including questions about care quality, communication, and satisfaction. Learning Module reviews enable users to rate and review educational content, providing ratings for understanding, next steps clarity, and confidence levels. This feedback is aggregated to improve content quality and track user engagement with educational materials.
 
 ### Change History
-- **2024-12-13** - **uvw456rst** - **Feedback analytics dashboard**: Added real-time analytics for care check-in responses to help identify trends.
+- **2024-12-13** - **uvw456rst** - **Feedback analytics dashboard**: Did stuff
 
 ---
 

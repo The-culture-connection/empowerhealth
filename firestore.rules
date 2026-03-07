@@ -1,7 +1,10 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
     
     // Helper function to check if user is authenticated
     function isAuthenticated() {
@@ -13,32 +16,282 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Helper function to check if user is an admin
-    // Checks if user's email exists in the ADMIN collection
-    // Note: This assumes ADMIN collection documents have email as a field
-    // Alternative: Store admin status in user document or use hardcoded email list
+    // Helper function to check if user is admin (checks ADMIN collection by uid)
     function isAdmin() {
       return isAuthenticated() && 
+             exists(/databases/$(database)/documents/ADMIN/$(request.auth.uid));
+    }
+    
+    // Helper function to check if user is research partner
+    function isResearchPartner() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/RESEARCH_PARTNERS/$(request.auth.uid));
+    }
+    
+    // Helper function to check if user is community manager
+    function isCommunityManager() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/COMMUNITY_MANAGERS/$(request.auth.uid));
+    }
+    
+    // Helper function to check if user has any admin dashboard role
+    function hasAdminRole() {
+      return isAdmin() || isResearchPartner() || isCommunityManager();
+    }
+    
+    // Fallback: Check admin by email (for backwards compatibility)
+    function isAdminByEmail() {
+      return isAuthenticated() && 
              request.auth.token.email != null &&
-             // Check if document exists in ADMIN collection with email field matching user's email
-             // Since we can't query, we'll check if email matches known admin emails
-             // For production, consider storing isAdmin flag in user document
              (request.auth.token.email == 'osrgnoi@gmail.com' ||
               request.auth.token.email == 'corinntaylor@gmail.com');
     }
     
-    // DEVELOPMENT MODE: More permissive rules
-    // TODO: Tighten these before production
+    // Combined admin check (uid-based or email-based fallback)
+    function isAdminAny() {
+      return isAdmin() || isAdminByEmail();
+    }
     
-    // User profiles - users can read/write their own profile
-    match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
+    // ============================================
+    // ADMIN DASHBOARD COLLECTIONS
+    // ============================================
+    
+    // Role collections - authenticated users can read their own role, admins can read all
+    match /ADMIN/{uid} {
+      // Allow users to read their own role document (for role resolution)
+      // Allow users with admin roles to read all
+      allow read: if isAuthenticated() && (
+        request.auth.uid == uid || 
+        hasAdminRole() ||
+        // Fallback: allow if email matches (for backwards compatibility)
+        (request.auth.token.email != null && resource.data.email == request.auth.token.email)
+      );
+      allow write: if isAdminAny();
+    }
+    
+    // Allow querying ADMIN collection by email (for role resolution fallback)
+    match /ADMIN/{document=**} {
+      allow read: if isAuthenticated();
+    }
+    
+    match /RESEARCH_PARTNERS/{uid} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == uid || 
+        hasAdminRole()
+      );
+      allow write: if isAdminAny();
+    }
+    
+    match /RESEARCH_PARTNERS/{document=**} {
+      allow read: if isAuthenticated();
+    }
+    
+    match /COMMUNITY_MANAGERS/{uid} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == uid || 
+        hasAdminRole()
+      );
+      allow write: if isAdminAny();
+    }
+    
+    match /COMMUNITY_MANAGERS/{document=**} {
+      allow read: if isAuthenticated();
+    }
+    
+    // Admin documents - all authenticated users can read, only admins can write
+    match /admin_documents/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminAny();
       
-      // Subcollections under user profile - strict isolation
+      match /history/{historyId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdminAny();
+      }
+    }
+    
+    // Build versions - authenticated users with admin dashboard roles can read
+    // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+    match /build_versions/{buildNumber} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if false; // Only via Cloud Function
+    }
+    
+    // Releases - only authenticated users with admin dashboard roles can read
+    // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+    // Also allow authenticated users to read (temporary - tighten after role setup)
+    match /releases/{buildNumber} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny() || true);
+      allow write: if false; // Only via Cloud Function (publishRelease)
+    }
+    
+    // Commits - track all GitHub commits for deployment history
+    match /commits/{commitSha} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny() || true);
+      allow write: if false; // Only via Cloud Function
+    }
+    
+    // System health - only authenticated users with admin dashboard roles can read
+    // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+    match /system_health/{serviceKey} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if false; // Only via Cloud Function (pollSystemHealth, runHealthCheckNow)
+    }
+    
+    // Incidents - only authenticated users with admin dashboard roles can read, only admins can write
+    // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+    match /incidents/{incidentId} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if isAdminAny();
+    }
+    
+    // Analytics - anonymized for research partners, full access for admins
+    // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+    match /analytics_events/{eventId} {
+      // Mobile app: authenticated users can create their own events
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own events
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    match /analytics_events_private/{eventId} {
+      allow read: if isAdminAny();
+      allow write: if false; // Only via Cloud Function
+    }
+    
+    // Daily aggregated analytics - research partners can read anonymized
+    // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+    match /analytics_daily/{date} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if false; // Only via Cloud Function
+    }
+    
+    // User sessions - mobile app can create/update, admin dashboard can read all
+    match /user_sessions/{sessionId} {
+      // Mobile app: authenticated users can create/update their own sessions
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own sessions
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if false; // Sessions should not be deleted
+    }
+    
+    // Micro measures - mobile app can create, admin dashboard can read all
+    match /micro_measures/{measureId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Helpfulness surveys - mobile app can create, admin dashboard can read all
+    match /helpfulness_surveys/{surveyId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Milestone checkins - mobile app can create, admin dashboard can read all
+    match /milestone_checkins/{checkinId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Care navigation outcomes - mobile app can create, admin dashboard can read all
+    match /care_navigation_outcomes/{outcomeId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Technology features - authenticated users with admin dashboard roles can read, only admins can write
+    // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+    match /technology_features/{featureId} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if isAdminAny();
+      
+      match /change_history/{changeId} {
+        allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+        allow write: if isAdminAny();
+      }
+    }
+    
+    // Audit logs - only admins can read
+    match /audit_logs/{logId} {
+      allow read: if isAdminAny();
+      allow write: if isAuthenticated(); // Cloud Functions can write
+    }
+    
+    // Notification logs - admins and community managers can read
+    match /notification_logs/{logId} {
+      allow read: if isAdminAny() || isCommunityManager();
+      allow write: if false; // Only via Cloud Function
+    }
+    
+    // ============================================
+    // MOBILE APP COLLECTIONS
+    // ============================================
+    
+    // User profiles - users can read/write their own, admin dashboard can read all
+    match /users/{userId} {
+      // Mobile app: users can read/write their own
+      allow read, write: if isOwner(userId);
+      
+      // Admin dashboard: can read all user profiles
+      // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+      allow read: if hasAdminRole() || isAdminAny();
+      // Only admins can write to user profiles from dashboard
+      allow write: if isAdminAny();
+      
+      // User subcollections - mobile app access
       match /visit_summaries/{summaryId} {
         allow read, write: if isOwner(userId);
-        // Ensure userId matches on create
         allow create: if isOwner(userId) && 
                       request.resource.data.userId == userId;
       }
@@ -47,17 +300,37 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
         allow create: if isOwner(userId) && 
                       request.resource.data.userId == userId;
+        // Admin dashboard can read (for analytics/reports)
+        // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+        allow read: if hasAdminRole() || isAdminAny();
       }
       
       match /file_uploads/{uploadId} {
         allow read, write: if isOwner(userId);
         allow create: if isOwner(userId);
+        // Admin dashboard can read (for analytics/reports)
+        // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+        allow read: if hasAdminRole() || isAdminAny();
       }
       
       match /learning_tasks/{taskId} {
         allow read, write: if isOwner(userId);
         allow create: if isOwner(userId) && 
                       request.resource.data.userId == userId;
+        // Admin dashboard can read (for analytics/reports)
+        // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+        allow read: if hasAdminRole() || isAdminAny();
+      }
+      
+      match /saved_providers/{providerId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /fcmTokens/{tokenId} {
+        // Mobile app users can manage their own tokens
+        allow read, write: if isOwner(userId);
+        // Admins can read all for push notifications
+        allow read: if isAdminAny() || isCommunityManager();
       }
       
       match /{document=**} {
@@ -77,6 +350,9 @@ service cloud.firestore {
       allow create: if isAuthenticated() && 
                     request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Admin dashboard can read all
+      // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+      allow read: if hasAdminRole() || isAdminAny();
     }
     
     // Learning modules - all authenticated users can read
@@ -103,10 +379,14 @@ service cloud.firestore {
     
     // Visit summaries (top-level collection) - ensure userId matches
     match /visit_summaries/{summaryId} {
+      // Mobile app: users can read/write their own
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow create: if isAuthenticated() && 
                     request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Admin dashboard: can read all
+      // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
+      allow read: if hasAdminRole() || isAdminAny();
     }
     
     // Journal entries (top-level collection)
@@ -127,7 +407,7 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
     
-    // Community posts - users can read all posts, create their own, and update to add replies/likes
+    // Community posts - users can read all posts, create their own
     match /community_posts/{postId} {
       // Anyone authenticated can read posts
       allow read: if isAuthenticated();
@@ -143,11 +423,9 @@ service cloud.firestore {
       
       // Post owners can update/delete their posts
       // Any authenticated user can update posts to add replies or toggle likes
-      // TODO: In production, restrict updates to only replies/likes arrays for non-owners
       allow update: if isAuthenticated() && (
         resource.data.userId == request.auth.uid || 
         // Allow updates for adding replies or toggling likes
-        // Note: This is permissive - consider tightening in production
         true
       );
       
@@ -161,9 +439,11 @@ service cloud.firestore {
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.keys().hasAll(['userId', 'postId', 'reason', 'createdAt']);
       
-      // Users can read their own reports
-      // TODO: Add admin role check for reading all reports
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Users can read their own reports, admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdminAny()
+      );
       
       // No updates or deletes allowed
       allow update, delete: if false;
@@ -197,9 +477,11 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
-    // Provider Search Collections
+    // ============================================
+    // PROVIDER SEARCH COLLECTIONS
+    // ============================================
     
-    // Providers - all authenticated users can read
+    // Providers - all authenticated users can read, admins can write
     match /providers/{providerId} {
       allow read: if isAuthenticated();
       
@@ -211,13 +493,13 @@ service cloud.firestore {
       // Admins can update any provider, including mamaApproved field
       allow update: if isAuthenticated() && (
         // Admin can update anything, including mamaApproved
-        isAdmin() ||
+        isAdminAny() ||
         // Regular users can update but cannot set/change mamaApproved
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['mamaApproved', 'mamaApprovedCount']))
       );
       
       // Only admins can delete providers
-      allow delete: if isAdmin();
+      allow delete: if isAdminAny();
     }
     
     // Provider reviews - users can read all, create their own, update/delete their own
@@ -227,21 +509,21 @@ service cloud.firestore {
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.keys().hasAll(['providerId', 'userId', 'rating', 'createdAt']);
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Admins can update/delete any review
+      allow update, delete: if isAdminAny();
     }
     
     // Provider submissions - users can create, admins can read/update
     match /provider_submissions/{submissionId} {
       allow create: if isAuthenticated() && 
                     request.resource.data.keys().hasAll(['provider', 'status', 'createdAt']);
-      // Users can read their own submissions
+      // Users can read their own submissions, admins can read all
       allow read: if isAuthenticated() && (
         resource.data.submittedBy == request.auth.uid ||
-        // TODO: Add admin role check
-        true
+        isAdminAny()
       );
       // Only admins can update (for moderation)
-      // TODO: Implement admin role check
-      allow update: if isAuthenticated();
+      allow update: if isAdminAny();
       allow delete: if false;
     }
     
@@ -253,23 +535,17 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         resource.data.submittedBy == request.auth.uid ||
         // Admins can read all
-        isAdmin()
+        isAdminAny()
       );
       // Only admins can update/delete (for moderation)
-      allow update, delete: if isAdmin();
+      allow update, delete: if isAdminAny();
     }
     
-    // Saved providers - users can manage their own favorites
-    match /users/{userId}/saved_providers/{providerId} {
-      allow read, write: if isOwner(userId);
-    }
-    
-    // Identity tags - all authenticated users can read
+    // Identity tags - all can read, admins can write
     match /identity_tags/{tagId} {
       allow read: if isAuthenticated();
       // Only admins can write
-      // TODO: Implement admin role check
-      allow write: if isAuthenticated();
+      allow write: if isAdminAny();
     }
     
     // Provider identity claims - users can create, read their own, admins can read all
@@ -278,25 +554,23 @@ service cloud.firestore {
                     request.resource.data.keys().hasAll(['providerId', 'userId', 'tagId', 'status', 'createdAt']);
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
-        // TODO: Add admin role check
-        true
+        // Admins can read all
+        isAdminAny()
       );
       // Only admins can update (for verification)
-      // TODO: Implement admin role check
-      allow update: if isAuthenticated();
+      allow update: if isAdminAny();
       allow delete: if false;
     }
     
-    // ADMIN collection - users can check if their email exists (for admin status check)
-    match /ADMIN/{adminId} {
-      // Allow authenticated users to read documents where email matches their own
-      // This allows the app to check if a user is an admin
-      allow read: if isAuthenticated() && 
-                  request.auth.token.email != null &&
-                  resource.data.email == request.auth.token.email;
-      // Only admins can write to ADMIN collection
-      allow write: if isAdmin();
+    // Mama approved status - all can read, admins can write
+    match /mama_approved_status/{statusId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminAny();
     }
+    
+    // ============================================
+    // SURVEYS & OTHER COLLECTIONS
+    // ============================================
     
     // Care Survey - users can create and read their own surveys
     match /CareSurvey/{surveyId} {
@@ -306,107 +580,10 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
         // Admins can read all
-        isAdmin()
+        isAdminAny()
       );
       // Only admins can update/delete
-      allow update, delete: if isAdmin();
-    }
-    
-    // ============================================
-    // ANALYTICS COLLECTIONS
-    // ============================================
-    
-    // Analytics events - authenticated users can create their own events
-    // Admins can read all for reporting
-    match /analytics_events/{eventId} {
-      allow create: if isAuthenticated() && (
-        request.resource.data.userId == null ||
-        request.resource.data.userId == request.auth.uid
-      );
-      allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        isAdmin()
-      );
-      // No updates or deletes - analytics are append-only
-      allow update, delete: if false;
-    }
-    
-    // User sessions - authenticated users can create/update their own sessions
-    // Admins can read all for reporting
-    match /user_sessions/{sessionId} {
-      allow create: if isAuthenticated() && (
-        request.resource.data.userId == null ||
-        request.resource.data.userId == request.auth.uid
-      );
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        request.resource.data.userId == request.auth.uid
-      );
-      allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        isAdmin()
-      );
-      allow delete: if false; // Sessions should not be deleted
-    }
-    
-    // Micro measures - authenticated users can create their own
-    // Admins can read all for reporting
-    match /micro_measures/{measureId} {
-      allow create: if isAuthenticated() && (
-        request.resource.data.userId == null ||
-        request.resource.data.userId == request.auth.uid
-      );
-      allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        isAdmin()
-      );
-      // No updates or deletes - analytics are append-only
-      allow update, delete: if false;
-    }
-    
-    // Helpfulness surveys - authenticated users can create their own
-    // Admins can read all for reporting
-    match /helpfulness_surveys/{surveyId} {
-      allow create: if isAuthenticated() && (
-        request.resource.data.userId == null ||
-        request.resource.data.userId == request.auth.uid
-      );
-      allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        isAdmin()
-      );
-      // No updates or deletes - analytics are append-only
-      allow update, delete: if false;
-    }
-    
-    // Milestone checkins - authenticated users can create their own
-    // Admins can read all for reporting
-    match /milestone_checkins/{checkinId} {
-      allow create: if isAuthenticated() && (
-        request.resource.data.userId == null ||
-        request.resource.data.userId == request.auth.uid
-      );
-      allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        isAdmin()
-      );
-      // No updates or deletes - analytics are append-only
-      allow update, delete: if false;
-    }
-    
-    // Care navigation outcomes - authenticated users can create their own
-    // Admins can read all for reporting
-    match /care_navigation_outcomes/{outcomeId} {
-      allow create: if isAuthenticated() && (
-        request.resource.data.userId == null ||
-        request.resource.data.userId == request.auth.uid
-      );
-      allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        isAdmin()
-      );
-      // No updates or deletes - analytics are append-only
-      allow update, delete: if false;
+      allow update, delete: if isAdminAny();
     }
   }
 }

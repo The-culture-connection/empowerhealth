@@ -756,10 +756,8 @@ class AnalyticsService {
           updateData['insuranceType'] = userProfile.insuranceType;
         }
         
-        // Navigator ID
-        if (userProfile.primaryProviderId != null) {
-          updateData['navigatorId'] = userProfile.primaryProviderId;
-        }
+        // Navigator ID - not available in UserProfile model
+        // If needed, this would need to be fetched from a separate collection
         
         // Support person
         if (userProfile.hasSupportPerson != null) {

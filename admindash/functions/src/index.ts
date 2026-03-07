@@ -5,7 +5,7 @@
 import * as functions from 'firebase-functions';
 import * as functionsV1 from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
-import { defineString } from 'firebase-functions/params';
+import { defineString, defineSecret } from 'firebase-functions/params';
 
 admin.initializeApp();
 
@@ -764,7 +764,12 @@ function getDefaultDisplayOrder(featureId: string): number {
  * Called from GitHub Actions to publish a new release
  * Handles both pilot (push to main) and production (tag prod-v*) releases
  */
-export const publishRelease = functions.https.onRequest(async (req, res) => {
+// Define secret at module level
+const githubSecretToken = defineSecret('GITHUB_SECRET_TOKEN');
+
+export const publishRelease = functions.https.onRequest({
+  secrets: [githubSecretToken]
+}, async (req, res) => {
   // Handle CORS
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -807,7 +812,6 @@ export const publishRelease = functions.https.onRequest(async (req, res) => {
 
     // Verify secret token if provided (for GitHub Actions)
     if (secretToken) {
-      const githubSecretToken = defineString('GITHUB_SECRET_TOKEN');
       const expectedToken = githubSecretToken.value();
       console.log('[publishRelease] Token validation:', {
         hasReceivedToken: !!secretToken,

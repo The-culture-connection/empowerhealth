@@ -809,6 +809,15 @@ export const publishRelease = functions.https.onRequest(async (req, res) => {
     if (secretToken) {
       const githubSecretToken = defineString('GITHUB_SECRET_TOKEN');
       const expectedToken = githubSecretToken.value();
+      console.log('[publishRelease] Token validation:', {
+        hasReceivedToken: !!secretToken,
+        receivedTokenLength: secretToken?.length || 0,
+        receivedTokenPrefix: secretToken?.substring(0, 10) || 'none',
+        hasExpectedToken: !!expectedToken,
+        expectedTokenLength: expectedToken?.length || 0,
+        expectedTokenPrefix: expectedToken?.substring(0, 10) || 'none',
+        tokensMatch: secretToken === expectedToken
+      });
       if (!expectedToken || secretToken !== expectedToken) {
         throw { code: 'permission-denied', message: 'Invalid secret token' };
       }

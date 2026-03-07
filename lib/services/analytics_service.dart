@@ -1739,11 +1739,12 @@ class AnalyticsService {
 
   Future<void> logScreenView({
     required String screenName,
+    String? feature,
     UserProfile? userProfile,
   }) async {
     await logEvent(
       eventName: 'screen_view',
-      feature: 'app',
+      feature: feature ?? 'app',
       parameters: {
         'screen_name': screenName,
       },

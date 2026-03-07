@@ -126,6 +126,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   void initState() {
     super.initState();
     _trackScreenView();
+    _loadUserProfile();
+    if (widget.savedProgress != null) {
+      _loadSavedProgress();
+    }
   }
 
   Future<void> _trackScreenView() async {
@@ -142,11 +146,6 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       }
     } catch (e) {
       print('Error tracking birth plan screen view: $e');
-    }
-  }
-    _loadUserProfile();
-    if (widget.savedProgress != null) {
-      _loadSavedProgress();
     }
   }
 

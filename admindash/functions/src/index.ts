@@ -64,14 +64,44 @@ export const uploadBuildVersion = functions.https.onCall(async (data: any, conte
 /**
  * Log Analytics Event
  * Handles anonymization server-side
+ * 
+ * NOTE: This function does NOT require App Check - it only requires user authentication.
+ * App Check enforcement must be disabled in Firebase Console → App Check → APIs → Cloud Functions
+ * if App Check is not configured for the client app.
+ * 
+ * The function uses the authenticated user's UID (context.auth.uid) to tie analytics to users.
  */
-export const logAnalyticsEvent = functions.https.onCall(async (data: any, context: any) => {
-  if (!context || !context.auth) {
+export const logAnalyticsEvent = functions.https.onCall({
+  // Explicitly disable App Check enforcement - we only need user authentication
+  enforceAppCheck: false,
+}, async (request: functions.https.CallableRequest) => {
+  // Log incoming request details for debugging
+  console.log('[Analytics] Request received');
+  console.log('[Analytics] Request.auth exists:', !!request.auth);
+  console.log('[Analytics] Request.auth.uid:', request.auth?.uid);
+  console.log('[Analytics] Request.app exists:', !!request.app);
+  console.log('[Analytics] Raw request keys:', Object.keys(request));
+  
+  // Extract data and auth from request (v2 format)
+  const data = request.data;
+  const auth = request.auth;
+  
+  // Only require authentication - App Check is NOT required
+  if (!auth) {
+    console.error('[Analytics] Authentication failed - request.auth is null');
+    console.error('[Analytics] Full request structure:', {
+      hasAuth: !!request.auth,
+      hasApp: !!request.app,
+      hasData: !!request.data,
+      keys: Object.keys(request)
+    });
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
   const { eventName, feature, metadata, durationMs, sessionId } = data;
-  const uid = context.auth.uid;
+  const uid = auth.uid; // Use authenticated user's UID from request.auth
+  
+  console.log(`[Analytics] Event received: ${eventName} for feature: ${feature} from user: ${uid}`);
   
   // Validate feature ID
   const validFeatures = [
@@ -155,6 +185,7 @@ export const logAnalyticsEvent = functions.https.onCall(async (data: any, contex
 
   await db.collection('analytics_events_private').add(privateEvent);
 
+  console.log(`[Analytics] Event logged successfully: ${eventName} (anonUserId: ${anonUserId}, uid: ${uid})`);
   return { success: true };
 });
 

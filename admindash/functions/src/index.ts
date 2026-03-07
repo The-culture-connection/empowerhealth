@@ -1053,64 +1053,70 @@ export const publishRelease = functions.https.onRequest({
     }
 
     // Auto-create/update technology_features documents based on dossier categories
+    // This ensures features exist even if FEATURES.md is not processed
     if (featureDossier.categories && Array.isArray(featureDossier.categories)) {
-    const featureIdMap: Record<string, string> = {
-      'After Visit Summary': 'appointment-summarizing',
-      'Learning Modules': 'learning-modules',
-      'Provider Search': 'provider-search',
-      'Community': 'community',
-      'Journal': 'journal',
-      'Birth Plan': 'birth-plan-generator',
-      'Notifications': 'notifications',
-      'Admin': 'admin',
-      'User Feedback': 'user-feedback',
-      'Authentication': 'authentication-onboarding',
-      'Profile': 'profile-editing',
-    };
-
-    const domainMap: Record<string, string> = {
-      'After Visit Summary': 'Care Understanding',
-      'Learning Modules': 'Care Preparation',
-      'Provider Search': 'Care Navigation',
-      'Community': 'Community Support',
-      'Journal': 'Self-Reflection',
-      'Birth Plan': 'Care Preparation',
-      'Notifications': 'Care Navigation',
-      'Admin': 'Admin',
-    };
-
-    for (const category of featureDossier.categories) {
-      const categoryName = category.name || 'Other';
-      const featureId = featureIdMap[categoryName] || categoryName.toLowerCase().replace(/\s+/g, '-');
-      const domain = domainMap[categoryName] || 'Other';
-
-      const featureRef = db.collection('technology_features').doc(featureId);
-      const featureDoc = await featureRef.get();
-
-      const now = admin.firestore.FieldValue.serverTimestamp();
-      const featureData: any = {
-        id: featureId,
-        name: categoryName,
-        domain,
-        category: categoryName,
-        description: featureDoc.exists 
-          ? featureDoc.data()?.description || `Feature updates in ${categoryName}`
-          : `Feature updates in ${categoryName}`,
-        lastUpdated: now,
-        visible: true,
-        displayOrder: Object.keys(featureIdMap).indexOf(categoryName) >= 0 
-          ? Object.keys(featureIdMap).indexOf(categoryName) 
-          : 999,
-        tags: [categoryName.toLowerCase().replace(/\s+/g, '-')],
-        updatedAt: now,
-        updatedBy: 'system',
+      const featureIdMap: Record<string, string> = {
+        'After Visit Summary': 'appointment-summarizing',
+        'Learning Modules': 'learning-modules',
+        'Provider Search': 'provider-search',
+        'Community': 'community',
+        'Journal': 'journal',
+        'Birth Plan': 'birth-plan-generator',
+        'Notifications': 'notifications',
+        'Admin': 'admin',
+        'User Feedback': 'user-feedback',
+        'Authentication': 'authentication-onboarding',
+        'Profile': 'profile-editing',
       };
 
-      if (!featureDoc.exists) {
-        featureData.createdAt = now;
-      }
+      const domainMap: Record<string, string> = {
+        'After Visit Summary': 'Care Understanding',
+        'Learning Modules': 'Care Preparation',
+        'Provider Search': 'Care Navigation',
+        'Community': 'Community Support',
+        'Journal': 'Self-Reflection',
+        'Birth Plan': 'Care Preparation',
+        'Notifications': 'Care Navigation',
+        'Admin': 'Admin',
+      };
 
-      await featureRef.set(featureData, { merge: true });
+      for (const category of featureDossier.categories) {
+        const categoryName = category.name || 'Other';
+        const featureId = featureIdMap[categoryName] || categoryName.toLowerCase().replace(/\s+/g, '-');
+        const domain = domainMap[categoryName] || 'Other';
+
+        const featureRef = db.collection('technology_features').doc(featureId);
+        const featureDoc = await featureRef.get();
+        const existingData: any = featureDoc.exists ? featureDoc.data() : {};
+
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        const featureData: any = {
+          id: featureId,
+          name: categoryName,
+          domain,
+          category: categoryName,
+          description: existingData?.description || featureDoc.exists 
+            ? featureDoc.data()?.description || `Feature updates in ${categoryName}`
+            : `Feature updates in ${categoryName}`,
+          // Preserve howItWorks and recentUpdates if they exist (from FEATURES.md processing)
+          howItWorks: existingData?.howItWorks || '',
+          recentUpdates: existingData?.recentUpdates || [],
+          lastUpdated: now,
+          visible: true,
+          displayOrder: existingData?.displayOrder || (Object.keys(featureIdMap).indexOf(categoryName) >= 0 
+            ? Object.keys(featureIdMap).indexOf(categoryName) 
+            : 999),
+          tags: existingData?.tags || [categoryName.toLowerCase().replace(/\s+/g, '-')],
+          updatedAt: now,
+          updatedBy: 'system',
+        };
+
+        if (!featureDoc.exists) {
+          featureData.createdAt = now;
+        }
+
+        await featureRef.set(featureData, { merge: true });
+        console.log(`[publishRelease] Created/updated feature ${featureId} from dossier`);
 
       // Add change history entry for each feature item in this category
       if (category.items && Array.isArray(category.items)) {

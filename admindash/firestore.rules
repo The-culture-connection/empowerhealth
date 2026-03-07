@@ -260,6 +260,21 @@ service cloud.firestore {
         allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
         allow write: if isAdminAny();
       }
+      
+      // Analytics events subcollection - mobile app can create, admin dashboard can read all
+      match /analytics_events/{eventId} {
+        // Mobile app: authenticated users can create their own events
+        allow create: if isAuthenticated() && (
+          request.resource.data.userId == null ||
+          request.resource.data.userId == request.auth.uid
+        );
+        // Admin dashboard: can read all for reporting
+        allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+        // Mobile app: users can read their own events
+        allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        // No updates or deletes - analytics are append-only
+        allow update, delete: if false;
+      }
     }
     
     // Audit logs - only admins can read

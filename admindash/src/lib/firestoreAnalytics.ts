@@ -6,6 +6,40 @@
 import { collection, query, where, getDocs, Timestamp, orderBy, limit, startAt, endAt } from 'firebase/firestore';
 import { firestore } from '../firebase/firebase';
 
+/**
+ * Map technology feature IDs to analytics feature names
+ * This maps the feature IDs from technology_features collection to the feature names used in analytics_events
+ */
+function mapFeatureIdToAnalyticsFeature(featureId: string): string | null {
+  const mapping: Record<string, string> = {
+    // Map common feature IDs to analytics feature names
+    'provider-search': 'provider-search',
+    'authentication-onboarding': 'authentication-onboarding',
+    'user-feedback': 'user-feedback',
+    'appointment-summarizing': 'appointment-summarizing',
+    'journal': 'journal',
+    'learning-modules': 'learning-modules',
+    'birth-plan-generator': 'birth-plan-generator',
+    'community': 'community',
+    'profile-editing': 'profile-editing',
+    // Add more mappings as needed
+  };
+  
+  // If direct mapping exists, use it
+  if (mapping[featureId]) {
+    return mapping[featureId];
+  }
+  
+  // Try to find by partial match (e.g., "Provider Search" -> "provider-search")
+  const normalizedId = featureId.toLowerCase().replace(/\s+/g, '-');
+  if (mapping[normalizedId]) {
+    return mapping[normalizedId];
+  }
+  
+  // Return the featureId as-is (might work if they match)
+  return featureId;
+}
+
 export interface AnalyticsEvent {
   id: string;
   userId: string | null;
@@ -45,6 +79,7 @@ export interface FeatureAnalyticsSummary {
 
 /**
  * Get analytics events for a specific feature
+ * Now queries from technology_features/{featureId}/analytics_events subcollection
  */
 export async function getFeatureEvents(
   feature: string,
@@ -54,15 +89,29 @@ export async function getFeatureEvents(
   }
 ): Promise<AnalyticsEvent[]> {
   try {
-    const eventsRef = collection(firestore, 'analytics_events');
-    const q = query(
-      eventsRef,
-      where('feature', '==', feature),
+    // Validate feature parameter
+    if (!feature || feature.trim() === '') {
+      console.warn('getFeatureEvents: feature parameter is empty, returning empty array');
+      return [];
+    }
+    
+    // Map feature ID to analytics feature name (for backward compatibility)
+    const analyticsFeature = mapFeatureIdToAnalyticsFeature(feature);
+    const featureId = analyticsFeature || feature;
+    
+    // Query from technology_features/{featureId}/analytics_events subcollection
+    const eventsRef = collection(firestore, 'technology_features', featureId, 'analytics_events');
+    
+    // Build query
+    const constraints: any[] = [
       where('timestamp', '>=', Timestamp.fromDate(dateRange.start)),
       where('timestamp', '<=', Timestamp.fromDate(dateRange.end)),
-      orderBy('timestamp', 'desc'),
-      limit(1000)
-    );
+    ];
+    
+    constraints.push(orderBy('timestamp', 'desc'));
+    constraints.push(limit(1000));
+    
+    const q = query(eventsRef, ...constraints);
     
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => {
@@ -72,7 +121,7 @@ export async function getFeatureEvents(
         userId: data.userId || null,
         anonUserId: data.anonUserId || '',
         eventName: data.eventName || '',
-        feature: data.feature || '',
+        feature: data.feature || featureId,
         timestamp: data.timestamp?.toDate() || new Date(),
         sessionId: data.sessionId || '',
         cohortType: data.cohortType || null,
@@ -83,7 +132,40 @@ export async function getFeatureEvents(
     });
   } catch (error) {
     console.error('Error fetching feature events:', error);
-    return [];
+    // Fallback to legacy collection if subcollection doesn't exist
+    try {
+      console.log('Attempting fallback to legacy analytics_events collection...');
+      const eventsRef = collection(firestore, 'analytics_events');
+      const analyticsFeature = mapFeatureIdToAnalyticsFeature(feature);
+      const constraints: any[] = [
+        where('timestamp', '>=', Timestamp.fromDate(dateRange.start)),
+        where('timestamp', '<=', Timestamp.fromDate(dateRange.end)),
+        where('feature', '==', analyticsFeature || feature),
+        orderBy('timestamp', 'desc'),
+        limit(1000),
+      ];
+      const q = query(eventsRef, ...constraints);
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: data.userId || null,
+          anonUserId: data.anonUserId || '',
+          eventName: data.eventName || '',
+          feature: data.feature || '',
+          timestamp: data.timestamp?.toDate() || new Date(),
+          sessionId: data.sessionId || '',
+          cohortType: data.cohortType || null,
+          gestationalWeek: data.gestationalWeek || null,
+          trimester: data.trimester || null,
+          metadata: data.metadata || {},
+        };
+      });
+    } catch (fallbackError) {
+      console.error('Fallback query also failed:', fallbackError);
+      return [];
+    }
   }
 }
 
@@ -97,8 +179,43 @@ export async function getFeatureAnalyticsSummary(
     end: new Date()
   }
 ): Promise<FeatureAnalyticsSummary> {
+  // Validate and map feature ID to analytics feature name
+  if (!feature || feature.trim() === '') {
+    console.warn('getFeatureAnalyticsSummary: feature parameter is empty');
+    return {
+      feature: feature || 'unknown',
+      totalEvents: 0,
+      uniqueUsers: 0,
+      uniqueSessions: 0,
+      usersThisWeek: 0,
+      returningUsers: 0,
+      eventsByType: {},
+      recentEvents: [],
+      cohortBreakdown: { navigator: 0, self_directed: 0, unknown: 0 },
+      trimesterBreakdown: { first: 0, second: 0, third: 0, postpartum: 0, unknown: 0 },
+    };
+  }
+  
+  // Map feature ID to analytics feature name
+  const analyticsFeature = mapFeatureIdToAnalyticsFeature(feature);
+  if (!analyticsFeature) {
+    console.warn(`getFeatureAnalyticsSummary: Could not map feature ID "${feature}" to analytics feature name`);
+    return {
+      feature: feature,
+      totalEvents: 0,
+      uniqueUsers: 0,
+      uniqueSessions: 0,
+      usersThisWeek: 0,
+      returningUsers: 0,
+      eventsByType: {},
+      recentEvents: [],
+      cohortBreakdown: { navigator: 0, self_directed: 0, unknown: 0 },
+      trimesterBreakdown: { first: 0, second: 0, third: 0, postpartum: 0, unknown: 0 },
+    };
+  }
+  
   // Get events for the full date range (to check for returning users)
-  const allEvents = await getFeatureEvents(feature, dateRange);
+  const allEvents = await getFeatureEvents(analyticsFeature, dateRange);
   
   // Calculate this week's date range
   const now = new Date();

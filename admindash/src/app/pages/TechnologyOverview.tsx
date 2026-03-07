@@ -1190,6 +1190,7 @@ export function TechnologyOverview() {
                   </div>
                   <div className="space-y-3">
                     {selectedFeature.recentUpdates.map((update, idx) => {
+                      const updateKey = `${selectedFeature.id}-update-${idx}`;
                       // Check if update is tagged with [production] or [pilot]
                       const isProduction = update.includes('[production]');
                       const isPilot = update.includes('[pilot]');
@@ -1197,7 +1198,7 @@ export function TechnologyOverview() {
                       
                       return (
                         <div
-                          key={idx}
+                          key={updateKey}
                           className="p-4 rounded-lg"
                           style={{
                             backgroundColor: 'white',
@@ -1374,9 +1375,11 @@ export function TechnologyOverview() {
                   {selectedFeatureChangeHistory.length === 0 ? (
                     <div className="text-sm" style={{ color: '#757575' }}>No change history available.</div>
                   ) : (
-                    selectedFeatureChangeHistory.map((change, idx) => (
+                    selectedFeatureChangeHistory.map((change, idx) => {
+                      const changeKey = change.version || change.commitSha || `change-${idx}`;
+                      return (
                       <div
-                        key={idx}
+                        key={changeKey}
                         className="flex gap-4 pb-3 border-b last:border-b-0"
                         style={{ borderColor: '#f5f5f5' }}
                       >
@@ -1398,7 +1401,8 @@ export function TechnologyOverview() {
                           </p>
                         </div>
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>

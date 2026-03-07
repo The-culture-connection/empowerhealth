@@ -651,6 +651,27 @@ class AnalyticsService {
   
   /// Save event directly to Firestore analytics_events collection
   /// This provides query-friendly schema alongside Cloud Function writes
+  /// Map analytics feature name to technology feature ID
+  /// This maps the feature names used in analytics to the feature IDs in technology_features collection
+  String? _getTechnologyFeatureId(String analyticsFeature) {
+    // Direct mapping - analytics feature names match technology feature IDs
+    const mapping = {
+      'analytics-and-event-tracking': 'analytics-and-event-tracking',
+      'appointment-summarizing': 'appointment-summarizing',
+      'authentication-onboarding': 'authentication-onboarding',
+      'birth-plan-generator': 'birth-plan-generator',
+      'community': 'community',
+      'journal': 'journal',
+      'learning-modules': 'learning-modules',
+      'profile-editing': 'profile-editing',
+      'provider-search': 'provider-search',
+      'user-feedback': 'user-feedback',
+      'app': 'app', // For app-level events like session_started, screen_view
+    };
+    
+    return mapping[analyticsFeature] ?? analyticsFeature;
+  }
+
   Future<void> _saveEventToFirestore({
     required String eventName,
     required String feature,
@@ -691,8 +712,24 @@ class AnalyticsService {
         'metadata': metadata ?? {},
       };
       
-      // Save to analytics_events collection
+      // Save to legacy analytics_events collection (for backward compatibility)
       await _firestore.collection('analytics_events').add(eventData);
+      
+      // Also save to technology_features/{featureId}/analytics_events subcollection
+      final technologyFeatureId = _getTechnologyFeatureId(feature);
+      if (technologyFeatureId != null) {
+        try {
+          await _firestore
+              .collection('technology_features')
+              .doc(technologyFeatureId)
+              .collection('analytics_events')
+              .add(eventData);
+          print('✅ Analytics: Event saved to technology_features/$technologyFeatureId/analytics_events');
+        } catch (e) {
+          // Best effort - if subcollection write fails, log but don't throw
+          print('⚠️ Analytics: Failed to save to technology_features subcollection: $e');
+        }
+      }
       
       // Update user context in users collection (best effort)
       _updateUserContext(userId, userProfile).catchError((e) {

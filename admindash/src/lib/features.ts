@@ -141,17 +141,39 @@ export async function getFeaturesByDomain(domain: string): Promise<TechnologyFea
  * Get change history for a feature
  */
 export async function getFeatureChangeHistory(featureId: string): Promise<FeatureChangeHistory[]> {
-  const historyRef = collection(firestore, 'technology_features', featureId, 'change_history');
-  const q = query(historyRef, orderBy('date', 'desc'));
-  const snapshot = await getDocs(q);
+  try {
+    if (!featureId || featureId.trim() === '') {
+      console.warn('getFeatureChangeHistory: featureId is empty');
+      return [];
+    }
+    
+    const historyRef = collection(firestore, 'technology_features', featureId, 'change_history');
+    const q = query(historyRef, orderBy('date', 'desc'));
+    const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      ...data,
-      date: data.date?.toDate(),
-    } as FeatureChangeHistory;
-  });
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      // Handle date conversion safely
+      let dateValue: any = null;
+      if (data.date) {
+        if (data.date.toDate && typeof data.date.toDate === 'function') {
+          dateValue = data.date.toDate();
+        } else if (data.date instanceof Date) {
+          dateValue = data.date;
+        } else {
+          dateValue = data.date;
+        }
+      }
+      
+      return {
+        ...data,
+        date: dateValue,
+      } as FeatureChangeHistory;
+    });
+  } catch (error) {
+    console.error('Error fetching feature change history:', error);
+    return [];
+  }
 }
 
 /**

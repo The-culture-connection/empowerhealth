@@ -46,6 +46,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   void initState() {
     super.initState();
     _trackScreenView();
+    _loadUserProfile();
+    _checkConsentAndShowPrivacyScreen();
   }
 
   Future<void> _trackScreenView() async {
@@ -63,9 +65,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     } catch (e) {
       print('Error tracking visit summary screen view: $e');
     }
-  }
-    _loadUserProfile();
-    _checkConsentAndShowPrivacyScreen();
   }
 
   Future<void> _checkConsentAndShowPrivacyScreen() async {

@@ -8,7 +8,7 @@ This document tracks all platform features, their current functionality, and cha
 The Provider Search feature allows users to find healthcare providers based on various criteria including location, specialty, identity tags, and user reviews. Users can search for providers, view detailed provider profiles with ratings and reviews, filter by specific criteria such as "Mama Approved" status, and save favorite providers for quick access. The search integrates with provider identity claims and allows users to submit new providers for review. The system tracks provider reviews, ratings, and user interactions to help users make informed healthcare decisions.
 
 ### Change History
-- **2024-12-15** - **abc123def** - **Enhanced search filters**: Added medicaid directory from a new api.
+- **2024-12-15** - **abc123def** - **Enhanced search filters**: Added medicaid directory.
 - **2024-12-10** - **def456ghi** - **Provider reviews integration**: Integrated user reviews directly into provider search results for better decision-making.
 
 ---

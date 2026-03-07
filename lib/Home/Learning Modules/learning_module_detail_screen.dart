@@ -92,7 +92,7 @@ class _LearningModuleDetailScreenState extends State<LearningModuleDetailScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            title,
+                            widget.title,
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -117,7 +117,7 @@ class _LearningModuleDetailScreenState extends State<LearningModuleDetailScreen>
                         showDialog(
                           context: context,
                           builder: (context) => NotesDialog(
-                            moduleTitle: title,
+                            moduleTitle: widget.title,
                           ),
                         );
                       },
@@ -125,7 +125,7 @@ class _LearningModuleDetailScreenState extends State<LearningModuleDetailScreen>
                     IconButton(
                       icon: const Icon(Icons.share),
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: content));
+                        Clipboard.setData(ClipboardData(text: widget.content));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Copied to clipboard!')),
                         );
@@ -173,7 +173,7 @@ class _LearningModuleDetailScreenState extends State<LearningModuleDetailScreen>
                           ],
                         ),
                         const SizedBox(height: 16),
-                        _MarkdownStyleText(content: content, moduleTitle: title),
+                        _MarkdownStyleText(content: widget.content, moduleTitle: widget.title),
                       ],
                     ),
                   ),
@@ -206,7 +206,7 @@ class _LearningModuleDetailScreenState extends State<LearningModuleDetailScreen>
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            Clipboard.setData(ClipboardData(text: content));
+                            Clipboard.setData(ClipboardData(text: widget.content));
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Copied to clipboard!')),
                             );
@@ -231,7 +231,7 @@ class _LearningModuleDetailScreenState extends State<LearningModuleDetailScreen>
                   const SizedBox(height: 16),
                   
                       // Survey Section
-                      _ModuleReviewSection(moduleTitle: title, taskId: taskId),
+                      _ModuleReviewSection(moduleTitle: widget.title, taskId: widget.taskId),
                       const SizedBox(height: 24),
                     ],
                   ),

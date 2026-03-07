@@ -11,6 +11,7 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:path_provider/path_provider.dart';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
+import '../services/analytics_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/ai_disclaimer_banner.dart';

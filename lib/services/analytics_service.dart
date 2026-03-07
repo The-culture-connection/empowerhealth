@@ -26,7 +26,8 @@ class AnalyticsService {
 
   String _generateRandomString() {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    return List.generate(9, (_) => chars[(DateTime.now().millisecondsSinceEpoch + _) % chars.length]).join();
+    final random = DateTime.now().millisecondsSinceEpoch;
+    return List.generate(9, (index) => chars[(random + index) % chars.length]).join();
   }
 
   /// Get user lifecycle context from user profile

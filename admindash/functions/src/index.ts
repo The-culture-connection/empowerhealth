@@ -764,53 +764,71 @@ function getDefaultDisplayOrder(featureId: string): number {
  * Called from GitHub Actions to publish a new release
  * Handles both pilot (push to main) and production (tag prod-v*) releases
  */
-export const publishRelease = functions.https.onCall(async (data: any, context?: any) => {
-  // For callable functions called via HTTP, data is wrapped in {data: {...}}
-  // Extract the actual payload
-  const payload = data?.data || data;
-  
-  console.log('[publishRelease] Received request:', {
-    hasDataWrapper: !!data?.data,
-    commitSha: payload?.commitSha,
-    hasSecretToken: !!payload?.secretToken
-  });
-  
-  // Allow unauthenticated calls from GitHub Actions (using secret token)
-  const { 
-    pubspecVersionLine, 
-    commitSha, 
-    branch, 
-    gitTag, 
-    featureDossierJson, 
-    environment,
-    railwayDeployment,
-    secretToken,
-    commitMessage,
-    commitAuthor,
-    commitDate
-  } = payload;
+export const publishRelease = functions.https.onRequest(async (req, res) => {
+  // Handle CORS
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  // Verify secret token if provided (for GitHub Actions)
-  if (secretToken) {
-    const githubSecretToken = defineString('GITHUB_SECRET_TOKEN');
-    const expectedToken = githubSecretToken.value();
-    if (!expectedToken || secretToken !== expectedToken) {
-      throw new functions.https.HttpsError('permission-denied', 'Invalid secret token');
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  try {
+    // Extract the actual payload (from {data: {...}} or direct)
+    const payload = req.body?.data || req.body;
+  
+    console.log('[publishRelease] Received request:', {
+      hasDataWrapper: !!req.body?.data,
+      commitSha: payload?.commitSha,
+      hasSecretToken: !!payload?.secretToken
+    });
+  
+    // Allow unauthenticated calls from GitHub Actions (using secret token)
+    const { 
+      pubspecVersionLine, 
+      commitSha, 
+      branch, 
+      gitTag, 
+      featureDossierJson, 
+      environment,
+      railwayDeployment,
+      secretToken,
+      commitMessage,
+      commitAuthor,
+      commitDate
+    } = payload;
+
+    // Verify secret token if provided (for GitHub Actions)
+    if (secretToken) {
+      const githubSecretToken = defineString('GITHUB_SECRET_TOKEN');
+      const expectedToken = githubSecretToken.value();
+      if (!expectedToken || secretToken !== expectedToken) {
+        throw { code: 'permission-denied', message: 'Invalid secret token' };
+      }
+    } else {
+      // If no secret token, require authentication (check Authorization header)
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw { code: 'unauthenticated', message: 'Authentication required' };
+      }
     }
-  } else if (!context.auth) {
-    // If no secret token, require authentication
-    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
-  }
 
-  if (!pubspecVersionLine || !commitSha || !featureDossierJson) {
-    throw new functions.https.HttpsError('invalid-argument', 'Missing required fields');
-  }
+    if (!pubspecVersionLine || !commitSha || !featureDossierJson) {
+      throw { code: 'invalid-argument', message: 'Missing required fields' };
+    }
 
-  // Parse version from pubspec.yaml line (e.g., "version: 1.2.3+13")
-  const versionMatch = pubspecVersionLine.match(/version:\s*(\d+\.\d+\.\d+)\+(\d+)/);
-  if (!versionMatch) {
-    throw new functions.https.HttpsError('invalid-argument', 'Invalid version format in pubspec.yaml');
-  }
+    // Parse version from pubspec.yaml line (e.g., "version: 1.2.3+13")
+    const versionMatch = pubspecVersionLine.match(/version:\s*(\d+\.\d+\.\d+)\+(\d+)/);
+    if (!versionMatch) {
+      throw { code: 'invalid-argument', message: 'Invalid version format in pubspec.yaml' };
+    }
 
   const versionName = versionMatch[1];
   const buildNumber = parseInt(versionMatch[2], 10);
@@ -822,15 +840,15 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
     channel = 'production';
   }
 
-  // Parse feature dossier
-  let featureDossier;
-  try {
-    featureDossier = typeof featureDossierJson === 'string' 
-      ? JSON.parse(featureDossierJson) 
-      : featureDossierJson;
-  } catch (e) {
-    throw new functions.https.HttpsError('invalid-argument', 'Invalid featureDossierJson format');
-  }
+    // Parse feature dossier
+    let featureDossier;
+    try {
+      featureDossier = typeof featureDossierJson === 'string' 
+        ? JSON.parse(featureDossierJson) 
+        : featureDossierJson;
+    } catch (e) {
+      throw { code: 'invalid-argument', message: 'Invalid featureDossierJson format' };
+    }
 
   // Build git info
   const repoUrl = 'https://github.com/The-culture-connection/empowerhealth.git';
@@ -879,26 +897,25 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
     });
   }
 
-  // Create release document
-  const releaseDoc = {
-    fullVersion,
-    versionName,
-    buildNumber,
-    channel,
-    git: gitInfo,
-    railway: railwayInfo,
-    featureDossier,
-    functionalUpdates, // Add extracted functional updates
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    createdBy: context?.auth?.uid || 'system',
-  };
+    // Create release document
+    const releaseDoc = {
+      fullVersion,
+      versionName,
+      buildNumber,
+      channel,
+      git: gitInfo,
+      railway: railwayInfo,
+      featureDossier,
+      functionalUpdates, // Add extracted functional updates
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdBy: 'system', // GitHub Actions calls are unauthenticated
+    };
 
-  // Upsert to releases collection (docId = buildNumber)
-  await db.collection('releases').doc(buildNumber.toString()).set(releaseDoc, { merge: true });
+    // Upsert to releases collection (docId = buildNumber)
+    await db.collection('releases').doc(buildNumber.toString()).set(releaseDoc, { merge: true });
 
-  // Also create a commit tracking document for this commit
-  console.log('[publishRelease] Creating commit document:', commitSha);
-  try {
+    // Also create a commit tracking document for this commit
+    console.log('[publishRelease] Creating commit document:', commitSha);
     await db.collection('commits').doc(commitSha).set({
       commitSha,
       commitMessage: commitMessage || '',
@@ -913,10 +930,6 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
     console.log('[publishRelease] Commit document created successfully:', commitSha);
-  } catch (error: any) {
-    console.error('[publishRelease] Error creating commit document:', error);
-    throw error;
-  }
 
   // Auto-create/update technology_features documents based on dossier categories
   // Also process feature changes from FEATURES.md (if available via GitHub)
@@ -970,7 +983,7 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
           : 999,
         tags: [categoryName.toLowerCase().replace(/\s+/g, '-')],
         updatedAt: now,
-        updatedBy: context?.auth?.uid || 'system',
+        updatedBy: 'system',
       };
 
       if (!featureDoc.exists) {
@@ -987,32 +1000,52 @@ export const publishRelease = functions.https.onCall(async (data: any, context?:
             date: now,
             change: item.description || item.name || 'Feature updated',
             releaseBuildNumber: buildNumber,
-            createdBy: context?.auth?.uid || 'system',
+            createdBy: 'system',
           });
         }
       }
     }
   }
 
-  // Log audit event
-  await db.collection('audit_logs').add({
-    action: 'release_published',
-    buildNumber,
-    fullVersion,
-    channel,
-    gitTag: gitTag || null,
-    performedBy: context?.auth?.uid || 'system',
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-  });
+    // Log audit event
+    await db.collection('audit_logs').add({
+      action: 'release_published',
+      buildNumber,
+      fullVersion,
+      channel,
+      gitTag: gitTag || null,
+      performedBy: 'system',
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
-  console.log('[publishRelease] Function completed successfully:', {
-    buildNumber,
-    fullVersion,
-    channel,
-    commitSha
-  });
+    console.log('[publishRelease] Function completed successfully:', {
+      buildNumber,
+      fullVersion,
+      channel,
+      commitSha
+    });
 
-  return { success: true, buildNumber, channel, fullVersion, commitSha };
+    res.status(200).json({ 
+      result: { 
+        success: true, 
+        buildNumber, 
+        channel, 
+        fullVersion, 
+        commitSha 
+      } 
+    });
+  } catch (error: any) {
+    console.error('[publishRelease] Error:', error);
+    const statusCode = error.code === 'permission-denied' ? 403 :
+                      error.code === 'invalid-argument' ? 400 :
+                      error.code === 'unauthenticated' ? 401 : 500;
+    res.status(statusCode).json({ 
+      error: {
+        code: error.code || 'internal',
+        message: error.message || 'Internal server error'
+      }
+    });
+  }
 });
 
 /**

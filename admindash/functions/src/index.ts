@@ -707,7 +707,8 @@ function parseFeaturesMarkdown(content: string): Record<string, any> {
       } else if (line.startsWith('- **') && currentSection === 'changes') {
         // Parse: - **[Date]** - **[Commit SHA]** - **[Title]**: [Description]
         // Or: - **[Date]** - **[Title]**: [Description] (without commit SHA)
-        const matchWithCommit = line.match(/^- \*\*(\d{4}-\d{2}-\d{2})\*\* - \*\*([a-f0-9]+)\*\* - \*\*([^\*]+)\*\*: (.+)$/);
+        // Note: Commit SHA can be any alphanumeric string (not just hex) for mock/test values
+        const matchWithCommit = line.match(/^- \*\*(\d{4}-\d{2}-\d{2})\*\* - \*\*([a-zA-Z0-9]+)\*\* - \*\*([^\*]+)\*\*: (.+)$/);
         const matchWithoutCommit = line.match(/^- \*\*(\d{4}-\d{2}-\d{2})\*\* - \*\*([^\*]+)\*\*: (.+)$/);
         
         if (matchWithCommit) {
@@ -730,6 +731,9 @@ function parseFeaturesMarkdown(content: string): Record<string, any> {
           recentUpdates.push(updateText);
         } else if (line.startsWith('- *No changes tracked yet*')) {
           // Skip "No changes tracked yet" entries
+        } else {
+          // Log lines that don't match for debugging
+          console.log(`[parseFeaturesMarkdown] Line did not match regex for feature ${featureId}:`, line);
         }
       } else if (currentSection === 'functionality' && line && !line.startsWith('---')) {
         // Collect "How the feature works" from Current Functionality section

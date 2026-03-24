@@ -160,8 +160,14 @@ export function TechnologyOverview() {
     setLoadingFeatures(true);
     try {
       const features = await getAllFeatures();
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-load-1',hypothesisId:'H1',location:'admindash/src/app/pages/TechnologyOverview.tsx:loadPlatformFeatures',message:'About to set platform features in state',data:{count:features.length,firstThree:features.slice(0,3).map((f)=>({id:f.id,name:f.name,recentUpdatesLen:Array.isArray(f.recentUpdates)?f.recentUpdates.length:0,howItWorksLen:typeof f.howItWorks==='string'?f.howItWorks.length:0}))},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       setPlatformFeatures(features);
     } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-load-1',hypothesisId:'H3',location:'admindash/src/app/pages/TechnologyOverview.tsx:loadPlatformFeatures',message:'Platform features load failed',data:{error:err?.message ?? 'unknown'},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       console.error('Failed to load platform features:', err);
       setError(err.message || 'Failed to load platform features');
     } finally {

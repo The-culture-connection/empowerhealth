@@ -113,6 +113,19 @@ export async function getAllFeatures(): Promise<TechnologyFeature[]> {
     orderBy('displayOrder', 'asc')
   );
   const snapshot = await getDocs(q);
+  const docs = snapshot.docs;
+  const preview = docs.slice(0, 5).map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      hasHowItWorks: !!data.howItWorks,
+      recentUpdatesLen: Array.isArray(data.recentUpdates) ? data.recentUpdates.length : 0,
+      updatedBy: data.updatedBy ?? null,
+    };
+  });
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-load-1',hypothesisId:'H2',location:'admindash/src/lib/features.ts:getAllFeatures',message:'Fetched technology_features snapshot',data:{count:docs.length,preview},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 
   return snapshot.docs.map((doc) => {
     const data = doc.data();

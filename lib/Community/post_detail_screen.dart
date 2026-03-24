@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
+import '../models/user_profile.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final String postId;
@@ -14,12 +17,60 @@ class PostDetailScreen extends StatefulWidget {
 
 class _PostDetailScreenState extends State<PostDetailScreen> {
   final TextEditingController _replyController = TextEditingController();
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
   bool _isSubmittingReply = false;
+  DateTime? _openedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _openedAt = DateTime.now();
+    _trackPostView();
+  }
 
   @override
   void dispose() {
+    _trackPostExit();
     _replyController.dispose();
     super.dispose();
+  }
+
+  Future<void> _trackPostView() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) return;
+      final userProfile = await _databaseService.getUserProfile(userId);
+      await _analytics.logCommunityPostViewed(
+        threadId: widget.postId,
+        userProfile: userProfile,
+      );
+      await _analytics.logScreenView(
+        screenName: 'community_post_detail',
+        feature: 'community',
+        userProfile: userProfile,
+      );
+    } catch (e) {
+      print('Error tracking post view: $e');
+    }
+  }
+
+  Future<void> _trackPostExit() async {
+    try {
+      if (_openedAt == null) return;
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) return;
+      final seconds = DateTime.now().difference(_openedAt!).inSeconds;
+      final userProfile = await _databaseService.getUserProfile(userId);
+      await _analytics.logFeatureTimeSpent(
+        feature: 'community',
+        timeSpentSeconds: seconds,
+        sourceId: widget.postId,
+        userProfile: userProfile,
+      );
+    } catch (e) {
+      print('Error tracking post detail exit: $e');
+    }
   }
 
   Future<void> _toggleLike(String postId, List<dynamic> currentLikes) async {
@@ -38,6 +89,24 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           .collection('community_posts')
           .doc(postId)
           .update({'likes': likes});
+
+      // Track "like" only when transitioning to liked.
+      if (likes.contains(userId)) {
+        try {
+          UserProfile? userProfile;
+          try {
+            userProfile = await _databaseService.getUserProfile(userId);
+          } catch (_) {
+            userProfile = null;
+          }
+          await _analytics.logCommunityPostLiked(
+            threadId: postId,
+            userProfile: userProfile,
+          );
+        } catch (e) {
+          print('Error tracking post liked: $e');
+        }
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -89,9 +158,25 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           .collection('community_posts')
           .doc(postId)
           .update({
-        'replies': FieldValue.arrayUnion([replyData]),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'replies': FieldValue.arrayUnion([replyData]),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      try {
+        UserProfile? userProfile;
+        try {
+          userProfile = await _databaseService.getUserProfile(userId);
+        } catch (_) {
+          userProfile = null;
+        }
+        await _analytics.logCommunityPostReplied(
+          threadId: postId,
+          replyLength: _replyController.text.trim().length,
+          userProfile: userProfile,
+        );
+      } catch (e) {
+        print('Error tracking post replied: $e');
+      }
 
       _replyController.clear();
       if (mounted) {
@@ -134,17 +219,18 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             children: [
               const Text('Why are you reporting this post?'),
               const SizedBox(height: 12),
-              ...['Inappropriate content', 'Spam', 'Harassment', 'Other']
-                  .map((reason) => RadioListTile<String>(
-                        title: Text(reason),
-                        value: reason,
-                        groupValue: selectedReason.value,
-                        onChanged: (value) {
-                          setState(() {
-                            selectedReason.value = value!;
-                          });
-                        },
-                      )),
+              ...['Inappropriate content', 'Spam', 'Harassment', 'Other'].map(
+                (reason) => RadioListTile<String>(
+                  title: Text(reason),
+                  value: reason,
+                  groupValue: selectedReason.value,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedReason.value = value!;
+                    });
+                  },
+                ),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: reasonController,
@@ -178,21 +264,24 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 final userId = FirebaseAuth.instance.currentUser?.uid;
                 if (userId == null) return;
 
-                await FirebaseFirestore.instance.collection('post_reports').add({
-                  'postId': postId,
-                  'postTitle': postTitle,
-                  'userId': userId,
-                  'reason': selectedReason.value,
-                  'details': reasonController.text.trim(),
-                  'createdAt': FieldValue.serverTimestamp(),
-                });
+                await FirebaseFirestore.instance
+                    .collection('post_reports')
+                    .add({
+                      'postId': postId,
+                      'postTitle': postTitle,
+                      'userId': userId,
+                      'reason': selectedReason.value,
+                      'details': reasonController.text.trim(),
+                      'createdAt': FieldValue.serverTimestamp(),
+                    });
 
                 if (context.mounted) {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
-                          '✅ Report submitted. Thank you for helping keep our community safe.'),
+                        '✅ Report submitted. Thank you for helping keep our community safe.',
+                      ),
                       backgroundColor: Colors.green,
                       duration: Duration(seconds: 3),
                     ),
@@ -227,10 +316,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       appBar: AppBar(
         title: const Text(
           'Discussion',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
         ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -267,9 +353,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           }
 
           if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(
-              child: Text('Post not found'),
-            );
+            return const Center(child: Text('Post not found'));
           }
 
           final data = snapshot.data!.data() as Map<String, dynamic>;
@@ -278,7 +362,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           final authorName = data['authorName'] ?? 'Anonymous';
           final category = data['category'] ?? 'General';
           final likes = List<String>.from(data['likes'] ?? []);
-          final replies = List<Map<String, dynamic>>.from(data['replies'] ?? []);
+          final replies = List<Map<String, dynamic>>.from(
+            data['replies'] ?? [],
+          );
           final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
           final userId = FirebaseAuth.instance.currentUser?.uid;
           final isLiked = userId != null && likes.contains(userId);
@@ -372,7 +458,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     gradient: const LinearGradient(
                                       colors: [
                                         Color(0xFF663399),
-                                        Color(0xFFCBBEC9)
+                                        Color(0xFFCBBEC9),
                                       ],
                                     ),
                                     borderRadius: BorderRadius.circular(20),
@@ -402,7 +488,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 ),
                                 // Like Button
                                 InkWell(
-                                  onTap: () => _toggleLike(widget.postId, likes),
+                                  onTap: () =>
+                                      _toggleLike(widget.postId, likes),
                                   borderRadius: BorderRadius.circular(20),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -500,8 +587,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           child: Center(
                             child: Column(
                               children: [
-                                Icon(Icons.message_outlined,
-                                    size: 48, color: Colors.grey[400]),
+                                Icon(
+                                  Icons.message_outlined,
+                                  size: 48,
+                                  color: Colors.grey[400],
+                                ),
                                 const SizedBox(height: 12),
                                 Text(
                                   'No replies yet',
@@ -556,7 +646,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     gradient: const LinearGradient(
                                       colors: [
                                         Color(0xFF663399),
-                                        Color(0xFFCBBEC9)
+                                        Color(0xFFCBBEC9),
                                       ],
                                     ),
                                     borderRadius: BorderRadius.circular(20),
@@ -576,7 +666,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 // Reply Content
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
@@ -591,8 +682,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                           if (replyCreatedAt != null) ...[
                                             Text(
                                               ' • ',
-                                              style:
-                                                  TextStyle(color: Colors.grey[400]),
+                                              style: TextStyle(
+                                                color: Colors.grey[400],
+                                              ),
                                             ),
                                             Text(
                                               _formatDate(replyCreatedAt),
@@ -676,8 +768,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               vertical: 12,
                             ),
                             suffixIcon: IconButton(
-                              icon: Icon(Icons.keyboard_hide, 
-                                  color: Colors.grey[400], size: 20),
+                              icon: Icon(
+                                Icons.keyboard_hide,
+                                color: Colors.grey[400],
+                                size: 20,
+                              ),
                               onPressed: () => FocusScope.of(context).unfocus(),
                               tooltip: 'Dismiss keyboard',
                             ),
@@ -717,7 +812,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                         strokeWidth: 2,
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
-                                                Colors.white),
+                                              Colors.white,
+                                            ),
                                       ),
                                     )
                                   : const Icon(

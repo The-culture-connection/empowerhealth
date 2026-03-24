@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/provider.dart';
 import '../models/provider_review.dart';
@@ -14,11 +13,11 @@ class ProviderProfileScreen extends StatefulWidget {
   final String? providerId;
   final Provider? provider; // Allow passing provider directly
 
-  const ProviderProfileScreen({
-    super.key,
-    this.providerId,
-    this.provider,
-  }) : assert(providerId != null || provider != null, 'Either providerId or provider must be provided');
+  const ProviderProfileScreen({super.key, this.providerId, this.provider})
+    : assert(
+        providerId != null || provider != null,
+        'Either providerId or provider must be provided',
+      );
 
   @override
   State<ProviderProfileScreen> createState() => _ProviderProfileScreenState();
@@ -26,6 +25,8 @@ class ProviderProfileScreen extends StatefulWidget {
 
 class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   final ProviderRepository _repository = ProviderRepository();
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
   Provider? _provider;
   List<ProviderReview> _reviews = [];
   bool _isLoading = true;
@@ -33,10 +34,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   bool _showMamaApprovedInfo = false;
   bool _showTagInfo = false;
   bool _reviewSubmitted = false; // Track if a review was submitted
+  DateTime? _screenOpenedAt;
 
   @override
   void initState() {
     super.initState();
+    _screenOpenedAt = DateTime.now();
     if (widget.provider != null) {
       // Provider passed directly - no need to load
       setState(() {
@@ -59,6 +62,31 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _trackProviderScreenExit() async {
+    if (_screenOpenedAt == null) return;
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final seconds = DateTime.now().difference(_screenOpenedAt!).inSeconds;
+    try {
+      final userProfile = await _databaseService.getUserProfile(userId);
+      await _analytics.logFeatureTimeSpent(
+        feature: 'provider-search',
+        timeSpentSeconds: seconds,
+        sourceId: _provider?.id,
+        userProfile: userProfile,
+      );
+    } catch (e) {
+      print('Error tracking provider profile time spent: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _trackProviderScreenExit();
+    super.dispose();
   }
 
   Future<void> _trackProviderProfileView() async {
@@ -130,14 +158,18 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       print('⚠️ [ProviderProfile] Cannot load reviews: Provider is null');
       return;
     }
-    
-    print('🔍 [ProviderProfile] Loading reviews for provider: ${_provider!.name}');
-    
+
+    print(
+      '🔍 [ProviderProfile] Loading reviews for provider: ${_provider!.name}',
+    );
+
     try {
       // Use the repository method to enrich provider with reviews
       // This will find the provider in Firestore first, then fetch reviews using the correct ID
-      final enrichedProvider = await _repository.enrichProviderWithReviews(_provider!);
-      
+      final enrichedProvider = await _repository.enrichProviderWithReviews(
+        _provider!,
+      );
+
       // Get reviews separately to display them
       String? reviewProviderId = enrichedProvider.id ?? _provider!.id;
       if (reviewProviderId == null || reviewProviderId.isEmpty) {
@@ -146,21 +178,25 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
           reviewProviderId = 'npi_${_provider!.npi}';
         } else if (_provider!.locations.isNotEmpty) {
           final loc = _provider!.locations.first;
-          final namePart = _provider!.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+          final namePart = _provider!.name
+              .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')
+              .toLowerCase();
           reviewProviderId = 'api_${namePart}_${loc.city}_${loc.zip}';
         } else if (_provider!.name.isNotEmpty) {
-          final namePart = _provider!.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+          final namePart = _provider!.name
+              .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')
+              .toLowerCase();
           reviewProviderId = 'name_$namePart';
         }
       }
-      
+
       List<ProviderReview> reviews = [];
       if (reviewProviderId != null && reviewProviderId.isNotEmpty) {
         reviews = await _repository.getProviderReviews(reviewProviderId);
       }
-      
+
       print('✅ [ProviderProfile] Loaded ${reviews.length} reviews');
-      
+
       setState(() {
         _reviews = reviews;
         // Update provider with enriched data (Firestore ID, rating, review count)
@@ -179,9 +215,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        body: const Center(child: CircularProgressIndicator()),
-      );
+      return Scaffold(body: const Center(child: CircularProgressIndicator()));
     }
 
     if (_provider == null) {
@@ -206,7 +240,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             children: [
               // Header (matching NewUI)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border(
@@ -232,12 +269,34 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     IconButton(
                       icon: Icon(
                         _isSaved ? Icons.bookmark : Icons.bookmark_border,
-                        color: _isSaved ? AppTheme.brandPurple : AppTheme.textBarelyVisible,
+                        color: _isSaved
+                            ? AppTheme.brandPurple
+                            : AppTheme.textBarelyVisible,
                       ),
-                      onPressed: () {
+                      onPressed: () async {
+                        final becameSaved = !_isSaved;
                         setState(() {
-                          _isSaved = !_isSaved;
+                          _isSaved = becameSaved;
                         });
+                        if (becameSaved && _provider != null) {
+                          try {
+                            final userId =
+                                FirebaseAuth.instance.currentUser?.uid;
+                            if (userId != null) {
+                              final userProfile = await _databaseService
+                                  .getUserProfile(userId);
+                              await _analytics.logProviderSelectedSuccess(
+                                providerId: _provider!.id ?? 'unknown',
+                                selectionMethod: 'bookmark',
+                                userProfile: userProfile,
+                              );
+                            }
+                          } catch (e) {
+                            print(
+                              'Error tracking provider selected success: $e',
+                            );
+                          }
+                        }
                       },
                     ),
                   ],
@@ -247,7 +306,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               // Content (matching NewUI)
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20), // px-5 py-5
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 20,
+                  ), // px-5 py-5
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -341,14 +403,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                      ),
+                      border: Border.all(color: Colors.white.withOpacity(0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.workspace_premium, size: 16, color: Colors.white),
+                        const Icon(
+                          Icons.workspace_premium,
+                          size: 16,
+                          color: Colors.white,
+                        ),
                         const SizedBox(width: 4),
                         const Text(
                           'Mama Approved™',
@@ -377,9 +441,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
-                ),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,8 +475,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 _provider!.rating != null && _provider!.rating! > 0
                     ? _provider!.rating!.toStringAsFixed(1)
                     : _reviews.isNotEmpty
-                        ? (_reviews.fold<double>(0.0, (sum, r) => sum + r.rating) / _reviews.length).toStringAsFixed(1)
-                        : 'N/A',
+                    ? (_reviews.fold<double>(0.0, (sum, r) => sum + r.rating) /
+                              _reviews.length)
+                          .toStringAsFixed(1)
+                    : 'N/A',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -445,10 +509,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF663399),
-                    Color(0xFF8855BB),
-                  ],
+                  colors: [Color(0xFF663399), Color(0xFF8855BB)],
                 ),
                 borderRadius: BorderRadius.circular(24), // rounded-2xl
                 boxShadow: [
@@ -468,7 +529,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           final databaseService = DatabaseService();
                           final userId = FirebaseAuth.instance.currentUser?.uid;
                           if (userId != null) {
-                            final userProfile = await databaseService.getUserProfile(userId);
+                            final userProfile = await databaseService
+                                .getUserProfile(userId);
                             await analytics.logProviderContactClicked(
                               providerId: _provider!.id ?? 'unknown',
                               contactMethod: 'phone',
@@ -478,7 +540,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         } catch (e) {
                           print('Error tracking provider contact: $e');
                         }
-                        
+
                         final uri = Uri.parse('tel:${_provider!.phone}');
                         if (await canLaunchUrl(uri)) {
                           await launchUrl(uri);
@@ -505,7 +567,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Widget _buildContactInfo() {
-    final location = _provider!.locations.isNotEmpty ? _provider!.locations.first : null;
+    final location = _provider!.locations.isNotEmpty
+        ? _provider!.locations.first
+        : null;
     return _buildSection(
       title: 'Contact & Location',
       child: Column(
@@ -573,7 +637,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       final databaseService = DatabaseService();
                       final userId = FirebaseAuth.instance.currentUser?.uid;
                       if (userId != null) {
-                        final userProfile = await databaseService.getUserProfile(userId);
+                        final userProfile = await databaseService
+                            .getUserProfile(userId);
                         await analytics.logProviderContactClicked(
                           providerId: _provider!.id ?? 'unknown',
                           contactMethod: 'phone',
@@ -583,7 +648,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     } catch (e) {
                       print('Error tracking provider contact: $e');
                     }
-                    
+
                     final uri = Uri.parse('tel:${_provider!.phone}');
                     if (await canLaunchUrl(uri)) {
                       await launchUrl(uri);
@@ -619,7 +684,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       final databaseService = DatabaseService();
                       final userId = FirebaseAuth.instance.currentUser?.uid;
                       if (userId != null) {
-                        final userProfile = await databaseService.getUserProfile(userId);
+                        final userProfile = await databaseService
+                            .getUserProfile(userId);
                         await analytics.logProviderContactClicked(
                           providerId: _provider!.id ?? 'unknown',
                           contactMethod: 'email',
@@ -629,7 +695,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     } catch (e) {
                       print('Error tracking provider contact: $e');
                     }
-                    
+
                     final uri = Uri.parse('mailto:${_provider!.email}');
                     if (await canLaunchUrl(uri)) {
                       await launchUrl(uri);
@@ -661,7 +727,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   onTap: () async {
                     final uri = Uri.parse(_provider!.website!);
                     if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
                     }
                   },
                   child: Text(
@@ -799,7 +868,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(statusIcon, size: 16, color: statusColor.shade700),
+                          Icon(
+                            statusIcon,
+                            size: 16,
+                            color: statusColor.shade700,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             tag.name,
@@ -969,7 +1042,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                     decoration: BoxDecoration(
                                       color: Colors.blue.shade100,
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.blue.shade200),
+                                      border: Border.all(
+                                        color: Colors.blue.shade200,
+                                      ),
                                     ),
                                     child: Text(
                                       'Verified Patient',
@@ -1115,134 +1190,184 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 const SizedBox(height: 12), // mb-3
                 TextButton(
                   onPressed: () async {
-                  // Use NPI if available, otherwise use Firestore ID, otherwise use name+location as composite ID
-                  String? reviewProviderId = _provider!.id;
-                  if (reviewProviderId == null || reviewProviderId.isEmpty) {
-                    // Try NPI
-                    if (_provider!.npi != null && _provider!.npi!.isNotEmpty) {
-                      reviewProviderId = 'npi_${_provider!.npi}';
-                    } else if (widget.providerId != null && widget.providerId!.isNotEmpty) {
-                      reviewProviderId = widget.providerId;
-                    } else if (_provider!.locations.isNotEmpty) {
-                      // Create composite ID from name + location
-                      final loc = _provider!.locations.first;
-                      reviewProviderId = 'api_${_provider!.name}_${loc.city}_${loc.zip}'.replaceAll(' ', '_').toLowerCase();
-                    }
-                  }
-                  
-                  if (reviewProviderId == null || reviewProviderId.isEmpty) {
-                    // Try to create a composite ID as last resort
-                    if (_provider?.name.isNotEmpty == true) {
-                      final namePart = _provider!.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
-                      if (_provider?.locations.isNotEmpty == true) {
-                        final loc = _provider!.locations.first;
-                        reviewProviderId = 'api_${namePart}_${loc.city}_${loc.zip}';
-                      } else {
-                        reviewProviderId = 'name_$namePart';
-                      }
-                    }
-                    
+                    // Use NPI if available, otherwise use Firestore ID, otherwise use name+location as composite ID
+                    String? reviewProviderId = _provider!.id;
                     if (reviewProviderId == null || reviewProviderId.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Cannot submit review: Provider identifier is missing'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      return;
+                      // Try NPI
+                      if (_provider!.npi != null &&
+                          _provider!.npi!.isNotEmpty) {
+                        reviewProviderId = 'npi_${_provider!.npi}';
+                      } else if (widget.providerId != null &&
+                          widget.providerId!.isNotEmpty) {
+                        reviewProviderId = widget.providerId;
+                      } else if (_provider!.locations.isNotEmpty) {
+                        // Create composite ID from name + location
+                        final loc = _provider!.locations.first;
+                        reviewProviderId =
+                            'api_${_provider!.name}_${loc.city}_${loc.zip}'
+                                .replaceAll(' ', '_')
+                                .toLowerCase();
+                      }
                     }
-                  }
-                  
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ProviderReviewScreen(
-                        providerId: reviewProviderId!,
-                        providerName: _provider!.name,
-                        provider: _provider, // Pass provider data to save
-                      ),
-                    ),
-                  );
-                  if (result != null && mounted) {
-                    // Mark that a review was submitted
-                    _reviewSubmitted = true;
-                    print('✅ [ProviderProfile] Review submitted, result: $result');
-                    
-                    // Result is the Firestore provider ID (or original providerId if no Firestore ID)
-                    final returnedProviderId = result is String ? result : null;
-                    
-                    // Immediately update provider ID if we got a Firestore ID back
-                    if (returnedProviderId != null && _provider != null && 
-                        (returnedProviderId != _provider!.id) &&
-                        !returnedProviderId.startsWith('api_') && 
-                        !returnedProviderId.startsWith('name_') &&
-                        !returnedProviderId.startsWith('npi_')) {
-                      setState(() {
-                        _provider = _provider!.copyWith(id: returnedProviderId);
-                      });
-                      print('✅ [ProviderProfile] Updated provider with Firestore ID from review: $returnedProviderId');
-                    }
-                    
-                    // Wait a moment for Firestore to index the new review
-                    await Future.delayed(const Duration(milliseconds: 1000));
-                    
-                    // Reload reviews immediately using the Firestore ID
-                    final reviewIdToUse = _provider?.id ?? returnedProviderId ?? reviewProviderId;
-                    print('🔄 [ProviderProfile] Reloading reviews with providerId: $reviewIdToUse');
-                    await _loadReviews();
-                    print('✅ [ProviderProfile] Reviews reloaded: ${_reviews.length} reviews');
-                    
-                    // Also reload provider to get updated review count from Firestore
-                    // Use the Firestore ID if available (either from returnedProviderId or _provider.id)
-                    final providerIdToReload = returnedProviderId ?? _provider?.id;
-                    if (providerIdToReload != null && 
-                        providerIdToReload.isNotEmpty &&
-                        !providerIdToReload.startsWith('api_') && 
-                        !providerIdToReload.startsWith('name_') &&
-                        !providerIdToReload.startsWith('npi_')) {
-                      try {
-                        print('🔄 [ProviderProfile] Reloading provider from Firestore with ID: $providerIdToReload');
-                        final updatedProvider = await _repository.getProvider(providerIdToReload);
-                        if (updatedProvider != null && mounted) {
-                          setState(() {
-                            _provider = updatedProvider.copyWith(
-                              // Use reviews we just loaded for rating/count
-                              rating: _reviews.isNotEmpty
-                                  ? _reviews.fold<double>(0.0, (sum, r) => sum + r.rating) / _reviews.length
-                                  : updatedProvider.rating,
-                              reviewCount: _reviews.length,
-                            );
-                          });
-                          print('✅ [ProviderProfile] Provider updated: rating=${_provider!.rating}, reviewCount=${_provider!.reviewCount}');
-                        }
-                      } catch (e) {
-                        print('⚠️ [ProviderProfile] Could not reload provider: $e');
-                        // Still update with current review count
-                        if (_provider != null && mounted) {
-                          setState(() {
-                            _provider = _provider!.copyWith(
-                              reviewCount: _reviews.length,
-                              rating: _reviews.isNotEmpty
-                                  ? _reviews.fold<double>(0.0, (sum, r) => sum + r.rating) / _reviews.length
-                                  : null,
-                            );
-                          });
+
+                    if (reviewProviderId == null || reviewProviderId.isEmpty) {
+                      // Try to create a composite ID as last resort
+                      if (_provider?.name.isNotEmpty == true) {
+                        final namePart = _provider!.name
+                            .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')
+                            .toLowerCase();
+                        if (_provider?.locations.isNotEmpty == true) {
+                          final loc = _provider!.locations.first;
+                          reviewProviderId =
+                              'api_${namePart}_${loc.city}_${loc.zip}';
+                        } else {
+                          reviewProviderId = 'name_$namePart';
                         }
                       }
-                    } else if (_provider != null && mounted) {
-                      // Update with current review count even if no Firestore ID
-                      setState(() {
-                        _provider = _provider!.copyWith(
-                          reviewCount: _reviews.length,
-                          rating: _reviews.isNotEmpty
-                              ? _reviews.fold<double>(0.0, (sum, r) => sum + r.rating) / _reviews.length
-                              : null,
+
+                      if (reviewProviderId == null ||
+                          reviewProviderId.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Cannot submit review: Provider identifier is missing',
+                            ),
+                            backgroundColor: Colors.orange,
+                          ),
                         );
-                      });
-                      print('✅ [ProviderProfile] Provider updated (no Firestore ID): rating=${_provider!.rating}, reviewCount=${_provider!.reviewCount}');
+                        return;
+                      }
                     }
-                  }
-                },
+
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProviderReviewScreen(
+                          providerId: reviewProviderId!,
+                          providerName: _provider!.name,
+                          provider: _provider, // Pass provider data to save
+                        ),
+                      ),
+                    );
+                    if (result != null && mounted) {
+                      // Mark that a review was submitted
+                      _reviewSubmitted = true;
+                      print(
+                        '✅ [ProviderProfile] Review submitted, result: $result',
+                      );
+
+                      // Result is the Firestore provider ID (or original providerId if no Firestore ID)
+                      final returnedProviderId = result is String
+                          ? result
+                          : null;
+
+                      // Immediately update provider ID if we got a Firestore ID back
+                      if (returnedProviderId != null &&
+                          _provider != null &&
+                          (returnedProviderId != _provider!.id) &&
+                          !returnedProviderId.startsWith('api_') &&
+                          !returnedProviderId.startsWith('name_') &&
+                          !returnedProviderId.startsWith('npi_')) {
+                        setState(() {
+                          _provider = _provider!.copyWith(
+                            id: returnedProviderId,
+                          );
+                        });
+                        print(
+                          '✅ [ProviderProfile] Updated provider with Firestore ID from review: $returnedProviderId',
+                        );
+                      }
+
+                      // Wait a moment for Firestore to index the new review
+                      await Future.delayed(const Duration(milliseconds: 1000));
+
+                      // Reload reviews immediately using the Firestore ID
+                      final reviewIdToUse =
+                          _provider?.id ??
+                          returnedProviderId ??
+                          reviewProviderId;
+                      print(
+                        '🔄 [ProviderProfile] Reloading reviews with providerId: $reviewIdToUse',
+                      );
+                      await _loadReviews();
+                      print(
+                        '✅ [ProviderProfile] Reviews reloaded: ${_reviews.length} reviews',
+                      );
+
+                      // Also reload provider to get updated review count from Firestore
+                      // Use the Firestore ID if available (either from returnedProviderId or _provider.id)
+                      final providerIdToReload =
+                          returnedProviderId ?? _provider?.id;
+                      if (providerIdToReload != null &&
+                          providerIdToReload.isNotEmpty &&
+                          !providerIdToReload.startsWith('api_') &&
+                          !providerIdToReload.startsWith('name_') &&
+                          !providerIdToReload.startsWith('npi_')) {
+                        try {
+                          print(
+                            '🔄 [ProviderProfile] Reloading provider from Firestore with ID: $providerIdToReload',
+                          );
+                          final updatedProvider = await _repository.getProvider(
+                            providerIdToReload,
+                          );
+                          if (updatedProvider != null && mounted) {
+                            setState(() {
+                              _provider = updatedProvider.copyWith(
+                                // Use reviews we just loaded for rating/count
+                                rating: _reviews.isNotEmpty
+                                    ? _reviews.fold<double>(
+                                            0.0,
+                                            (sum, r) => sum + r.rating,
+                                          ) /
+                                          _reviews.length
+                                    : updatedProvider.rating,
+                                reviewCount: _reviews.length,
+                              );
+                            });
+                            print(
+                              '✅ [ProviderProfile] Provider updated: rating=${_provider!.rating}, reviewCount=${_provider!.reviewCount}',
+                            );
+                          }
+                        } catch (e) {
+                          print(
+                            '⚠️ [ProviderProfile] Could not reload provider: $e',
+                          );
+                          // Still update with current review count
+                          if (_provider != null && mounted) {
+                            setState(() {
+                              _provider = _provider!.copyWith(
+                                reviewCount: _reviews.length,
+                                rating: _reviews.isNotEmpty
+                                    ? _reviews.fold<double>(
+                                            0.0,
+                                            (sum, r) => sum + r.rating,
+                                          ) /
+                                          _reviews.length
+                                    : null,
+                              );
+                            });
+                          }
+                        }
+                      } else if (_provider != null && mounted) {
+                        // Update with current review count even if no Firestore ID
+                        setState(() {
+                          _provider = _provider!.copyWith(
+                            reviewCount: _reviews.length,
+                            rating: _reviews.isNotEmpty
+                                ? _reviews.fold<double>(
+                                        0.0,
+                                        (sum, r) => sum + r.rating,
+                                      ) /
+                                      _reviews.length
+                                : null,
+                          );
+                        });
+                        print(
+                          '✅ [ProviderProfile] Provider updated (no Firestore ID): rating=${_provider!.rating}, reviewCount=${_provider!.reviewCount}',
+                        );
+                      }
+                    }
+                  },
                   child: Text(
                     'Write a review →',
                     style: TextStyle(
@@ -1250,18 +1375,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       fontWeight: FontWeight.w400,
                     ),
                   ),
-              ),
-            ]),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSection({
-    required String title,
-    required Widget child,
-  }) {
+  Widget _buildSection({required String title, required Widget child}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16), // mb-4
       padding: const EdgeInsets.all(20), // p-5

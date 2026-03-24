@@ -5,6 +5,7 @@
 
 import { Navigate, useLocation } from 'react-router';
 import { useAuth, UserRole } from '../contexts/AuthContext';
+import { auth } from '../firebase/firebase';
 
 interface RoleRouteProps {
   children: React.ReactNode;
@@ -20,7 +21,11 @@ export function RoleRoute({
   const { userProfile, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  // Session exists but profile not hydrated yet (should be brief after auth listener runs)
+  const sessionPendingProfile =
+    !loading && auth.currentUser && !userProfile;
+
+  if (loading || sessionPendingProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

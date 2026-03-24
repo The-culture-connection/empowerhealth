@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../Home/home_screen_v2.dart';
 import '../Journal/Journal_screen.dart';
 import '../Community/community_screen.dart';
-import '../assistant/assistant_screen.dart';
 import '../editprofile/edit_profile_screen.dart';
 import '../Home/Learning Modules/learning_modules_screen_v2.dart';
 import '../services/analytics_service.dart';
@@ -22,6 +21,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
   final AnalyticsService _analytics = AnalyticsService();
   final DatabaseService _databaseService = DatabaseService();
   int _index = 0;
+  DateTime _tabEnteredAt = DateTime.now();
 
   final _pages = const [
     HomeScreenV2(),
@@ -42,12 +42,14 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
     try {
       // Wait for auth to be fully restored
       final user = await _analytics.waitForInitialAuthResolution();
-      
+
       if (user == null) {
-        debugPrint('⚠️ Analytics: No authenticated user - screen view tracking skipped');
+        debugPrint(
+          '⚠️ Analytics: No authenticated user - screen view tracking skipped',
+        );
         return;
       }
-      
+
       final userProfile = await _databaseService.getUserProfile(user.uid);
       await _analytics.logScreenView(
         screenName: 'main_navigation',
@@ -60,9 +62,17 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
   }
 
   void _onTabChanged(int newIndex) {
+    _trackTabTimeSpent(_index);
     setState(() => _index = newIndex);
+    _tabEnteredAt = DateTime.now();
     // Track tab change asynchronously - don't block UI
     _trackTabView(newIndex);
+  }
+
+  @override
+  void dispose() {
+    _trackTabTimeSpent(_index);
+    super.dispose();
   }
 
   Future<void> _trackTabView(int tabIndex) async {
@@ -70,7 +80,13 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         // Event will be queued by analytics service
-        final screenNames = ['home', 'learn', 'journal', 'community', 'profile'];
+        final screenNames = [
+          'home',
+          'learn',
+          'journal',
+          'community',
+          'profile',
+        ];
         if (tabIndex < screenNames.length) {
           await _analytics.logScreenView(
             screenName: screenNames[tabIndex],
@@ -79,7 +95,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
         }
         return;
       }
-      
+
       final userProfile = await _databaseService.getUserProfile(user.uid);
       final screenNames = ['home', 'learn', 'journal', 'community', 'profile'];
       if (tabIndex < screenNames.length) {
@@ -91,6 +107,59 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
     } catch (e) {
       debugPrint('⚠️ Analytics: Failed to track tab view: $e');
       // Best-effort: don't block navigation
+    }
+  }
+
+  String _featureForTab(int tabIndex) {
+    switch (tabIndex) {
+      case 1:
+        return 'learning-modules';
+      case 2:
+        return 'journal';
+      case 3:
+        return 'community';
+      case 4:
+        return 'profile-editing';
+      default:
+        return 'app';
+    }
+  }
+
+  Future<void> _trackTabTimeSpent(int tabIndex) async {
+    try {
+      final seconds = DateTime.now().difference(_tabEnteredAt).inSeconds;
+      if (seconds <= 0) return;
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      final screenNames = ['home', 'learn', 'journal', 'community', 'profile'];
+      final screenName = tabIndex < screenNames.length
+          ? screenNames[tabIndex]
+          : 'unknown';
+      final feature = _featureForTab(tabIndex);
+
+      if (userId != null) {
+        final userProfile = await _databaseService.getUserProfile(userId);
+        await _analytics.logScreenTimeSpent(
+          screenName: screenName,
+          feature: feature,
+          timeSpentSeconds: seconds,
+          userProfile: userProfile,
+        );
+        await _analytics.logFeatureTimeSpent(
+          feature: feature,
+          sourceId: screenName,
+          timeSpentSeconds: seconds,
+          userProfile: userProfile,
+        );
+      } else {
+        await _analytics.logScreenTimeSpent(
+          screenName: screenName,
+          feature: feature,
+          timeSpentSeconds: seconds,
+          userProfile: null,
+        );
+      }
+    } catch (e) {
+      debugPrint('⚠️ Analytics: Failed to track tab time spent: $e');
     }
   }
 
@@ -181,7 +250,11 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
             onTap: () {
               Navigator.pushNamed(context, '/assistant');
             },
-            child: const Icon(Icons.support_agent, color: Colors.white, size: 24),
+            child: const Icon(
+              Icons.support_agent,
+              color: Colors.white,
+              size: 24,
+            ),
           ),
         ),
       ),
@@ -223,7 +296,9 @@ class _NavItem extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: isSelected ? AppTheme.brandPurple : AppTheme.textLightest,
+                color: isSelected
+                    ? AppTheme.brandPurple
+                    : AppTheme.textLightest,
                 fontWeight: FontWeight.w300, // Lighter weight matching NewUI
               ),
             ),

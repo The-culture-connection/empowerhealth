@@ -3,7 +3,7 @@
  * Handles user authentication
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { LogIn } from 'lucide-react';
@@ -12,25 +12,45 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const { signIn, user, userProfile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
 
+  // No dashboard role (session exists but not in ADMIN / RESEARCH_PARTNERS / COMMUNITY_MANAGERS)
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || !userProfile) {
+      setError('');
+      return;
+    }
+    if (userProfile.role === null) {
+      setError('You do not have access to the admin dashboard. Contact an administrator.');
+    } else {
+      setError('');
+    }
+  }, [authLoading, user, userProfile]);
+
+  // Navigate only after Firebase auth + Firestore role resolution completes (avoids double sign-in)
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || !userProfile || userProfile.role === null) return;
+    navigate(from, { replace: true });
+  }, [authLoading, user, userProfile, navigate, from]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    setSubmitting(true);
 
     try {
       await signIn(email, password);
-      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   }
 
@@ -97,7 +117,7 @@ export function Login() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={submitting || authLoading}
             className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl shadow-sm hover:shadow-md transition-all disabled:opacity-50"
             style={{
               backgroundColor: 'var(--lavender-500)',
@@ -105,7 +125,7 @@ export function Login() {
             }}
           >
             <LogIn className="w-5 h-5" />
-            {loading ? 'Signing in...' : 'Sign In'}
+            {submitting || authLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
       </div>

@@ -14,9 +14,8 @@ import {
   getDocs,
   serverTimestamp
 } from 'firebase/firestore';
-import { firestore } from '../firebase/firebase';
+import { firestore, functions } from '../firebase/firebase';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../firebase/firebase';
 
 export type UserRole = 'admin' | 'research_partner' | 'community_manager';
 
@@ -36,14 +35,16 @@ const ROLE_COLLECTIONS: Record<UserRole, string> = {
 };
 
 /**
- * Find user by email in Firestore users collection or Auth
+ * Find mobile app user profile by email (users/{uid} in Firestore).
  */
 export async function findUserByEmail(email: string): Promise<{ uid: string; email: string; displayName?: string } | null> {
-  // Try to find in users collection first
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+
   const usersRef = collection(firestore, 'users');
-  const q = query(usersRef, where('email', '==', email.toLowerCase()));
+  const q = query(usersRef, where('email', '==', normalized));
   const snapshot = await getDocs(q);
-  
+
   if (!snapshot.empty) {
     const userDoc = snapshot.docs[0];
     return {
@@ -53,9 +54,51 @@ export async function findUserByEmail(email: string): Promise<{ uid: string; ema
     };
   }
 
-  // If not found, we'll need to create the user via Auth first
-  // For now, return null and let the admin create the user
   return null;
+}
+
+/**
+ * Resolve uid + email for role assignment: prefer Firestore `users` profile, then Firebase Auth (callable).
+ * Auth-only accounts (no `users` doc yet) still work after the Cloud Function is deployed.
+ */
+export async function findUserForRoleAssignment(
+  email: string
+): Promise<{ uid: string; email: string; displayName?: string } | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const fromProfile = await findUserByEmail(normalized);
+  if (fromProfile) {
+    return fromProfile;
+  }
+
+  try {
+    const lookup = httpsCallable(functions, 'lookupAuthUserByEmail');
+    const result = await lookup({ email: normalized });
+    const authUser = result.data as { uid: string; email: string; displayName?: string } | null;
+    if (!authUser) {
+      return null;
+    }
+
+    const profileSnap = await getDoc(doc(firestore, 'users', authUser.uid));
+    if (profileSnap.exists()) {
+      const d = profileSnap.data();
+      return {
+        uid: authUser.uid,
+        email: (typeof d.email === 'string' ? d.email : authUser.email).toLowerCase(),
+        displayName: typeof d.displayName === 'string' ? d.displayName : authUser.displayName,
+      };
+    }
+
+    return {
+      uid: authUser.uid,
+      email: authUser.email.toLowerCase(),
+      displayName: authUser.displayName,
+    };
+  } catch (e: any) {
+    console.error('findUserForRoleAssignment (Auth lookup failed):', e);
+    return null;
+  }
 }
 
 /**
@@ -141,11 +184,30 @@ export async function revokeRole(uid: string, role: UserRole, performedBy: strin
 export async function getUsersByRole(role: UserRole): Promise<UserRoleDoc[]> {
   const roleCollection = ROLE_COLLECTIONS[role];
   const snapshot = await getDocs(collection(firestore, roleCollection));
-  
-  return snapshot.docs.map((doc) => ({
-    ...doc.data(),
-    createdAt: doc.data().createdAt?.toDate(),
-  })) as UserRoleDoc[];
+
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    const createdRaw = data.createdAt;
+    const createdAt =
+      createdRaw && typeof createdRaw.toDate === 'function'
+        ? createdRaw.toDate()
+        : createdRaw;
+
+    // Document ID is always the user's uid; older docs may omit `uid` / `role` fields
+    const uid = typeof data.uid === 'string' && data.uid ? data.uid : docSnap.id;
+    const roleField = data.role === 'admin' || data.role === 'research_partner' || data.role === 'community_manager'
+      ? data.role
+      : role;
+
+    return {
+      ...data,
+      uid,
+      role: roleField,
+      email: typeof data.email === 'string' ? data.email : '',
+      createdBy: typeof data.createdBy === 'string' ? data.createdBy : '',
+      createdAt,
+    } as UserRoleDoc;
+  });
 }
 
 /**

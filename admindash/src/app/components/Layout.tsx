@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Navigate } from "react-router";
-import { Home, FileText, Code2, Activity, Users, BarChart3, FileBarChart, Bell, LogOut } from "lucide-react";
+import { Home, FileText, Code2, Users, BarChart3, FileBarChart, Bell, LogOut } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
 export function Layout() {
@@ -32,7 +32,6 @@ export function Layout() {
     { to: "/", label: "Dashboard", icon: Home },
     { to: "/documentation", label: "Documentation", icon: FileText },
     { to: "/technology", label: "Technology Overview", icon: Code2 },
-    { to: "/system-status", label: "System Status", icon: Activity },
     { to: "/users-roles", label: "Users & Roles", icon: Users },
     { to: "/analytics", label: "Analytics", icon: BarChart3 },
     { to: "/reports", label: "Reports", icon: FileBarChart },

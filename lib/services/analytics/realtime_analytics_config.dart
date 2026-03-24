@@ -39,6 +39,7 @@ abstract class InventoryEventNames {
   static const providerContactClicked = 'provider_contact_clicked';
   static const providerSaved = 'provider_saved';
   static const providerReviewViewed = 'provider_review_viewed';
+  static const providerSelectedSuccess = 'provider_selected_success';
 
   static const learningModuleViewed = 'learning_module_viewed';
   static const learningModuleStarted = 'learning_module_started';
@@ -50,5 +51,10 @@ abstract class InventoryEventNames {
   static const journalEntryCreated = 'journal_entry_created';
   static const journalMoodSelected = 'journal_mood_selected';
   static const communityPostCreated = 'community_post_created';
+  static const communityPostReplied = 'community_post_replied';
+  static const communityPostLiked = 'community_post_liked';
   static const microMeasureSubmitted = 'micro_measure_submitted';
+  static const screenTimeSpent = 'screen_time_spent';
+  static const featureTimeSpent = 'feature_time_spent';
+  static const flowAbandoned = 'flow_abandoned';
 }

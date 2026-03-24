@@ -19,6 +19,28 @@ It is an **inventory and gap analysis**, not an implementation checklist. For ad
 
 There is **no** `FirebaseAnalyticsObserver` on `MaterialApp`—**screen tracking is manual** via `logScreenView` (`eventName: screen_view`).
 
+### Newly required events for holistic report quality
+
+The admin holistic report now expects the following additional signals to be emitted consistently:
+
+- `provider_selected_success` - explicit successful provider match/selection
+- `screen_time_spent` - time-on-screen duration event
+- `feature_time_spent` - time-in-feature duration event
+- `community_post_replied` - reply interactions in community
+- `community_post_liked` - like interactions in community
+- `learning_module_completed` - confirmed module completion
+- `flow_abandoned` - tracked drop-off in multi-step user journeys
+
+### Wiring status (current)
+
+- `provider_selected_success`: now emitted on provider selection from search results and bookmark-save in provider profile.
+- `screen_time_spent`: now emitted on tab transitions in main navigation.
+- `feature_time_spent`: now emitted for tab usage, learning module detail dwell, provider profile dwell, and community post detail dwell.
+- `community_post_replied`: now emitted when replies are posted in post detail.
+- `community_post_liked`: now emitted when user transitions from unliked to liked in post detail.
+- `learning_module_completed`: now emitted on module exit with completion status and time spent.
+- `flow_abandoned`: now emitted for early exits in learning module detail.
+
 ```mermaid
 flowchart LR
   subgraph client [Flutter app]

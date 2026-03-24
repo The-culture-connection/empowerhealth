@@ -4,10 +4,10 @@ import { TechnologyLayout } from "./components/TechnologyLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { Documentation } from "./pages/Documentation";
 import { TechnologyOverview } from "./pages/TechnologyOverview";
-import { SystemStatus } from "./pages/SystemStatus";
 import { TechnologyInstructions } from "./pages/TechnologyInstructions";
 import { UsersAndRoles } from "./pages/UsersAndRoles";
 import { Analytics } from "./pages/Analytics";
+import { AnalyticsInfo } from "./pages/AnalyticsInfo";
 import { Reports } from "./pages/Reports";
 import { Notifications } from "./pages/Notifications";
 import { Login } from "./pages/Login";
@@ -51,10 +51,6 @@ export const router = createBrowserRouter([
             element: <TechnologyOverview />
           },
           {
-            path: "system-status",
-            element: <SystemStatus />
-          },
-          {
             path: "instructions",
             element: <TechnologyInstructions />
           },
@@ -73,6 +69,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleRoute allowedRoles={['admin', 'research_partner', 'community_manager']}>
             <Analytics />
+          </RoleRoute>
+        )
+      },
+      { 
+        path: "analytics/info", 
+        element: (
+          <RoleRoute allowedRoles={['admin', 'research_partner', 'community_manager']}>
+            <AnalyticsInfo />
           </RoleRoute>
         )
       },

@@ -201,6 +201,10 @@ export async function getFeatureChangeHistory(featureId: string): Promise<Featur
     const historyRef = collection(firestore, 'technology_features', featureId, 'change_history');
     const q = query(historyRef, orderBy('date', 'desc'));
     const snapshot = await getDocs(q);
+    const newest = snapshot.docs[0]?.data();
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-missing-2',hypothesisId:'H4',location:'admindash/src/lib/features.ts:getFeatureChangeHistory',message:'Fetched feature change history snapshot',data:{featureId,count:snapshot.docs.length,newestCommitSha:newest?.commitSha ?? null,newestTitle:newest?.title ?? null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     return snapshot.docs.map((doc) => {
       const data = doc.data();

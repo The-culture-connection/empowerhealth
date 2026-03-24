@@ -30,11 +30,13 @@ export function TechnologyOverview() {
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
   const [featureSearchQuery, setFeatureSearchQuery] = useState("");
   const [selectedDomain, setSelectedDomain] = useState<string>("all");
+  const [showAllLatestUpdates, setShowAllLatestUpdates] = useState(false);
 
   // Data state
   const [currentRelease, setCurrentRelease] = useState<Release | null>(null);
   const [releaseHistory, setReleaseHistory] = useState<Release[]>([]);
   const [platformFeatures, setPlatformFeatures] = useState<TechnologyFeature[]>([]);
+  const [latestUpdatesFeed, setLatestUpdatesFeed] = useState<FeatureUpdate[]>([]);
   const [commits, setCommits] = useState<Commit[]>([]);
   // functionalUpdates are extracted per-release, not stored in state
 
@@ -163,6 +165,62 @@ export function TechnologyOverview() {
       // #region agent log
       fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-load-1',hypothesisId:'H1',location:'admindash/src/app/pages/TechnologyOverview.tsx:loadPlatformFeatures',message:'About to set platform features in state',data:{count:features.length,firstThree:features.slice(0,3).map((f)=>({id:f.id,name:f.name,recentUpdatesLen:Array.isArray(f.recentUpdates)?f.recentUpdates.length:0,howItWorksLen:typeof f.howItWorks==='string'?f.howItWorks.length:0}))},timestamp:Date.now()})}).catch(()=>{});
       // #endregion
+      try {
+        const historyByFeature = await Promise.all(
+          features.map(async (feature) => {
+            const history = await getFeatureChangeHistory(feature.id);
+            return {
+              id: feature.id,
+              name: feature.name,
+              feature,
+              history,
+              topLevelRecentUpdatesLen: Array.isArray(feature.recentUpdates) ? feature.recentUpdates.length : 0,
+              changeHistoryLen: history.length,
+              newestHistoryTitle: history[0]?.title ?? null,
+              newestHistoryChange: history[0]?.change ?? null,
+            };
+          })
+        );
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-missing-4',hypothesisId:'H12',location:'admindash/src/app/pages/TechnologyOverview.tsx:loadPlatformFeatures',message:'Compared top-level recentUpdates against change_history',data:{featureCount:historyByFeature.length,withTopLevel:historyByFeature.filter((x)=>x.topLevelRecentUpdatesLen>0).length,withHistory:historyByFeature.filter((x)=>x.changeHistoryLen>0).length,sample:historyByFeature.slice(0,8)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        const historyDerivedUpdates: FeatureUpdate[] = historyByFeature
+          .flatMap((x) =>
+            x.history.slice(0, 3).map((item: any, idx: number) => ({
+              id: `${x.id}-history-${idx}-${item.commitSha ?? item.version ?? item.date?.toString?.() ?? 'unknown'}`,
+              update: item.change || item.title || 'Feature updated',
+              feature: x.feature,
+              updateIndex: idx,
+              updatedAt: item.date instanceof Date ? item.date : (item.createdAt instanceof Date ? item.createdAt : x.feature.lastUpdated),
+              title: item.title || undefined,
+            }))
+          )
+          .sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0));
+
+        const topLevelUpdates: FeatureUpdate[] = features
+          .filter((f) => Array.isArray(f.recentUpdates) && f.recentUpdates.length > 0)
+          .flatMap((feature) =>
+            feature.recentUpdates!.map((update, idx) => ({
+              id: `${feature.id}-top-${idx}`,
+              update,
+              feature,
+              updateIndex: idx,
+              updatedAt: feature.lastUpdated,
+            }))
+          );
+
+        const unifiedUpdates = [...historyDerivedUpdates, ...topLevelUpdates]
+          .sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0));
+        setLatestUpdatesFeed(unifiedUpdates);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'post-fix-1',hypothesisId:'H16',location:'admindash/src/app/pages/TechnologyOverview.tsx:loadPlatformFeatures',message:'Built latest updates feed from unified sources',data:{historyDerivedCount:historyDerivedUpdates.length,topLevelCount:topLevelUpdates.length,finalCount:unifiedUpdates.length,firstFive:unifiedUpdates.slice(0,5).map((x)=>({featureId:x.feature.id,title:x.title ?? null,updatePreview:x.update?.slice(0,120) ?? '',updatedAt:x.updatedAt instanceof Date ? x.updatedAt.toISOString() : null}))},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+      } catch (historyErr: any) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-missing-4',hypothesisId:'H13',location:'admindash/src/app/pages/TechnologyOverview.tsx:loadPlatformFeatures',message:'change_history comparison failed',data:{error:historyErr?.message ?? 'unknown'},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        setLatestUpdatesFeed([]);
+      }
       setPlatformFeatures(features);
     } catch (err: any) {
       // #region agent log
@@ -264,6 +322,8 @@ export function TechnologyOverview() {
     update: string;
     feature: TechnologyFeature;
     updateIndex: number;
+    updatedAt?: Date;
+    title?: string;
   }
 
   const allFeatureUpdates: FeatureUpdate[] = platformFeatures
@@ -281,8 +341,29 @@ export function TechnologyOverview() {
       const dateA = a.feature.lastUpdated?.getTime() || 0;
       const dateB = b.feature.lastUpdated?.getTime() || 0;
       return dateB - dateA;
-    })
-    .slice(0, 10); // Show latest 10 updates
+    });
+
+  const visibleFeedUpdates = latestUpdatesFeed.length > 0 ? latestUpdatesFeed : allFeatureUpdates;
+  const displayedFeedUpdates = showAllLatestUpdates ? visibleFeedUpdates : visibleFeedUpdates.slice(0, 10);
+
+  useEffect(() => {
+    if (platformFeatures.length === 0) return;
+    const sample = platformFeatures.slice(0, 6).map((f) => ({
+      id: f.id,
+      name: f.name,
+      domain: f.domain,
+      recentUpdatesType: Array.isArray(f.recentUpdates) ? 'array' : typeof f.recentUpdates,
+      recentUpdatesLen: Array.isArray(f.recentUpdates) ? f.recentUpdates.length : 0,
+      firstRecentUpdate: Array.isArray(f.recentUpdates) && f.recentUpdates.length > 0 ? f.recentUpdates[0] : null,
+      lastUpdated: f.lastUpdated instanceof Date ? f.lastUpdated.toISOString() : null,
+    }));
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-missing-3',hypothesisId:'H9',location:'admindash/src/app/pages/TechnologyOverview.tsx:platformFeaturesEffect',message:'Platform features loaded for latest-updates derivation',data:{featureCount:platformFeatures.length,allFeatureUpdatesLen:allFeatureUpdates.length,sample},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-missing-4',hypothesisId:'H14',location:'admindash/src/app/pages/TechnologyOverview.tsx:allFeatureUpdates',message:'Computed feed entries from top-level recentUpdates',data:{entries:allFeatureUpdates.length,firstFive:allFeatureUpdates.slice(0,5).map((x)=>({featureId:x.feature.id,featureName:x.feature.name,updatePreview:x.update?.slice(0,120) ?? '',updateIndex:x.updateIndex,lastUpdated:x.feature.lastUpdated instanceof Date?x.feature.lastUpdated.toISOString():null}))},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [platformFeatures.length]);
 
   // Helper functions
   const getStatusColor = (status: string) => {
@@ -517,7 +598,7 @@ export function TechnologyOverview() {
                 Recent platform improvements and feature releases
               </p>
             </div>
-            {allFeatureUpdates.length > 0 && (
+            {visibleFeedUpdates.length > 0 && (
               <div
                 className="px-4 py-2 rounded-full text-sm"
                 style={{
@@ -525,13 +606,32 @@ export function TechnologyOverview() {
                   color: '#7e57c2',
                 }}
               >
-                {allFeatureUpdates.length} updates
+                {visibleFeedUpdates.length} updates
               </div>
             )}
           </div>
 
+          {visibleFeedUpdates.length > 10 && (
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={() => setShowAllLatestUpdates((prev) => !prev)}
+                className="px-4 py-2 rounded-lg border text-sm transition-all"
+                style={{
+                  borderColor: '#9575cd',
+                  color: '#7e57c2',
+                  backgroundColor: '#f9f6ff',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3e5f5')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f9f6ff')}
+              >
+                {showAllLatestUpdates ? 'Show fewer updates' : `Show all updates (${visibleFeedUpdates.length})`}
+              </button>
+            </div>
+          )}
+
           {/* Feed-style updates - Scrollable with 3 visible */}
-          {allFeatureUpdates.length === 0 ? (
+          {visibleFeedUpdates.length === 0 ? (
             <div className="text-center py-8" style={{ color: '#757575' }}>
               No feature updates available.
             </div>
@@ -561,7 +661,7 @@ export function TechnologyOverview() {
                 }
               `}</style>
               <div className="space-y-4 pr-2">
-                {allFeatureUpdates.map((featureUpdate) => (
+                {displayedFeedUpdates.map((featureUpdate) => (
                 <div
                   key={featureUpdate.id}
                   onClick={() => setSelectedFeature(featureUpdate.feature)}
@@ -597,7 +697,7 @@ export function TechnologyOverview() {
                           </span>
                           <span className="text-xs" style={{ color: '#9e9e9e' }}>•</span>
                           <span className="text-xs" style={{ color: '#9e9e9e' }}>
-                            {featureUpdate.feature.lastUpdated ? formatDate(featureUpdate.feature.lastUpdated) : 'Unknown'}
+                            {featureUpdate.updatedAt ? formatDate(featureUpdate.updatedAt) : (featureUpdate.feature.lastUpdated ? formatDate(featureUpdate.feature.lastUpdated) : 'Unknown')}
                           </span>
                         </div>
                         <div className="text-xs" style={{ color: '#757575' }}>
@@ -633,6 +733,11 @@ export function TechnologyOverview() {
                         </span>
                       )}
                     </div>
+                    {featureUpdate.title && (
+                      <p className="text-sm font-semibold mb-1" style={{ color: '#424242' }}>
+                        {featureUpdate.title}
+                      </p>
+                    )}
                     <p className="text-sm leading-relaxed mb-3" style={{ color: '#616161' }}>
                       {featureUpdate.update.replace(/^\[(production|pilot)\]\s*/, '')}
                     </p>

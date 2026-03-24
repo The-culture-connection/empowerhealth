@@ -33,7 +33,6 @@ The User Feedback system encompasses two main components: Care Check-in surveys 
 ### Change History
 - **2024-12-13** - **uvw456rst** - **Feedback analytics dashboard**: Added real-time analytics for care check-in responses to help identify trends.
 - **2026-03-24** - **e7496270** - **Debug content seed**: Added test feature update payload for dashboard propagation verification.
-- **2026-03-24** - **e7496270** - **Debug content seed**: checking updates
 
 ---
 
@@ -44,7 +43,7 @@ The Appointment Summarizing feature (After Visit Summary) allows users to upload
 
 ### Change History
 - **2024-12-13** - **uvw456rst** - **Feedback analytics dashboard**: Added real-time analytics for care check-in responses to help identify trends.
-- **2026-03-24** - **e7496270** - **Debug content seed**: Added new flow to optimize.
+- **2026-03-24** - **e7496270** - **Debug content seed**: Added test feature update payload for dashboard propagation verification.
 
 ---
 
@@ -208,6 +207,7 @@ The analytics system uses a three-layer data architecture:
   - `analytics_feature_summary/{feature}` — per-feature totals and `countsByEventName`
   - `analytics_summary_hourly/{YYYY-MM-DD-HH}` — optional hourly rollups
 - **Admin UI** - Analytics page (`src/app/pages/Analytics.tsx`) can show a live banner from `analytics_summary/global` alongside existing callable `getAnalyticsData` results
+- **Technology Overview updates feed** - The "Latest Updates" feed (`src/app/pages/TechnologyOverview.tsx`) merges top-level `recentUpdates` with each feature's `change_history` entries, sorts by newest timestamp first, and supports expanding from the initial 10-row preview to all available updates.
 - **Local dev** - Optional Firestore emulator: Flutter `--dart-define=USE_FIREBASE_EMULATOR=true` (see `docs/realtime-analytics.md`)
 
 **D. Derived Metrics & Reports:**
@@ -228,5 +228,5 @@ Events follow Firebase naming convention: `feature_action_object` (e.g., `learni
 - **2025-03-07** - **analytics_dual_tracking** - **Dual analytics tracking**: Added Firebase Analytics (standard dashboard) tracking alongside existing custom Firestore analytics. All events are now logged to both systems simultaneously - custom Firestore collections for detailed analysis with user lifecycle context, and Firebase Analytics dashboard for real-time insights and standard reports. Firebase Analytics events include feature, lifecycle context (cohort_type, trimester, pregnancy_week, navigator, self_directed), and event-specific parameters. Both systems operate independently, so events are logged to Firebase Analytics even if the Cloud Function fails, ensuring comprehensive tracking coverage.
 - **2025-03-23** - **528a0258** - **Realtime Firestore summaries and mobile schema**: Added `RealtimeAnalyticsService` for normalized `analytics_events` writes (`source: mobile`, time keys, platform, app version, sanitized metadata) and Cloud Function `onAnalyticsEventCreated` to aggregate into `analytics_summary/global`, `analytics_summary_daily/{dateKey}`, `analytics_feature_summary/{feature}`, and `analytics_summary_hourly/{hourKey}` without double-counting callable rows (`source: cloud_function`). Extended Firestore rules for summary collections (admin read, client no write). Admin Analytics page shows live totals from `analytics_summary/global`. Optional Firestore emulator support via `USE_FIREBASE_EMULATOR`. Documented in `docs/realtime-analytics.md` and inventory in `docs/mobile-analytics-inventory.md`. Fixed invalid JSON in `firestore.indexes.json` (trailing comma) blocking deploy. Instrumented `sign_in_completed` on login and `profile_updated` on profile save.
 - **2026-03-24** - **e7496270** - **Debug content seed**: Added test feature update payload for dashboard propagation verification.
+- **2026-03-23** - **local20260323** - **Latest Updates feed expansion**: Updated Technology Overview to remove hard 10-item truncation in data assembly, keep newest-first ordering, and add a clickable "Show all updates / Show fewer updates" toggle so admins can view the full update stream.
 
----

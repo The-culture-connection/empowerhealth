@@ -35,6 +35,60 @@ export interface FeatureChangeHistory {
   createdBy: string;
 }
 
+/** Normalize git SHAs for comparison (hex only, lowercase). */
+function normalizeCommitHex(s: string | undefined | null): string {
+  return (s ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-f0-9]/g, '');
+}
+
+function isLikelyGitShaFragment(s: string): boolean {
+  const t = s.trim().toLowerCase();
+  return /^[a-f0-9]{7,40}$/.test(t);
+}
+
+/**
+ * Match a commit from `commits` to a `change_history` entry.
+ * FEATURES.md stores placeholder SHAs in `commitSha`, while publishRelease also sets
+ * `version` to the real commit's 7-char prefix. Dossier-only entries may omit commitSha
+ * but set `releaseBuildNumber` to the release build.
+ */
+export function commitMatchesChangeHistoryEntry(
+  commitSha: string,
+  change: Pick<FeatureChangeHistory, 'commitSha' | 'version' | 'releaseBuildNumber'>,
+  commitBuildNumber?: number
+): boolean {
+  if (
+    commitBuildNumber != null &&
+    change.releaseBuildNumber != null &&
+    Number(change.releaseBuildNumber) === Number(commitBuildNumber)
+  ) {
+    return true;
+  }
+
+  const full = normalizeCommitHex(commitSha);
+  if (!full) return false;
+
+  const histSha = normalizeCommitHex(change.commitSha);
+  if (histSha.length > 0) {
+    if (full === histSha) return true;
+    if (full.startsWith(histSha) || histSha.startsWith(full)) return true;
+    if (full.length >= 7 && histSha.length >= 7 && full.slice(0, 7) === histSha.slice(0, 7)) {
+      return true;
+    }
+  }
+
+  const verRaw = (change.version ?? '').trim();
+  if (verRaw && isLikelyGitShaFragment(verRaw)) {
+    const ver = verRaw.toLowerCase();
+    if (full.startsWith(ver) || ver.startsWith(full.slice(0, 7))) return true;
+    if (full.length >= 7 && ver.length >= 7 && full.slice(0, 7) === ver.slice(0, 7)) return true;
+  }
+
+  return false;
+}
+
 export interface TechnologyFeature {
   id: string;
   name: string;
@@ -139,6 +193,29 @@ export async function getAllFeatures(): Promise<TechnologyFeature[]> {
       updatedAt: data.updatedAt?.toDate(),
     } as TechnologyFeature;
   });
+}
+
+/**
+ * All technology feature docs (including non-visible), for admin views that need
+ * change_history across every feature (e.g. commit detail "Feature changes").
+ */
+export async function getAllTechnologyFeaturesForAdmin(): Promise<TechnologyFeature[]> {
+  const featuresRef = collection(firestore, 'technology_features');
+  const snapshot = await getDocs(featuresRef);
+  const list = snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...data,
+      howItWorks: data.howItWorks || undefined,
+      recentUpdates: data.recentUpdates || undefined,
+      lastUpdated: data.lastUpdated?.toDate(),
+      createdAt: data.createdAt?.toDate(),
+      updatedAt: data.updatedAt?.toDate(),
+    } as TechnologyFeature;
+  });
+  list.sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));
+  return list;
 }
 
 /**

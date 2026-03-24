@@ -74,9 +74,13 @@ The Learning Modules feature provides educational content tailored to users' nee
 ### Current Functionality
 The Birth Plan Generator helps users create personalized birth plans by guiding them through preferences for labor, delivery, and postpartum care. Users can specify preferences for pain management, delivery positions, who should be present, feeding preferences, and postpartum care. The system uses AI to generate comprehensive birth plans based on user inputs, which can be exported as PDFs and shared with healthcare providers. Plans can be updated as preferences change and are stored securely for reference.
 
+### How the feature works
+After a plan is generated and saved to the `birth_plans` collection, the app can show a qualitative feedback dialog (`QualitativeSurveyDialog`). Submissions are stored under `technology_features/birth-plan-generator/qualitative_surveys` (Firestore rules must allow authenticated users to **create** documents there; deploy uses `admindash/firestore.rules`, which must include the same `qualitative_surveys` subcollection rules as the root rules file).
+
 ### Change History
 - *No changes tracked yet*
 - **2026-03-24** - **e7496270** - **Debug content seed**: Added test feature update payload for dashboard propagation verification.
+- **2026-03-24** - **rules-qual-surveys** - **Firestore qualitative surveys**: Aligned `admindash/firestore.rules` with root rules so `technology_features/{featureId}/qualitative_surveys` allows authenticated mobile creates (fixes permission errors when submitting birth plan completion feedback).
 
 ---
 
@@ -208,6 +212,7 @@ The analytics system uses a three-layer data architecture:
   - `analytics_summary_hourly/{YYYY-MM-DD-HH}` — optional hourly rollups
 - **Admin UI** - Analytics page (`src/app/pages/Analytics.tsx`) can show a live banner from `analytics_summary/global` alongside existing callable `getAnalyticsData` results
 - **Technology Overview updates feed** - The "Latest Updates" feed (`src/app/pages/TechnologyOverview.tsx`) merges top-level `recentUpdates` with each feature's `change_history` entries, sorts by newest timestamp first, and supports expanding from the initial 10-row preview to all available updates.
+- **Commit detail "Feature changes"** - When viewing a commit from the Technology Overview commit list, associated rows are resolved from `technology_features/{id}/change_history` by matching the real Git SHA from `commits` to each entry's `version` (7-char prefix set on publish), normalized SHA prefixes, optional `commitSha` from FEATURES.md, and `releaseBuildNumber` when the dossier path wrote entries without a Git SHA (`commitMatchesChangeHistoryEntry` in `src/lib/features.ts`).
 - **Local dev** - Optional Firestore emulator: Flutter `--dart-define=USE_FIREBASE_EMULATOR=true` (see `docs/realtime-analytics.md`)
 
 **D. Derived Metrics & Reports:**
@@ -229,4 +234,5 @@ Events follow Firebase naming convention: `feature_action_object` (e.g., `learni
 - **2025-03-23** - **528a0258** - **Realtime Firestore summaries and mobile schema**: Added `RealtimeAnalyticsService` for normalized `analytics_events` writes (`source: mobile`, time keys, platform, app version, sanitized metadata) and Cloud Function `onAnalyticsEventCreated` to aggregate into `analytics_summary/global`, `analytics_summary_daily/{dateKey}`, `analytics_feature_summary/{feature}`, and `analytics_summary_hourly/{hourKey}` without double-counting callable rows (`source: cloud_function`). Extended Firestore rules for summary collections (admin read, client no write). Admin Analytics page shows live totals from `analytics_summary/global`. Optional Firestore emulator support via `USE_FIREBASE_EMULATOR`. Documented in `docs/realtime-analytics.md` and inventory in `docs/mobile-analytics-inventory.md`. Fixed invalid JSON in `firestore.indexes.json` (trailing comma) blocking deploy. Instrumented `sign_in_completed` on login and `profile_updated` on profile save.
 - **2026-03-24** - **e7496270** - **Debug content seed**: Added test feature update payload for dashboard propagation verification.
 - **2026-03-23** - **local20260323** - **Latest Updates feed expansion**: Updated Technology Overview to remove hard 10-item truncation in data assembly, keep newest-first ordering, and add a clickable "Show all updates / Show fewer updates" toggle so admins can view the full update stream.
+- **2026-03-24** - **commit-feature-changes** - **Commit detail feature changes**: Fixed Technology Overview commit modal so "Feature changes" populates by matching Firestore `change_history` to the selected commit (version prefix, SHA normalization, release build) and scanning all `technology_features` docs, not only visible ones.
 

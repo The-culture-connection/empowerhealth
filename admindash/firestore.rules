@@ -293,6 +293,21 @@ service cloud.firestore {
         // No updates or deletes - analytics are append-only
         allow update, delete: if false;
       }
+
+      // Qualitative surveys subcollection - mobile app can create, admin dashboard can read all
+      match /qualitative_surveys/{surveyId} {
+        // Mobile app: authenticated users can create their own surveys
+        allow create: if isAuthenticated() && (
+          request.resource.data.userId == null ||
+          request.resource.data.userId == request.auth.uid
+        );
+        // Admin dashboard: can read all for reporting
+        allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+        // Mobile app: users can read their own surveys
+        allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        // No updates or deletes - surveys are append-only
+        allow update, delete: if false;
+      }
     }
     
     // Audit logs - only admins can read

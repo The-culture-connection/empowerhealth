@@ -10,7 +10,14 @@ import {
   Release 
 } from "../../lib/releases";
 import { getLatestCommits, Commit, getGitHubCommitUrl as getCommitUrl, getCommitBySha } from "../../lib/commits";
-import { getAllFeatures, TechnologyFeature, getFeatureChangeHistory, getFeatureById } from "../../lib/features";
+import {
+  getAllFeatures,
+  TechnologyFeature,
+  getFeatureChangeHistory,
+  getFeatureById,
+  commitMatchesChangeHistoryEntry,
+  getAllTechnologyFeaturesForAdmin,
+} from "../../lib/features";
 import { getFeatureAnalytics, FeatureAnalytics } from "../../lib/featureAnalytics";
 import { getFeatureAnalyticsSummary, FeatureAnalyticsSummary } from "../../lib/firestoreAnalytics";
 import { useAuth } from "../../contexts/AuthContext";
@@ -85,21 +92,21 @@ export function TechnologyOverview() {
   // Load feature changes for selected commit
   useEffect(() => {
     if (selectedCommit) {
-      loadCommitFeatureChanges(selectedCommit.commitSha);
+      loadCommitFeatureChanges(selectedCommit.commitSha, selectedCommit.buildNumber);
     } else {
       setCommitFeatureChanges([]);
     }
   }, [selectedCommit]);
 
-  async function loadCommitFeatureChanges(commitSha: string) {
+  async function loadCommitFeatureChanges(commitSha: string, commitBuildNumber?: number) {
     try {
       const changes: any[] = [];
-      // Get all features and check their change history for this commit
-      const features = await getAllFeatures();
+      // All feature docs (including non-visible): commit may touch analytics-only features, etc.
+      const features = await getAllTechnologyFeaturesForAdmin();
       for (const feature of features) {
         const history = await getFeatureChangeHistory(feature.id);
-        const commitChanges = history.filter((change: any) => 
-          change.commitSha === commitSha || change.commitSha?.substring(0, 7) === commitSha.substring(0, 7)
+        const commitChanges = history.filter((change: any) =>
+          commitMatchesChangeHistoryEntry(commitSha, change, commitBuildNumber)
         );
         if (commitChanges.length > 0) {
           changes.push({

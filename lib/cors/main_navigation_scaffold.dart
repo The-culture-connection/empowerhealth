@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -6,6 +8,7 @@ import '../Journal/Journal_screen.dart';
 import '../Community/community_screen.dart';
 import '../editprofile/edit_profile_screen.dart';
 import '../Home/Learning Modules/learning_modules_screen_v2.dart';
+import '../models/user_profile.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import 'ui_theme.dart';
@@ -22,6 +25,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
   final DatabaseService _databaseService = DatabaseService();
   int _index = 0;
   DateTime _tabEnteredAt = DateTime.now();
+  DateTime? _featureSessionStartedAt;
 
   final _pages = const [
     HomeScreenV2(),
@@ -35,6 +39,11 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
   void initState() {
     super.initState();
     _trackScreenViewAfterAuth();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_startFeatureSessionForTab(_index));
+      }
+    });
   }
 
   /// Wait for auth to be ready before tracking screen view
@@ -63,16 +72,70 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
 
   void _onTabChanged(int newIndex) {
     _trackTabTimeSpent(_index);
+    unawaited(_endFeatureSessionForTab(_index));
     setState(() => _index = newIndex);
     _tabEnteredAt = DateTime.now();
+    unawaited(_startFeatureSessionForTab(newIndex));
     // Track tab change asynchronously - don't block UI
     _trackTabView(newIndex);
   }
 
   @override
   void dispose() {
+    unawaited(_endFeatureSessionForTab(_index));
     _trackTabTimeSpent(_index);
     super.dispose();
+  }
+
+  Future<void> _startFeatureSessionForTab(int tabIndex) async {
+    _featureSessionStartedAt = DateTime.now();
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      UserProfile? profile;
+      try {
+        profile = await _databaseService.getUserProfile(user.uid);
+      } catch (_) {
+        profile = null;
+      }
+      await _analytics.logFeatureSessionStarted(
+        feature: _featureForTab(tabIndex),
+        entrySource: 'main_tab',
+        userProfile: profile,
+      );
+    } catch (e) {
+      debugPrint('⚠️ Analytics: feature session start: $e');
+    }
+  }
+
+  Future<void> _endFeatureSessionForTab(int tabIndex) async {
+    final started = _featureSessionStartedAt;
+    if (started == null) return;
+    final seconds = DateTime.now().difference(started).inSeconds;
+    if (seconds <= 0) {
+      _featureSessionStartedAt = null;
+      return;
+    }
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      UserProfile? profile;
+      if (user != null) {
+        try {
+          profile = await _databaseService.getUserProfile(user.uid);
+        } catch (_) {
+          profile = null;
+        }
+      }
+      await _analytics.logFeatureSessionEnded(
+        feature: _featureForTab(tabIndex),
+        durationSeconds: seconds,
+        entrySource: 'main_tab',
+        userProfile: profile,
+      );
+    } catch (e) {
+      debugPrint('⚠️ Analytics: feature session end: $e');
+    }
+    _featureSessionStartedAt = null;
   }
 
   Future<void> _trackTabView(int tabIndex) async {

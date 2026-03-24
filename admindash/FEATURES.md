@@ -120,7 +120,7 @@ The Profile Editing feature allows users to manage their account information, pr
 ## 10. Analytics and Event Tracking
 
 ### Current Functionality
-The Analytics and Event Tracking system provides comprehensive tracking of user interactions and app usage patterns across all platform features. The system tracks 30+ distinct events covering Learning Modules, After Visit Summary, Birth Plan Builder, Provider Search, Journal, Community Forums, Surveys/Micro Measures, and System Metrics. Events flow through two complementary paths: (1) **callable analytics** — a Cloud Function (`logAnalyticsEvent`) that handles anonymization server-side and writes to `analytics_events` (anonymized) and `analytics_events_private` (admin-only); (2) **realtime mobile pipeline** — the Flutter app writes enriched documents to `analytics_events` with `source: mobile`, time keys, platform, app version, and sanitized metadata, then a **Firestore trigger** (`onAnalyticsEventCreated`) aggregates into summary documents for dashboards without scanning raw events. The trigger **skips** `source: cloud_function` rows so totals are not double-counted when both paths write for the same user action. The admin dashboard can subscribe to `analytics_summary/global` for live totals alongside existing callable `getAnalyticsData` queries. The system generates unique session IDs for each app session and automatically attaches user lifecycle context (user_id, cohort_type, navigator, self_directed, pregnancy_week, trimester, session_id, timestamp) to every event for cohort analysis and research outcomes. Reference docs: repo `docs/mobile-analytics-inventory.md` (event inventory and gaps), `docs/realtime-analytics.md` (schema and deployment notes).
+The Analytics and Event Tracking system provides comprehensive tracking of user interactions and app usage patterns across all platform features. The system tracks 30+ distinct events covering Learning Modules, After Visit Summary, Birth Plan Builder, Provider Search, Journal, Community Forums, Surveys/Micro Measures, and System Metrics. Events flow through two complementary paths: (1) **callable analytics** — a Cloud Function (`logAnalyticsEvent`) that handles anonymization server-side and writes to `analytics_events` (anonymized) and `analytics_events_private` (admin-only); (2) **realtime mobile pipeline** — the Flutter app writes enriched documents to `analytics_events` with `source: mobile`, time keys, platform, app version, and sanitized metadata, then a **Firestore trigger** (`onAnalyticsEventCreated`) aggregates into summary documents for dashboards without scanning raw events. The trigger **skips** `source: cloud_function` rows so totals are not double-counted when both paths write for the same user action. The admin dashboard can subscribe to `analytics_summary/global` for live totals alongside existing callable `getAnalyticsData` queries. The system generates unique session IDs for each app session and automatically attaches user lifecycle context (user_id, cohort_type, navigator, self_directed, pregnancy_week, trimester, session_id, timestamp) to every event for cohort analysis and research outcomes. Reference docs: `docs/analytics-system-overview.md` (full system summary), `docs/mobile-analytics-inventory.md` (event inventory and gaps), `docs/realtime-analytics.md` (schema and deployment notes).
 
 ### How the feature works
 The analytics system uses a three-layer data architecture:
@@ -144,30 +144,34 @@ The analytics system uses a three-layer data architecture:
 - `learning_module_completed` - Module fully read
 - `learning_module_video_played` - Video content started
 - `learning_module_video_completed` - Video finished
-- `learning_module_quiz_submitted` - Survey/quiz completed with scores
+- `learning_module_survey_submitted` - One of two **surveys** (not quizzes): `survey_context` = `qualitative_feedback` (module detail qualitative dialog) or `module_archive_gate` (dialog before archiving)
 
-**After Visit Summary (5 events):**
+**After Visit Summary (6 events):**
 - `visit_summary_created` - New summary uploaded/created
+- `visit_summary_viewed` - User opened an existing summary from the list (`summary_id`)
 - `visit_summary_edited` - Summary modified
 - `visit_summary_exported_pdf` - PDF export generated
 - `visit_summary_shared_provider` - Summary shared with provider
 - `visit_summary_voice_note_added` - Voice note attached
 
-**Birth Plan Builder (6 events):**
+**Birth Plan Builder (8 events):**
 - `birth_plan_started` - Plan creation initiated
 - `birth_plan_template_selected` - Template chosen
 - `birth_plan_completed` - Plan finalized
 - `birth_plan_updated` - Plan modified
-- `birth_plan_shared_provider` - Plan shared
-- `birth_plan_downloaded_pdf` - PDF downloaded
+- `birth_plan_viewed` - Saved plan opened on display screen
+- `birth_plan_exported` - Plan shared via system share sheet (`export_type`: `pdf_share` | `text_share`)
+- `birth_plan_shared_provider` - Plan shared with provider (dedicated flow; helper when wired)
+- `birth_plan_downloaded_pdf` - PDF downloaded (legacy helper name)
 
-**Provider Search (6 events):**
+**Provider Search (7 events):**
 - `provider_search_initiated` - Search started
 - `provider_filter_applied` - Filter used
 - `provider_profile_viewed` - Profile detail viewed
 - `provider_contact_clicked` - Contact action taken
 - `provider_saved` - Provider favorited
 - `provider_review_viewed` - Review read
+- `provider_review_submitted` - User submitted a new review
 
 **Journal (5 events):**
 - `journal_entry_created` - New entry written
@@ -212,7 +216,7 @@ The analytics system uses a three-layer data architecture:
   - **Realtime mobile writes** (`lib/services/analytics/realtime_analytics_service.dart`) - After a successful callable log, the client also writes a full-schema `analytics_events` document with `source: mobile`, `aggregationVersion`, `dateKey` / `hourKey` / `monthKey`, `platform`, `environment`, `appVersion`, `clientTimestamp`, and mirrored copies under `technology_features/{featureId}/analytics_events` where applicable
   - **Firebase Analytics (Standard Dashboard)** - Logs all events to Firebase Analytics dashboard for real-time insights and standard analytics reports
 - **Event Parameters** - Each event includes feature-specific parameters (module_id, summary_id, provider_id, etc.) merged with lifecycle context
-- **Session Management** - Session IDs persist for browser/app session duration
+- **Session Management** - Session IDs persist for browser/app session duration; `session_ended` is logged after persisting duration to `user_sessions`, then in-memory session state is cleared so the `session_ended` event keeps the same `sessionId` as `session_started`. **App lifecycle**: background (`paused`) ends the session; returning from background starts a new session (`session_started` with `entry_point: app_resume`). **Feature lifecycle**: `feature_session_started` / `feature_session_ended` bracket time in a feature surface; main tabs emit these when switching tabs (`entry_source: main_tab`), and key flows wrap `FeatureSessionScope` (auth screens, provider search hub + entry, visit summary upload, birth plan builder, care navigation survey) with ref-counting so nested provider routes share one logical session.
 
 **E. Realtime aggregation (dashboard summaries):**
 - **Trigger** - Cloud Function `onAnalyticsEventCreated` on `analytics_events/{eventId}` (region `us-central1`) updates atomic counters via merge + `FieldValue.increment`
@@ -224,7 +228,7 @@ The analytics system uses a three-layer data architecture:
 - **Admin UI** - Analytics page (`src/app/pages/Analytics.tsx`) now follows the Figma analytics layout using **real data from `analytics_events`** with date-range filtering (`7d`, `30d`, `90d`, `all`) and optional feature filter. The page no longer has anonymized/unanonymized tabs; it presents one holistic dashboard (overview metrics, feature table, funnels, trends, community, mood, outcomes, abandonment, screen-time) plus a CSV export for raw rows in the selected range.
 - **Export shape** - "Export Data" downloads rows with: `eventName`, `feature`, `duration` (`durationMs`), `timestamp`, and `source`.
 - **Holistic report + dictionary UI** - Analytics now includes a single “User Journey + Outcome Effectiveness” report block (executive summary, cohort segmentation, funnel, feature effectiveness, engagement depth, outcome metrics, behavior correlations, and recommendations) for both anonymized and unanonymized tabs. A dedicated subpage `/analytics/info` documents tracked events and what user behavior each event measures.
-- **Analytics Info status clarity** - The `/analytics/info` dictionary now classifies each event as `Tracked`, `Partial`, or `Needs Implementation`, and includes implementation notes so admins can quickly see what is fully wired versus still pending.
+- **Analytics Info (by feature)** - The `/analytics/info` page lists events **per backend feature id** in lifecycle order: **Lifecycle — start** (`feature_session_started` or tab/session entry), **Action** (feature-specific events), **Lifecycle — end** (`feature_session_ended` or tab exit). Status remains `Tracked` / `Partial` / `Needs Implementation` with implementation notes.
 - **Learning/Community instrumentation reliability** - `learning_module_completed` is now emitted from list-based "done/archive" actions in Learning Modules (not only detail-screen exits), and `community_post_liked` / `community_post_replied` now still emit even when profile hydration fails (best-effort profile, fallback null).
 - **Technology Overview updates feed** - The "Latest Updates" feed (`src/app/pages/TechnologyOverview.tsx`) merges top-level `recentUpdates` with each feature's `change_history` entries, sorts by newest timestamp first, and supports expanding from the initial 10-row preview to all available updates.
 - **Commit detail "Feature changes"** - When viewing a commit from the Technology Overview commit list, associated rows are resolved from `technology_features/{id}/change_history` by matching the real Git SHA from `commits` to each entry's `version` (7-char prefix set on publish), normalized SHA prefixes, optional `commitSha` from FEATURES.md, and `releaseBuildNumber` when the dossier path wrote entries without a Git SHA (`commitMatchesChangeHistoryEntry` in `src/lib/features.ts`).
@@ -258,4 +262,7 @@ Events follow Firebase naming convention: `feature_action_object` (e.g., `learni
 - **2026-03-24** - **analytics-figma-rebuild** - **Figma-matched analytics page + export**: Rebuilt `Analytics.tsx` to match the Figma analytics page using real Firestore event data, removed anonymized/unanonymized toggle UI, added date-range + feature filters, and implemented CSV export with `eventName`, `feature`, `durationMs`, `timestamp`, and `source` for all events in range.
 - **2026-03-24** - **analytics-info-status-update** - **Analytics event implementation statuses**: Updated `/analytics/info` to replace the old “New Required” state with explicit `Tracked` / `Partial` / `Needs Implementation` statuses and added per-event implementation notes to reflect actual runtime wiring.
 - **2026-03-24** - **analytics-mobile-instrumentation-fixes** - **Module completion + community engagement tracking**: Added `learning_module_completed` logging to Learning Modules list completion/archive flows and hardened `community_post_liked` / `community_post_replied` logging to avoid being skipped when user profile lookup fails.
+- **2026-03-24** - **analytics-session-feature-lifecycle** - **Session end + feature_session_* + Analytics Info layout**: Fixed `session_ended` to log duration from `endSession()` before clearing session id, emit `session_ended` on app background and auth-wrapper dispose, restart session on resume; added `logFeatureSessionStarted` / `logFeatureSessionEnded`, `FeatureSessionScope` (ref-counted) on auth, provider search, visit summary upload, birth plan builder, and care survey; main navigation emits feature session start/end per tab. Rebuilt `/analytics/info` into per-feature sections ordered lifecycle start → actions → lifecycle end.
+- **2026-03-24** - **analytics-system-overview-doc** - **Architecture documentation**: Added `docs/analytics-system-overview.md` describing the entire analytical tracking stack (client paths, callable vs mobile Firestore, aggregation trigger, collections, admin surfaces, security, and key file references).
+- **2026-03-24** - **analytics-event-expansion-20260324** - **New tracked events**: Added `provider_review_submitted`, `visit_summary_viewed`, `learning_module_survey_submitted` (replacing quiz naming; two survey contexts), `birth_plan_viewed`, and `birth_plan_exported` (PDF/text share on display screen). Wired Flutter instrumentation; updated `/analytics/info` and analytics docs.
 

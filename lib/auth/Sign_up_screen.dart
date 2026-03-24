@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/feature_session_scope.dart';
 import '../app_router.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
@@ -123,7 +124,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FeatureSessionScope(
+      feature: 'authentication-onboarding',
+      entrySource: 'sign_up',
+      child: Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
       body: Container(
         decoration: BoxDecoration(
@@ -426,6 +430,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

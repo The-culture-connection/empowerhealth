@@ -2,7 +2,7 @@
 
 This document catalogs plausible **user actions** in the EmpowerHealth Flutter app, groups them by **feature category** (aligned with backend validation and admin feature IDs), maps what is **already instrumented**, and records **gaps**—especially **time on screen / session duration**—that explain uneven analytics behavior.
 
-It is an **inventory and gap analysis**, not an implementation checklist. For admin-side feature metadata and KPI wiring, see [`admindash/src/lib/features.ts`](../admindash/src/lib/features.ts) and Firestore `technology_features`.
+It is an **inventory and gap analysis**, not an implementation checklist. For an **end-to-end architecture** description (callable vs mobile writes, aggregation, admin), see [`analytics-system-overview.md`](analytics-system-overview.md). For admin-side feature metadata and KPI wiring, see [`admindash/src/lib/features.ts`](../admindash/src/lib/features.ts) and Firestore `technology_features`.
 
 ---
 
@@ -69,8 +69,8 @@ flowchart LR
 
 | Event / data | Behavior |
 | --- | --- |
-| `session_started` | Logged from [`lib/main.dart`](../lib/main.dart) after `waitForInitialAuthResolution()`, with user profile. Also creates/merges a `user_sessions/{sessionId}` document via `startSession()`. |
-| `session_ended` | **`logSessionEnded` / `endSession()` are not called from any `lib/` screen**—sessions may never receive `endedAt` or `durationSeconds` in Firestore. `logSessionEnded` exists on `AnalyticsService` only. |
+| `session_started` | Logged from [`lib/main.dart`](../lib/main.dart) after `waitForInitialAuthResolution()`, with user profile (`entry_point: app_cold_start`). Also creates/merges a `user_sessions/{sessionId}` document via `startSession()`. On resume from background, a new `session_started` runs with `entry_point: app_resume`. |
+| `session_ended` | Emitted via `logSessionEnded` when the app goes to background (`AppLifecycleState.paused`), when the auth wrapper is disposed, and after `endSession()` updates `user_sessions` with `endedAt` / `durationSeconds`. In-memory session state is cleared only after the `session_ended` event is logged so `sessionId` stays consistent. |
 
 ### Screen views (`screen_view`)
 
@@ -103,7 +103,7 @@ flowchart LR
 | [`lib/providers/provider_search_results_screen.dart`](../lib/providers/provider_search_results_screen.dart) | `logScreenView`, `logProviderProfileViewed` (tap result) |
 | [`lib/providers/provider_profile_screen.dart`](../lib/providers/provider_profile_screen.dart) | `logProviderProfileViewed`, `logScreenView`, `logProviderContactClicked` |
 | [`lib/learning/learning_modules_screen.dart`](../lib/learning/learning_modules_screen.dart) | `logScreenView` (legacy route; main shell uses v2) |
-| [`lib/Home/Learning Modules/learning_module_detail_screen.dart`](../lib/Home/Learning%20Modules/learning_module_detail_screen.dart) | `logLearningModuleViewed`, `logLearningModuleStarted`, `logLearningModuleQuizSubmitted`, `logConfidenceSignalSubmitted` |
+| [`lib/Home/Learning Modules/learning_module_detail_screen.dart`](../lib/Home/Learning%20Modules/learning_module_detail_screen.dart) | `logLearningModuleViewed`, `logLearningModuleStarted`, `logConfidenceSignalSubmitted` (surveys: `QualitativeSurveyDialog` → `logLearningModuleSurveySubmitted` in dialog) |
 | [`lib/appointments/upload_visit_summary_screen.dart`](../lib/appointments/upload_visit_summary_screen.dart) | `logScreenView`, `logVisitSummaryCreated` |
 | [`lib/birthplan/comprehensive_birth_plan_screen.dart`](../lib/birthplan/comprehensive_birth_plan_screen.dart) | `logScreenView`, `logBirthPlanCompleted` |
 | [`lib/Journal/Journal_screen.dart`](../lib/Journal/Journal_screen.dart) | `logScreenView`, `logJournalEntryCreated`, `logJournalMoodSelected` |
@@ -209,7 +209,7 @@ flowchart LR
 **Already instrumented**
 
 - `learning_module_viewed`, `learning_module_started` — detail screen.
-- `learning_module_quiz_submitted` — quiz.
+- `learning_module_survey_submitted` — learning module **survey** (not a quiz); `survey_context` distinguishes inline qualitative feedback vs pre-archive gate.
 - `logConfidenceSignalSubmitted` — micro-measure path (also writes `micro_measures` + `micro_measure_submitted` event).
 - `screen_view` — legacy `learning_modules_screen.dart` only; **v2 list has no direct `AnalyticsService` calls** — tab `learn` is the main signal.
 

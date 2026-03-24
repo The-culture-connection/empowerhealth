@@ -9,6 +9,7 @@ import '../cors/ui_theme.dart';
 import 'birth_plan_display_screen.dart';
 import 'birth_plan_formatter.dart';
 import '../widgets/qualitative_survey_dialog.dart';
+import '../widgets/feature_session_scope.dart';
 
 class ComprehensiveBirthPlanScreen extends StatefulWidget {
   final String? incompletePlanId; // For resuming incomplete plans
@@ -1018,7 +1019,10 @@ class _ComprehensiveBirthPlanScreenState
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
+    return FeatureSessionScope(
+      feature: 'birth-plan-generator',
+      entrySource: 'comprehensive_birth_plan',
+      child: PopScope(
       canPop: true,
       onPopInvoked: (didPop) async {
         if (didPop) {
@@ -1224,7 +1228,8 @@ class _ComprehensiveBirthPlanScreenState
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildSection1() {

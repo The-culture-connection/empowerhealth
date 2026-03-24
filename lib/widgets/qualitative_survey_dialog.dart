@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
 import '../services/qualitative_survey_service.dart';
 import '../services/database_service.dart';
-import '../models/user_profile.dart';
+import '../services/analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class QualitativeSurveyDialog extends StatefulWidget {
@@ -33,6 +33,7 @@ class QualitativeSurveyDialog extends StatefulWidget {
 class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
   final QualitativeSurveyService _surveyService = QualitativeSurveyService();
   final DatabaseService _databaseService = DatabaseService();
+  final AnalyticsService _analytics = AnalyticsService();
   final Map<int, int> _ratings = {}; // questionIndex -> rating (1-5)
   bool _isSubmitting = false;
 
@@ -236,6 +237,19 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
         userProfile: userProfile,
         sourceId: widget.sourceId,
       );
+
+      if (widget.feature == 'learning-modules') {
+        final ratings = _ratings.values.toList();
+        final avg = ratings.isEmpty
+            ? null
+            : (ratings.fold<int>(0, (a, b) => a + b) / ratings.length).round();
+        await _analytics.logLearningModuleSurveySubmitted(
+          surveyContext: 'qualitative_feedback',
+          moduleId: widget.sourceId ?? 'unknown',
+          averageRating: avg,
+          userProfile: userProfile,
+        );
+      }
 
       if (mounted) {
         Navigator.of(context).pop();

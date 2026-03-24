@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/provider_review.dart';
 import '../models/provider.dart';
 import '../services/provider_repository.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
 
 class ProviderReviewScreen extends StatefulWidget {
@@ -26,6 +28,8 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
   final _formKey = GlobalKey<FormState>();
   final _reviewController = TextEditingController();
   final ProviderRepository _repository = ProviderRepository();
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
   
   int _rating = 0;
   bool _wouldRecommend = false;
@@ -152,6 +156,17 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
         firestoreProviderId: firestoreProviderId,
       );
       print('✅ [ProviderReview] Review submitted with providerId: ${firestoreProviderId ?? review.providerId}');
+
+      try {
+        final profile = await _databaseService.getUserProfile(userId);
+        await _analytics.logProviderReviewSubmitted(
+          providerId: firestoreProviderId ?? review.providerId,
+          rating: _rating,
+          userProfile: profile,
+        );
+      } catch (e) {
+        print('⚠️ [ProviderReview] Analytics: $e');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -194,7 +194,7 @@ export function Analytics() {
     const steps = [
       "learning_module_viewed",
       "learning_module_started",
-      "learning_module_quiz_submitted",
+      "learning_module_survey_submitted",
       "learning_module_completed",
     ];
     const counts = steps.map((s) => filteredEvents.filter((e) => e.eventName === s).length);

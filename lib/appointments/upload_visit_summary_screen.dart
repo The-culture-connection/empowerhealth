@@ -15,6 +15,7 @@ import '../services/analytics_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/ai_disclaimer_banner.dart';
+import '../widgets/feature_session_scope.dart';
 
 class UploadVisitSummaryScreen extends StatefulWidget {
   const UploadVisitSummaryScreen({super.key});
@@ -706,7 +707,10 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FeatureSessionScope(
+      feature: 'appointment-summarizing',
+      entrySource: 'upload_visit_summary',
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Understand Your Visit'),
         backgroundColor: AppTheme.brandPurple,
@@ -1271,7 +1275,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

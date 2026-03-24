@@ -759,7 +759,7 @@ export function Analytics() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[
             { category: "App Events", events: ["session_started", "screen_view", "feature_time_spent", "screen_time_spent", "flow_abandoned"] },
-            { category: "Learning", events: ["learning_module_viewed", "learning_module_started", "learning_module_completed", "learning_module_quiz_submitted"] },
+            { category: "Learning", events: ["learning_module_viewed", "learning_module_started", "learning_module_completed", "learning_module_survey_submitted"] },
             { category: "Provider Search", events: ["provider_search_initiated", "provider_profile_viewed", "provider_contact_clicked", "provider_selected_success"] },
             { category: "Care Documentation", events: ["visit_summary_created", "birth_plan_completed"] },
             { category: "Journal & Reflection", events: ["journal_entry_created", "journal_mood_selected"] },

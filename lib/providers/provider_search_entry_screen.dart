@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/feature_session_scope.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../constants/provider_types.dart';
@@ -344,7 +346,10 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FeatureSessionScope(
+      feature: 'provider-search',
+      entrySource: 'provider_search_entry',
+      child: Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
       body: Container(
         decoration: BoxDecoration(
@@ -767,7 +772,8 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildSection({

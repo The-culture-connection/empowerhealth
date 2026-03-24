@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import '../app_router.dart';
 import '../cors/ui_theme.dart';
+import '../widgets/feature_session_scope.dart';
 
 class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FeatureSessionScope(
+      feature: 'authentication-onboarding',
+      entrySource: 'auth_landing',
+      child: Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -96,7 +100,8 @@ class AuthScreen extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }
 

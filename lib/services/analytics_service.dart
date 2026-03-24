@@ -906,31 +906,33 @@ class AnalyticsService {
     }
   }
 
-  /// End current session
-  Future<void> endSession() async {
+  void _clearSessionTrackingState() {
+    _sessionId = null;
+    _sessionStartTime = null;
+    _sessionEntryPoint = null;
+  }
+
+  /// Persists session end to `user_sessions` and returns duration in seconds.
+  /// Does not clear in-memory session state — call [_clearSessionTrackingState] after logging `session_ended`.
+  Future<int?> endSession() async {
     try {
       if (_sessionId == null || _sessionStartTime == null) {
-        return;
+        return null;
       }
 
       final sessionId = _sessionId!;
-      final endTime = DateTime.now();
-      final duration = endTime.difference(_sessionStartTime!).inSeconds;
+      final duration = DateTime.now().difference(_sessionStartTime!).inSeconds;
 
-      // Update session document
       await _firestore.collection('user_sessions').doc(sessionId).update({
         'endedAt': FieldValue.serverTimestamp(),
         'durationSeconds': duration,
       });
 
       print('✅ Analytics: Session ended: $sessionId (duration: ${duration}s)');
-
-      // Reset session tracking
-      _sessionId = null;
-      _sessionStartTime = null;
-      _sessionEntryPoint = null;
+      return duration;
     } catch (e) {
       print('⚠️ Analytics: Error ending session: $e');
+      return null;
     }
   }
 
@@ -1251,17 +1253,22 @@ class AnalyticsService {
     );
   }
 
-  Future<void> logLearningModuleQuizSubmitted({
+  /// Learning modules use **surveys**, not quizzes. Two flows:
+  /// `survey_context` = `qualitative_feedback` (module detail qualitative dialog) or
+  /// `module_archive_gate` (pre-archive survey dialog).
+  Future<void> logLearningModuleSurveySubmitted({
+    required String surveyContext,
     required String moduleId,
-    int? quizScore,
+    int? averageRating,
     UserProfile? userProfile,
   }) async {
     await logEvent(
-      eventName: 'learning_module_quiz_submitted',
+      eventName: 'learning_module_survey_submitted',
       feature: 'learning-modules',
       parameters: {
+        'survey_context': surveyContext,
         'module_id': moduleId,
-        if (quizScore != null) 'quiz_score': quizScore,
+        if (averageRating != null) 'average_rating': averageRating,
       },
       userProfile: userProfile,
     );
@@ -1285,6 +1292,18 @@ class AnalyticsService {
         if (providerType != null) 'provider_type': providerType,
         if (timeToComplete != null) 'time_to_complete': timeToComplete,
       },
+      userProfile: userProfile,
+    );
+  }
+
+  Future<void> logVisitSummaryViewed({
+    required String summaryId,
+    UserProfile? userProfile,
+  }) async {
+    await logEvent(
+      eventName: 'visit_summary_viewed',
+      feature: 'appointment-summarizing',
+      parameters: {'summary_id': summaryId},
       userProfile: userProfile,
     );
   }
@@ -1338,6 +1357,37 @@ class AnalyticsService {
   }
 
   // ========== Birth Plan Builder Events ==========
+
+  Future<void> logBirthPlanViewed({
+    String? planId,
+    UserProfile? userProfile,
+  }) async {
+    await logEvent(
+      eventName: 'birth_plan_viewed',
+      feature: 'birth-plan-generator',
+      parameters: {if (planId != null) 'plan_id': planId},
+      userProfile: userProfile,
+    );
+  }
+
+  /// User exported or shared a birth plan via system share sheet (PDF or text file).
+  /// Distinct from [logBirthPlanSharedProvider] (share-with-care-team) and
+  /// [logBirthPlanDownloadedPdf] (legacy PDF download naming in builder flows).
+  Future<void> logBirthPlanExported({
+    required String exportType,
+    String? planId,
+    UserProfile? userProfile,
+  }) async {
+    await logEvent(
+      eventName: 'birth_plan_exported',
+      feature: 'birth-plan-generator',
+      parameters: {
+        'export_type': exportType,
+        if (planId != null) 'plan_id': planId,
+      },
+      userProfile: userProfile,
+    );
+  }
 
   Future<void> logBirthPlanStarted({
     String? templateId,
@@ -1493,6 +1543,22 @@ class AnalyticsService {
       eventName: 'provider_review_viewed',
       feature: 'provider-search',
       parameters: {'provider_id': providerId},
+      userProfile: userProfile,
+    );
+  }
+
+  Future<void> logProviderReviewSubmitted({
+    required String providerId,
+    int? rating,
+    UserProfile? userProfile,
+  }) async {
+    await logEvent(
+      eventName: 'provider_review_submitted',
+      feature: 'provider-search',
+      parameters: {
+        'provider_id': providerId,
+        if (rating != null) 'rating': rating,
+      },
       userProfile: userProfile,
     );
   }
@@ -1746,17 +1812,57 @@ class AnalyticsService {
     int? durationSeconds,
     UserProfile? userProfile,
   }) async {
-    // End session tracking in user_sessions collection
-    await endSession();
+    final computed = await endSession();
+    final duration = durationSeconds ?? computed;
+    if (duration == null) {
+      _clearSessionTrackingState();
+      return;
+    }
 
-    // Also log as event
     await logEvent(
       eventName: 'session_ended',
       feature: 'app',
       parameters: {
-        if (durationSeconds != null) 'duration_seconds': durationSeconds,
+        'duration_seconds': duration,
       },
-      durationMs: durationSeconds != null ? durationSeconds * 1000 : null,
+      durationMs: duration * 1000,
+      userProfile: userProfile,
+    );
+    _clearSessionTrackingState();
+  }
+
+  /// Feature lifecycle: user entered a feature surface (paired with [logFeatureSessionEnded]).
+  Future<void> logFeatureSessionStarted({
+    required String feature,
+    String? entrySource,
+    UserProfile? userProfile,
+  }) async {
+    await logEvent(
+      eventName: 'feature_session_started',
+      feature: feature,
+      parameters: {
+        if (entrySource != null) 'entry_source': entrySource,
+      },
+      userProfile: userProfile,
+    );
+  }
+
+  /// Feature lifecycle: user left a feature surface (dwell time since matching start).
+  Future<void> logFeatureSessionEnded({
+    required String feature,
+    required int durationSeconds,
+    String? entrySource,
+    UserProfile? userProfile,
+  }) async {
+    final safeSeconds = durationSeconds < 0 ? 0 : durationSeconds;
+    await logEvent(
+      eventName: 'feature_session_ended',
+      feature: feature,
+      parameters: {
+        'duration_seconds': safeSeconds,
+        if (entrySource != null) 'entry_source': entrySource,
+      },
+      durationMs: safeSeconds * 1000,
       userProfile: userProfile,
     );
   }

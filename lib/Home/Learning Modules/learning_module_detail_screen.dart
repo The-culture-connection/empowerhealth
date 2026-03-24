@@ -517,20 +517,10 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
         _hasSubmitted = true;
       });
 
-      // Track quiz submission
       try {
         final userId = FirebaseAuth.instance.currentUser?.uid;
         if (userId != null) {
           final userProfile = await _databaseService.getUserProfile(userId);
-          final avgScore =
-              ((_understandingRating + _nextStepsRating + _confidenceRating) /
-                      3)
-                  .round();
-          await _analytics.logLearningModuleQuizSubmitted(
-            moduleId: widget.taskId ?? 'unknown',
-            quizScore: avgScore,
-            userProfile: userProfile,
-          );
           await _analytics.logConfidenceSignalSubmitted(
             understandMeaningScore: _understandingRating,
             knowNextStepScore: _nextStepsRating,
@@ -539,7 +529,7 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
           );
         }
       } catch (e) {
-        print('Error tracking quiz submission: $e');
+        print('Error tracking confidence signal: $e');
       }
 
       if (mounted) {

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -78,16 +81,72 @@ class _AuthWrapper extends StatefulWidget {
   State<_AuthWrapper> createState() => _AuthWrapperState();
 }
 
-class _AuthWrapperState extends State<_AuthWrapper> {
+class _AuthWrapperState extends State<_AuthWrapper> with WidgetsBindingObserver {
   final DatabaseService _databaseService = DatabaseService();
   final AnalyticsService _analytics = AnalyticsService();
   bool _isChecking = true;
   Widget? _targetScreen;
+  AppLifecycleState? _lastLifecycleState;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeWithAuth();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_endSessionOnDispose());
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      unawaited(_onAppPaused());
+    } else if (state == AppLifecycleState.resumed &&
+        _lastLifecycleState == AppLifecycleState.paused) {
+      unawaited(_onAppResumedAfterPause());
+    }
+    _lastLifecycleState = state;
+  }
+
+  Future<void> _onAppPaused() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final userProfile = await _databaseService.getUserProfile(widget.userId);
+      await _analytics.logSessionEnded(userProfile: userProfile);
+    } catch (e) {
+      debugPrint('⚠️ Analytics: session end on pause: $e');
+    }
+  }
+
+  Future<void> _onAppResumedAfterPause() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final userProfile = await _databaseService.getUserProfile(widget.userId);
+      await _analytics.logSessionStarted(
+        entryPoint: 'app_resume',
+        userProfile: userProfile,
+      );
+    } catch (e) {
+      debugPrint('⚠️ Analytics: session start on resume: $e');
+    }
+  }
+
+  Future<void> _endSessionOnDispose() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final userProfile = await _databaseService.getUserProfile(widget.userId);
+      await _analytics.logSessionEnded(userProfile: userProfile);
+    } catch (e) {
+      debugPrint('⚠️ Analytics: session end on dispose: $e');
+    }
   }
 
   /// Wait for auth to be fully restored before sending analytics
@@ -109,7 +168,10 @@ class _AuthWrapperState extends State<_AuthWrapper> {
   Future<void> _trackSessionStart() async {
     try {
       final userProfile = await _databaseService.getUserProfile(widget.userId);
-      await _analytics.logSessionStarted(userProfile: userProfile);
+      await _analytics.logSessionStarted(
+        entryPoint: 'app_cold_start',
+        userProfile: userProfile,
+      );
       debugPrint('✅ Analytics: Session started tracked');
     } catch (e) {
       debugPrint('⚠️ Analytics: Failed to track session start: $e');

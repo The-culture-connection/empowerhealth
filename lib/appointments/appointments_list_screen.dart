@@ -6,9 +6,23 @@ import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
 import 'upload_visit_summary_screen.dart';
 import '../widgets/ai_disclaimer_banner.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
 
 class AppointmentsListScreen extends StatelessWidget {
   const AppointmentsListScreen({super.key});
+
+  Future<void> _logVisitSummaryViewed(String summaryId) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final profile = await DatabaseService().getUserProfile(uid);
+      await AnalyticsService().logVisitSummaryViewed(
+        summaryId: summaryId,
+        userProfile: profile,
+      );
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -336,8 +350,10 @@ class AppointmentsListScreen extends StatelessWidget {
                           ),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(32),
-                            onTap: () {
-                              _showSummaryDialog(context, data);
+                            onTap: () async {
+                              await _logVisitSummaryViewed(doc.id);
+                              if (!context.mounted) return;
+                              _showSummaryDialog(context, doc.id, data);
                             },
                             child: Row(
                               children: [
@@ -391,13 +407,7 @@ class AppointmentsListScreen extends StatelessWidget {
                                       if (summary != null) ...[
                                         const SizedBox(height: 8), // mb-2
                                         Text(
-                                          _extractPreviewText(
-                                            summary is String 
-                                                ? summary 
-                                                : (data['summaryData'] is Map
-                                                    ? _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>)
-                                                    : summary.toString())
-                                          ),
+                                          _extractPreviewText(summary),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
@@ -551,7 +561,11 @@ class AppointmentsListScreen extends StatelessWidget {
     return summary.split('\n').first.replaceAll('#', '').trim();
   }
 
-  void _showSummaryDialog(BuildContext context, Map<String, dynamic> data) {
+  void _showSummaryDialog(
+    BuildContext context,
+    String summaryId,
+    Map<String, dynamic> data,
+  ) {
     // Prefer formatted summary string, fallback to formatting summaryData if needed
     String? summaryString;
     

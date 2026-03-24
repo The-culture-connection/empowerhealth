@@ -292,3 +292,19 @@ The **Reports** page generates six research-oriented reports **in the browser** 
 - **2026-03-24** - **admindash-reports-client-aggregation** - **Reports page**: Replaced callable-only report stub with client-side **`getReportDataset`**, **`reportBuilders`**, **`reportMetrics`**, **`reportInsights`**, and Firestore repos **`moduleFeedbackRepo`**, **`careSurveyRepo`**, **`reportsRepo`**; fixed **`ReportType`** ids and export filename bug (`format` vs **`formatDate`**).
 - **2026-03-24** - **admindash-reports-evidence-ui** - **Evidence summaries**: Per-report event whitelists, **`EvidenceReport`** (sections A–F), deterministic conclusions, Analytics Info–aligned event tables, **`Reports.tsx`** rendering of **`evidence`**, and CSV export of flattened evidence when row export is empty.
 
+---
+
+## 12. Mobile app — Push notifications (FCM, iOS first)
+
+### Current functionality
+The Flutter app (`empowerhealth`) uses **`firebase_core`** and **`firebase_messaging`**. After **`FirebaseService.initialize()`**, **`main.dart`** registers **`FirebaseMessaging.onBackgroundMessage`** with a top-level handler, then runs **`PushNotificationService.setupAfterFirebaseInitialized()`** (skipped on web). The service requests notification permission (alert, badge, sound), logs **`authorizationStatus`**, enables **iOS foreground presentation** (alert, badge, sound), logs the **FCM token**, persists **`users/{uid}/devices/{docId}`** with `platform`, `appVersion`, `createdAt`, `updatedAt`, and **`onTokenRefresh`**, and wires **`onMessage`**, **`onMessageOpenedApp`**, and **`getInitialMessage`**. Debug logs cover permission, token, foreground receive, background open, cold-start initial message, and Firestore save success/failure. **Firebase method swizzling** remains default (no `FirebaseAppDelegateProxyEnabled` = false in `Info.plist`).
+
+### How the feature works
+- **Initialization order**: `WidgetsFlutterBinding.ensureInitialized()` → **`Firebase.initializeApp`** (same options as **`FirebaseService.firebaseOptions`**) → **`onBackgroundMessage`** → `PushNotificationService.setup…` → **`runApp()`**.
+- **Bundle ID**: iOS **`com.example.empowerhealth`** matches **`ios/Runner/GoogleService-Info.plist`**, **`FirebaseService`** `iosBundleId`, and Xcode **`PRODUCT_BUNDLE_IDENTIFIER`**.
+- **Firestore**: Device docs live under **`users/{uid}/devices/`** (owner write via existing **`users/{userId}`** rules). Sign-out removes the current device doc when possible.
+- **Xcode / Apple**: Enable **Push Notifications** capability, upload **APNs key** (or certs) in Firebase Console → Cloud Messaging; **`UIBackgroundModes` → `remote-notification`** is set in **`Info.plist`** for background delivery. Android wiring is deferred.
+
+### Change history
+- **2026-03-24** - **flutter-fcm-ios** - **FCM iOS**: Added **`firebase_messaging`**, **`PushNotificationService`**, background handler, foreground presentation, token persistence, `Info.plist` **`remote-notification`**, exposed **`FirebaseService.firebaseOptions`** for the background isolate.
+

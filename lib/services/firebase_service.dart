@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+// ignore: unused_import — used when App Check block below is enabled
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -64,6 +65,9 @@ class FirebaseService {
       rethrow;
     }
   }
+
+  /// Options for the default Firebase app (used by [initialize] and by FCM background isolate).
+  static FirebaseOptions get firebaseOptions => _getFirebaseOptions();
 
   static FirebaseOptions _getFirebaseOptions() {
     if (defaultTargetPlatform == TargetPlatform.android) {

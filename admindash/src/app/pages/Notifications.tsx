@@ -1,6 +1,11 @@
-import { Send, Calendar, Users, Eye, Sparkles, Loader2 } from "lucide-react";
+import { Send, Calendar, Users, Sparkles, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { sendNotification, getNotificationLogs, NotificationSegment } from "../../lib/notifications";
+import {
+  sendNotification,
+  subscribeNotificationLogs,
+  type NotificationLogRow,
+  type NotificationSegment,
+} from "../../lib/notifications";
 import { format } from "date-fns";
 
 export function Notifications() {
@@ -13,24 +18,24 @@ export function Notifications() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
-  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [recentNotifications, setRecentNotifications] = useState<NotificationLogRow[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(true);
 
   useEffect(() => {
-    loadRecentNotifications();
+    const unsub = subscribeNotificationLogs(
+      25,
+      (rows) => {
+        setRecentNotifications(rows);
+        setLoadingLogs(false);
+      },
+      () => setLoadingLogs(false),
+    );
+    return () => unsub();
   }, []);
 
-  async function loadRecentNotifications() {
-    setLoadingLogs(true);
-    try {
-      const logs = await getNotificationLogs(10);
-      setRecentNotifications(logs);
-    } catch (err: any) {
-      console.error('Failed to load notification logs:', err);
-    } finally {
-      setLoadingLogs(false);
-    }
-  }
+  useEffect(() => {
+    if (messageType === "affirmation") setMessageType("");
+  }, [messageType]);
 
   async function handleSend() {
     if (!title || !body) {
@@ -57,7 +62,6 @@ export function Notifications() {
       setDeepLink("");
       setScheduledDate("");
       setMessageType("");
-      await loadRecentNotifications();
     } catch (err: any) {
       setError(err.message || "Failed to send notification");
     } finally {
@@ -86,13 +90,6 @@ export function Notifications() {
       description: "Milestone messages as users enter new pregnancy phases",
       icon: "🌱",
       color: 'var(--success)',
-    },
-    {
-      id: "affirmation",
-      title: "Affirmations Near Due Date",
-      description: "Supportive, encouraging messages as birth approaches",
-      icon: "💜",
-      color: '#ec4899',
     },
     {
       id: "community",
@@ -291,6 +288,12 @@ export function Notifications() {
                         </option>
                       ))}
                     </select>
+                    <p className="text-xs mt-1" style={{ color: 'var(--warm-400)' }}>
+                      Each option maps to an FCM topic. The mobile app subscribes users who allow
+                      notifications to <strong>general</strong> (all active), one <strong>trimester or postpartum</strong>{' '}
+                      topic (updated when their profile changes), and one <strong>cohort</strong> topic—so only
+                      matching devices receive the push.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -371,22 +374,56 @@ export function Notifications() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {recentNotifications.map((notif, index) => (
+                  {recentNotifications.map((notif) => (
                     <div
-                      key={index}
+                      key={notif.id}
                       className="pb-4 border-b last:border-b-0"
                       style={{ borderColor: 'var(--lavender-100)' }}
                     >
-                      <div className="text-xs mb-1" style={{ color: 'var(--warm-400)' }}>
-                        {notif.sentAt ? format(new Date(notif.sentAt), 'MMM d, h:mm a') : 'Unknown time'}
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-xs" style={{ color: 'var(--warm-400)' }}>
+                          {notif.sentAt ? format(notif.sentAt, 'MMM d, yyyy · h:mm a') : 'Unknown time'}
+                        </span>
+                        <span
+                          className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded"
+                          style={{
+                            backgroundColor:
+                              notif.source === 'admin' ? 'var(--lavender-100)' : 'var(--warm-100)',
+                            color: 'var(--warm-600)',
+                          }}
+                        >
+                          {notif.source === 'admin' ? 'Admin' : notif.source === 'system' ? 'System' : '—'}
+                        </span>
                       </div>
-                      <div className="text-sm mb-2" style={{ color: 'var(--warm-600)' }}>
+                      <div className="text-sm font-medium mb-1" style={{ color: 'var(--warm-600)' }}>
                         {notif.title || 'No title'}
                       </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span style={{ color: 'var(--warm-500)' }}>{notif.segment || 'All users'}</span>
+                      {notif.channel && (
+                        <div className="text-[11px] mb-1" style={{ color: 'var(--warm-400)' }}>
+                          {notif.channel.replace(/_/g, ' ')}
+                          {notif.topic ? ` · ${notif.topic}` : ''}
+                        </div>
+                      )}
+                      <div className="text-xs leading-snug mb-2" style={{ color: 'var(--warm-500)' }}>
+                        <span className="font-medium" style={{ color: 'var(--warm-600)' }}>To: </span>
+                        {notif.sentToSummary ||
+                          (notif.segment ? `Segment: ${notif.segment}` : '—')}
+                      </div>
+                      <div className="flex items-center justify-between text-xs flex-wrap gap-1">
+                        {notif.segment && (
+                          <span style={{ color: 'var(--warm-500)' }}>Audience: {notif.segment}</span>
+                        )}
                         <span style={{ color: 'var(--lavender-600)' }}>
-                          {notif.delivered || 0} delivered
+                          {notif.topic
+                            ? 'FCM topic (no per-device count)'
+                            : typeof notif.deliveredCount === 'number'
+                              ? `${notif.deliveredCount} delivered`
+                              : '—'}
+                          {!notif.topic &&
+                          typeof notif.failureCount === 'number' &&
+                          notif.failureCount > 0
+                            ? ` · ${notif.failureCount} failed`
+                            : ''}
                         </span>
                       </div>
                     </div>

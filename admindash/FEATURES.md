@@ -297,16 +297,18 @@ The **Reports** page generates six research-oriented reports **in the browser** 
 ## 12. Mobile app — Push notifications (FCM, iOS first)
 
 ### Current functionality
-The Flutter app (`empowerhealth`) uses **`firebase_core`** and **`firebase_messaging`**. After **`FirebaseService.initialize()`**, **`main.dart`** registers **`FirebaseMessaging.onBackgroundMessage`** with a top-level handler, then runs **`PushNotificationService.setupAfterFirebaseInitialized()`** (skipped on web). The service requests notification permission (alert, badge, sound), logs **`authorizationStatus`**, enables **iOS foreground presentation** (alert, badge, sound), logs the **FCM token**, persists **`users/{uid}/devices/{docId}`** with `platform`, `appVersion`, `createdAt`, `updatedAt`, and **`onTokenRefresh`**, and wires **`onMessage`**, **`onMessageOpenedApp`**, and **`getInitialMessage`**. Debug logs cover permission, token, foreground receive, background open, cold-start initial message, and Firestore save success/failure. **Firebase method swizzling** remains default (no `FirebaseAppDelegateProxyEnabled` = false in `Info.plist`).
+The Flutter app (`empowerhealth`) uses **`firebase_core`** and **`firebase_messaging`**. After **`FirebaseService.initialize()`**, **`main.dart`** registers **`FirebaseMessaging.onBackgroundMessage`** with a top-level handler, then runs **`PushNotificationService.setupAfterFirebaseInitialized()`** (skipped on web). The service requests notification permission (alert, badge, sound), logs **`authorizationStatus`**, enables **iOS foreground presentation** (alert, badge, sound), logs the **FCM token**, persists **`users/{uid}/devices/{docId}`** with `platform`, `appVersion`, `createdAt`, `updatedAt`, and **`onTokenRefresh`**, and wires **`onMessage`**, **`onMessageOpenedApp`**, and **`getInitialMessage`**. Debug logs cover permission, token, foreground receive, background open, cold-start initial message, and Firestore save success/failure. **Firebase method swizzling** remains default (no `FirebaseAppDelegateProxyEnabled` = false in `Info.plist`). When the user is signed in and notifications are **authorized** (or **provisional** on iOS), the app syncs **FCM topic subscriptions** from **`users/{uid}`** so admin broadcasts can target audiences by topic.
 
 ### How the feature works
 - **Initialization order**: `WidgetsFlutterBinding.ensureInitialized()` → **`Firebase.initializeApp`** (same options as **`FirebaseService.firebaseOptions`**) → **`onBackgroundMessage`** → `PushNotificationService.setup…` → **`runApp()`**.
 - **Bundle ID**: iOS **`com.example.empowerhealth`** matches **`ios/Runner/GoogleService-Info.plist`**, **`FirebaseService`** `iosBundleId`, and Xcode **`PRODUCT_BUNDLE_IDENTIFIER`**.
 - **Firestore**: Device docs live under **`users/{uid}/devices/`** (owner write via existing **`users/{userId}`** rules). Sign-out removes the current device doc when possible.
+- **Audience FCM topics** (names must match **`SEGMENT_TO_FCM_TOPIC`** in **`admindash/functions/src/notificationDashboard.ts`**): **`empower_general`** (all opted-in users), exactly one of **`empower_trimester_first`**, **`empower_trimester_second`**, **`empower_trimester_third`**, **`empower_postpartum`**, or **no** stage topic when not pregnant/postpartum, and exactly one cohort topic **`empower_cohort_navigator`** vs **`empower_cohort_self_directed`** (from **`cohortType`** / **`hasPrimaryProvider`**). A snapshot listener on **`users/{uid}`** re-runs subscribe/unsubscribe when **`dueDate`**, **`isPregnant`**, **`isPostpartum`**, **`pregnancyStage`**, or cohort fields change so trimester moves unsubscribe the old topic and subscribe the new one. Sign-out unsubscribes all managed audience topics (not **`community_new_posts`**). Constants live in **`lib/constants/push_audience_topics.dart`**; trimester math aligns with **`PregnancyUtils.calculateTrimester`**.
 - **Xcode / Apple**: Enable **Push Notifications** capability, upload **APNs key** (or certs) in Firebase Console → Cloud Messaging; **`UIBackgroundModes` → `remote-notification`** is set in **`Info.plist`** for background delivery. Android wiring is deferred.
 
 ### Change history
 - **2026-03-24** - **flutter-fcm-ios** - **FCM iOS**: Added **`firebase_messaging`**, **`PushNotificationService`**, background handler, foreground presentation, token persistence, `Info.plist` **`remote-notification`**, exposed **`FirebaseService.firebaseOptions`** for the background isolate.
+- **2026-03-24** - **flutter-fcm-audience-topics** - **Topic sync**: **`PushNotificationService`** subscribes/unsubscribes managed audience topics from **`users/{uid}`**; **`push_audience_topics.dart`** defines topic IDs in sync with admin **`sendNotification`**.
 
 ---
 
@@ -324,16 +326,36 @@ The Flutter app’s home-screen icon is generated from **`assets/EmpowerHealthAp
 
 ---
 
-## 14. Cloud Functions (default codebase) — FCM push triggers
+## 14. Cloud Functions (`admindashboard` codebase) — FCM push triggers
 
 ### Current functionality
-The **root** `functions/` codebase (see project `firebase.json`, not `admindash/functions`) includes **`pushNotifications.js`**: Firestore triggers and schedulers that send FCM notifications for **new learning modules** (`learning_tasks` creates that look like modules, not visit/birth-plan to-dos), **weekly open to-do reminders** (Mondays 9:00 America/New_York), **trimester transitions** (daily 10:00; seeds `pushNotifications.trimesterNotified` without a push on first run, then notifies on real First/Second/Third changes), **community likes and replies** (to post author), and **new community posts** via **FCM topic** `community_new_posts` (the Flutter app subscribes in **`PushNotificationService`**).
+Push notifications are implemented in **`admindash/functions/src/pushNotifications.ts`** and re-exported from **`admindash/functions/src/index.ts`**. They deploy with the **`admindashboard`** codebase when you run **`firebase deploy --only functions`** from **`admindash/`** (see **`admindash/firebase.json`**). The same triggers send FCM for **new learning modules** (`learning_tasks` creates that look like modules), **weekly open to-do reminders** (Mondays 9:00 America/New_York), **trimester transitions** (daily 10:00), **community likes and replies** (to post author), and **new community posts** via FCM topic **`community_new_posts`** (Flutter **`PushNotificationService`** subscribes to this topic).
+
+A duplicate reference implementation also exists under the repo **root** `functions/pushNotifications.js` for projects that deploy the default `functions` folder; production for this project uses **`admindash/functions`** only.
 
 ### How the feature works
 - **Tokens**: Reads `users/{uid}/devices/*` fields `fcmToken` (same shape as the mobile **`PushNotificationService`**).
 - **Opt-out** (optional user doc fields): `users.{pushNotifications.weeklyTodoReminders: false}`, `pushNotifications.trimesterReminders: false`.
-- **Deploy**: `firebase deploy --only functions` from the repo root (ensure **`functions/pushNotifications.js`** is deployed with **`index.js`**).
+- **Deploy**: From **`admindash`**: `firebase deploy --only functions` (builds TypeScript via **`predeploy`**).
 
 ### Change history
-- **2026-03-24** - **functions-fcm-push** - Added **`pushNotifications.js`** and wired exports in **`functions/index.js`**; Flutter subscribes to **`community_new_posts`** topic.
+- **2026-03-24** - **functions-fcm-push** - Added **`pushNotifications.js`** under root `functions/` (not deployed from admindash).
+- **2026-03-24** - **admindash-push-notifications-ts** - Ported push triggers to **`admindash/functions/src/pushNotifications.ts`** so they appear in the Firebase console under **`admindashboard:`** and deploy with the dashboard codebase.
+
+---
+
+## 15. Admin Dashboard — Notifications page (`/notifications`)
+
+### Current functionality
+The **Notifications** composer (**`/notifications`**) lets admins and community managers send broadcast FCM messages by **audience segment**. **Callable** functions **`sendNotification`** and **`getNotificationLogs`** live in **`admindash/functions/src/notificationDashboard.ts`**. Composer audiences map to **FCM topics** (e.g. **All Active Users** → **`empower_general`**, trimester/postpartum and cohort options → matching **`empower_trimester_*`**, **`empower_postpartum`**, **`empower_cohort_*`**); the function uses **`admin.messaging().send({ topic })`** so delivery follows mobile topic subscriptions. Every automated and manual send also appends documents to **`notification_logs`** via **`notificationLog.ts`** (including system pushes from **`pushNotifications.ts`**). Topic sends store **`topic`** and a **`sentToSummary`** line with the Firebase **messageId** (no per-device counts). The **Recent notifications** sidebar uses a **Firestore `onSnapshot`** subscription on **`notification_logs`** ordered by **`sentAt` desc** (see **`subscribeNotificationLogs`** in **`src/lib/notifications.ts`**) so the list updates in real time with **title**, **to** (**`sentToSummary`**), **Admin vs System**, **channel**, **topic**, and delivery counts when available. The **Affirmations Near Due Date** template was removed from the notification type grid.
+
+### How the feature works
+- **Firestore**: **`orderBy('sentAt', 'desc')`** on **`notification_logs`** uses Firestore’s **automatic single-field indexing**—no composite index entry is required (and Firebase rejects a redundant one-field composite).
+- **Rules**: **`notification_logs`** remains **Cloud Function–only writes**; dashboard reads via authenticated admin / community manager roles.
+- **Segments → topics**: Implemented as **`SEGMENT_TO_FCM_TOPIC`** in **`notificationDashboard.ts`**; must match **`lib/constants/push_audience_topics.dart`** in the Flutter app. Unknown segments fall back to the legacy **per-device token** multicast path.
+
+### Change history
+- **2026-03-24** - **admindash-notification-logs-ui** - **`sendNotification`** / **`getNotificationLogs`** callables, **`notification_logs` writes** for all push paths, real-time **Recent notifications**, removed **Affirmations Near Due Date** type.
+- **2026-03-24** - **firestore-notification-logs-index** - Removed redundant **`notification_logs` / `sentAt`** composite from **`firestore.indexes.json`** (Firestore single-field auto-index; deploy returned 400 “not necessary”).
+- **2026-03-24** - **admindash-compose-fcm-topics** - **Compose a Message** sends via **FCM topics**; **`Notifications.tsx`** explains topic audiences; logs include **`topic`** and topic-send summary.
 

@@ -1905,3 +1905,13 @@ async function performHealthChecks(): Promise<Record<string, any>> {
 }
 
 export { onAnalyticsEventCreated } from './analyticsAggregation';
+
+export {
+  onLearningModuleCreated,
+  onCommunityPostUpdated,
+  onCommunityPostCreated,
+  scheduledWeeklyTodoReminders,
+  scheduledTrimesterTransitionCheck,
+} from './pushNotifications';
+
+export { sendNotification, getNotificationLogs } from './notificationDashboard';

@@ -308,3 +308,32 @@ The Flutter app (`empowerhealth`) uses **`firebase_core`** and **`firebase_messa
 ### Change history
 - **2026-03-24** - **flutter-fcm-ios** - **FCM iOS**: Added **`firebase_messaging`**, **`PushNotificationService`**, background handler, foreground presentation, token persistence, `Info.plist` **`remote-notification`**, exposed **`FirebaseService.firebaseOptions`** for the background isolate.
 
+---
+
+## 13. Mobile app — Branding (launcher icon)
+
+### Current functionality
+The Flutter app’s home-screen icon is generated from **`assets/EmpowerHealthAppIcon.png`** using **`flutter_launcher_icons`** (dev dependency). Configuration lives in **`pubspec.yaml`** under **`flutter_launcher_icons`**.
+
+### How the feature works
+- **Source asset**: `assets/EmpowerHealthAppIcon.png` (also under the general **`assets/`** bundle for reference).
+- **Regenerate** after replacing the PNG: `dart run flutter_launcher_icons` from the project root (overwrites **`android/app/src/main/res/mipmap-*/`** and **`ios/Runner/Assets.xcassets/AppIcon.appiconset/`**).
+
+### Change history
+- **2026-03-24** - **flutter-app-icon** - Initial wiring of EmpowerHealth circular icon for Android and iOS launchers.
+
+---
+
+## 14. Cloud Functions (default codebase) — FCM push triggers
+
+### Current functionality
+The **root** `functions/` codebase (see project `firebase.json`, not `admindash/functions`) includes **`pushNotifications.js`**: Firestore triggers and schedulers that send FCM notifications for **new learning modules** (`learning_tasks` creates that look like modules, not visit/birth-plan to-dos), **weekly open to-do reminders** (Mondays 9:00 America/New_York), **trimester transitions** (daily 10:00; seeds `pushNotifications.trimesterNotified` without a push on first run, then notifies on real First/Second/Third changes), **community likes and replies** (to post author), and **new community posts** via **FCM topic** `community_new_posts` (the Flutter app subscribes in **`PushNotificationService`**).
+
+### How the feature works
+- **Tokens**: Reads `users/{uid}/devices/*` fields `fcmToken` (same shape as the mobile **`PushNotificationService`**).
+- **Opt-out** (optional user doc fields): `users.{pushNotifications.weeklyTodoReminders: false}`, `pushNotifications.trimesterReminders: false`.
+- **Deploy**: `firebase deploy --only functions` from the repo root (ensure **`functions/pushNotifications.js`** is deployed with **`index.js`**).
+
+### Change history
+- **2026-03-24** - **functions-fcm-push** - Added **`pushNotifications.js`** and wired exports in **`functions/index.js`**; Flutter subscribes to **`community_new_posts`** topic.
+

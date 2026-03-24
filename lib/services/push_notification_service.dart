@@ -68,6 +68,14 @@ class PushNotificationService {
 
     await _messaging.setAutoInitEnabled(true);
 
+    // New community posts are sent to this topic from Cloud Functions (see functions/pushNotifications.js).
+    try {
+      await _messaging.subscribeToTopic('community_new_posts');
+      debugPrint('[FCM] subscribed to topic community_new_posts');
+    } catch (e) {
+      debugPrint('[FCM] subscribeToTopic community_new_posts failed: $e');
+    }
+
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint(
         '[FCM][foreground] messageId=${message.messageId} '

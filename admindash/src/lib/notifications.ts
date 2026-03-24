@@ -28,10 +28,27 @@ export type NotificationSegment =
 export interface NotificationPayload {
   title: string;
   body: string;
-  deepLink?: string;
   segment: NotificationSegment;
   scheduledFor?: Date;
 }
+
+/**
+ * Composer dropdown: segment sent to `sendNotification` → FCM topic name shown in UI.
+ * Must match `SEGMENT_TO_FCM_TOPIC` in `functions/src/notificationDashboard.ts` and
+ * `lib/constants/push_audience_topics.dart` (Flutter).
+ */
+export const NOTIFICATION_AUDIENCE_FCM_TOPICS: {
+  value: NotificationSegment;
+  fcmTopic: string;
+}[] = [
+  { value: 'all', fcmTopic: 'empower_general' },
+  { value: 'first_trimester', fcmTopic: 'empower_trimester_first' },
+  { value: 'second_trimester', fcmTopic: 'empower_trimester_second' },
+  { value: 'third_trimester', fcmTopic: 'empower_trimester_third' },
+  { value: 'postpartum', fcmTopic: 'empower_postpartum' },
+  { value: 'navigator', fcmTopic: 'empower_cohort_navigator' },
+  { value: 'self_directed', fcmTopic: 'empower_cohort_self_directed' },
+];
 
 /** Row from `notification_logs` (admin + system pushes). */
 export interface NotificationLogRow {

@@ -1,6 +1,7 @@
 import { Send, Calendar, Users, Sparkles, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import {
+  NOTIFICATION_AUDIENCE_FCM_TOPICS,
   sendNotification,
   subscribeNotificationLogs,
   type NotificationLogRow,
@@ -12,7 +13,6 @@ export function Notifications() {
   const [messageType, setMessageType] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [deepLink, setDeepLink] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [audience, setAudience] = useState<NotificationSegment>("all");
   const [sending, setSending] = useState(false);
@@ -51,7 +51,6 @@ export function Notifications() {
       await sendNotification({
         title,
         body,
-        deepLink: deepLink || undefined,
         segment: audience,
         scheduledFor: scheduledDate ? new Date(scheduledDate) : undefined,
       });
@@ -59,7 +58,6 @@ export function Notifications() {
       setSuccess("Notification sent successfully!");
       setTitle("");
       setBody("");
-      setDeepLink("");
       setScheduledDate("");
       setMessageType("");
     } catch (err: any) {
@@ -98,16 +96,6 @@ export function Notifications() {
       icon: "💬",
       color: '#06b6d4',
     },
-  ];
-
-  const audienceOptions: { value: NotificationSegment; label: string }[] = [
-    { value: "all", label: "All Active Users" },
-    { value: "first_trimester", label: "First Trimester" },
-    { value: "second_trimester", label: "Second Trimester" },
-    { value: "third_trimester", label: "Third Trimester" },
-    { value: "postpartum", label: "Postpartum (0-12 weeks)" },
-    { value: "navigator", label: "Navigator-Assisted Users" },
-    { value: "self_directed", label: "Self-Directed Users" },
   ];
 
   return (
@@ -233,23 +221,6 @@ export function Notifications() {
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-sm mb-2" style={{ color: 'var(--warm-600)' }}>
-                    Deep Link (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={deepLink}
-                    onChange={(e) => setDeepLink(e.target.value)}
-                    placeholder="empowerhealth://feature/page"
-                    className="w-full px-4 py-3 rounded-xl border"
-                    style={{
-                      backgroundColor: 'var(--warm-50)',
-                      borderColor: 'var(--lavender-200)',
-                    }}
-                  />
-                </div>
-
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <label className="block text-sm mb-2" style={{ color: 'var(--warm-600)' }}>
@@ -271,28 +242,27 @@ export function Notifications() {
                   <div>
                     <label className="block text-sm mb-2" style={{ color: 'var(--warm-600)' }}>
                       <Users className="w-4 h-4 inline mr-1" />
-                      Target Audience
+                      FCM topic
                     </label>
                     <select
                       value={audience}
                       onChange={(e) => setAudience(e.target.value as NotificationSegment)}
-                      className="w-full px-4 py-3 rounded-xl border"
+                      className="w-full px-4 py-3 rounded-xl border font-mono text-sm"
                       style={{
                         backgroundColor: 'var(--warm-50)',
                         borderColor: 'var(--lavender-200)',
                       }}
                     >
-                      {audienceOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
+                      {NOTIFICATION_AUDIENCE_FCM_TOPICS.map(({ value, fcmTopic }) => (
+                        <option key={value} value={value}>
+                          {fcmTopic}
                         </option>
                       ))}
                     </select>
                     <p className="text-xs mt-1" style={{ color: 'var(--warm-400)' }}>
-                      Each option maps to an FCM topic. The mobile app subscribes users who allow
-                      notifications to <strong>general</strong> (all active), one <strong>trimester or postpartum</strong>{' '}
-                      topic (updated when their profile changes), and one <strong>cohort</strong> topic—so only
-                      matching devices receive the push.
+                      Subscribers are managed in the mobile app: all opted-in users join{' '}
+                      <span className="font-mono">empower_general</span>, plus one trimester/postpartum topic and one
+                      cohort topic when their profile matches.
                     </p>
                   </div>
                 </div>

@@ -584,7 +584,7 @@ export function AnalyticsInfo() {
             </p>
           </div>
           <Link
-            to="/analytics"
+            to="/"
             className="px-4 py-2 rounded-lg text-sm"
             style={{ backgroundColor: "var(--lavender-100)", color: "var(--lavender-600)" }}
           >

@@ -4,8 +4,10 @@
  */
 
 import * as admin from 'firebase-admin';
+import type { DocumentReference } from 'firebase-admin/firestore';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { deleteStaleFcmDeviceDocs } from './fcmStaleTokenCleanup';
 import { safeWriteNotificationLog } from './notificationLog';
 
 const db = admin.firestore();
@@ -46,14 +48,16 @@ function isIncompleteTask(data: FirebaseFirestore.DocumentData | undefined): boo
   return true;
 }
 
-async function getFcmTokensForUser(uid: string): Promise<string[]> {
+type UserDeviceRow = { ref: DocumentReference; token: string };
+
+async function getFcmDeviceRowsForUser(uid: string): Promise<UserDeviceRow[]> {
   const snap = await db.collection('users').doc(uid).collection('devices').get();
-  const tokens: string[] = [];
+  const rows: UserDeviceRow[] = [];
   for (const doc of snap.docs) {
     const t = doc.data().fcmToken;
-    if (typeof t === 'string' && t.length > 0) tokens.push(t);
+    if (typeof t === 'string' && t.length > 0) rows.push({ ref: doc.ref, token: t });
   }
-  return tokens;
+  return rows;
 }
 
 async function sendToUserDevices(
@@ -61,7 +65,8 @@ async function sendToUserDevices(
   payload: { title: string; body: string; data?: Record<string, string> },
 ): Promise<{ sent: number; failures: number }> {
   const { title, body, data = {} } = payload;
-  const tokens = await getFcmTokensForUser(uid);
+  const deviceRows = await getFcmDeviceRowsForUser(uid);
+  const tokens = deviceRows.map((r) => r.token);
   if (!tokens.length) {
     console.log(`[push] no FCM tokens for user ${uid}`);
     return { sent: 0, failures: 0 };
@@ -78,6 +83,10 @@ async function sendToUserDevices(
     android: { priority: 'high' },
     apns: { payload: { aps: { sound: 'default', 'thread-id': threadId } } },
   });
+  await deleteStaleFcmDeviceDocs(
+    deviceRows.map((r) => r.ref),
+    resp.responses,
+  );
   if (resp.failureCount > 0) {
     resp.responses.forEach((r, i) => {
       if (!r.success) {

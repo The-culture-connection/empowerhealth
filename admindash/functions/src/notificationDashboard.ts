@@ -3,8 +3,9 @@
  */
 
 import * as admin from 'firebase-admin';
-import type { DocumentData, Timestamp } from 'firebase-admin/firestore';
+import type { DocumentData, DocumentReference, Timestamp } from 'firebase-admin/firestore';
 import * as functions from 'firebase-functions';
+import { deleteStaleFcmDeviceDocs } from './fcmStaleTokenCleanup';
 import { writeNotificationLog } from './notificationLog';
 
 const db = admin.firestore();
@@ -83,12 +84,11 @@ function segmentMatches(
   return true;
 }
 
-async function collectTokensForSegment(
-  segment: string,
-): Promise<{ tokens: string[]; userIds: string[] }> {
+type SegmentDeviceRow = { token: string; deviceRef: DocumentReference; uid: string };
+
+async function collectDeviceRowsForSegment(segment: string): Promise<SegmentDeviceRow[]> {
   const usersSnap = await db.collection('users').get();
-  const tokens: string[] = [];
-  const userIds: string[] = [];
+  const rows: SegmentDeviceRow[] = [];
 
   for (const userDoc of usersSnap.docs) {
     const data = userDoc.data();
@@ -99,12 +99,11 @@ async function collectTokensForSegment(
     for (const d of deviceSnap.docs) {
       const t = d.data().fcmToken;
       if (typeof t === 'string' && t.length > 0) {
-        tokens.push(t);
-        userIds.push(uid);
+        rows.push({ token: t, deviceRef: d.ref, uid });
       }
     }
   }
-  return { tokens, userIds };
+  return rows;
 }
 
 /** Admin / community manager: send FCM to segment; writes notification_logs. */
@@ -199,8 +198,8 @@ export const sendNotification = functions.https.onCall(
       }
     }
 
-    const { tokens, userIds } = await collectTokensForSegment(segment);
-    if (tokens.length === 0) {
+    const deviceRows = await collectDeviceRowsForSegment(segment);
+    if (deviceRows.length === 0) {
       await writeNotificationLog({
         title,
         body,
@@ -218,20 +217,24 @@ export const sendNotification = functions.https.onCall(
     let delivered = 0;
     let failures = 0;
     const chunkSize = 500;
-    for (let i = 0; i < tokens.length; i += chunkSize) {
-      const chunk = tokens.slice(i, i + chunkSize);
+    for (let i = 0; i < deviceRows.length; i += chunkSize) {
+      const chunk = deviceRows.slice(i, i + chunkSize);
       const resp = await admin.messaging().sendEachForMulticast({
-        tokens: chunk,
+        tokens: chunk.map((r) => r.token),
         notification: { title, body },
         data: dataPayload,
         android: { priority: 'high' },
         apns: { payload: { aps: { sound: 'default' } } },
       });
+      await deleteStaleFcmDeviceDocs(
+        chunk.map((r) => r.deviceRef),
+        resp.responses,
+      );
       delivered += resp.successCount;
       failures += resp.failureCount;
     }
 
-    const uniqueUids = [...new Set(userIds)];
+    const uniqueUids = [...new Set(deviceRows.map((r) => r.uid))];
     const sentToSummary =
       uniqueUids.length <= 3
         ? uniqueUids.map((u) => `…${u.slice(-6)}`).join(', ')

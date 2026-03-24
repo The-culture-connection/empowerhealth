@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Navigate } from "react-router";
-import { Home, FileText, Code2, Users, BarChart3, FileBarChart, Bell, LogOut } from "lucide-react";
+import { FileText, Code2, Users, BarChart3, FileBarChart, Bell, LogOut } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
 export function Layout() {
@@ -29,11 +29,10 @@ export function Layout() {
     community_manager: 'Community Manager',
   };
   const navItems = [
-    { to: "/", label: "Dashboard", icon: Home },
+    { to: "/", label: "Analytics", icon: BarChart3 },
     { to: "/documentation", label: "Documentation", icon: FileText },
     { to: "/technology", label: "Technology Overview", icon: Code2 },
     { to: "/users-roles", label: "Users & Roles", icon: Users },
-    { to: "/analytics", label: "Analytics", icon: BarChart3 },
     { to: "/reports", label: "Reports", icon: FileBarChart },
     { to: "/notifications", label: "Notifications", icon: Bell },
   ];

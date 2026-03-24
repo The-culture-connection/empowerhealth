@@ -25,17 +25,31 @@ export interface WriteNotificationLogInput {
   metadata?: Record<string, string>;
 }
 
+/** Firestore rejects `undefined` on any field; strip before `add()`. */
+function omitUndefinedFields(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 export async function writeNotificationLog(input: WriteNotificationLogInput): Promise<void> {
   const recipientUserIds =
     input.recipientUserIds && input.recipientUserIds.length > 40
       ? input.recipientUserIds.slice(0, 40)
       : input.recipientUserIds;
 
-  await db.collection('notification_logs').add({
+  const doc = omitUndefinedFields({
     ...input,
     recipientUserIds: recipientUserIds ?? null,
     sentAt: admin.firestore.FieldValue.serverTimestamp(),
   });
+  await db.collection('notification_logs').add(doc);
 }
 
 /** Never throw — logging must not break FCM delivery. */

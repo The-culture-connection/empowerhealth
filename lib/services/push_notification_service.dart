@@ -41,6 +41,10 @@ class PushNotificationService {
   /// Avoid redundant subscribe/unsubscribe when Firestore snapshot fires often.
   String? _lastAudienceTopicFingerprint;
 
+  /// Coalesce rapid `users/{uid}` updates so we do not churn FCM topic subscriptions.
+  Timer? _topicSyncDebounce;
+  Map<String, dynamic>? _pendingProfileForTopicSync;
+
   bool _notificationsAuthorized = false;
 
   /// Call after [FirebaseService.initialize] succeeds, before [runApp].
@@ -152,7 +156,15 @@ class PushNotificationService {
         .listen(
       (snap) {
         if (!snap.exists || snap.data() == null) return;
-        unawaited(_syncAudienceTopicsFromUserDoc(snap.data()!));
+        _pendingProfileForTopicSync = snap.data();
+        _topicSyncDebounce?.cancel();
+        _topicSyncDebounce = Timer(const Duration(milliseconds: 600), () {
+          final data = _pendingProfileForTopicSync;
+          _pendingProfileForTopicSync = null;
+          if (data != null) {
+            unawaited(_syncAudienceTopicsFromUserDoc(data));
+          }
+        });
       },
       onError: (e) => debugPrint('[FCM] user profile listener: $e'),
     );
@@ -160,6 +172,9 @@ class PushNotificationService {
   }
 
   void _detachUserTopicListener() {
+    _topicSyncDebounce?.cancel();
+    _topicSyncDebounce = null;
+    _pendingProfileForTopicSync = null;
     _profileSub?.cancel();
     _profileSub = null;
   }
@@ -291,6 +306,27 @@ class PushNotificationService {
       appVersion = '${info.version}+${info.buildNumber}';
     } catch (e) {
       debugPrint('[FCM] PackageInfo failed: $e');
+    }
+
+    // FCM can rotate the registration token without any APNs change. Doc id is derived from
+    // the token, so a rotation would otherwise leave the old doc with a dead token and Cloud
+    // Functions would keep sending to it (messaging/registration-token-not-registered).
+    final previous = _lastPersistedToken;
+    if (previous != null && previous.isNotEmpty && previous != token) {
+      try {
+        final oldId = _tokenDocId(previous);
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('devices')
+            .doc(oldId)
+            .delete();
+        debugPrint(
+          '[FCM] removed superseded device doc users/${user.uid}/devices/$oldId (token rotated)',
+        );
+      } catch (e) {
+        debugPrint('[FCM] failed to remove superseded device doc: $e');
+      }
     }
 
     final docId = _tokenDocId(token);

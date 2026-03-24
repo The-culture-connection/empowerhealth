@@ -1,7 +1,6 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { Layout } from "./components/Layout";
 import { TechnologyLayout } from "./components/TechnologyLayout";
-import { Dashboard } from "./pages/Dashboard";
 import { Documentation } from "./pages/Documentation";
 import { TechnologyOverview } from "./pages/TechnologyOverview";
 import { TechnologyInstructions } from "./pages/TechnologyInstructions";
@@ -26,9 +25,13 @@ export const router = createBrowserRouter([
         index: true, 
         element: (
           <RoleRoute allowedRoles={['admin', 'research_partner', 'community_manager']}>
-            <Dashboard />
+            <Analytics />
           </RoleRoute>
         )
+      },
+      {
+        path: "analytics",
+        element: <Navigate to="/" replace />,
       },
       { 
         path: "documentation", 
@@ -61,14 +64,6 @@ export const router = createBrowserRouter([
         element: (
           <RoleRoute allowedRoles={['admin']}>
             <UsersAndRoles />
-          </RoleRoute>
-        )
-      },
-      { 
-        path: "analytics", 
-        element: (
-          <RoleRoute allowedRoles={['admin', 'research_partner', 'community_manager']}>
-            <Analytics />
           </RoleRoute>
         )
       },

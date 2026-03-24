@@ -189,7 +189,7 @@ Clients **cannot** write summary documents; only Functions (Admin SDK) do.
 
 | Surface | Role |
 | --- | --- |
-| **`Analytics.tsx`** | Charts, filters, CSV export; reads **`analytics_events`** (range queries) and **summary** collections via helpers like `analyticsDashboardFirestore.ts`. |
+| **`Analytics.tsx`** | Charts, filters, CSV export; reads **`analytics_events`** (range queries) and **summary** collections via helpers like `analyticsDashboardFirestore.ts`. The **Outcome Signals** chart aggregates **`technology_features/{featureId}/qualitative_surveys`** (parallel per-feature queries, not a collection group), **`ModuleFeedback`**, and **`CareSurvey`** into Monday-start weekly **1–5** averages (see `admindash/FEATURES.md` §10). |
 | **`getAnalyticsData` (callable)** | Server-side aggregation over `analytics_events` or `analytics_events_private`, holistic report fields, date ranges — requires auth; unanonymized data restricted to admins. |
 | **`/analytics/info`** | Human-readable glossary: per-feature **lifecycle start → actions → lifecycle end**, with implementation status (`Tracked` / `Partial` / `Needs Implementation`). |
 | **Technology Overview** | Can surface feature-linked metadata and change history; not the primary analytics datastore. |
@@ -241,4 +241,4 @@ Export CSV typically includes: `eventName`, `feature`, duration, `timestamp`, `s
 
 ---
 
-*Last updated: 2026-03-24 — aligns with session end / feature_session instrumentation and admin Analytics Info layout.*
+*Last updated: 2026-03-24 — includes admin Outcome Signals chart (survey-backed weekly aggregates) and admin Analytics Info layout.*

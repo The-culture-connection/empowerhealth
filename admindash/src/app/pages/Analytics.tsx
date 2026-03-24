@@ -1,5 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { collection, doc, getDocs, onSnapshot, query, where, Timestamp } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  onSnapshot,
+  query,
+  where,
+  Timestamp,
+} from "firebase/firestore";
 import {
   BarChart,
   Bar,
@@ -13,8 +21,9 @@ import {
   Legend,
 } from "recharts";
 import { Link } from "react-router";
-import { Download, Users, Clock, Activity, TrendingUp, Target, AlertTriangle, Loader2 } from "lucide-react";
+import { Download, Users, Clock, Activity, TrendingUp, Target, Timer, Loader2 } from "lucide-react";
 import { firestore, auth } from "../../firebase/firebase";
+import { useAuth } from "../../contexts/AuthContext";
 
 type DateRangeKey = "7d" | "30d" | "90d" | "all";
 
@@ -44,6 +53,68 @@ function fmtShortDate(d: Date): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+/** Monday-start week bucket for sorting and labeling */
+function startOfWeekMonday(d: Date): Date {
+  const x = new Date(d);
+  const day = x.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  x.setDate(x.getDate() + diff);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function surveyLowerBound(dateRange: DateRangeKey): Date {
+  if (dateRange === "all") {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 2);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  const days = dateRange === "7d" ? 7 : dateRange === "30d" ? 30 : 90;
+  const start = new Date();
+  start.setDate(start.getDate() - days);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function understandingFromQualitativeQuestions(questions: unknown): number | null {
+  if (!Array.isArray(questions) || questions.length === 0) return null;
+  const q0 = questions[0] as { answer?: unknown };
+  if (typeof q0?.answer === "number" && q0.answer >= 1 && q0.answer <= 5) return q0.answer;
+  return null;
+}
+
+function confidenceFromQualitativeQuestions(questions: unknown): number | null {
+  if (!Array.isArray(questions) || questions.length === 0) return null;
+  const idx = questions.length >= 3 ? 2 : questions.length - 1;
+  const q = questions[idx] as { answer?: unknown };
+  if (typeof q?.answer === "number" && q.answer >= 1 && q.answer <= 5) return q.answer;
+  return null;
+}
+
+const CARE_ACCESS_SCORE: Record<string, number> = {
+  yes: 5,
+  partly: 3,
+  no: 1,
+  "didnt-try": 2,
+  "didnt-know": 2,
+  "couldnt-access": 1,
+};
+
+function careSurveyConfidenceScore(accessResponses: unknown): number | null {
+  if (!accessResponses || typeof accessResponses !== "object") return null;
+  const vals = Object.values(accessResponses as Record<string, string>)
+    .map((v) => (typeof v === "string" ? CARE_ACCESS_SCORE[v] : undefined))
+    .filter((n): n is number => typeof n === "number" && n >= 1 && n <= 5);
+  if (vals.length === 0) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
+function surveyDocDate(data: Record<string, unknown>): Date | null {
+  const ts = data.completedAt ?? data.createdAt ?? data.timestamp;
+  return tsToDate(ts);
+}
+
 function toCsvRow(values: Array<string | number | null>): string {
   return values
     .map((v) => {
@@ -54,12 +125,18 @@ function toCsvRow(values: Array<string | number | null>): string {
 }
 
 export function Analytics() {
+  const { userProfile } = useAuth();
   const [dateRange, setDateRange] = useState<DateRangeKey>("30d");
   const [selectedFeature, setSelectedFeature] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [events, setEvents] = useState<RawEvent[]>([]);
   const [liveGlobalSummary, setLiveGlobalSummary] = useState<Record<string, unknown> | null>(null);
+  const [outcomeSignalsData, setOutcomeSignalsData] = useState<
+    Array<{ week: string; understanding: number; confidence: number }>
+  >([]);
+  const [outcomeSurveyLoading, setOutcomeSurveyLoading] = useState(false);
+  const [outcomeSurveyError, setOutcomeSurveyError] = useState("");
 
   useEffect(() => {
     const ref = doc(firestore, "analytics_summary", "global");
@@ -117,6 +194,136 @@ export function Analytics() {
     void loadEvents();
   }, [dateRange]);
 
+  useEffect(() => {
+    async function loadOutcomeSurveys() {
+      if (!userProfile?.uid) {
+        setOutcomeSurveyLoading(false);
+        return;
+      }
+      setOutcomeSurveyLoading(true);
+      setOutcomeSurveyError("");
+      const start = surveyLowerBound(dateRange);
+      const startTs = Timestamp.fromDate(start);
+
+      type Bucket = { u: number[]; c: number[] };
+      const byWeek = new Map<number, Bucket>();
+
+      const add = (d: Date | null, u: number | null, conf: number | null) => {
+        if (!d || Number.isNaN(d.getTime())) return;
+        const t = startOfWeekMonday(d).getTime();
+        if (!byWeek.has(t)) byWeek.set(t, { u: [], c: [] });
+        const b = byWeek.get(t)!;
+        if (u != null && u >= 1 && u <= 5) b.u.push(u);
+        if (conf != null && conf >= 1 && conf <= 5) b.c.push(conf);
+      };
+
+      try {
+        const u = auth.currentUser;
+        if (u) {
+          await u.getIdToken(true);
+        }
+
+        try {
+          // Per-feature subcollections only (under technology_features). A collectionGroup("qualitative_surveys")
+          // query fails if *any* matching doc in the DB lives on a path this user cannot read (Firestore rules
+          // are not filters). Scoped queries avoid stray or legacy qualitative_surveys paths.
+          let qualitativeFeatureIds: string[] =
+            selectedFeature === "all" ? [] : [selectedFeature];
+          if (selectedFeature === "all") {
+            const tfSnap = await getDocs(collection(firestore, "technology_features"));
+            const idSet = new Set(tfSnap.docs.map((d) => d.id));
+            for (const ev of events) {
+              if (ev.feature) idSet.add(ev.feature);
+            }
+            qualitativeFeatureIds = Array.from(idSet).sort();
+          }
+          await Promise.all(
+            qualitativeFeatureIds.map(async (featureId) => {
+              const subSnap = await getDocs(
+                query(
+                  collection(firestore, "technology_features", featureId, "qualitative_surveys"),
+                  where("timestamp", ">=", startTs),
+                ),
+              );
+              subSnap.forEach((docSnap) => {
+                const data = docSnap.data() as Record<string, unknown>;
+                const feat = String(data.feature || featureId);
+                if (selectedFeature !== "all" && feat !== selectedFeature) return;
+                const qs = data.questions;
+                add(
+                  surveyDocDate(data),
+                  understandingFromQualitativeQuestions(qs),
+                  confidenceFromQualitativeQuestions(qs),
+                );
+              });
+            }),
+          );
+        } catch (e: any) {
+          throw new Error(
+            `qualitative_surveys: ${e?.code || ""} ${e?.message || e}`.trim(),
+          );
+        }
+
+        if (selectedFeature === "all" || selectedFeature === "learning-modules") {
+          try {
+            const qMod = query(collection(firestore, "ModuleFeedback"), where("createdAt", ">=", startTs));
+            const modSnap = await getDocs(qMod);
+            modSnap.forEach((docSnap) => {
+              const data = docSnap.data() as Record<string, unknown>;
+              const ur = data.understandingRating;
+              const cr = data.confidenceRating;
+              add(
+                surveyDocDate(data),
+                typeof ur === "number" ? ur : null,
+                typeof cr === "number" ? cr : null,
+              );
+            });
+          } catch (e: any) {
+            throw new Error(
+              `ModuleFeedback: ${e?.code || ""} ${e?.message || e}`.trim(),
+            );
+          }
+        }
+
+        if (selectedFeature === "all" || selectedFeature === "user-feedback") {
+          try {
+            const qCare = query(collection(firestore, "CareSurvey"), where("createdAt", ">=", startTs));
+            const careSnap = await getDocs(qCare);
+            careSnap.forEach((docSnap) => {
+              const data = docSnap.data() as Record<string, unknown>;
+              const d = surveyDocDate(data);
+              const conf = careSurveyConfidenceScore(data.accessResponses);
+              add(d, null, conf);
+            });
+          } catch (e: any) {
+            throw new Error(`CareSurvey: ${e?.code || ""} ${e?.message || e}`.trim());
+          }
+        }
+
+        const rows = Array.from(byWeek.entries())
+          .sort(([a], [b]) => a - b)
+          .map(([weekMs, v]) => {
+            const label = fmtShortDate(new Date(weekMs));
+            return {
+              week: label,
+              understanding: v.u.length ? v.u.reduce((x, y) => x + y, 0) / v.u.length : 0,
+              confidence: v.c.length ? v.c.reduce((x, y) => x + y, 0) / v.c.length : 0,
+            };
+          })
+          .filter((r) => r.understanding > 0 || r.confidence > 0)
+          .slice(-12);
+
+        setOutcomeSignalsData(rows);
+      } catch (e: any) {
+        setOutcomeSurveyError(e?.message || "Failed to load survey outcomes");
+        setOutcomeSignalsData([]);
+      } finally {
+        setOutcomeSurveyLoading(false);
+      }
+    }
+    void loadOutcomeSurveys();
+  }, [dateRange, selectedFeature, userProfile?.uid, events]);
+
   const featureOptions = useMemo(() => {
     const features = Array.from(new Set(events.map((e) => e.feature))).sort();
     return ["all", ...features];
@@ -129,7 +336,7 @@ export function Analytics() {
 
   const metrics = useMemo(() => {
     const sessionStarted = filteredEvents.filter((e) => e.eventName === "session_started").length;
-    const flowAbandoned = filteredEvents.filter((e) => e.eventName === "flow_abandoned").length;
+    const featureDwellEvents = filteredEvents.filter((e) => e.eventName === "feature_time_spent").length;
 
     const users = new Set(
       filteredEvents.map((e) => e.anonUserId || e.uid).filter((v): v is string => Boolean(v)),
@@ -163,7 +370,7 @@ export function Analytics() {
       avgSessionMinutes: avgSessionMs > 0 ? avgSessionMs / 60000 : 0,
       engagementRate: users.size > 0 ? (engagedUsers / users.size) * 100 : 0,
       retentionRate: users.size > 0 ? (returningUsers / users.size) * 100 : 0,
-      abandonmentRate: sessionStarted > 0 ? (flowAbandoned / sessionStarted) * 100 : 0,
+      featureDwellEvents,
     };
   }, [filteredEvents]);
 
@@ -264,38 +471,31 @@ export function Analytics() {
     return Object.entries(map).map(([mood, count], i) => ({ mood, count, color: colors[i % colors.length] }));
   }, [filteredEvents]);
 
-  const outcomeSignalsData = useMemo(() => {
-    const weekAgg: Record<string, { confidence: number[]; understanding: number[] }> = {};
-    filteredEvents
-      .filter((e) => e.eventName === "micro_measure_submitted" || e.eventName === "confidence_signal_submitted")
-      .forEach((e) => {
-        const t = e.timestamp ? fmtShortDate(e.timestamp) : "unknown";
-        if (!weekAgg[t]) weekAgg[t] = { confidence: [], understanding: [] };
-        const c = e.metadata?.confidence_score;
-        const u = e.metadata?.understand_meaning_score;
-        if (typeof c === "number") weekAgg[t].confidence.push(c);
-        if (typeof u === "number") weekAgg[t].understanding.push(u);
-      });
-    return Object.entries(weekAgg)
-      .map(([week, v]) => ({
-        week,
-        confidence: v.confidence.length ? v.confidence.reduce((a, b) => a + b, 0) / v.confidence.length : 0,
-        understanding: v.understanding.length ? v.understanding.reduce((a, b) => a + b, 0) / v.understanding.length : 0,
-      }))
-      .slice(-6);
-  }, [filteredEvents]);
-
-  const abandonmentData = useMemo(() => {
+  /** Sum of `feature_time_spent` seconds per feature; four features with lowest total dwell (screen time proxy). */
+  const lowestFeatureDwellData = useMemo(() => {
     const map: Record<string, number> = {};
-    filteredEvents
-      .filter((e) => e.eventName === "flow_abandoned")
+    events
+      .filter((e) => e.eventName === "feature_time_spent")
       .forEach((e) => {
-        const flow = String((e.metadata?.flow_name as string) || e.feature || "unknown");
-        map[flow] = (map[flow] || 0) + 1;
+        if (selectedFeature !== "all" && e.feature !== selectedFeature) return;
+        const f = e.feature || "unknown";
+        const sec =
+          typeof e.metadata?.time_spent_seconds === "number"
+            ? (e.metadata.time_spent_seconds as number)
+            : typeof e.durationMs === "number"
+              ? e.durationMs / 1000
+              : 0;
+        map[f] = (map[f] || 0) + sec;
       });
-    const sessions = filteredEvents.filter((e) => e.eventName === "session_started").length || 1;
-    return Object.entries(map).map(([flow, count]) => ({ flow, abandonmentRate: (count / sessions) * 100 }));
-  }, [filteredEvents]);
+    return Object.entries(map)
+      .map(([feature, totalSeconds]) => ({
+        feature,
+        totalMinutes: totalSeconds / 60,
+        totalSeconds,
+      }))
+      .sort((a, b) => a.totalSeconds - b.totalSeconds)
+      .slice(0, 4);
+  }, [events, selectedFeature]);
 
   const screenTimeData = useMemo(() => {
     const map: Record<string, { durations: number[]; sessions: number }> = {};
@@ -338,7 +538,6 @@ export function Analytics() {
 
   const retentionStr = `${metrics.retentionRate.toFixed(1)}%`;
   const engagementStr = `${metrics.engagementRate.toFixed(1)}%`;
-  const abandonStr = `${metrics.abandonmentRate.toFixed(1)}%`;
   const avgSessionStr = `${metrics.avgSessionMinutes.toFixed(1)}m`;
 
   return (
@@ -420,7 +619,7 @@ export function Analytics() {
               { icon: Clock, label: "Avg Session", value: avgSessionStr },
               { icon: TrendingUp, label: "Engagement Rate", value: engagementStr },
               { icon: Target, label: "30d Retention", value: retentionStr },
-              { icon: AlertTriangle, label: "Abandonment", value: abandonStr },
+              { icon: Timer, label: "Feature dwell events", value: metrics.featureDwellEvents.toLocaleString() },
             ].map((m) => (
               <div key={m.label} className="p-5 rounded-2xl border" style={{ backgroundColor: "white", borderColor: "#e0e0e0" }}>
                 <div className="flex items-center gap-2 mb-2">
@@ -564,36 +763,80 @@ export function Analytics() {
             </div>
 
             <div className="p-8 rounded-2xl border" style={{ backgroundColor: "white", borderColor: "#e0e0e0" }}>
-              <h3 className="text-lg mb-6" style={{ color: "#424242" }}>Outcome Signals</h3>
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={outcomeSignalsData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
-                  <XAxis dataKey="week" stroke="#9e9e9e" style={{ fontSize: "12px" }} />
-                  <YAxis domain={[0, 10]} stroke="#9e9e9e" style={{ fontSize: "12px" }} />
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: "12px" }} />
-                  <Line type="monotone" dataKey="confidence" stroke="#2e7d32" strokeWidth={2} name="Confidence Score" />
-                  <Line type="monotone" dataKey="understanding" stroke="#1976d2" strokeWidth={2} name="Understanding Score" />
-                </LineChart>
-              </ResponsiveContainer>
+              <h3 className="text-lg mb-1" style={{ color: "#424242" }}>Outcome Signals</h3>
+              <p className="text-sm mb-4" style={{ color: "#757575" }}>
+                Weekly averages (1–5): <strong>Understanding</strong> from qualitative dialog (first Likert) and learning{" "}
+                <code className="text-xs">ModuleFeedback</code> (understanding stars). <strong>Confidence</strong> from qualitative (third Likert),{" "}
+                <code className="text-xs">ModuleFeedback</code> (confidence stars), and care navigation <code className="text-xs">CareSurvey</code> access
+                responses (mapped to 1–5). Surveys: last 2y when range is &quot;all&quot;.
+              </p>
+              {outcomeSurveyError && (
+                <p className="text-sm mb-2" style={{ color: "#c62828" }}>{outcomeSurveyError}</p>
+              )}
+              {outcomeSurveyLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#9575cd" }} />
+                </div>
+              ) : outcomeSignalsData.length === 0 ? (
+                <p className="text-sm" style={{ color: "#9e9e9e" }}>No survey responses in this range (or adjust the feature filter).</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={outcomeSignalsData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
+                    <XAxis dataKey="week" stroke="#9e9e9e" style={{ fontSize: "12px" }} />
+                    <YAxis domain={[1, 5]} stroke="#9e9e9e" style={{ fontSize: "12px" }} />
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: "12px" }} />
+                    <Line type="monotone" dataKey="understanding" stroke="#1976d2" strokeWidth={2} name="Understanding (avg)" />
+                    <Line type="monotone" dataKey="confidence" stroke="#2e7d32" strokeWidth={2} name="Confidence (avg)" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 mb-8">
-            <div className="p-8 rounded-2xl border" style={{ backgroundColor: "white", borderColor: "#e0e0e0" }}>
-              <h3 className="text-lg mb-6" style={{ color: "#424242" }}>Flow Abandonment Rates</h3>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={abandonmentData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
-                  <XAxis type="number" stroke="#9e9e9e" style={{ fontSize: "12px" }} />
-                  <YAxis dataKey="flow" type="category" width={120} stroke="#9e9e9e" style={{ fontSize: "12px" }} />
-                  <Tooltip />
-                  <Bar dataKey="abandonmentRate" fill="#f57c00" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="p-8 rounded-2xl border md:col-span-2" style={{ backgroundColor: "white", borderColor: "#e0e0e0" }}>
+              <h3 className="text-lg mb-1" style={{ color: "#424242" }}>
+                Four features with lowest dwell time
+              </h3>
+              <p className="text-sm mb-6" style={{ color: "#757575" }}>
+                Total minutes from <code className="text-xs">feature_time_spent</code> events (summed per feature). Shows the four features with the least accumulated dwell in the selected range
+                {selectedFeature === "all" ? "" : ` (${selectedFeature} only)`}.
+              </p>
+              {lowestFeatureDwellData.length === 0 ? (
+                <p className="text-sm" style={{ color: "#9e9e9e" }}>
+                  No feature dwell events in this date range.
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={lowestFeatureDwellData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
+                    <XAxis
+                      type="number"
+                      stroke="#9e9e9e"
+                      style={{ fontSize: "12px" }}
+                      tickFormatter={(v) => `${Number(v).toFixed(1)}m`}
+                    />
+                    <YAxis
+                      dataKey="feature"
+                      type="category"
+                      width={148}
+                      stroke="#9e9e9e"
+                      style={{ fontSize: "11px" }}
+                      tickFormatter={(v) => (String(v).length > 22 ? `${String(v).slice(0, 20)}…` : String(v))}
+                    />
+                    <Tooltip
+                      formatter={(value: number | string) => [`${Number(value).toFixed(2)} min total`, "Dwell"]}
+                      labelFormatter={(label) => String(label)}
+                    />
+                    <Bar dataKey="totalMinutes" fill="#7e57c2" radius={[0, 4, 4, 0]} name="Total minutes" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
 
-            <div className="p-8 rounded-2xl border" style={{ backgroundColor: "white", borderColor: "#e0e0e0" }}>
+            <div className="p-8 rounded-2xl border md:col-span-2" style={{ backgroundColor: "white", borderColor: "#e0e0e0" }}>
               <h3 className="text-lg mb-6" style={{ color: "#424242" }}>Screen Time Distribution</h3>
               <div className="space-y-4">
                 {screenTimeData.map((s) => (

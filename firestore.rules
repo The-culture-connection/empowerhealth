@@ -16,22 +16,42 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Helper function to check if user is admin (checks ADMIN collection by uid)
+    // Legacy role docs may use Firebase Auth email as document id (AuthContext also queries by email).
+    // Without these exists() checks, users with only email-keyed role docs fail hasAdminRole() and
+    // collection-group queries (e.g. qualitative_surveys) return PERMISSION_DENIED.
+    function hasAdminDocForSignedInUser() {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/ADMIN/$(request.auth.uid)) ||
+        (request.auth.token.email != null &&
+         exists(/databases/$(database)/documents/ADMIN/$(request.auth.token.email)))
+      );
+    }
+    function hasResearchDocForSignedInUser() {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/RESEARCH_PARTNERS/$(request.auth.uid)) ||
+        (request.auth.token.email != null &&
+         exists(/databases/$(database)/documents/RESEARCH_PARTNERS/$(request.auth.token.email)))
+      );
+    }
+    function hasCommunityDocForSignedInUser() {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/COMMUNITY_MANAGERS/$(request.auth.uid)) ||
+        (request.auth.token.email != null &&
+         exists(/databases/$(database)/documents/COMMUNITY_MANAGERS/$(request.auth.token.email)))
+      );
+    }
+
+    // Helper function to check if user is admin (ADMIN by uid or legacy role doc id = email)
     function isAdmin() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/ADMIN/$(request.auth.uid));
+      return hasAdminDocForSignedInUser();
     }
     
-    // Helper function to check if user is research partner
     function isResearchPartner() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/RESEARCH_PARTNERS/$(request.auth.uid));
+      return hasResearchDocForSignedInUser();
     }
     
-    // Helper function to check if user is community manager
     function isCommunityManager() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/COMMUNITY_MANAGERS/$(request.auth.uid));
+      return hasCommunityDocForSignedInUser();
     }
     
     // Helper function to check if user has any admin dashboard role
@@ -516,9 +536,13 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
-    // Module feedback - users can create feedback and read/update/delete their own
+    // Module feedback - users own docs; admins / research / community roles read all (dashboard outcome aggregates)
     match /ModuleFeedback/{feedbackId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        hasAdminRole() ||
+        isAdminAny()
+      );
       allow create: if isAuthenticated() && 
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.keys().hasAll(['userId', 'moduleTitle', 'understandingRating', 'nextStepsRating', 'confidenceRating', 'createdAt']);
@@ -627,7 +651,7 @@ service cloud.firestore {
                     request.resource.data.keys().hasAll(['selectedNeeds', 'accessResponses', 'createdAt']);
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
-        // Admins can read all
+        hasAdminRole() ||
         isAdminAny()
       );
       // Only admins can update/delete

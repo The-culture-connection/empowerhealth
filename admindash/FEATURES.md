@@ -21,6 +21,7 @@ The Authentication and Onboarding system handles user account creation, login, p
 ### Change History
 - **2024-12-14** - **xyz789abc** - **Biometric authentication**: Added support for fingerprint and face recognition login for faster access.
 - **2024-12-08** - **mno321pqr** - **Onboarding improvements**: Streamlined the onboarding flow to reduce completion time by 30%.
+- **2025-03-23** - **realtime_analytics_pipeline** - **Sign-in analytics**: On successful Google, Apple, or email sign-in, the app logs `sign_in_completed` (feature `authentication-onboarding`) for the realtime analytics pipeline.
 
 ---
 
@@ -90,14 +91,14 @@ The Community feature provides a forum where users can share experiences, ask qu
 The Profile Editing feature allows users to manage their account information, preferences, and settings. Users can update their display name, email, profile picture, and personal information. The system includes privacy settings, notification preferences, and account management options. Users can view their activity history, manage connected accounts, and control data sharing preferences. Profile changes are tracked for audit purposes and synced across the platform.
 
 ### Change History
-- *No changes tracked yet*
+- **2025-03-23** - **realtime_analytics_pipeline** - **Profile save analytics**: On successful profile save from the edit profile screen, the app logs `profile_updated` (feature `profile-editing`) for the realtime analytics pipeline.
 
 ---
 
 ## 10. Analytics and Event Tracking
 
 ### Current Functionality
-The Analytics and Event Tracking system provides comprehensive tracking of user interactions and app usage patterns across all platform features. The system tracks 30+ distinct events covering Learning Modules, After Visit Summary, Birth Plan Builder, Provider Search, Journal, Community Forums, Surveys/Micro Measures, and System Metrics. Events are logged through a Cloud Function that handles anonymization server-side, ensuring user privacy while providing valuable insights. The system generates unique session IDs for each app session and automatically attaches user lifecycle context (user_id, cohort_type, navigator, self_directed, pregnancy_week, trimester, session_id, timestamp) to every event for cohort analysis and research outcomes.
+The Analytics and Event Tracking system provides comprehensive tracking of user interactions and app usage patterns across all platform features. The system tracks 30+ distinct events covering Learning Modules, After Visit Summary, Birth Plan Builder, Provider Search, Journal, Community Forums, Surveys/Micro Measures, and System Metrics. Events flow through two complementary paths: (1) **callable analytics** — a Cloud Function (`logAnalyticsEvent`) that handles anonymization server-side and writes to `analytics_events` (anonymized) and `analytics_events_private` (admin-only); (2) **realtime mobile pipeline** — the Flutter app writes enriched documents to `analytics_events` with `source: mobile`, time keys, platform, app version, and sanitized metadata, then a **Firestore trigger** (`onAnalyticsEventCreated`) aggregates into summary documents for dashboards without scanning raw events. The trigger **skips** `source: cloud_function` rows so totals are not double-counted when both paths write for the same user action. The admin dashboard can subscribe to `analytics_summary/global` for live totals alongside existing callable `getAnalyticsData` queries. The system generates unique session IDs for each app session and automatically attaches user lifecycle context (user_id, cohort_type, navigator, self_directed, pregnancy_week, trimester, session_id, timestamp) to every event for cohort analysis and research outcomes. Reference docs: repo `docs/mobile-analytics-inventory.md` (event inventory and gaps), `docs/realtime-analytics.md` (schema and deployment notes).
 
 ### How the feature works
 The analytics system uses a three-layer data architecture:
@@ -173,6 +174,10 @@ The analytics system uses a three-layer data architecture:
 - `notification_opened` - Notification tapped
 - `notification_received` - Notification delivered
 
+**Authentication / profile (instrumented in app for realtime summaries):**
+- `sign_in_completed` - Successful sign-in (parameters: `method` — google, apple, email)
+- `profile_updated` - Profile saved from edit profile screen
+
 **C. Implementation Architecture:**
 - **Flutter Analytics Service** (`lib/services/analytics_service.dart`) - Client-side service with helper methods for each event type
 - **Dual Tracking System**:
@@ -181,9 +186,21 @@ The analytics system uses a three-layer data architecture:
     - Generates anonymized user IDs (SHA-256 hash with salt)
     - Extracts and enriches metadata with lifecycle context
     - Writes to both `analytics_events` (anonymized) and `analytics_events_private` (admin-only)
+    - Tags callable-written rows with `source: cloud_function` (and `aggregationVersion`) so aggregation only counts mobile rows
+  - **Realtime mobile writes** (`lib/services/analytics/realtime_analytics_service.dart`) - After a successful callable log, the client also writes a full-schema `analytics_events` document with `source: mobile`, `aggregationVersion`, `dateKey` / `hourKey` / `monthKey`, `platform`, `environment`, `appVersion`, `clientTimestamp`, and mirrored copies under `technology_features/{featureId}/analytics_events` where applicable
   - **Firebase Analytics (Standard Dashboard)** - Logs all events to Firebase Analytics dashboard for real-time insights and standard analytics reports
 - **Event Parameters** - Each event includes feature-specific parameters (module_id, summary_id, provider_id, etc.) merged with lifecycle context
 - **Session Management** - Session IDs persist for browser/app session duration
+
+**E. Realtime aggregation (dashboard summaries):**
+- **Trigger** - Cloud Function `onAnalyticsEventCreated` on `analytics_events/{eventId}` (region `us-central1`) updates atomic counters via merge + `FieldValue.increment`
+- **Summary collections** (admin read-only in Firestore rules; written only by Functions):
+  - `analytics_summary/global` — e.g. `totalEvents`, `lastEventName`, first-class “today*” counters where mapped (posts, journal entries, visit summaries, birth plans, provider searches, sessions, screen views, profile updates, sign-ins)
+  - `analytics_summary_daily/{YYYY-MM-DD}` — `countsByEventName`, `countsByFeature`, plus mapped daily fields
+  - `analytics_feature_summary/{feature}` — per-feature totals and `countsByEventName`
+  - `analytics_summary_hourly/{YYYY-MM-DD-HH}` — optional hourly rollups
+- **Admin UI** - Analytics page (`src/app/pages/Analytics.tsx`) can show a live banner from `analytics_summary/global` alongside existing callable `getAnalyticsData` results
+- **Local dev** - Optional Firestore emulator: Flutter `--dart-define=USE_FIREBASE_EMULATOR=true` (see `docs/realtime-analytics.md`)
 
 **D. Derived Metrics & Reports:**
 The system supports calculation of outcome metrics for research:
@@ -201,6 +218,7 @@ Events follow Firebase naming convention: `feature_action_object` (e.g., `learni
 - **2025-03-07** - **analytics_expansion** - **Comprehensive event tracking**: Expanded analytics system to track 30+ events across all platform features. Added user lifecycle context (cohort_type, navigator, self_directed, pregnancy_week, trimester) automatically attached to every event. Implemented Flutter analytics service with helper methods for Learning Modules (6 events), After Visit Summary (5 events), Birth Plan Builder (6 events), Provider Search (6 events), Journal (5 events), Community Forums (6 events), Surveys/Micro Measures (3 events), and System Metrics (5 events). Updated Cloud Function to extract and enrich metadata with lifecycle context for cohort analysis. Events support derived metrics calculation for research outcomes including Health Understanding Impact, Self Advocacy Confidence, Care Navigation Success, Care Preparation, Engagement Pathway, and Community Support reports.
 - **2025-03-07** - **analytics_auth_fix** - **Fixed authentication and App Check issues**: Resolved analytics events not being logged to Firestore due to Firebase Functions v2 context structure mismatch. Updated `logAnalyticsEvent` Cloud Function to use correct v2 `CallableRequest` format (`request.auth.uid` instead of `context.auth.uid`). Disabled App Check enforcement (`enforceAppCheck: false`) to allow analytics without App Check registration. Implemented event queuing system in Flutter app to handle auth race conditions at startup. Added comprehensive error handling to distinguish App Check failures from authentication errors. Events now successfully write to `analytics_events` and `analytics_events_private` collections in Firestore using authenticated user's UID for data correlation.
 - **2025-03-07** - **analytics_dual_tracking** - **Dual analytics tracking**: Added Firebase Analytics (standard dashboard) tracking alongside existing custom Firestore analytics. All events are now logged to both systems simultaneously - custom Firestore collections for detailed analysis with user lifecycle context, and Firebase Analytics dashboard for real-time insights and standard reports. Firebase Analytics events include feature, lifecycle context (cohort_type, trimester, pregnancy_week, navigator, self_directed), and event-specific parameters. Both systems operate independently, so events are logged to Firebase Analytics even if the Cloud Function fails, ensuring comprehensive tracking coverage.
+- **2025-03-23** - **realtime_analytics_pipeline** - **Realtime Firestore summaries and mobile schema**: Added `RealtimeAnalyticsService` for normalized `analytics_events` writes (`source: mobile`, time keys, platform, app version, sanitized metadata) and Cloud Function `onAnalyticsEventCreated` to aggregate into `analytics_summary/global`, `analytics_summary_daily/{dateKey}`, `analytics_feature_summary/{feature}`, and `analytics_summary_hourly/{hourKey}` without double-counting callable rows (`source: cloud_function`). Extended Firestore rules for summary collections (admin read, client no write). Admin Analytics page shows live totals from `analytics_summary/global`. Optional Firestore emulator support via `USE_FIREBASE_EMULATOR`. Documented in `docs/realtime-analytics.md` and inventory in `docs/mobile-analytics-inventory.md`. Fixed invalid JSON in `firestore.indexes.json` (trailing comma) blocking deploy. Instrumented `sign_in_completed` on login and `profile_updated` on profile save.
 
 ---
 

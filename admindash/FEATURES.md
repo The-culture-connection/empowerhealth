@@ -272,3 +272,23 @@ Events follow Firebase naming convention: `feature_action_object` (e.g., `learni
 - **2026-03-24** - **firestore-rules-role-email-path** - **Rules vs AuthContext**: `isAdmin()` / `isResearchPartner()` / `isCommunityManager()` now treat **role documents whose id equals `request.auth.token.email`** as valid (in addition to `/{uid}`), matching dashboard role resolution by email; fixes **PERMISSION_DENIED** on collection-group **`qualitative_surveys`** when legacy role docs were not uid-keyed. Analytics Outcome loader waits for **`userProfile.uid`**, refreshes the ID token, and prefixes errors by collection for easier diagnosis.
 - **2026-03-24** - **analytics-outcome-qual-path-query** - **Outcome qualitative load**: Replaced Firestore **`collectionGroup("qualitative_surveys")`** with parallel **`technology_features/{featureId}/qualitative_surveys`** queries (feature ids from **`technology_features`** plus distinct **`feature`** values from loaded **`analytics_events`** when filter is **all**). Avoids **permission-denied** when any other `qualitative_surveys` path in the project would fail rules (collection-group security is not scoped per path).
 
+---
+
+## 11. Admin Dashboard — Research Reports (`/reports`)
+
+### Current functionality
+The **Reports** page generates six research-oriented reports **in the browser** from Firestore: **`analytics_events`** (scoped by date range), **`ModuleFeedback`**, **`CareSurvey`**, and optional **`care_navigation_outcomes`** where a report needs navigation outcomes. Event names, “what it measures,” and implementation status (**tracked / partial / needs implementation**) follow **`/analytics/info`** via **`eventDictionary.ts`**. The legacy callable **`generateReport`** in Cloud Functions is **not used** by the UI; aggregation lives in **`src/lib/reports/`** and **`src/lib/firestore/reportsRepo.ts`**.
+
+### How the feature works
+- **Evidence-first structure**: Each report exposes **`evidence`** with sections **A–F**: (A) short narrative summary, user count, date range, main trend, takeaways; (B) table of **only** whitelisted events/sources with Analytics Info text and status; (C) metrics KPIs derived from that whitelist; (D) outcome signals (**ModuleFeedback**, **CareSurvey**, pulse events, care navigation outcomes as applicable); (E) **deterministic** conclusion bullets from computed metrics (not LLM text); (F) **coverage note** for partial/missing instrumentation and zero-count-in-range streams.
+- **Per-report whitelists**: Each report type filters events with **`reportWhitelists.ts`** so unrelated analytics never appear in that report’s evidence or metrics.
+- **Report types**: `health_understanding_impact`, `self_advocacy_confidence`, `care_navigation_success`, `engagement_pathway`, `care_preparation`, `community_support` — each also produces chart/table specs and optional **`rows`** for CSV when row-level export exists.
+- **Surveys**: **`ModuleFeedback`** is normalized for understanding-related reports; **`CareSurvey`** for confidence/navigation/community signals; care navigation **outcomes** documents support the care navigation report when present.
+- **Exports**: **CSV** uses flattened **`rows`** when present; otherwise one row with KPIs **plus** key **`evidence`** fields (summary, conclusions, coverage, events JSON). **JSON** exports the full **`ReportResult`** including **`evidence`**.
+- **Privacy**: **Research partners** always pass **`anonymized: true`**, which strips **`uid`** / **`userId`** from CSV export rows. Admins use the same aggregation with identifiable ids in payloads where applicable.
+- **Implementation notes**: Sparse whitelisted streams are called out in the coverage note rather than failing silently.
+
+### Change history
+- **2026-03-24** - **admindash-reports-client-aggregation** - **Reports page**: Replaced callable-only report stub with client-side **`getReportDataset`**, **`reportBuilders`**, **`reportMetrics`**, **`reportInsights`**, and Firestore repos **`moduleFeedbackRepo`**, **`careSurveyRepo`**, **`reportsRepo`**; fixed **`ReportType`** ids and export filename bug (`format` vs **`formatDate`**).
+- **2026-03-24** - **admindash-reports-evidence-ui** - **Evidence summaries**: Per-report event whitelists, **`EvidenceReport`** (sections A–F), deterministic conclusions, Analytics Info–aligned event tables, **`Reports.tsx`** rendering of **`evidence`**, and CSV export of flattened evidence when row export is empty.
+

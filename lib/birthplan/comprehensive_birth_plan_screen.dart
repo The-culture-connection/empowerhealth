@@ -8,6 +8,7 @@ import '../services/analytics_service.dart';
 import '../cors/ui_theme.dart';
 import 'birth_plan_display_screen.dart';
 import 'birth_plan_formatter.dart';
+import '../widgets/qualitative_survey_dialog.dart';
 
 class ComprehensiveBirthPlanScreen extends StatefulWidget {
   final String? incompletePlanId; // For resuming incomplete plans
@@ -503,12 +504,29 @@ class _ComprehensiveBirthPlanScreenState
       setState(() => _isLoading = false);
 
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BirthPlanDisplayScreen(
-              birthPlan: updatedPlan.copyWith(id: docRef.id),
-            ),
+        // Show qualitative survey dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => QualitativeSurveyDialog(
+            feature: 'birth-plan-generator',
+            questions: [
+              'My birth plan reflects what matters most to me.',
+              'I feel prepared to discuss my birth preferences.',
+              'Creating this birth plan felt manageable.',
+            ],
+            title: 'Birth Plan Feedback',
+            sourceId: docRef.id,
+            onCompleted: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BirthPlanDisplayScreen(
+                    birthPlan: updatedPlan.copyWith(id: docRef.id),
+                  ),
+                ),
+              );
+            },
           ),
         );
       }

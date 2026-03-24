@@ -54,6 +54,29 @@ export interface AnalyticsEvent {
   metadata: Record<string, any>;
 }
 
+export interface FeatureKPIGoals {
+  // Event goals - goals for specific event types
+  eventGoals?: Record<string, number>; // eventName -> target count
+  // Cohort usage goals
+  cohortGoals?: {
+    navigator?: number; // Target number of navigator users
+    self_directed?: number; // Target number of self-directed users
+  };
+  // General usage goals
+  usageGoals?: {
+    dailyEvents?: number; // Target daily events
+    weeklyUsers?: number; // Target weekly unique users
+    monthlyUsers?: number; // Target monthly unique users
+  };
+  // Trimester usage goals
+  trimesterGoals?: {
+    first?: number; // Target events for 1st trimester
+    second?: number; // Target events for 2nd trimester
+    third?: number; // Target events for 3rd trimester
+    postpartum?: number; // Target events for postpartum
+  };
+}
+
 export interface FeatureAnalyticsSummary {
   feature: string;
   totalEvents: number;

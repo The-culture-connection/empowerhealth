@@ -6,6 +6,7 @@ import '../../cors/ui_theme.dart';
 import '../../learning/notes_dialog.dart';
 import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
+import '../../widgets/qualitative_survey_dialog.dart';
 
 class LearningModuleDetailScreen extends StatefulWidget {
   final String title;
@@ -231,7 +232,7 @@ class _LearningModuleDetailScreenState extends State<LearningModuleDetailScreen>
                   const SizedBox(height: 16),
                   
                       // Survey Section
-                      _ModuleReviewSection(moduleTitle: widget.title, taskId: widget.taskId),
+                      _buildNewSurveySection(),
                       const SizedBox(height: 24),
                     ],
                   ),
@@ -245,17 +246,19 @@ class _LearningModuleDetailScreenState extends State<LearningModuleDetailScreen>
   }
 }
 
-class _ModuleReviewSection extends StatefulWidget {
+// Old survey section removed - replaced with QualitativeSurveyDialog
+// Keeping class name for backward compatibility but it's now unused
+class _ModuleReviewSectionOld extends StatefulWidget {
   final String moduleTitle;
   final String? taskId;
 
-  const _ModuleReviewSection({required this.moduleTitle, this.taskId});
+  const _ModuleReviewSectionOld({required this.moduleTitle, this.taskId});
 
   @override
-  State<_ModuleReviewSection> createState() => _ModuleReviewSectionState();
+  State<_ModuleReviewSectionOld> createState() => _ModuleReviewSectionOldState();
 }
 
-class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
+class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
   final AnalyticsService _analytics = AnalyticsService();
   final DatabaseService _databaseService = DatabaseService();
   int _understandingRating = 0;

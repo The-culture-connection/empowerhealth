@@ -14,7 +14,7 @@ import { getAllFeatures, TechnologyFeature, getFeatureChangeHistory, getFeatureB
 import { getFeatureAnalytics, FeatureAnalytics } from "../../lib/featureAnalytics";
 import { getFeatureAnalyticsSummary, FeatureAnalyticsSummary } from "../../lib/firestoreAnalytics";
 import { useAuth } from "../../contexts/AuthContext";
-import { FeatureEditModal } from "../components/FeatureEditModal";
+import { KPIGoalsModal } from "../components/KPIGoalsModal";
 
 export function TechnologyOverview() {
   const { isAdmin } = useAuth(); // Will be used for admin editing features
@@ -24,7 +24,7 @@ export function TechnologyOverview() {
   const [selectedFeatureAnalytics, setSelectedFeatureAnalytics] = useState<FeatureAnalytics | null>(null);
   const [selectedFeatureFirestoreAnalytics, setSelectedFeatureFirestoreAnalytics] = useState<FeatureAnalyticsSummary | null>(null);
   const [selectedFeatureChangeHistory, setSelectedFeatureChangeHistory] = useState<any[]>([]);
-  const [editingFeature, setEditingFeature] = useState<TechnologyFeature | null>(null);
+  const [editingKPI, setEditingKPI] = useState<TechnologyFeature | null>(null);
   const [commitFeatureChanges, setCommitFeatureChanges] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
@@ -1039,16 +1039,16 @@ export function TechnologyOverview() {
                 <div className="flex items-center gap-2">
                   {isAdmin() && (
                     <button
-                      onClick={() => setEditingFeature(selectedFeature)}
+                      onClick={() => setEditingKPI(selectedFeature)}
                       className="px-4 py-2 rounded-lg text-sm transition-all"
                       style={{
-                        backgroundColor: '#f5f5f5',
-                        color: '#616161',
+                        backgroundColor: '#9575cd',
+                        color: 'white',
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#eeeeee')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#7e57c2')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#9575cd')}
                     >
-                      Edit Feature
+                      Edit KPI
                     </button>
                   )}
                   <button
@@ -1119,69 +1119,217 @@ export function TechnologyOverview() {
               
 
               {/* Charts */}
-              <div className="grid gap-6 md:grid-cols-2 mb-8">
-                <div
-                  className="p-6 rounded-xl border"
-                  style={{
-                    backgroundColor: 'white',
-                    borderColor: '#e0e0e0',
-                  }}
-                >
-                  <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
-                    User Engagement Trend
-                  </h3>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={selectedFeatureAnalytics?.engagementTrend || []}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                      <XAxis dataKey="date" stroke="#9e9e9e" tick={{ fontSize: 11 }} />
-                      <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e0e0e0',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="value"
-                        stroke="#9575cd"
-                        strokeWidth={2}
-                        dot={{ fill: '#9575cd', r: 3 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+              {selectedFeatureFirestoreAnalytics && (
+                <div className="grid gap-6 md:grid-cols-2 mb-8">
+                  {/* Events by Type Chart */}
+                  <div
+                    className="p-6 rounded-xl border"
+                    style={{
+                      backgroundColor: 'white',
+                      borderColor: '#e0e0e0',
+                    }}
+                  >
+                    <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
+                      Events by Type
+                    </h3>
+                    {Object.keys(selectedFeatureFirestoreAnalytics.eventsByType).length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart
+                          data={Object.entries(selectedFeatureFirestoreAnalytics.eventsByType)
+                            .map(([name, count]) => ({
+                              name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                              count: count as number,
+                            }))
+                            .sort((a, b) => b.count - a.count)
+                            .slice(0, 8)} // Top 8 events
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                          <XAxis
+                            dataKey="name"
+                            stroke="#9e9e9e"
+                            tick={{ fontSize: 10 }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={60}
+                          />
+                          <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e0e0e0',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                            }}
+                          />
+                          <Bar dataKey="count" fill="#9575cd" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[200px] text-sm" style={{ color: '#9e9e9e' }}>
+                        No event data available
+                      </div>
+                    )}
+                  </div>
 
-                <div
-                  className="p-6 rounded-xl border"
-                  style={{
-                    backgroundColor: 'white',
-                    borderColor: '#e0e0e0',
-                  }}
-                >
-                  <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
-                    Weekly Usage
-                  </h3>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={selectedFeatureAnalytics?.usageByWeek || []}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                      <XAxis dataKey="week" stroke="#9e9e9e" tick={{ fontSize: 11 }} />
-                      <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e0e0e0',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                      />
-                      <Bar dataKey="sessions" fill="#9575cd" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {/* Daily Activity Chart */}
+                  <div
+                    className="p-6 rounded-xl border"
+                    style={{
+                      backgroundColor: 'white',
+                      borderColor: '#e0e0e0',
+                    }}
+                  >
+                    <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
+                      Daily Activity (Last 7 Days)
+                    </h3>
+                    {selectedFeatureFirestoreAnalytics.recentEvents.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart
+                          data={(() => {
+                            // Group events by day for the last 7 days
+                            const days: Record<string, number> = {};
+                            const now = new Date();
+                            for (let i = 6; i >= 0; i--) {
+                              const date = new Date(now);
+                              date.setDate(date.getDate() - i);
+                              const dayKey = format(date, 'MMM d');
+                              days[dayKey] = 0;
+                            }
+                            
+                            selectedFeatureFirestoreAnalytics.recentEvents.forEach(event => {
+                              const eventDate = new Date(event.timestamp);
+                              const dayKey = format(eventDate, 'MMM d');
+                              if (days.hasOwnProperty(dayKey)) {
+                                days[dayKey]++;
+                              }
+                            });
+                            
+                            return Object.entries(days).map(([date, count]) => ({
+                              date,
+                              events: count,
+                            }));
+                          })()}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                          <XAxis dataKey="date" stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e0e0e0',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                            }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="events"
+                            stroke="#9575cd"
+                            strokeWidth={2}
+                            dot={{ fill: '#9575cd', r: 3 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[200px] text-sm" style={{ color: '#9e9e9e' }}>
+                        No recent activity
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cohort Breakdown Chart */}
+                  <div
+                    className="p-6 rounded-xl border"
+                    style={{
+                      backgroundColor: 'white',
+                      borderColor: '#e0e0e0',
+                    }}
+                  >
+                    <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
+                      Users by Cohort
+                    </h3>
+                    {selectedFeatureFirestoreAnalytics.cohortBreakdown.navigator > 0 ||
+                    selectedFeatureFirestoreAnalytics.cohortBreakdown.self_directed > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart
+                          data={[
+                            {
+                              name: 'Navigator',
+                              users: selectedFeatureFirestoreAnalytics.cohortBreakdown.navigator,
+                            },
+                            {
+                              name: 'Self-Directed',
+                              users: selectedFeatureFirestoreAnalytics.cohortBreakdown.self_directed,
+                            },
+                          ]}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                          <XAxis dataKey="name" stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e0e0e0',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                            }}
+                          />
+                          <Bar dataKey="users" fill="#9575cd" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[200px] text-sm" style={{ color: '#9e9e9e' }}>
+                        No cohort data available
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Trimester Breakdown Chart */}
+                  <div
+                    className="p-6 rounded-xl border"
+                    style={{
+                      backgroundColor: 'white',
+                      borderColor: '#e0e0e0',
+                    }}
+                  >
+                    <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
+                      Usage by Trimester
+                    </h3>
+                    {selectedFeatureFirestoreAnalytics.trimesterBreakdown.first > 0 ||
+                    selectedFeatureFirestoreAnalytics.trimesterBreakdown.second > 0 ||
+                    selectedFeatureFirestoreAnalytics.trimesterBreakdown.third > 0 ||
+                    selectedFeatureFirestoreAnalytics.trimesterBreakdown.postpartum > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart
+                          data={[
+                            { name: '1st', events: selectedFeatureFirestoreAnalytics.trimesterBreakdown.first },
+                            { name: '2nd', events: selectedFeatureFirestoreAnalytics.trimesterBreakdown.second },
+                            { name: '3rd', events: selectedFeatureFirestoreAnalytics.trimesterBreakdown.third },
+                            { name: 'Postpartum', events: selectedFeatureFirestoreAnalytics.trimesterBreakdown.postpartum },
+                          ]}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                          <XAxis dataKey="name" stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e0e0e0',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                            }}
+                          />
+                          <Bar dataKey="events" fill="#9575cd" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[200px] text-sm" style={{ color: '#9e9e9e' }}>
+                        No trimester data available
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* How the Feature Works */}
               {selectedFeature.howItWorks && (
@@ -1770,18 +1918,23 @@ export function TechnologyOverview() {
         </div>
       )}
 
-      {/* Feature Edit Modal */}
-      {editingFeature && (
-        <FeatureEditModal
-          feature={editingFeature}
-          onClose={() => setEditingFeature(null)}
+      {/* KPI Goals Edit Modal */}
+      {editingKPI && (
+        <KPIGoalsModal
+          feature={editingKPI}
+          analytics={selectedFeatureFirestoreAnalytics}
+          onClose={() => setEditingKPI(null)}
           onSave={() => {
             loadPlatformFeatures();
-            if (selectedFeature?.id === editingFeature.id) {
-              // Reload selected feature if it was edited
-              getFeatureById(editingFeature.id).then(feature => {
+            if (selectedFeature?.id === editingKPI.id) {
+              // Reload selected feature if KPIs were updated
+              getFeatureById(editingKPI.id).then(feature => {
                 if (feature) {
                   setSelectedFeature(feature);
+                  // Reload analytics to show updated goals
+                  if (feature.id) {
+                    loadFeatureAnalytics(feature.id);
+                  }
                 }
               });
             }

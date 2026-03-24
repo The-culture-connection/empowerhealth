@@ -17,6 +17,7 @@ import '../models/helpfulness_survey.dart';
 import '../models/milestone_checkin.dart';
 import '../models/care_navigation_outcome.dart';
 import '../utils/pregnancy_utils.dart';
+import 'analytics/realtime_analytics_service.dart';
 
 /// Queued analytics event
 class _QueuedEvent {
@@ -649,29 +650,6 @@ class AnalyticsService {
     }
   }
   
-  /// Save event directly to Firestore analytics_events collection
-  /// This provides query-friendly schema alongside Cloud Function writes
-  /// Map analytics feature name to technology feature ID
-  /// This maps the feature names used in analytics to the feature IDs in technology_features collection
-  String? _getTechnologyFeatureId(String analyticsFeature) {
-    // Direct mapping - analytics feature names match technology feature IDs
-    const mapping = {
-      'analytics-and-event-tracking': 'analytics-and-event-tracking',
-      'appointment-summarizing': 'appointment-summarizing',
-      'authentication-onboarding': 'authentication-onboarding',
-      'birth-plan-generator': 'birth-plan-generator',
-      'community': 'community',
-      'journal': 'journal',
-      'learning-modules': 'learning-modules',
-      'profile-editing': 'profile-editing',
-      'provider-search': 'provider-search',
-      'user-feedback': 'user-feedback',
-      'app': 'app', // For app-level events like session_started, screen_view
-    };
-    
-    return mapping[analyticsFeature] ?? analyticsFeature;
-  }
-
   Future<void> _saveEventToFirestore({
     required String eventName,
     required String feature,
@@ -681,67 +659,31 @@ class AnalyticsService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       final userId = user?.uid;
-      
+
       if (userId == null) {
-        // Can't save without user ID
         return;
       }
-      
-      // Get anonUserId
+
       final anonUserId = await getAnonUserId(userId);
-      
-      // Get user context
       final lifecycleContext = await getUserLifecycleContext(userProfile);
-      
-      // Extract cohort type, gestational week, trimester from context
-      final cohortType = lifecycleContext['cohort_type'] as String?;
-      final gestationalWeek = lifecycleContext['pregnancy_week'] as int?;
-      final trimester = lifecycleContext['trimester'] as String?;
-      
-      // Create event document
-      final eventData = {
-        'userId': userId,
-        'anonUserId': anonUserId,
-        'eventName': eventName,
-        'feature': feature,
-        'timestamp': FieldValue.serverTimestamp(),
-        'sessionId': getSessionId(),
-        'cohortType': cohortType,
-        'gestationalWeek': gestationalWeek,
-        'trimester': trimester,
-        'metadata': metadata ?? {},
+      final mergedMeta = {
+        ...lifecycleContext,
+        ...(metadata ?? {}),
       };
-      
-      // Save to legacy analytics_events collection (for backward compatibility)
-      await _firestore.collection('analytics_events').add(eventData);
-      
-      // Also save to technology_features/{featureId}/analytics_events subcollection
-      final technologyFeatureId = _getTechnologyFeatureId(feature);
-      if (technologyFeatureId != null && technologyFeatureId.isNotEmpty) {
-        try {
-          print('💾 Analytics: Saving to technology_features/$technologyFeatureId/analytics_events');
-          await _firestore
-              .collection('technology_features')
-              .doc(technologyFeatureId)
-              .collection('analytics_events')
-              .add(eventData);
-          print('✅ Analytics: Event saved to technology_features/$technologyFeatureId/analytics_events');
-        } catch (e) {
-          // Best effort - if subcollection write fails, log but don't throw
-          print('⚠️ Analytics: Failed to save to technology_features subcollection: $e');
-          print('⚠️ Analytics: Feature ID was: $technologyFeatureId, Original feature: $feature');
-        }
-      } else {
-        print('⚠️ Analytics: technologyFeatureId is null or empty for feature: $feature');
-      }
-      
-      // Update user context in users collection (best effort)
+
+      await RealtimeAnalyticsService.instance.writeMobileAnalyticsEvent(
+        eventName: eventName,
+        feature: feature,
+        userId: userId,
+        anonUserId: anonUserId,
+        sessionId: getSessionId(),
+        metadata: mergedMeta,
+      );
+
       _updateUserContext(userId, userProfile).catchError((e) {
         print('⚠️ Analytics: Failed to update user context: $e');
       });
-      
     } catch (e) {
-      // Best effort - don't throw
       print('⚠️ Analytics: Error saving event to Firestore: $e');
     }
   }

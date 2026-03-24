@@ -158,7 +158,7 @@ export const logAnalyticsEvent = functions.https.onCall({
     ...(metadata || {}),
   };
 
-  // Write anonymized event
+  // Write anonymized event (source: cloud_function — skipped by realtime aggregation trigger)
   const anonEvent = {
     anonUserId,
     eventName,
@@ -167,6 +167,8 @@ export const logAnalyticsEvent = functions.https.onCall({
     durationMs: durationMs || null,
     sessionId: sessionId || null,
     timestamp,
+    source: 'cloud_function',
+    aggregationVersion: 1,
   };
 
   await db.collection('analytics_events').add(anonEvent);
@@ -524,13 +526,22 @@ export const getFeatureAnalytics = functions.https.onCall(async (data: any, cont
  * Update Feature
  * Admin-only function to update feature metadata
  */
-export const updateFeature = functions.https.onCall(async (data: any, context: any) => {
-  if (!context || !context.auth) {
+export const updateFeature = functions.https.onCall({
+  // Explicitly disable App Check enforcement - we only need user authentication
+  enforceAppCheck: false,
+}, async (request: functions.https.CallableRequest) => {
+  console.log('[updateFeature] Request received');
+  console.log('[updateFeature] Request.auth exists:', !!request?.auth);
+  console.log('[updateFeature] Request.auth.uid:', request?.auth?.uid);
+  console.log('[updateFeature] Request.data:', request?.data);
+  
+  if (!request || !request.auth) {
+    console.error('[updateFeature] Authentication failed - request.auth is null');
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
-  const { featureId, updates } = data;
-  const uid = context.auth.uid;
+  const { featureId, updates } = request.data;
+  const uid = request.auth.uid;
 
   if (!featureId || !updates) {
     throw new functions.https.HttpsError('invalid-argument', 'featureId and updates are required');
@@ -1496,3 +1507,5 @@ async function performHealthChecks(): Promise<Record<string, any>> {
 
   return checks;
 }
+
+export { onAnalyticsEventCreated } from './analyticsAggregation';

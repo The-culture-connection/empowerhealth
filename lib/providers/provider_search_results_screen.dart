@@ -11,6 +11,7 @@ import '../widgets/provider_search_loading.dart';
 import '../constants/provider_types.dart';
 import 'provider_profile_screen.dart';
 import 'add_provider_screen.dart';
+import '../widgets/qualitative_survey_dialog.dart';
 
 class ProviderSearchResultsScreen extends StatefulWidget {
   final Map<String, dynamic> searchParams;
@@ -1044,6 +1045,28 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('Add Provider'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => QualitativeSurveyDialog(
+                        feature: 'provider-search',
+                        questions: [
+                          'I found providers I trust.',
+                          'The search results were relevant to my needs.',
+                          'I feel confident about the providers I found.',
+                        ],
+                        title: 'Provider Search Feedback',
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.feedback_outlined),
+                  label: const Text('Feedback'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),

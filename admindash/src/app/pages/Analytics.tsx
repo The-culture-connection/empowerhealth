@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useAuth } from "../../contexts/AuthContext";
 import { getAnalyticsData } from "../../lib/analytics";
+import { firestore } from "../../firebase/firebase";
 import { Loader2 } from "lucide-react";
 
 export function Analytics() {
@@ -10,10 +12,24 @@ export function Analytics() {
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [error, setError] = useState("");
+  /** Firestore `analytics_summary/global` — mobile pipeline aggregates (realtime). */
+  const [liveGlobalSummary, setLiveGlobalSummary] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     loadAnalytics();
   }, [activeTab]);
+
+  useEffect(() => {
+    const ref = doc(firestore, "analytics_summary", "global");
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        setLiveGlobalSummary(snap.exists() ? (snap.data() as Record<string, unknown>) : null);
+      },
+      () => setLiveGlobalSummary(null)
+    );
+    return () => unsub();
+  }, []);
 
   async function loadAnalytics() {
     setLoading(true);
@@ -76,6 +92,24 @@ export function Analytics() {
             color: '#dc2626',
           }}>
             {error}
+          </div>
+        )}
+
+        {liveGlobalSummary && typeof liveGlobalSummary.totalEvents === "number" && (
+          <div
+            className="mb-6 p-4 rounded-xl border text-sm"
+            style={{
+              backgroundColor: "var(--lavender-50)",
+              borderColor: "var(--lavender-200)",
+              color: "var(--warm-600)",
+            }}
+          >
+            <strong>Realtime (mobile pipeline):</strong>{" "}
+            {liveGlobalSummary.totalEvents as number} events aggregated from client{" "}
+            <code className="text-xs">source: mobile</code> writes. Last:{" "}
+            {liveGlobalSummary.lastEventName != null
+              ? String(liveGlobalSummary.lastEventName)
+              : "—"}
           </div>
         )}
 

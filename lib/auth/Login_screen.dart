@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../app_router.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../services/analytics_service.dart';
 import '../cors/ui_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -89,6 +90,13 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final user = await _authService.signInWithGoogle();
       if (user != null && mounted) {
+        try {
+          await AnalyticsService().logEvent(
+            eventName: 'sign_in_completed',
+            feature: 'authentication-onboarding',
+            parameters: {'method': 'google'},
+          );
+        } catch (_) {}
         final hasProfile = await _databaseService.userProfileExists(user.uid);
         if (mounted) {
           if (hasProfile) {
@@ -119,6 +127,13 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final user = await _authService.signInWithApple();
       if (user != null && mounted) {
+        try {
+          await AnalyticsService().logEvent(
+            eventName: 'sign_in_completed',
+            feature: 'authentication-onboarding',
+            parameters: {'method': 'apple'},
+          );
+        } catch (_) {}
         final hasProfile = await _databaseService.userProfileExists(user.uid);
         if (mounted) {
           if (hasProfile) {
@@ -156,6 +171,13 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (user != null && mounted) {
+        try {
+          await AnalyticsService().logEvent(
+            eventName: 'sign_in_completed',
+            feature: 'authentication-onboarding',
+            parameters: {'method': 'email'},
+          );
+        } catch (_) {}
         // Check if user has a profile
         final hasProfile = await _databaseService.userProfileExists(user.uid);
 

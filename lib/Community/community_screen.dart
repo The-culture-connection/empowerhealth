@@ -8,6 +8,7 @@ import '../services/database_service.dart';
 import 'create_post_screen.dart';
 import 'post_detail_screen.dart';
 import 'seed_mock_posts.dart';
+import '../widgets/community_survey_banner.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -289,6 +290,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+
+              // Survey Banner (dismissible, scrollable)
+              const CommunitySurveyBanner(),
 
               // Discussions List
               Expanded(

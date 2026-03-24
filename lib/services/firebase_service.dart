@@ -1,6 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+
+/// Set `--dart-define=USE_FIREBASE_EMULATOR=true` for local Firestore emulator (see docs/realtime-analytics.md).
+const bool _kUseFirebaseEmulator =
+    bool.fromEnvironment('USE_FIREBASE_EMULATOR', defaultValue: false);
 
 class FirebaseService {
   static Future<void> initialize() async {
@@ -8,6 +13,10 @@ class FirebaseService {
       await Firebase.initializeApp(
         options: _getFirebaseOptions(),
       );
+      if (kDebugMode && _kUseFirebaseEmulator) {
+        FirebaseFirestore.instance.useFirestoreEmulator('127.0.0.1', 8080);
+        print('Firestore emulator: 127.0.0.1:8080');
+      }
       if (kDebugMode) {
         print('Firebase initialized successfully');
       }

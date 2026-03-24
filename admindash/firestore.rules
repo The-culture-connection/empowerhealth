@@ -159,6 +159,24 @@ service cloud.firestore {
       // No updates or deletes - analytics are append-only
       allow update, delete: if false;
     }
+
+    // Realtime aggregation output (Cloud Functions only — client read for admin dashboard)
+    match /analytics_summary/{docId} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if false;
+    }
+    match /analytics_summary_daily/{docId} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if false;
+    }
+    match /analytics_feature_summary/{docId} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if false;
+    }
+    match /analytics_summary_hourly/{docId} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if false;
+    }
     
     match /analytics_events_private/{eventId} {
       allow read: if isAdminAny();

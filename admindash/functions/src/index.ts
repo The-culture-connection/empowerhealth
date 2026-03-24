@@ -907,6 +907,9 @@ export const publishRelease = functions.https.onRequest({
       featuresMarkdownLength: payload?.featuresMarkdown?.length || 0,
       featuresMarkdownPreview: payload?.featuresMarkdown?.substring(0, 100) || 'none'
     });
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'publish-release-1',hypothesisId:'H5',location:'admindash/functions/src/index.ts:publishRelease:request',message:'publishRelease payload received',data:{hasDataWrapper:!!req.body?.data,hasFeaturesMarkdown:!!payload?.featuresMarkdown,featuresMarkdownLength:payload?.featuresMarkdown?.length||0,commitSha:payload?.commitSha||null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
   
     // Allow unauthenticated calls from GitHub Actions (using secret token)
     const { 
@@ -1073,6 +1076,9 @@ export const publishRelease = functions.https.onRequest({
         console.log('[publishRelease] Processing FEATURES.md content, length:', featuresMarkdown.length);
         const features = parseFeaturesMarkdown(featuresMarkdown);
         console.log(`[publishRelease] Parsed ${Object.keys(features).length} features from FEATURES.md`);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'publish-release-1',hypothesisId:'H6',location:'admindash/functions/src/index.ts:publishRelease:parseFeatures',message:'Parsed FEATURES.md into feature map',data:{featureCount:Object.keys(features).length,featureIds:Object.keys(features).slice(0,12)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         
         for (const [featureId, featureData] of Object.entries(features)) {
           console.log(`[publishRelease] Processing feature ${featureId}:`, {
@@ -1125,6 +1131,9 @@ export const publishRelease = functions.https.onRequest({
           
           await featureRef.set(featureUpdate, { merge: true });
           console.log(`[publishRelease] Updated feature ${featureId} with howItWorks and recentUpdates`);
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'publish-release-1',hypothesisId:'H7',location:'admindash/functions/src/index.ts:publishRelease:updateFeature',message:'Upserted technology_features doc',data:{featureId,recentUpdatesCount:Array.isArray(featureUpdate.recentUpdates)?featureUpdate.recentUpdates.length:0,howItWorksLength:typeof featureUpdate.howItWorks==='string'?featureUpdate.howItWorks.length:0,lastProcessedCommit:featureUpdate.lastProcessedCommit||null},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           
           // Add change history entries for new changes
           if (featureData.changeHistory && featureData.changeHistory.length > 0) {
@@ -1152,6 +1161,9 @@ export const publishRelease = functions.https.onRequest({
         console.log('[publishRelease] Successfully processed FEATURES.md');
       } catch (error: any) {
         console.error('[publishRelease] Error processing FEATURES.md:', error);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'publish-release-1',hypothesisId:'H8',location:'admindash/functions/src/index.ts:publishRelease:catchFeatures',message:'FEATURES.md processing failed',data:{error:error?.message||'unknown'},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         // Don't fail the entire release if FEATURES.md parsing fails
       }
     }

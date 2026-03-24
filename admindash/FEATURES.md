@@ -51,7 +51,7 @@ The Appointment Summarizing feature (After Visit Summary) allows users to upload
 The Journal feature provides users with a private space to record thoughts, experiences, and notes related to their healthcare journey. Users can create journal entries with text content, attach files or images, and organize entries by date. The journal supports emotional content analysis to identify significant moments or areas of confusion. Entries are stored securely and can be searched, filtered, and reviewed over time to track progress and patterns.
 
 ### Change History
-- *No changes tracked yet*
+- **2026-03-24** - did stuff
 
 ---
 

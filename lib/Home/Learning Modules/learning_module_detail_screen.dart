@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../cors/ui_theme.dart';
+import '../../cors/ui_theme.dart' show AppTheme;
 import '../../learning/notes_dialog.dart';
 import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
@@ -241,6 +241,80 @@ class _LearningModuleDetailScreenState extends State<LearningModuleDetailScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Inline card that opens [QualitativeSurveyDialog] (replaces the old star-rating block).
+  Widget _buildNewSurveySection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.feedback_outlined, color: AppTheme.brandPurple),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Module feedback',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF663399),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Share a quick rating about how clear and helpful this module was.',
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                showDialog<void>(
+                  context: context,
+                  builder: (context) => QualitativeSurveyDialog(
+                    feature: 'learning-modules',
+                    title: 'Learning module feedback',
+                    sourceId: widget.moduleId ?? widget.taskId,
+                    questions: const [
+                      'I understand what this means for my care.',
+                      'I know what I need to do next.',
+                      'I feel confident about my next steps.',
+                    ],
+                  ),
+                );
+              },
+              icon: const Icon(Icons.rate_review_outlined),
+              label: const Text('Give feedback'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF663399),
+                side: const BorderSide(color: Color(0xFF663399)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

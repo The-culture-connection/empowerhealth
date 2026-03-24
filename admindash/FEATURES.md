@@ -44,7 +44,7 @@ The Appointment Summarizing feature (After Visit Summary) allows users to upload
 
 ### Change History
 - **2024-12-13** - **uvw456rst** - **Feedback analytics dashboard**: Added real-time analytics for care check-in responses to help identify trends.
-- **2026-03-24** - **e7496270** - **Debug content seed**: Added test feature update payload for dashboard propagation verification.
+- **2026-03-24** - **e7496270** - **Debug content seed**: Added new flow to optimize.
 
 ---
 
@@ -229,3 +229,4 @@ Events follow Firebase naming convention: `feature_action_object` (e.g., `learni
 - **2025-03-23** - **528a0258** - **Realtime Firestore summaries and mobile schema**: Added `RealtimeAnalyticsService` for normalized `analytics_events` writes (`source: mobile`, time keys, platform, app version, sanitized metadata) and Cloud Function `onAnalyticsEventCreated` to aggregate into `analytics_summary/global`, `analytics_summary_daily/{dateKey}`, `analytics_feature_summary/{feature}`, and `analytics_summary_hourly/{hourKey}` without double-counting callable rows (`source: cloud_function`). Extended Firestore rules for summary collections (admin read, client no write). Admin Analytics page shows live totals from `analytics_summary/global`. Optional Firestore emulator support via `USE_FIREBASE_EMULATOR`. Documented in `docs/realtime-analytics.md` and inventory in `docs/mobile-analytics-inventory.md`. Fixed invalid JSON in `firestore.indexes.json` (trailing comma) blocking deploy. Instrumented `sign_in_completed` on login and `profile_updated` on profile save.
 - **2026-03-24** - **e7496270** - **Debug content seed**: Added test feature update payload for dashboard propagation verification.
 
+---

@@ -1,0 +1,81 @@
+import type { ReportType } from "./types";
+
+/** Analytics event names only (not Firestore survey collections). */
+export const WHITELIST: Record<ReportType, readonly string[]> = {
+  health_understanding_impact: [
+    "visit_summary_created",
+    "visit_summary_viewed",
+    "learning_module_viewed",
+    "learning_module_started",
+    "learning_module_completed",
+    "learning_module_survey_submitted",
+    "birth_plan_completed",
+    "micro_measure_submitted",
+    "confidence_signal_submitted",
+  ],
+  self_advocacy_confidence: [
+    "journal_entry_created",
+    "journal_mood_selected",
+    "visit_summary_created",
+    "visit_summary_viewed",
+    "micro_measure_submitted",
+    "confidence_signal_submitted",
+  ],
+  care_navigation_success: [
+    "provider_search_initiated",
+    "provider_profile_viewed",
+    "provider_contact_clicked",
+    "provider_selected_success",
+    "provider_review_submitted",
+  ],
+  engagement_pathway: [
+    "session_started",
+    "session_ended",
+    "screen_view",
+    "screen_time_spent",
+    "feature_time_spent",
+    "flow_abandoned",
+    "learning_module_viewed",
+    "learning_module_started",
+    "learning_module_completed",
+    "learning_module_survey_submitted",
+    "provider_search_initiated",
+    "provider_profile_viewed",
+    "provider_contact_clicked",
+    "provider_selected_success",
+    "provider_review_submitted",
+    "community_post_created",
+    "community_post_viewed",
+    "community_post_liked",
+    "community_post_replied",
+    "journal_entry_created",
+    "journal_mood_selected",
+    "birth_plan_completed",
+    "birth_plan_viewed",
+    "birth_plan_exported",
+  ],
+  care_preparation: [
+    "birth_plan_completed",
+    "birth_plan_viewed",
+    "birth_plan_exported",
+    "learning_module_viewed",
+    "learning_module_started",
+    "learning_module_completed",
+    "visit_summary_created",
+    "visit_summary_viewed",
+    "journal_entry_created",
+  ],
+  community_support: [
+    "community_post_created",
+    "community_post_viewed",
+    "community_post_liked",
+    "community_post_replied",
+    "journal_entry_created",
+    "journal_mood_selected",
+    "helpfulness_survey_submitted",
+  ],
+};
+
+export function whitelistSet(type: ReportType): Set<string> {
+  return new Set(WHITELIST[type]);
+}

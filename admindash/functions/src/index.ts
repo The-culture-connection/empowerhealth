@@ -11,17 +11,29 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
+/** Parse callable client date range (ISO strings or timestamps). */
+function parseDateRange(raw: any): { start: Date; end: Date } | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const start = raw.start != null ? new Date(raw.start) : undefined;
+  const end = raw.end != null ? new Date(raw.end) : undefined;
+  if (!start || Number.isNaN(start.getTime()) || !end || Number.isNaN(end.getTime())) {
+    return undefined;
+  }
+  return { start, end };
+}
+
 /**
  * Upload Build Version
  * Called from CI/CD or manual script to upload build version info
  */
-export const uploadBuildVersion = functions.https.onCall(async (data: any, context: any) => {
-  // Verify caller is authenticated
-  if (!context || !context.auth) {
+export const uploadBuildVersion = functions.https.onCall(
+  { enforceAppCheck: false },
+  async (request: functions.https.CallableRequest) => {
+  if (!request.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
-  const { fullVersion, commitHash, featureDossier } = data;
+  const { fullVersion, commitHash, featureDossier } = request.data || {};
 
   if (!fullVersion || !featureDossier) {
     throw new functions.https.HttpsError('invalid-argument', 'Missing required fields');
@@ -44,7 +56,7 @@ export const uploadBuildVersion = functions.https.onCall(async (data: any, conte
     commitHash: commitHash || null,
     releaseDate: admin.firestore.FieldValue.serverTimestamp(),
     featureDossier,
-    createdBy: context.auth.uid,
+    createdBy: request.auth.uid,
   };
 
   await db.collection('build_versions').doc(buildNumber.toString()).set(buildVersionDoc);
@@ -54,24 +66,55 @@ export const uploadBuildVersion = functions.https.onCall(async (data: any, conte
     action: 'build_version_uploaded',
     buildNumber,
     fullVersion,
-    performedBy: context.auth.uid,
+    performedBy: request.auth.uid,
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
   });
 
   return { success: true, buildNumber };
-});
+  },
+);
 
 /**
  * Log Analytics Event
  * Handles anonymization server-side
+ * 
+ * NOTE: This function does NOT require App Check - it only requires user authentication.
+ * App Check enforcement must be disabled in Firebase Console → App Check → APIs → Cloud Functions
+ * if App Check is not configured for the client app.
+ * 
+ * The function uses the authenticated user's UID (context.auth.uid) to tie analytics to users.
  */
-export const logAnalyticsEvent = functions.https.onCall(async (data: any, context: any) => {
-  if (!context || !context.auth) {
+export const logAnalyticsEvent = functions.https.onCall({
+  // Explicitly disable App Check enforcement - we only need user authentication
+  enforceAppCheck: false,
+}, async (request: functions.https.CallableRequest) => {
+  // Log incoming request details for debugging
+  console.log('[Analytics] Request received');
+  console.log('[Analytics] Request.auth exists:', !!request.auth);
+  console.log('[Analytics] Request.auth.uid:', request.auth?.uid);
+  console.log('[Analytics] Request.app exists:', !!request.app);
+  console.log('[Analytics] Raw request keys:', Object.keys(request));
+  
+  // Extract data and auth from request (v2 format)
+  const data = request.data;
+  const auth = request.auth;
+  
+  // Only require authentication - App Check is NOT required
+  if (!auth) {
+    console.error('[Analytics] Authentication failed - request.auth is null');
+    console.error('[Analytics] Full request structure:', {
+      hasAuth: !!request.auth,
+      hasApp: !!request.app,
+      hasData: !!request.data,
+      keys: Object.keys(request)
+    });
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
   const { eventName, feature, metadata, durationMs, sessionId } = data;
-  const uid = context.auth.uid;
+  const uid = auth.uid; // Use authenticated user's UID from request.auth
+  
+  console.log(`[Analytics] Event received: ${eventName} for feature: ${feature} from user: ${uid}`);
   
   // Validate feature ID
   const validFeatures = [
@@ -83,7 +126,8 @@ export const logAnalyticsEvent = functions.https.onCall(async (data: any, contex
     'learning-modules',
     'birth-plan-generator',
     'community',
-    'profile-editing'
+    'profile-editing',
+    'app' // For system-level events
   ];
   
   if (feature && !validFeatures.includes(feature)) {
@@ -102,15 +146,42 @@ export const logAnalyticsEvent = functions.https.onCall(async (data: any, contex
 
   const timestamp = admin.firestore.FieldValue.serverTimestamp();
 
-  // Write anonymized event
+  // Extract user lifecycle context from metadata
+  // These fields are attached to every event for cohort analysis
+  const lifecycleContext: Record<string, any> = {};
+  if (metadata) {
+    // Core lifecycle fields
+    if (metadata.user_id) lifecycleContext.user_id = metadata.user_id;
+    if (metadata.cohort_type) lifecycleContext.cohort_type = metadata.cohort_type;
+    if (metadata.navigator !== undefined) lifecycleContext.navigator = metadata.navigator;
+    if (metadata.self_directed !== undefined) lifecycleContext.self_directed = metadata.self_directed;
+    if (metadata.pregnancy_week !== undefined) lifecycleContext.pregnancy_week = metadata.pregnancy_week;
+    if (metadata.trimester) lifecycleContext.trimester = metadata.trimester;
+    if (metadata.session_id) lifecycleContext.session_id = metadata.session_id;
+    
+    // Optional lifecycle fields
+    if (metadata.provider_selected !== undefined) lifecycleContext.provider_selected = metadata.provider_selected;
+    if (metadata.appointment_upcoming !== undefined) lifecycleContext.appointment_upcoming = metadata.appointment_upcoming;
+    if (metadata.postpartum_phase) lifecycleContext.postpartum_phase = metadata.postpartum_phase;
+  }
+
+  // Merge lifecycle context with event-specific metadata
+  const enrichedMetadata = {
+    ...lifecycleContext,
+    ...(metadata || {}),
+  };
+
+  // Write anonymized event (source: cloud_function — skipped by realtime aggregation trigger)
   const anonEvent = {
     anonUserId,
     eventName,
     feature,
-    metadata: metadata || {},
+    metadata: enrichedMetadata,
     durationMs: durationMs || null,
     sessionId: sessionId || null,
     timestamp,
+    source: 'cloud_function',
+    aggregationVersion: 1,
   };
 
   await db.collection('analytics_events').add(anonEvent);
@@ -121,7 +192,7 @@ export const logAnalyticsEvent = functions.https.onCall(async (data: any, contex
     anonUserId,
     eventName,
     feature,
-    metadata: metadata || {},
+    metadata: enrichedMetadata,
     durationMs: durationMs || null,
     sessionId: sessionId || null,
     timestamp,
@@ -129,6 +200,7 @@ export const logAnalyticsEvent = functions.https.onCall(async (data: any, contex
 
   await db.collection('analytics_events_private').add(privateEvent);
 
+  console.log(`[Analytics] Event logged successfully: ${eventName} (anonUserId: ${anonUserId}, uid: ${uid})`);
   return { success: true };
 });
 
@@ -136,119 +208,435 @@ export const logAnalyticsEvent = functions.https.onCall(async (data: any, contex
  * Get Analytics Data
  * Aggregates analytics data with role-based access
  */
-export const getAnalyticsData = functions.https.onCall(async (data: any, context: any) => {
-  if (!context || !context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
-  }
-
-  const { dateRange, feature, anonymized = true } = data;
-  const uid = context.auth.uid;
-
-  // Check user role
-  const isAdmin = await checkUserRole(uid, 'admin');
-
-  // Research partners can only access anonymized data
-  if (!anonymized && !isAdmin) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admins can access unanonymized data');
-  }
-
-  const collectionName = anonymized ? 'analytics_events' : 'analytics_events_private';
-  let query: admin.firestore.Query = db.collection(collectionName);
-
-  if (dateRange) {
-    query = query.where('timestamp', '>=', admin.firestore.Timestamp.fromDate(new Date(dateRange.start)));
-    query = query.where('timestamp', '<=', admin.firestore.Timestamp.fromDate(new Date(dateRange.end)));
-  }
-
-  if (feature) {
-    query = query.where('feature', '==', feature);
-  }
-
-  const snapshot = await query.get();
-  const events: any[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-  // Aggregate data
-  const activeUsers = new Set(events.map((e: any) => anonymized ? e.anonUserId : e.uid)).size;
-  const featureUsage: Record<string, number> = {};
-  const featureDurations: Record<string, number[]> = {};
-
-  events.forEach((event: any) => {
-    const feat = event.feature || 'unknown';
-    featureUsage[feat] = (featureUsage[feat] || 0) + 1;
-    
-    if (event.durationMs) {
-      if (!featureDurations[feat]) {
-        featureDurations[feat] = [];
-      }
-      featureDurations[feat].push(event.durationMs);
+export const getAnalyticsData = functions.https.onCall(
+  { enforceAppCheck: false },
+  async (request: functions.https.CallableRequest) => {
+    if (!request.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
     }
-  });
 
-  const avgDurations: Record<string, number> = {};
-  Object.keys(featureDurations).forEach(feat => {
-    const durations = featureDurations[feat];
-    avgDurations[feat] = durations.reduce((a, b) => a + b, 0) / durations.length;
-  });
+    const { feature, anonymized = true } = request.data || {};
+    const dateRange = parseDateRange(request.data?.dateRange);
+    const uid = request.auth.uid;
 
-  return {
-    activeUsers,
-    featureUsage,
-    avgDurations,
-    totalEvents: events.length,
-  };
-});
+    const isAdmin = await checkUserRole(uid, 'admin');
+
+    if (!anonymized && !isAdmin) {
+      throw new functions.https.HttpsError('permission-denied', 'Only admins can access unanonymized data');
+    }
+
+    const collectionName = anonymized ? 'analytics_events' : 'analytics_events_private';
+    let query: admin.firestore.Query = db.collection(collectionName);
+
+    if (dateRange) {
+      query = query.where('timestamp', '>=', admin.firestore.Timestamp.fromDate(dateRange.start));
+      query = query.where('timestamp', '<=', admin.firestore.Timestamp.fromDate(dateRange.end));
+    }
+
+    if (feature) {
+      query = query.where('feature', '==', feature);
+    }
+
+    const snapshot = await query.get();
+    const events: any[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const userKeyFor = (e: any): string | null => {
+      const id = anonymized ? e.anonUserId : e.uid;
+      return typeof id === 'string' && id ? id : null;
+    };
+    const eventNameOf = (e: any): string => String(e.eventName || 'unknown');
+    const featureOf = (e: any): string => String(e.feature || 'unknown');
+    const tsMillisOf = (e: any): number | null => {
+      const t = e.timestamp;
+      if (t && typeof t.toDate === 'function') return t.toDate().getTime();
+      const d = new Date(t || 0);
+      return Number.isNaN(d.getTime()) ? null : d.getTime();
+    };
+    const metadataOf = (e: any): Record<string, any> =>
+      e.metadata && typeof e.metadata === 'object' ? e.metadata : {};
+    const safeNumber = (n: any): number | null =>
+      typeof n === 'number' && Number.isFinite(n) ? n : null;
+
+    const activeUsers = new Set(events.map(userKeyFor).filter(Boolean as any)).size;
+    const featureUsage: Record<string, number> = {};
+    const featureDurations: Record<string, number[]> = {};
+    const eventCounts: Record<string, number> = {};
+
+    const stageEvents = {
+      awareness: new Set(['session_started', 'screen_view']),
+      engagement: new Set(['learning_module_viewed', 'journal_entry_created', 'provider_search_initiated']),
+      action: new Set(['visit_summary_created', 'birth_plan_completed', 'provider_contact_clicked']),
+      reflection: new Set(['micro_measure_submitted', 'journal_mood_selected', 'confidence_signal_submitted']),
+    };
+
+    const highValue = new Set(['birth_plan_completed', 'provider_contact_clicked', 'visit_summary_created']);
+
+    type UserStats = {
+      sessions: number;
+      screenViews: number;
+      featureActions: number;
+      highValueActions: number;
+      stages: Set<string>;
+      firstTs: number | null;
+      lastTs: number | null;
+      cohortType: string;
+      trimester: string;
+      confidenceSeries: Array<{ ts: number; score: number }>;
+      providerSearches: number;
+      providerContacts: number;
+      providerViews: number;
+      journalEntries: number;
+      learningCompleted: number;
+      birthPlanCompletedAt: number | null;
+      firstLearningCompletedAt: number | null;
+      firstSessionAt: number | null;
+      firstProviderContactAt: number | null;
+      firstVisitSummaryAt: number | null;
+    };
+    const byUser: Record<string, UserStats> = {};
+
+    const ensureUser = (id: string): UserStats => {
+      if (!byUser[id]) {
+        byUser[id] = {
+          sessions: 0,
+          screenViews: 0,
+          featureActions: 0,
+          highValueActions: 0,
+          stages: new Set<string>(),
+          firstTs: null,
+          lastTs: null,
+          cohortType: 'unknown',
+          trimester: 'unknown',
+          confidenceSeries: [],
+          providerSearches: 0,
+          providerContacts: 0,
+          providerViews: 0,
+          journalEntries: 0,
+          learningCompleted: 0,
+          birthPlanCompletedAt: null,
+          firstLearningCompletedAt: null,
+          firstSessionAt: null,
+          firstProviderContactAt: null,
+          firstVisitSummaryAt: null,
+        };
+      }
+      return byUser[id];
+    };
+
+    events.forEach((event: any) => {
+      const feat = featureOf(event);
+      const name = eventNameOf(event);
+      featureUsage[feat] = (featureUsage[feat] || 0) + 1;
+      eventCounts[name] = (eventCounts[name] || 0) + 1;
+
+      if (event.durationMs) {
+        if (!featureDurations[feat]) featureDurations[feat] = [];
+        featureDurations[feat].push(event.durationMs);
+      }
+
+      const userId = userKeyFor(event);
+      if (!userId) return;
+      const s = ensureUser(userId);
+      const ts = tsMillisOf(event);
+      const meta = metadataOf(event);
+
+      if (!s.cohortType && typeof meta.cohort_type === 'string') s.cohortType = meta.cohort_type;
+      if (!s.trimester && typeof meta.trimester === 'string') s.trimester = meta.trimester;
+      if (s.cohortType === 'unknown' && typeof (event as any).cohort_type === 'string') s.cohortType = (event as any).cohort_type;
+      if (s.trimester === 'unknown' && typeof (event as any).trimester === 'string') s.trimester = (event as any).trimester;
+
+      if (ts != null) {
+        s.firstTs = s.firstTs == null ? ts : Math.min(s.firstTs, ts);
+        s.lastTs = s.lastTs == null ? ts : Math.max(s.lastTs, ts);
+      }
+
+      if (name === 'session_started') {
+        s.sessions += 1;
+        if (ts != null && s.firstSessionAt == null) s.firstSessionAt = ts;
+      } else if (name === 'screen_view') {
+        s.screenViews += 1;
+      } else {
+        s.featureActions += 1;
+      }
+
+      if (highValue.has(name)) s.highValueActions += 1;
+      if (stageEvents.awareness.has(name)) s.stages.add('awareness');
+      if (stageEvents.engagement.has(name)) s.stages.add('engagement');
+      if (stageEvents.action.has(name)) s.stages.add('action');
+      if (stageEvents.reflection.has(name)) s.stages.add('reflection');
+
+      if (name === 'provider_search_initiated') s.providerSearches += 1;
+      if (name === 'provider_profile_viewed') s.providerViews += 1;
+      if (name === 'provider_contact_clicked') {
+        s.providerContacts += 1;
+        if (ts != null && s.firstProviderContactAt == null) s.firstProviderContactAt = ts;
+      }
+      if (name === 'journal_entry_created') s.journalEntries += 1;
+      if (name === 'learning_module_completed') {
+        s.learningCompleted += 1;
+        if (ts != null && s.firstLearningCompletedAt == null) s.firstLearningCompletedAt = ts;
+      }
+      if (name === 'birth_plan_completed' && ts != null && s.birthPlanCompletedAt == null) s.birthPlanCompletedAt = ts;
+      if (name === 'visit_summary_created' && ts != null && s.firstVisitSummaryAt == null) s.firstVisitSummaryAt = ts;
+
+      const confidence =
+        safeNumber(meta.confidence_score) ??
+        safeNumber(meta.confidence) ??
+        safeNumber(meta.confidenceScore) ??
+        safeNumber((event as any).confidence_score);
+      if (ts != null && confidence != null) {
+        s.confidenceSeries.push({ ts, score: confidence });
+      }
+    });
+
+    const avgDurations: Record<string, number> = {};
+    Object.keys(featureDurations).forEach(feat => {
+      const durations = featureDurations[feat];
+      avgDurations[feat] = durations.reduce((a, b) => a + b, 0) / durations.length;
+    });
+
+    const allFlatDurations = Object.values(featureDurations).flat();
+    const avgDurationMs =
+      allFlatDurations.length > 0
+        ? allFlatDurations.reduce((a, b) => a + b, 0) / allFlatDurations.length
+        : 0;
+
+    const users = Object.values(byUser);
+    const userCount = users.length || 1;
+
+    const engagementScores = users.map((u) =>
+      u.sessions * 1 + u.screenViews * 0.5 + u.featureActions * 3 + u.highValueActions * 5,
+    );
+    const avgEngagementScore =
+      engagementScores.length > 0
+        ? engagementScores.reduce((a, b) => a + b, 0) / engagementScores.length
+        : 0;
+
+    const engagementLevelCounts = { high: 0, medium: 0, low: 0 };
+    engagementScores.forEach((score) => {
+      if (score >= 40) engagementLevelCounts.high += 1;
+      else if (score >= 15) engagementLevelCounts.medium += 1;
+      else engagementLevelCounts.low += 1;
+    });
+
+    const newVsReturning = users.reduce(
+      (acc, u) => {
+        if (u.sessions > 1) acc.returning += 1;
+        else acc.new += 1;
+        return acc;
+      },
+      { new: 0, returning: 0 },
+    );
+
+    const trimesterBreakdown: Record<string, number> = {};
+    const cohortBreakdown: Record<string, number> = {};
+    users.forEach((u) => {
+      trimesterBreakdown[u.trimester] = (trimesterBreakdown[u.trimester] || 0) + 1;
+      cohortBreakdown[u.cohortType] = (cohortBreakdown[u.cohortType] || 0) + 1;
+    });
+
+    const stageUserCounts = { awareness: 0, engagement: 0, action: 0, reflection: 0, outcome: 0 };
+    users.forEach((u) => {
+      if (u.stages.has('awareness')) stageUserCounts.awareness += 1;
+      if (u.stages.has('engagement')) stageUserCounts.engagement += 1;
+      if (u.stages.has('action')) stageUserCounts.action += 1;
+      if (u.stages.has('reflection')) stageUserCounts.reflection += 1;
+      if (u.confidenceSeries.length >= 2 || u.highValueActions > 0) stageUserCounts.outcome += 1;
+    });
+
+    const confidenceDeltas = users
+      .map((u) => {
+        if (u.confidenceSeries.length < 2) return null;
+        const sorted = [...u.confidenceSeries].sort((a, b) => a.ts - b.ts);
+        return sorted[sorted.length - 1].score - sorted[0].score;
+      })
+      .filter((v): v is number => v != null);
+    const avgConfidenceDelta =
+      confidenceDeltas.length > 0
+        ? confidenceDeltas.reduce((a, b) => a + b, 0) / confidenceDeltas.length
+        : 0;
+    const confidenceImprovedPct = Math.round((confidenceDeltas.filter((d) => d > 0).length / (confidenceDeltas.length || 1)) * 100);
+
+    const understandingSignals = users
+      .map((u) => {
+        const latest = [...u.confidenceSeries].sort((a, b) => b.ts - a.ts)[0];
+        return latest ? latest.score : null;
+      })
+      .filter((v): v is number => v != null);
+    const understandingImprovedPct = Math.round(
+      (understandingSignals.filter((s) => s >= 4).length / (understandingSignals.length || 1)) * 100,
+    );
+
+    const actionTakenPct = Math.round((users.filter((u) => u.highValueActions > 0).length / userCount) * 100);
+
+    const visitSummaryCreated = eventCounts.visit_summary_created || 0;
+    const providerContactClicked = eventCounts.provider_contact_clicked || 0;
+    const providerSearchInitiated = eventCounts.provider_search_initiated || 0;
+    const providerProfileViewed = eventCounts.provider_profile_viewed || 0;
+    const communityPostCreated = eventCounts.community_post_created || 0;
+    const communityPostReplied = eventCounts.community_post_replied || 0;
+    const communityPostLiked = eventCounts.community_post_liked || 0;
+
+    const usageRateVisitSummary = visitSummaryCreated / userCount;
+    const followUpActionRate = visitSummaryCreated > 0 ? providerContactClicked / visitSummaryCreated : 0;
+    const providerSearchSuccessRate =
+      providerSearchInitiated > 0 ? providerContactClicked / providerSearchInitiated : 0;
+    const providerExplorationDepth =
+      providerSearchInitiated > 0 ? providerProfileViewed / providerSearchInitiated : 0;
+    const postingRate = communityPostCreated / userCount;
+
+    const timeToActionMinutes = users
+      .map((u) =>
+        u.firstSessionAt != null && u.firstProviderContactAt != null && u.firstProviderContactAt >= u.firstSessionAt
+          ? (u.firstProviderContactAt - u.firstSessionAt) / 60000
+          : null,
+      )
+      .filter((v): v is number => v != null);
+    const avgTimeToActionMinutes =
+      timeToActionMinutes.length > 0
+        ? timeToActionMinutes.reduce((a, b) => a + b, 0) / timeToActionMinutes.length
+        : 0;
+
+    const learningToBirthPlanMins = users
+      .map((u) =>
+        u.firstLearningCompletedAt != null && u.birthPlanCompletedAt != null && u.birthPlanCompletedAt >= u.firstLearningCompletedAt
+          ? (u.birthPlanCompletedAt - u.firstLearningCompletedAt) / 60000
+          : null,
+      )
+      .filter((v): v is number => v != null);
+    const avgLearningToBirthPlanMinutes =
+      learningToBirthPlanMins.length > 0
+        ? learningToBirthPlanMins.reduce((a, b) => a + b, 0) / learningToBirthPlanMins.length
+        : 0;
+
+    const confidenceWithJournal = users
+      .filter((u) => u.journalEntries >= 2)
+      .flatMap((u) => u.confidenceSeries.map((c) => c.score));
+    const confidenceWithoutJournal = users
+      .filter((u) => u.journalEntries === 0)
+      .flatMap((u) => u.confidenceSeries.map((c) => c.score));
+    const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+    const journalConfidenceLift = avg(confidenceWithJournal) - avg(confidenceWithoutJournal);
+
+    const recommendations: string[] = [];
+    if (providerSearchSuccessRate < 0.4) {
+      recommendations.push('Provider search has significant drop-off before contact; add guided prompts after results.');
+    }
+    if (followUpActionRate < 0.5) {
+      recommendations.push('Users create visit summaries but fewer continue to provider contact; add follow-up CTA after summary completion.');
+    }
+    if (journalConfidenceLift > 0.5) {
+      recommendations.push('Users with 2+ journal entries show higher confidence; nudge users to journal earlier.');
+    }
+    if (recommendations.length === 0) {
+      recommendations.push('Current journey is balanced; keep monitoring cohort-level variance by trimester and care pathway.');
+    }
+
+    return {
+      activeUsers,
+      featureUsage,
+      avgDurations,
+      avgDurationMs,
+      totalEvents: events.length,
+      eventCounts,
+      holisticReport: {
+        executiveSummary: {
+          confidenceImprovedPct,
+          understandingImprovedPct,
+          actionTakenPct,
+          highestPerformingFeatures: Object.entries(featureUsage)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([f]) => f),
+        },
+        cohortBreakdown: {
+          trimester: trimesterBreakdown,
+          cohortType: cohortBreakdown,
+          engagementLevel: engagementLevelCounts,
+          newVsReturning,
+        },
+        journeyFunnel: stageUserCounts,
+        featurePerformance: [
+          { feature: 'visit-summary', usageRate: usageRateVisitSummary, outcomeImpact: followUpActionRate, notes: 'Usage + follow-up action' },
+          { feature: 'provider-search', usageRate: providerSearchSuccessRate, outcomeImpact: providerExplorationDepth, notes: 'Contact success and exploration depth' },
+          { feature: 'community', usageRate: postingRate, outcomeImpact: (communityPostReplied + communityPostLiked) / (communityPostCreated || 1), notes: 'Posting and engagement per post' },
+        ],
+        engagementDepth: {
+          averageScore: avgEngagementScore,
+          formula: '(sessions*1) + (screen_views*0.5) + (feature_actions*3) + (high_value_actions*5)',
+        },
+        outcomeMetrics: {
+          healthUnderstandingScore: understandingImprovedPct,
+          selfAdvocacyScore: confidenceImprovedPct,
+          careNavigationSuccess: Math.round(providerSearchSuccessRate * 100),
+          carePreparationScore: avgLearningToBirthPlanMinutes > 0 ? Math.max(0, 100 - Math.round(avgLearningToBirthPlanMinutes / 10)) : 0,
+          avgConfidenceDelta,
+        },
+        timeInsights: {
+          avgTimeToActionMinutes,
+          avgLearningToActionMinutes: avgLearningToBirthPlanMinutes,
+        },
+        behaviorCorrelations: {
+          journalConfidenceLift,
+          providerViewsPerSearch: providerExplorationDepth,
+          usersWithLearningCompletionPct: Math.round((users.filter((u) => u.learningCompleted > 0).length / userCount) * 100),
+        },
+        recommendations,
+      },
+    };
+  },
+);
 
 /**
  * Generate Report
  * Creates comprehensive reports with insights
  */
-export const generateReport = functions.https.onCall(async (data: any, context: any) => {
-  if (!context || !context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
-  }
+export const generateReport = functions.https.onCall(
+  { enforceAppCheck: false },
+  async (request: functions.https.CallableRequest) => {
+    if (!request.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
 
-  const { reportType, anonymized, dateRange, cohortType } = data;
-  const uid = context.auth.uid;
+    const { reportType, anonymized, cohortType } = request.data || {};
+    const dateRange = parseDateRange(request.data?.dateRange);
+    const uid = request.auth.uid;
 
-  // Check permissions
-  const isAdmin = await checkUserRole(uid, 'admin');
-  const isResearchPartner = await checkUserRole(uid, 'research_partner');
+    const isAdmin = await checkUserRole(uid, 'admin');
+    const isResearchPartner = await checkUserRole(uid, 'research_partner');
 
-  if (!isAdmin && !isResearchPartner) {
-    throw new functions.https.HttpsError('permission-denied', 'Insufficient permissions');
-  }
+    if (!isAdmin && !isResearchPartner) {
+      throw new functions.https.HttpsError('permission-denied', 'Insufficient permissions');
+    }
 
-  if (!anonymized && !isAdmin) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admins can generate unanonymized reports');
-  }
+    if (!anonymized && !isAdmin) {
+      throw new functions.https.HttpsError('permission-denied', 'Only admins can generate unanonymized reports');
+    }
 
-  // This is a simplified version - implement full report logic based on reportType
-  const collectionName = anonymized ? 'analytics_events' : 'analytics_events_private';
-  
-  // Query events in date range
-  let query: admin.firestore.Query = db.collection(collectionName);
-  if (dateRange) {
-    query = query.where('timestamp', '>=', admin.firestore.Timestamp.fromDate(new Date(dateRange.start)));
-    query = query.where('timestamp', '<=', admin.firestore.Timestamp.fromDate(new Date(dateRange.end)));
-  }
+    const collectionName = anonymized ? 'analytics_events' : 'analytics_events_private';
 
-  const snapshot = await query.get();
-  const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let query: admin.firestore.Query = db.collection(collectionName);
+    if (dateRange) {
+      query = query.where('timestamp', '>=', admin.firestore.Timestamp.fromDate(dateRange.start));
+      query = query.where('timestamp', '<=', admin.firestore.Timestamp.fromDate(dateRange.end));
+    }
 
-  // Generate report based on type
-  const report = generateReportByType(reportType, events, cohortType);
+    const snapshot = await query.get();
+    const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-  // Log audit event
-  await db.collection('audit_logs').add({
-    action: 'report_generated',
-    reportType,
-    anonymized,
-    performedBy: uid,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-  });
+    const report = generateReportByType(reportType, events, cohortType);
 
-  return report;
-});
+    await db.collection('audit_logs').add({
+      action: 'report_generated',
+      reportType,
+      anonymized,
+      performedBy: uid,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return report;
+  },
+);
 
 /**
  * Helper: Check user role
@@ -266,6 +654,50 @@ async function checkUserRole(uid: string, role: string): Promise<boolean> {
   const doc = await db.collection(collectionName).doc(uid).get();
   return doc.exists;
 }
+
+/**
+ * Resolve a Firebase Auth user by email (Admin SDK).
+ * Callers must be admins. Used for role assignment when `users/{uid}` is not created yet.
+ */
+export const lookupAuthUserByEmail = functions.https.onCall(
+  { enforceAppCheck: false },
+  async (request: functions.https.CallableRequest) => {
+    const auth = request.auth;
+    const data = request.data;
+
+    if (!auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const callerUid = auth.uid;
+    const isAdmin = await checkUserRole(callerUid, 'admin');
+    if (!isAdmin) {
+      throw new functions.https.HttpsError('permission-denied', 'Only admins can look up users by email');
+    }
+
+    const raw = typeof data?.email === 'string' ? data.email.trim() : '';
+    if (!raw || !raw.includes('@')) {
+      throw new functions.https.HttpsError('invalid-argument', 'A valid email address is required');
+    }
+
+    const normalized = raw.toLowerCase();
+
+    try {
+      const userRecord = await admin.auth().getUserByEmail(normalized);
+      return {
+        uid: userRecord.uid,
+        email: userRecord.email || normalized,
+        displayName: userRecord.displayName || undefined,
+      };
+    } catch (e: any) {
+      if (e?.code === 'auth/user-not-found') {
+        return null;
+      }
+      console.error('[lookupAuthUserByEmail]', e);
+      throw new functions.https.HttpsError('internal', e?.message || 'Failed to look up user');
+    }
+  }
+);
 
 /**
  * Helper: Generate report by type
@@ -312,13 +744,16 @@ function generateReportByType(
  * Get Feature Analytics
  * Aggregates analytics data for a specific feature
  */
-export const getFeatureAnalytics = functions.https.onCall(async (data: any, context: any) => {
-  if (!context || !context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
-  }
+export const getFeatureAnalytics = functions.https.onCall(
+  { enforceAppCheck: false },
+  async (request: functions.https.CallableRequest) => {
+    if (!request.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
 
-  const { featureId, dateRange, anonymized = true } = data;
-  const uid = context.auth.uid;
+    const { featureId, anonymized = true } = request.data || {};
+    const dateRange = parseDateRange(request.data?.dateRange);
+    const uid = request.auth.uid;
 
   if (!featureId) {
     throw new functions.https.HttpsError('invalid-argument', 'featureId is required');
@@ -344,17 +779,17 @@ export const getFeatureAnalytics = functions.https.onCall(async (data: any, cont
   let query: admin.firestore.Query = db.collection(collectionName)
     .where('feature', '==', featureId);
 
-  // Apply date range if provided
   if (dateRange) {
-    const startDate = dateRange.start ? admin.firestore.Timestamp.fromDate(new Date(dateRange.start)) : null;
-    const endDate = dateRange.end ? admin.firestore.Timestamp.fromDate(new Date(dateRange.end)) : null;
-    
-    if (startDate) {
-      query = query.where('timestamp', '>=', startDate);
-    }
-    if (endDate) {
-      query = query.where('timestamp', '<=', endDate);
-    }
+    query = query.where(
+      'timestamp',
+      '>=',
+      admin.firestore.Timestamp.fromDate(dateRange.start),
+    );
+    query = query.where(
+      'timestamp',
+      '<=',
+      admin.firestore.Timestamp.fromDate(dateRange.end),
+    );
   }
 
   const snapshot = await query.get();
@@ -461,19 +896,29 @@ export const getFeatureAnalytics = functions.https.onCall(async (data: any, cont
     kpis,
     totalEvents: events.length,
   };
-});
+  },
+);
 
 /**
  * Update Feature
  * Admin-only function to update feature metadata
  */
-export const updateFeature = functions.https.onCall(async (data: any, context: any) => {
-  if (!context || !context.auth) {
+export const updateFeature = functions.https.onCall({
+  // Explicitly disable App Check enforcement - we only need user authentication
+  enforceAppCheck: false,
+}, async (request: functions.https.CallableRequest) => {
+  console.log('[updateFeature] Request received');
+  console.log('[updateFeature] Request.auth exists:', !!request?.auth);
+  console.log('[updateFeature] Request.auth.uid:', request?.auth?.uid);
+  console.log('[updateFeature] Request.data:', request?.data);
+  
+  if (!request || !request.auth) {
+    console.error('[updateFeature] Authentication failed - request.auth is null');
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
-  const { featureId, updates } = data;
-  const uid = context.auth.uid;
+  const { featureId, updates } = request.data;
+  const uid = request.auth.uid;
 
   if (!featureId || !updates) {
     throw new functions.https.HttpsError('invalid-argument', 'featureId and updates are required');
@@ -546,7 +991,10 @@ export const updateFeature = functions.https.onCall(async (data: any, context: a
  * Process Feature Changes from FEATURES.md
  * Called from GitHub Actions to update feature descriptions and change history
  */
-export const processFeatureChanges = functions.https.onCall(async (data: any, context?: any) => {
+export const processFeatureChanges = functions.https.onCall(
+  { enforceAppCheck: false },
+  async (request: functions.https.CallableRequest) => {
+  const data = request.data || {};
   // Allow unauthenticated calls from GitHub Actions (using secret token)
   const { 
     commitSha,
@@ -564,7 +1012,7 @@ export const processFeatureChanges = functions.https.onCall(async (data: any, co
     if (!expectedToken || secretToken !== expectedToken) {
       throw new functions.https.HttpsError('permission-denied', 'Invalid secret token');
     }
-  } else if (!context?.auth) {
+  } else if (!request.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
   }
 
@@ -641,7 +1089,7 @@ export const processFeatureChanges = functions.https.onCall(async (data: any, co
       commitSha,
       commitMessage: commitMessage || '',
       featuresUpdated: Object.keys(features).length,
-      performedBy: context?.auth?.uid || 'system',
+      performedBy: request.auth?.uid || 'system',
       timestamp: now,
     });
 
@@ -654,7 +1102,8 @@ export const processFeatureChanges = functions.https.onCall(async (data: any, co
     console.error('Error processing feature changes:', error);
     throw new functions.https.HttpsError('internal', `Failed to process feature changes: ${error.message}`);
   }
-});
+  },
+);
 
 /**
  * Parse FEATURES.md markdown content
@@ -662,6 +1111,8 @@ export const processFeatureChanges = functions.https.onCall(async (data: any, co
 function parseFeaturesMarkdown(content: string): Record<string, any> {
   const features: Record<string, any> = {};
   const sections = content.split(/^## \d+\. /m);
+  
+  console.log(`[parseFeaturesMarkdown] Found ${sections.length} sections after splitting`);
   
   // Map feature names to IDs
   const featureIdMap: Record<string, string> = {
@@ -683,6 +1134,8 @@ function parseFeaturesMarkdown(content: string): Record<string, any> {
     const featureName = lines[0].trim();
     const featureId = featureIdMap[featureName] || featureName.toLowerCase().replace(/\s+/g, '-');
     
+    console.log(`[parseFeaturesMarkdown] Processing section ${index}: featureName="${featureName}", featureId="${featureId}"`);
+    
     let currentSection = '';
     let description = '';
     let howItWorks = '';
@@ -703,7 +1156,8 @@ function parseFeaturesMarkdown(content: string): Record<string, any> {
       } else if (line.startsWith('- **') && currentSection === 'changes') {
         // Parse: - **[Date]** - **[Commit SHA]** - **[Title]**: [Description]
         // Or: - **[Date]** - **[Title]**: [Description] (without commit SHA)
-        const matchWithCommit = line.match(/^- \*\*(\d{4}-\d{2}-\d{2})\*\* - \*\*([a-f0-9]+)\*\* - \*\*([^\*]+)\*\*: (.+)$/);
+        // Note: Commit SHA can be any alphanumeric string (not just hex) for mock/test values
+        const matchWithCommit = line.match(/^- \*\*(\d{4}-\d{2}-\d{2})\*\* - \*\*([a-zA-Z0-9]+)\*\* - \*\*([^\*]+)\*\*: (.+)$/);
         const matchWithoutCommit = line.match(/^- \*\*(\d{4}-\d{2}-\d{2})\*\* - \*\*([^\*]+)\*\*: (.+)$/);
         
         if (matchWithCommit) {
@@ -726,6 +1180,9 @@ function parseFeaturesMarkdown(content: string): Record<string, any> {
           recentUpdates.push(updateText);
         } else if (line.startsWith('- *No changes tracked yet*')) {
           // Skip "No changes tracked yet" entries
+        } else {
+          // Log lines that don't match for debugging
+          console.log(`[parseFeaturesMarkdown] Line did not match regex for feature ${featureId}:`, line);
         }
       } else if (currentSection === 'functionality' && line && !line.startsWith('---')) {
         // Collect "How the feature works" from Current Functionality section
@@ -742,8 +1199,16 @@ function parseFeaturesMarkdown(content: string): Record<string, any> {
       recentUpdates: recentUpdates, // Extract recent updates
       changeHistory: changeHistory
     };
+    
+    console.log(`[parseFeaturesMarkdown] Added feature ${featureId}:`, {
+      hasHowItWorks: !!howItWorks.trim(),
+      howItWorksLength: howItWorks.trim().length,
+      recentUpdatesCount: recentUpdates.length,
+      changeHistoryCount: changeHistory.length
+    });
   });
   
+  console.log(`[parseFeaturesMarkdown] Returning ${Object.keys(features).length} features:`, Object.keys(features));
   return features;
 }
 
@@ -823,6 +1288,9 @@ export const publishRelease = functions.https.onRequest({
       featuresMarkdownLength: payload?.featuresMarkdown?.length || 0,
       featuresMarkdownPreview: payload?.featuresMarkdown?.substring(0, 100) || 'none'
     });
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'publish-release-1',hypothesisId:'H5',location:'admindash/functions/src/index.ts:publishRelease:request',message:'publishRelease payload received',data:{hasDataWrapper:!!req.body?.data,hasFeaturesMarkdown:!!payload?.featuresMarkdown,featuresMarkdownLength:payload?.featuresMarkdown?.length||0,commitSha:payload?.commitSha||null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
   
     // Allow unauthenticated calls from GitHub Actions (using secret token)
     const { 
@@ -988,8 +1456,18 @@ export const publishRelease = functions.https.onRequest({
       try {
         console.log('[publishRelease] Processing FEATURES.md content, length:', featuresMarkdown.length);
         const features = parseFeaturesMarkdown(featuresMarkdown);
+        console.log(`[publishRelease] Parsed ${Object.keys(features).length} features from FEATURES.md`);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'publish-release-1',hypothesisId:'H6',location:'admindash/functions/src/index.ts:publishRelease:parseFeatures',message:'Parsed FEATURES.md into feature map',data:{featureCount:Object.keys(features).length,featureIds:Object.keys(features).slice(0,12)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         
         for (const [featureId, featureData] of Object.entries(features)) {
+          console.log(`[publishRelease] Processing feature ${featureId}:`, {
+            name: featureData.name,
+            hasHowItWorks: !!featureData.howItWorks,
+            howItWorksLength: featureData.howItWorks?.length || 0,
+            recentUpdatesCount: featureData.recentUpdates?.length || 0
+          });
           const featureRef = db.collection('technology_features').doc(featureId);
           const featureDoc = await featureRef.get();
           const existingData: any = featureDoc.exists ? featureDoc.data() : {};
@@ -1034,6 +1512,9 @@ export const publishRelease = functions.https.onRequest({
           
           await featureRef.set(featureUpdate, { merge: true });
           console.log(`[publishRelease] Updated feature ${featureId} with howItWorks and recentUpdates`);
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'publish-release-1',hypothesisId:'H7',location:'admindash/functions/src/index.ts:publishRelease:updateFeature',message:'Upserted technology_features doc',data:{featureId,recentUpdatesCount:Array.isArray(featureUpdate.recentUpdates)?featureUpdate.recentUpdates.length:0,howItWorksLength:typeof featureUpdate.howItWorks==='string'?featureUpdate.howItWorks.length:0,lastProcessedCommit:featureUpdate.lastProcessedCommit||null},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           
           // Add change history entries for new changes
           if (featureData.changeHistory && featureData.changeHistory.length > 0) {
@@ -1061,6 +1542,9 @@ export const publishRelease = functions.https.onRequest({
         console.log('[publishRelease] Successfully processed FEATURES.md');
       } catch (error: any) {
         console.error('[publishRelease] Error processing FEATURES.md:', error);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'publish-release-1',hypothesisId:'H8',location:'admindash/functions/src/index.ts:publishRelease:catchFeatures',message:'FEATURES.md processing failed',data:{error:error?.message||'unknown'},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         // Don't fail the entire release if FEATURES.md parsing fails
       }
     }
@@ -1215,12 +1699,14 @@ export const pollSystemHealth = functionsV1.pubsub.schedule('every 5 minutes').o
  * Run Health Check Now
  * Manual health check trigger (Admin only)
  */
-export const runHealthCheckNow = functions.https.onCall(async (data: any, context: any) => {
-  if (!context || !context.auth) {
+export const runHealthCheckNow = functions.https.onCall(
+  { enforceAppCheck: false },
+  async (request: functions.https.CallableRequest) => {
+  if (!request.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
-  const uid = context.auth.uid;
+  const uid = request.auth.uid;
   const isAdmin = await checkUserRole(uid, 'admin');
   
   if (!isAdmin) {
@@ -1251,7 +1737,8 @@ export const runHealthCheckNow = functions.https.onCall(async (data: any, contex
   });
 
   return { success: true, checks };
-});
+  },
+);
 
 /**
  * Perform Health Checks
@@ -1416,3 +1903,15 @@ async function performHealthChecks(): Promise<Record<string, any>> {
 
   return checks;
 }
+
+export { onAnalyticsEventCreated } from './analyticsAggregation';
+
+export {
+  onLearningModuleCreated,
+  onCommunityPostUpdated,
+  onCommunityPostCreated,
+  scheduledWeeklyTodoReminders,
+  scheduledTrimesterTransitionCheck,
+} from './pushNotifications';
+
+export { sendNotification, getNotificationLogs } from './notificationDashboard';

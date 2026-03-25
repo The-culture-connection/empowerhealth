@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../cors/ui_theme.dart';
+import '../widgets/feature_session_scope.dart';
 
 class CareNavigationSurveyScreen extends StatefulWidget {
   const CareNavigationSurveyScreen({super.key});
@@ -106,7 +107,10 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FeatureSessionScope(
+      feature: 'user-feedback',
+      entrySource: 'care_navigation_survey',
+      child: Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -164,7 +168,8 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildIntroStep() {

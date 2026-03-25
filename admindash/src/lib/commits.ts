@@ -44,20 +44,21 @@ function processCommits(snapshot: any): Commit[] {
 export async function getLatestCommits(count: number = 20): Promise<Commit[]> {
   try {
     const commitsRef = collection(firestore, 'commits');
-    // Try orderBy commitDate first, fallback to createdAt if index not ready
+    // Primary sort by createdAt: this reflects ingestion order and avoids ties when
+    // commitDate is date-only in workflow payloads.
     try {
-      const q = query(commitsRef, orderBy('commitDate', 'desc'), limit(count));
+      const q = query(commitsRef, orderBy('createdAt', 'desc'), limit(count));
       const snapshot = await getDocs(q);
       return processCommits(snapshot);
-    } catch (indexError: any) {
-      // If index error, try createdAt instead
-      if (indexError.code === 'failed-precondition' || indexError.message?.includes('index')) {
-        console.warn('commitDate index not ready, using createdAt');
-        const q = query(commitsRef, orderBy('createdAt', 'desc'), limit(count));
+    } catch (createdAtError: any) {
+      // Fallback to commitDate for older documents.
+      if (createdAtError.code === 'failed-precondition' || createdAtError.message?.includes('index')) {
+        console.warn('createdAt index not ready, using commitDate');
+        const q = query(commitsRef, orderBy('commitDate', 'desc'), limit(count));
         const snapshot = await getDocs(q);
         return processCommits(snapshot);
       }
-      throw indexError;
+      throw createdAtError;
     }
   } catch (error) {
     console.error('Error fetching commits:', error);
@@ -105,3 +106,5 @@ export function getGitHubCommitUrl(commitSha: string, repoUrl?: string): string 
   const cleanUrl = baseUrl.replace(/\.git$/, '');
   return `${cleanUrl}/commit/${commitSha}`;
 }
+
+

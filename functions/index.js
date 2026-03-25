@@ -5354,3 +5354,6 @@ exports.importBipocProviders = onCall(async (request) => {
     throw new HttpsError("internal", "Failed to import providers: " + error.message);
   }
 });
+
+// FCM push notifications (learning modules, weekly todos, trimester, community)
+Object.assign(exports, require("./pushNotifications"));

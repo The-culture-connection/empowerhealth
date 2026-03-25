@@ -11,9 +11,11 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:path_provider/path_provider.dart';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
+import '../services/analytics_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/ai_disclaimer_banner.dart';
+import '../widgets/feature_session_scope.dart';
 
 class UploadVisitSummaryScreen extends StatefulWidget {
   const UploadVisitSummaryScreen({super.key});
@@ -44,8 +46,26 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   @override
   void initState() {
     super.initState();
+    _trackScreenView();
     _loadUserProfile();
     _checkConsentAndShowPrivacyScreen();
+  }
+
+  Future<void> _trackScreenView() async {
+    try {
+      final analytics = AnalyticsService();
+      final userId = _auth.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await _databaseService.getUserProfile(userId);
+        await analytics.logScreenView(
+          screenName: 'upload_visit_summary',
+          feature: 'appointment-summarizing',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking visit summary screen view: $e');
+    }
   }
 
   Future<void> _checkConsentAndShowPrivacyScreen() async {
@@ -511,6 +531,22 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         _pdfFileName = null;
       });
 
+      // Track visit summary creation
+      try {
+        final analytics = AnalyticsService();
+        final summaryId = analysisResult['summaryId'] as String?;
+        if (summaryId != null) {
+          await analytics.logVisitSummaryCreated(
+            summaryId: summaryId,
+            appointmentType: 'prenatal',
+            timeToComplete: DateTime.now().difference(_selectedDate ?? DateTime.now()).inSeconds,
+            userProfile: _userProfile,
+          );
+        }
+      } catch (e) {
+        print('Error tracking visit summary creation: $e');
+      }
+
       // Show success message with counts
       final todosCount = (analysisResult['todos'] as List?)?.length ?? 0;
       final modulesCount = (analysisResult['learningModules'] as List?)?.length ?? 0;
@@ -671,7 +707,10 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FeatureSessionScope(
+      feature: 'appointment-summarizing',
+      entrySource: 'upload_visit_summary',
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Understand Your Visit'),
         backgroundColor: AppTheme.brandPurple,
@@ -1236,7 +1275,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

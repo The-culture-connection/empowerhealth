@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/user_profile.dart';
 import '../services/database_service.dart';
 import '../services/auth_service.dart';
+import '../services/analytics_service.dart';
 import '../cors/ui_theme.dart';
 import '../app_router.dart';
 import '../utils/pregnancy_utils.dart';
@@ -186,6 +187,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
       
       await _databaseService.saveUserProfile(updatedProfile);
+
+      try {
+        await AnalyticsService().logEvent(
+          eventName: 'profile_updated',
+          feature: 'profile-editing',
+          parameters: {'screen': 'edit_profile'},
+          userProfile: updatedProfile,
+        );
+      } catch (_) {}
       
       // Verify user is still authenticated
       if (_auth.currentUser == null) {

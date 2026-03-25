@@ -134,6 +134,29 @@ class UserProfile {
     };
   }
 
+  // Helper function to safely convert Firestore date fields to DateTime
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    
+    // If it's already a DateTime, return it
+    if (value is DateTime) return value;
+    
+    // If it's a Timestamp, convert it
+    if (value is Timestamp) return value.toDate();
+    
+    // If it's a String, parse it
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        print('⚠️ UserProfile: Failed to parse date string: $value');
+        return null;
+      }
+    }
+    
+    return null;
+  }
+
   // Create from Firestore document
   factory UserProfile.fromMap(Map<String, dynamic> map) {
     return UserProfile(
@@ -141,9 +164,9 @@ class UserProfile {
       username: map['username'] ?? map['name'] ?? '', // Support legacy 'name' field
       age: map['age'] ?? 0,
       isPregnant: map['isPregnant'] ?? false,
-      dueDate: map['dueDate'] != null ? DateTime.parse(map['dueDate']) : null,
+      dueDate: UserProfile._parseDate(map['dueDate']),
       isPostpartum: map['isPostpartum'] ?? false,
-      deliveryDate: map['deliveryDate'] != null ? DateTime.parse(map['deliveryDate']) : null,
+      deliveryDate: UserProfile._parseDate(map['deliveryDate']),
       childAgeMonths: map['childAgeMonths'],
       zipCode: map['zipCode'] ?? '',
       city: map['city'],
@@ -171,8 +194,8 @@ class UserProfile {
       birthPreference: map['birthPreference'],
       interestedInBreastfeeding: map['interestedInBreastfeeding'] ?? false,
       healthLiteracyGoals: List<String>.from(map['healthLiteracyGoals'] ?? []),
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      updatedAt: (map['updatedAt'] as Timestamp).toDate(),
+      createdAt: UserProfile._parseDate(map['createdAt']) ?? DateTime.now(),
+      updatedAt: UserProfile._parseDate(map['updatedAt']) ?? DateTime.now(),
     );
   }
 

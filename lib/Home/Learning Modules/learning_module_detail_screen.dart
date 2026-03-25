@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../cors/ui_theme.dart';
+import '../../cors/ui_theme.dart' show AppTheme;
 import '../../learning/notes_dialog.dart';
+import '../../services/analytics_service.dart';
+import '../../services/database_service.dart';
+import '../../widgets/qualitative_survey_dialog.dart';
 
-class LearningModuleDetailScreen extends StatelessWidget {
+class LearningModuleDetailScreen extends StatefulWidget {
   final String title;
   final String content;
   final String icon;
   final String? taskId; // Add taskId to track which module this survey is for
+  final String? moduleId; // Module ID for analytics
 
   const LearningModuleDetailScreen({
     super.key,
@@ -17,7 +21,102 @@ class LearningModuleDetailScreen extends StatelessWidget {
     required this.content,
     required this.icon,
     this.taskId,
+    this.moduleId,
   });
+
+  @override
+  State<LearningModuleDetailScreen> createState() =>
+      _LearningModuleDetailScreenState();
+}
+
+class _LearningModuleDetailScreenState
+    extends State<LearningModuleDetailScreen> {
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
+  DateTime? _viewStartTime;
+  bool _hasTrackedView = false;
+  bool _hasTrackedCompletion = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _trackModuleView();
+  }
+
+  Future<void> _trackModuleView() async {
+    if (_hasTrackedView) return;
+    _hasTrackedView = true;
+    _viewStartTime = DateTime.now();
+
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      final userProfile = await _databaseService.getUserProfile(userId);
+      await _analytics.logLearningModuleViewed(
+        moduleId: widget.moduleId ?? widget.taskId ?? 'unknown',
+        moduleTopic: widget.title,
+        userProfile: userProfile,
+      );
+      await _analytics.logLearningModuleStarted(
+        moduleId: widget.moduleId ?? widget.taskId ?? 'unknown',
+        moduleTopic: widget.title,
+        userProfile: userProfile,
+      );
+    } catch (e) {
+      print('Error tracking module view: $e');
+    }
+  }
+
+  Future<void> _trackModuleExit() async {
+    if (_viewStartTime == null) return;
+
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final seconds = DateTime.now().difference(_viewStartTime!).inSeconds;
+    final moduleId = widget.moduleId ?? widget.taskId ?? 'unknown';
+
+    try {
+      final userProfile = await _databaseService.getUserProfile(userId);
+
+      await _analytics.logFeatureTimeSpent(
+        feature: 'learning-modules',
+        timeSpentSeconds: seconds,
+        sourceId: moduleId,
+        userProfile: userProfile,
+      );
+
+      if (!_hasTrackedCompletion) {
+        _hasTrackedCompletion = true;
+        await _analytics.logLearningModuleCompleted(
+          moduleId: moduleId,
+          moduleTopic: widget.title,
+          timeSpentSeconds: seconds,
+          completionStatus: seconds >= 45 ? 'completed' : 'partial',
+          userProfile: userProfile,
+        );
+      }
+
+      if (seconds < 20) {
+        await _analytics.logFlowAbandoned(
+          flowName: 'learning_module',
+          stepName: 'module_detail',
+          reason: 'early_exit',
+          feature: 'learning-modules',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking module exit: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _trackModuleExit();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +146,7 @@ class LearningModuleDetailScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            title,
+                            widget.title,
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -71,16 +170,15 @@ class LearningModuleDetailScreen extends StatelessWidget {
                       onPressed: () {
                         showDialog(
                           context: context,
-                          builder: (context) => NotesDialog(
-                            moduleTitle: title,
-                          ),
+                          builder: (context) =>
+                              NotesDialog(moduleTitle: widget.title),
                         );
                       },
                     ),
                     IconButton(
                       icon: const Icon(Icons.share),
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: content));
+                        Clipboard.setData(ClipboardData(text: widget.content));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Copied to clipboard!')),
                         );
@@ -95,98 +193,117 @@ class LearningModuleDetailScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  // Selectable text for highlighting
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.grey.shade100),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.auto_awesome, size: 18, color: const Color(0xFF663399)),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Long-press text to highlight and add a note',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF663399),
-                              ),
+                      // Selectable text for highlighting
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.grey.shade100),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        _MarkdownStyleText(content: content, moduleTitle: title),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Action buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Saved to favorites!')),
-                            );
-                          },
-                          icon: const Icon(Icons.bookmark_outline),
-                          label: const Text('Save'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF663399),
-                            side: const BorderSide(color: Color(0xFF663399)),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome,
+                                  size: 18,
+                                  color: const Color(0xFF663399),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Long-press text to highlight and add a note',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF663399),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                            const SizedBox(height: 16),
+                            _MarkdownStyleText(
+                              content: widget.content,
+                              moduleTitle: widget.title,
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: content));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Copied to clipboard!')),
-                            );
-                          },
-                          icon: const Icon(Icons.copy),
-                          label: const Text('Copy'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF663399),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+
+                      const SizedBox(height: 24),
+
+                      // Action buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Saved to favorites!'),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.bookmark_outline),
+                              label: const Text('Save'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF663399),
+                                side: const BorderSide(
+                                  color: Color(0xFF663399),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Clipboard.setData(
+                                  ClipboardData(text: widget.content),
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Copied to clipboard!'),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.copy),
+                              label: const Text('Copy'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF663399),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  
+
+                      const SizedBox(height: 32),
+                      const Divider(),
+                      const SizedBox(height: 16),
+
                       // Survey Section
-                      _ModuleReviewSection(moduleTitle: title, taskId: taskId),
+                      _buildNewSurveySection(),
                       const SizedBox(height: 24),
                     ],
                   ),
@@ -198,19 +315,98 @@ class LearningModuleDetailScreen extends StatelessWidget {
       ),
     );
   }
+
+  /// Inline card that opens [QualitativeSurveyDialog] (replaces the old star-rating block).
+  Widget _buildNewSurveySection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.feedback_outlined, color: AppTheme.brandPurple),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Module feedback',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF663399),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Share a quick rating about how clear and helpful this module was.',
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                showDialog<void>(
+                  context: context,
+                  builder: (context) => QualitativeSurveyDialog(
+                    feature: 'learning-modules',
+                    title: 'Learning module feedback',
+                    sourceId: widget.moduleId ?? widget.taskId,
+                    questions: const [
+                      'I understand what this means for my care.',
+                      'I know what I need to do next.',
+                      'I feel confident about my next steps.',
+                    ],
+                  ),
+                );
+              },
+              icon: const Icon(Icons.rate_review_outlined),
+              label: const Text('Give feedback'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF663399),
+                side: const BorderSide(color: Color(0xFF663399)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _ModuleReviewSection extends StatefulWidget {
+// Old survey section removed - replaced with QualitativeSurveyDialog
+// Keeping class name for backward compatibility but it's now unused
+class _ModuleReviewSectionOld extends StatefulWidget {
   final String moduleTitle;
   final String? taskId;
 
-  const _ModuleReviewSection({required this.moduleTitle, this.taskId});
+  const _ModuleReviewSectionOld({required this.moduleTitle, this.taskId});
 
   @override
-  State<_ModuleReviewSection> createState() => _ModuleReviewSectionState();
+  State<_ModuleReviewSectionOld> createState() =>
+      _ModuleReviewSectionOldState();
 }
 
-class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
+class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
   int _understandingRating = 0;
   int _nextStepsRating = 0;
   int _confidenceRating = 0;
@@ -258,7 +454,9 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
   }
 
   Future<void> _submitSurvey() async {
-    if (_understandingRating == 0 || _nextStepsRating == 0 || _confidenceRating == 0) {
+    if (_understandingRating == 0 ||
+        _nextStepsRating == 0 ||
+        _confidenceRating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please answer all questions'),
@@ -283,8 +481,8 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
         'understandingRating': _understandingRating,
         'nextStepsRating': _nextStepsRating,
         'confidenceRating': _confidenceRating,
-        'comments': _commentsController.text.trim().isEmpty 
-            ? null 
+        'comments': _commentsController.text.trim().isEmpty
+            ? null
             : _commentsController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
       };
@@ -319,6 +517,21 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
         _hasSubmitted = true;
       });
 
+      try {
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+        if (userId != null) {
+          final userProfile = await _databaseService.getUserProfile(userId);
+          await _analytics.logConfidenceSignalSubmitted(
+            understandMeaningScore: _understandingRating,
+            knowNextStepScore: _nextStepsRating,
+            confidenceScore: _confidenceRating,
+            userProfile: userProfile,
+          );
+        }
+      } catch (e) {
+        print('Error tracking confidence signal: $e');
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -341,16 +554,17 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
     }
   }
 
-  Widget _buildStarRating(String label, int rating, Function(int) onRatingChanged) {
+  Widget _buildStarRating(
+    String label,
+    int rating,
+    Function(int) onRatingChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 12),
         Row(
@@ -365,9 +579,7 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
                 child: Icon(
                   index < rating ? Icons.star : Icons.star_border,
                   size: 40,
-                  color: index < rating 
-                      ? Colors.amber 
-                      : Colors.grey,
+                  color: index < rating ? Colors.amber : Colors.grey,
                 ),
               ),
             );
@@ -376,9 +588,7 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
         const SizedBox(height: 8),
         Center(
           child: Text(
-            rating == 0 
-                ? 'Tap stars to rate'
-                : '$rating out of 5 stars',
+            rating == 0 ? 'Tap stars to rate' : '$rating out of 5 stars',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[600],
@@ -433,10 +643,7 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
         const SizedBox(height: 8),
         const Text(
           'Please rate your experience with this module:',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey,
-          ),
+          style: TextStyle(fontSize: 14, color: Colors.grey),
         ),
         const SizedBox(height: 24),
         _buildStarRating(
@@ -447,13 +654,11 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
           },
         ),
         const SizedBox(height: 32),
-        _buildStarRating(
-          'I know what I need to do next.',
-          _nextStepsRating,
-          (rating) {
-            setState(() => _nextStepsRating = rating);
-          },
-        ),
+        _buildStarRating('I know what I need to do next.', _nextStepsRating, (
+          rating,
+        ) {
+          setState(() => _nextStepsRating = rating);
+        }),
         const SizedBox(height: 32),
         _buildStarRating(
           'I feel confident about my next steps.',
@@ -465,22 +670,20 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
         const SizedBox(height: 32),
         const Text(
           'General Comments (Optional)',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _commentsController,
           decoration: InputDecoration(
             hintText: 'Share any additional thoughts or feedback...',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppTheme.brandPurple, width: 2),
+              borderSide: const BorderSide(
+                color: AppTheme.brandPurple,
+                width: 2,
+              ),
             ),
           ),
           maxLines: 4,
@@ -527,7 +730,6 @@ class _MarkdownStyleText extends StatefulWidget {
 }
 
 class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
-
   @override
   Widget build(BuildContext context) {
     // Fix $1 formatting issue - replace $1 with proper section breaks first
@@ -540,7 +742,7 @@ class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
         widgets.add(const SizedBox(height: 8));
         continue;
       }
-      
+
       if (line.startsWith('## ')) {
         widgets.add(
           Padding(
@@ -561,10 +763,7 @@ class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
             padding: const EdgeInsets.only(top: 12, bottom: 6),
             child: Text(
               line.substring(4),
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
           ),
         );
@@ -591,10 +790,7 @@ class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
         widgets.add(
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(
-              thickness: 2,
-              color: AppTheme.brandPurple,
-            ),
+            child: Divider(thickness: 2, color: AppTheme.brandPurple),
           ),
         );
       } else {
@@ -605,11 +801,14 @@ class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
               line,
               style: const TextStyle(fontSize: 16, height: 1.5),
               onSelectionChanged: (selection, cause) {
-                if (selection.isValid && cause == SelectionChangedCause.longPress) {
-                  final selectedText = line.substring(
-                    selection.start.clamp(0, line.length),
-                    selection.end.clamp(0, line.length),
-                  ).trim();
+                if (selection.isValid &&
+                    cause == SelectionChangedCause.longPress) {
+                  final selectedText = line
+                      .substring(
+                        selection.start.clamp(0, line.length),
+                        selection.end.clamp(0, line.length),
+                      )
+                      .trim();
                   if (selectedText.length > 3) {
                     ScaffoldMessenger.of(context).removeCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -625,7 +824,9 @@ class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
                             ),
                             TextButton(
                               onPressed: () {
-                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                ScaffoldMessenger.of(
+                                  context,
+                                ).hideCurrentSnackBar();
                                 showDialog(
                                   context: context,
                                   builder: (context) => NotesDialog(
@@ -634,7 +835,10 @@ class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
                                   ),
                                 );
                               },
-                              child: const Text('Add Note', style: TextStyle(color: Colors.white)),
+                              child: const Text(
+                                'Add Note',
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
                           ],
                         ),
@@ -657,4 +861,3 @@ class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
     );
   }
 }
-

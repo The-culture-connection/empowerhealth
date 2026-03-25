@@ -4,19 +4,61 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/birth_plan.dart';
 import '../cors/ui_theme.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
 import 'comprehensive_birth_plan_screen.dart';
 
-class BirthPlanDisplayScreen extends StatelessWidget {
+class BirthPlanDisplayScreen extends StatefulWidget {
   final BirthPlan birthPlan;
 
   const BirthPlanDisplayScreen({super.key, required this.birthPlan});
 
+  @override
+  State<BirthPlanDisplayScreen> createState() => _BirthPlanDisplayScreenState();
+}
+
+class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _trackViewed());
+  }
+
+  Future<void> _trackViewed() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final profile = await _databaseService.getUserProfile(uid);
+      await _analytics.logBirthPlanViewed(
+        planId: widget.birthPlan.id,
+        userProfile: profile,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _logExported(String exportType) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final profile = await _databaseService.getUserProfile(uid);
+      await _analytics.logBirthPlanExported(
+        exportType: exportType,
+        planId: widget.birthPlan.id,
+        userProfile: profile,
+      );
+    } catch (_) {}
+  }
+
   Future<void> _exportAsPdf(BuildContext context) async {
     try {
       final pdf = pw.Document();
-      final formattedText = birthPlan.formattedPlan ?? '';
+      final formattedText = widget.birthPlan.formattedPlan ?? '';
 
       pdf.addPage(
         pw.Page(
@@ -52,6 +94,7 @@ class BirthPlanDisplayScreen extends StatelessWidget {
         [XFile(file.path)],
         subject: 'My Birth Plan',
       );
+      await _logExported('pdf_share');
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -69,7 +112,7 @@ class BirthPlanDisplayScreen extends StatelessWidget {
 
   Future<void> _shareAsText(BuildContext context) async {
     try {
-      final formattedText = birthPlan.formattedPlan ?? '';
+      final formattedText = widget.birthPlan.formattedPlan ?? '';
       final directory = await getTemporaryDirectory();
       final file = File('${directory.path}/birth_plan_${DateTime.now().millisecondsSinceEpoch}.txt');
       await file.writeAsString(formattedText);
@@ -78,6 +121,7 @@ class BirthPlanDisplayScreen extends StatelessWidget {
         [XFile(file.path)],
         subject: 'My Birth Plan',
       );
+      await _logExported('text_share');
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -89,6 +133,7 @@ class BirthPlanDisplayScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final birthPlan = widget.birthPlan;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Your Birth Plan'),
@@ -124,7 +169,6 @@ class BirthPlanDisplayScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Info
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -165,8 +209,6 @@ class BirthPlanDisplayScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            
-            // Formatted Plan
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -190,8 +232,6 @@ class BirthPlanDisplayScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            
-            // Action Buttons
             Row(
               children: [
                 Expanded(
@@ -284,4 +324,3 @@ class BirthPlanDisplayScreen extends StatelessWidget {
     return months[month - 1];
   }
 }
-

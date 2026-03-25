@@ -1,11 +1,11 @@
-import { UserPlus, Edit, Trash2, Shield, Eye, MessageSquare, Loader2 } from "lucide-react";
+import { UserPlus, Trash2, Shield, Eye, MessageSquare, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { 
   assignRole, 
   revokeRole, 
   getUsersByRole, 
-  findUserByEmail,
+  findUserForRoleAssignment,
   UserRole as UserRoleType
 } from "../../lib/userManagement";
 import { format } from "date-fns";
@@ -46,7 +46,7 @@ const roleMap: Record<UserRoleType, { id: string; name: string; description: str
 };
 
 export function UsersAndRoles() {
-  const { userProfile } = useAuth();
+  const { userProfile, isAdmin } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddUser, setShowAddUser] = useState(false);
@@ -87,24 +87,20 @@ export function UsersAndRoles() {
   }
 
   async function handleAddUser() {
-    if (!userProfile) return;
-    
+    if (!userProfile || !isAdmin()) return;
+
     setError("");
     setSuccess("");
     setSubmitting(true);
 
     try {
-      // Try to find user by email
-      let user = await findUserByEmail(newUserEmail);
-      
+      const user = await findUserForRoleAssignment(newUserEmail);
+
       if (!user) {
-        // User doesn't exist yet - we'll create the role doc anyway
-        // The user will need to sign up first, then they'll get the role
-        user = {
-          uid: `pending_${Date.now()}`, // Temporary ID
-          email: newUserEmail,
-          displayName: newUserName || undefined,
-        };
+        setError(
+          "No user found with this email in the app profile or Firebase Authentication. Check the spelling, or confirm they have created an account with this email."
+        );
+        return;
       }
 
       await assignRole(
@@ -115,7 +111,7 @@ export function UsersAndRoles() {
         userProfile.uid
       );
 
-      setSuccess(`Role assigned successfully. ${!user.uid.startsWith('pending_') ? 'User can now access the dashboard.' : 'User will need to sign up first.'}`);
+      setSuccess("Role assigned successfully. They can sign in to the dashboard with this account.");
       setNewUserEmail("");
       setNewUserName("");
       setNewUserRole("research_partner");
@@ -129,7 +125,7 @@ export function UsersAndRoles() {
   }
 
   async function handleRevokeRole(uid: string, role: UserRoleType) {
-    if (!userProfile || !confirm("Are you sure you want to revoke this role?")) return;
+    if (!userProfile || !isAdmin() || !confirm("Are you sure you want to revoke this role?")) return;
 
     try {
       await revokeRole(uid, role, userProfile.uid);
@@ -383,7 +379,7 @@ export function UsersAndRoles() {
                       const roleInfo = getRoleInfo(user.role);
                       return (
                         <tr
-                          key={user.uid}
+                          key={`${user.role}-${user.uid}`}
                           className={index !== users.length - 1 ? "border-b" : ""}
                           style={{ borderColor: 'var(--lavender-100)' }}
                         >

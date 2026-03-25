@@ -16,22 +16,39 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Helper function to check if user is admin (checks ADMIN collection by uid)
+    // Legacy role docs may use Firebase Auth email as document id (AuthContext also queries by email).
+    function hasAdminDocForSignedInUser() {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/ADMIN/$(request.auth.uid)) ||
+        (request.auth.token.email != null &&
+         exists(/databases/$(database)/documents/ADMIN/$(request.auth.token.email)))
+      );
+    }
+    function hasResearchDocForSignedInUser() {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/RESEARCH_PARTNERS/$(request.auth.uid)) ||
+        (request.auth.token.email != null &&
+         exists(/databases/$(database)/documents/RESEARCH_PARTNERS/$(request.auth.token.email)))
+      );
+    }
+    function hasCommunityDocForSignedInUser() {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/COMMUNITY_MANAGERS/$(request.auth.uid)) ||
+        (request.auth.token.email != null &&
+         exists(/databases/$(database)/documents/COMMUNITY_MANAGERS/$(request.auth.token.email)))
+      );
+    }
+
     function isAdmin() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/ADMIN/$(request.auth.uid));
+      return hasAdminDocForSignedInUser();
     }
     
-    // Helper function to check if user is research partner
     function isResearchPartner() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/RESEARCH_PARTNERS/$(request.auth.uid));
+      return hasResearchDocForSignedInUser();
     }
     
-    // Helper function to check if user is community manager
     function isCommunityManager() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/COMMUNITY_MANAGERS/$(request.auth.uid));
+      return hasCommunityDocForSignedInUser();
     }
     
     // Helper function to check if user has any admin dashboard role
@@ -147,8 +164,35 @@ service cloud.firestore {
     // Analytics - anonymized for research partners, full access for admins
     // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
     match /analytics_events/{eventId} {
+      // Mobile app: authenticated users can create their own events
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
       allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
-      allow write: if false; // Only via Cloud Function
+      // Mobile app: users can read their own events
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+
+    // Realtime aggregation output (Cloud Functions only — client read for admin dashboard)
+    match /analytics_summary/{docId} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if false;
+    }
+    match /analytics_summary_daily/{docId} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if false;
+    }
+    match /analytics_feature_summary/{docId} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if false;
+    }
+    match /analytics_summary_hourly/{docId} {
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow write: if false;
     }
     
     match /analytics_events_private/{eventId} {
@@ -163,6 +207,84 @@ service cloud.firestore {
       allow write: if false; // Only via Cloud Function
     }
     
+    // User sessions - mobile app can create/update, admin dashboard can read all
+    match /user_sessions/{sessionId} {
+      // Mobile app: authenticated users can create/update their own sessions
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own sessions
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if false; // Sessions should not be deleted
+    }
+    
+    // Micro measures - mobile app can create, admin dashboard can read all
+    match /micro_measures/{measureId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Helpfulness surveys - mobile app can create, admin dashboard can read all
+    match /helpfulness_surveys/{surveyId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Milestone checkins - mobile app can create, admin dashboard can read all
+    match /milestone_checkins/{checkinId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
+    // Care navigation outcomes - mobile app can create, admin dashboard can read all
+    match /care_navigation_outcomes/{outcomeId} {
+      // Mobile app: authenticated users can create their own
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == null ||
+        request.resource.data.userId == request.auth.uid
+      );
+      // Admin dashboard: can read all for reporting
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      // Mobile app: users can read their own
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // No updates or deletes - analytics are append-only
+      allow update, delete: if false;
+    }
+    
     // Technology features - authenticated users with admin dashboard roles can read, only admins can write
     // Note: If no roles are set up yet, admins can still access via isAdminAny() fallback
     match /technology_features/{featureId} {
@@ -172,6 +294,36 @@ service cloud.firestore {
       match /change_history/{changeId} {
         allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
         allow write: if isAdminAny();
+      }
+      
+      // Analytics events subcollection - mobile app can create, admin dashboard can read all
+      match /analytics_events/{eventId} {
+        // Mobile app: authenticated users can create their own events
+        allow create: if isAuthenticated() && (
+          request.resource.data.userId == null ||
+          request.resource.data.userId == request.auth.uid
+        );
+        // Admin dashboard: can read all for reporting
+        allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+        // Mobile app: users can read their own events
+        allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        // No updates or deletes - analytics are append-only
+        allow update, delete: if false;
+      }
+
+      // Qualitative surveys subcollection - mobile app can create, admin dashboard can read all
+      match /qualitative_surveys/{surveyId} {
+        // Mobile app: authenticated users can create their own surveys
+        allow create: if isAuthenticated() && (
+          request.resource.data.userId == null ||
+          request.resource.data.userId == request.auth.uid
+        );
+        // Admin dashboard: can read all for reporting
+        allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+        // Mobile app: users can read their own surveys
+        allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        // No updates or deletes - surveys are append-only
+        allow update, delete: if false;
       }
     }
     
@@ -381,9 +533,13 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
-    // Module feedback - users can create feedback and read/update/delete their own
+    // Module feedback - users own docs; admins / research / community roles read all (dashboard outcome aggregates)
     match /ModuleFeedback/{feedbackId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        hasAdminRole() ||
+        isAdminAny()
+      );
       allow create: if isAuthenticated() && 
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.keys().hasAll(['userId', 'moduleTitle', 'understandingRating', 'nextStepsRating', 'confidenceRating', 'createdAt']);
@@ -487,12 +643,12 @@ service cloud.firestore {
     
     // Care Survey - users can create and read their own surveys
     match /CareSurvey/{surveyId} {
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.keys().hasAll(['selectedNeeds', 'accessResponses', 'createdAt']);
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
-        // Admins can read all
+        hasAdminRole() ||
         isAdminAny()
       );
       // Only admins can update/delete

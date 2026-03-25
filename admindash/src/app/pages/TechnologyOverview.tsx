@@ -3,34 +3,47 @@ import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { 
-  getCurrentProductionRelease, 
+  getCurrentProductionRelease,
   getLatestReleases, 
   extractFunctionalUpdates,
   getGitHubCommitUrl,
   Release 
 } from "../../lib/releases";
-import { getLatestCommits, Commit, getGitHubCommitUrl as getCommitUrl } from "../../lib/commits";
-import { getAllFeatures, TechnologyFeature, getFeatureChangeHistory, getFeatureById } from "../../lib/features";
+import { getLatestCommits, Commit, getGitHubCommitUrl as getCommitUrl, getCommitBySha } from "../../lib/commits";
+import {
+  getAllFeatures,
+  TechnologyFeature,
+  getFeatureChangeHistory,
+  getFeatureById,
+  commitMatchesChangeHistoryEntry,
+  getAllTechnologyFeaturesForAdmin,
+} from "../../lib/features";
 import { getFeatureAnalytics, FeatureAnalytics } from "../../lib/featureAnalytics";
+import { getFeatureAnalyticsSummary, FeatureAnalyticsSummary } from "../../lib/firestoreAnalytics";
 import { useAuth } from "../../contexts/AuthContext";
-import { FeatureEditModal } from "../components/FeatureEditModal";
+import { KPIGoalsModal } from "../components/KPIGoalsModal";
 
 export function TechnologyOverview() {
   const { isAdmin } = useAuth(); // Will be used for admin editing features
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
+  const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<TechnologyFeature | null>(null);
   const [selectedFeatureAnalytics, setSelectedFeatureAnalytics] = useState<FeatureAnalytics | null>(null);
+  const [selectedFeatureFirestoreAnalytics, setSelectedFeatureFirestoreAnalytics] = useState<FeatureAnalyticsSummary | null>(null);
   const [selectedFeatureChangeHistory, setSelectedFeatureChangeHistory] = useState<any[]>([]);
-  const [editingFeature, setEditingFeature] = useState<TechnologyFeature | null>(null);
+  const [editingKPI, setEditingKPI] = useState<TechnologyFeature | null>(null);
+  const [commitFeatureChanges, setCommitFeatureChanges] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
   const [featureSearchQuery, setFeatureSearchQuery] = useState("");
   const [selectedDomain, setSelectedDomain] = useState<string>("all");
+  const [showAllLatestUpdates, setShowAllLatestUpdates] = useState(false);
 
   // Data state
   const [currentRelease, setCurrentRelease] = useState<Release | null>(null);
   const [releaseHistory, setReleaseHistory] = useState<Release[]>([]);
   const [platformFeatures, setPlatformFeatures] = useState<TechnologyFeature[]>([]);
+  const [latestUpdatesFeed, setLatestUpdatesFeed] = useState<FeatureUpdate[]>([]);
   const [commits, setCommits] = useState<Commit[]>([]);
   // functionalUpdates are extracted per-release, not stored in state
 
@@ -53,6 +66,19 @@ export function TechnologyOverview() {
   // Load analytics and change history when feature modal opens
   useEffect(() => {
     if (selectedFeature) {
+      console.log('🔍 [useEffect] selectedFeature changed:', {
+        id: selectedFeature.id,
+        name: selectedFeature.name,
+        hasId: !!selectedFeature.id,
+        featureObject: selectedFeature,
+      });
+      
+      // Validate that feature has an ID
+      if (!selectedFeature.id) {
+        console.error('❌ [useEffect] selectedFeature.id is undefined!', selectedFeature);
+        return;
+      }
+      
       if (!selectedFeatureAnalytics) {
         loadFeatureAnalytics(selectedFeature.id);
       }
@@ -62,6 +88,39 @@ export function TechnologyOverview() {
       setSelectedFeatureChangeHistory([]);
     }
   }, [selectedFeature]);
+
+  // Load feature changes for selected commit
+  useEffect(() => {
+    if (selectedCommit) {
+      loadCommitFeatureChanges(selectedCommit.commitSha, selectedCommit.buildNumber);
+    } else {
+      setCommitFeatureChanges([]);
+    }
+  }, [selectedCommit]);
+
+  async function loadCommitFeatureChanges(commitSha: string, commitBuildNumber?: number) {
+    try {
+      const changes: any[] = [];
+      // All feature docs (including non-visible): commit may touch analytics-only features, etc.
+      const features = await getAllTechnologyFeaturesForAdmin();
+      for (const feature of features) {
+        const history = await getFeatureChangeHistory(feature.id);
+        const commitChanges = history.filter((change: any) =>
+          commitMatchesChangeHistoryEntry(commitSha, change, commitBuildNumber)
+        );
+        if (commitChanges.length > 0) {
+          changes.push({
+            feature,
+            changes: commitChanges
+          });
+        }
+      }
+      setCommitFeatureChanges(changes);
+    } catch (err: any) {
+      console.error('Failed to load commit feature changes:', err);
+      setCommitFeatureChanges([]);
+    }
+  }
 
   async function loadFeatureChangeHistory(featureId: string) {
     try {
@@ -75,7 +134,15 @@ export function TechnologyOverview() {
   async function loadCurrentRelease() {
     setLoadingRelease(true);
     try {
-      const release = await getCurrentProductionRelease();
+      // Try production first, then latest release as fallback
+      let release = await getCurrentProductionRelease();
+      if (!release) {
+        // Fallback: get latest release if no production release
+        const latestReleases = await getLatestReleases(1);
+        if (latestReleases.length > 0) {
+          release = latestReleases[0];
+        }
+      }
       setCurrentRelease(release);
     } catch (err: any) {
       console.error('Failed to load current release:', err);
@@ -102,8 +169,70 @@ export function TechnologyOverview() {
     setLoadingFeatures(true);
     try {
       const features = await getAllFeatures();
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-load-1',hypothesisId:'H1',location:'admindash/src/app/pages/TechnologyOverview.tsx:loadPlatformFeatures',message:'About to set platform features in state',data:{count:features.length,firstThree:features.slice(0,3).map((f)=>({id:f.id,name:f.name,recentUpdatesLen:Array.isArray(f.recentUpdates)?f.recentUpdates.length:0,howItWorksLen:typeof f.howItWorks==='string'?f.howItWorks.length:0}))},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      try {
+        const historyByFeature = await Promise.all(
+          features.map(async (feature) => {
+            const history = await getFeatureChangeHistory(feature.id);
+            return {
+              id: feature.id,
+              name: feature.name,
+              feature,
+              history,
+              topLevelRecentUpdatesLen: Array.isArray(feature.recentUpdates) ? feature.recentUpdates.length : 0,
+              changeHistoryLen: history.length,
+              newestHistoryTitle: history[0]?.title ?? null,
+              newestHistoryChange: history[0]?.change ?? null,
+            };
+          })
+        );
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-missing-4',hypothesisId:'H12',location:'admindash/src/app/pages/TechnologyOverview.tsx:loadPlatformFeatures',message:'Compared top-level recentUpdates against change_history',data:{featureCount:historyByFeature.length,withTopLevel:historyByFeature.filter((x)=>x.topLevelRecentUpdatesLen>0).length,withHistory:historyByFeature.filter((x)=>x.changeHistoryLen>0).length,sample:historyByFeature.slice(0,8)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        const historyDerivedUpdates: FeatureUpdate[] = historyByFeature
+          .flatMap((x) =>
+            x.history.slice(0, 3).map((item: any, idx: number) => ({
+              id: `${x.id}-history-${idx}-${item.commitSha ?? item.version ?? item.date?.toString?.() ?? 'unknown'}`,
+              update: item.change || item.title || 'Feature updated',
+              feature: x.feature,
+              updateIndex: idx,
+              updatedAt: item.date instanceof Date ? item.date : (item.createdAt instanceof Date ? item.createdAt : x.feature.lastUpdated),
+              title: item.title || undefined,
+            }))
+          )
+          .sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0));
+
+        const topLevelUpdates: FeatureUpdate[] = features
+          .filter((f) => Array.isArray(f.recentUpdates) && f.recentUpdates.length > 0)
+          .flatMap((feature) =>
+            feature.recentUpdates!.map((update, idx) => ({
+              id: `${feature.id}-top-${idx}`,
+              update,
+              feature,
+              updateIndex: idx,
+              updatedAt: feature.lastUpdated,
+            }))
+          );
+
+        const unifiedUpdates = [...historyDerivedUpdates, ...topLevelUpdates]
+          .sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0));
+        setLatestUpdatesFeed(unifiedUpdates);
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'post-fix-1',hypothesisId:'H16',location:'admindash/src/app/pages/TechnologyOverview.tsx:loadPlatformFeatures',message:'Built latest updates feed from unified sources',data:{historyDerivedCount:historyDerivedUpdates.length,topLevelCount:topLevelUpdates.length,finalCount:unifiedUpdates.length,firstFive:unifiedUpdates.slice(0,5).map((x)=>({featureId:x.feature.id,title:x.title ?? null,updatePreview:x.update?.slice(0,120) ?? '',updatedAt:x.updatedAt instanceof Date ? x.updatedAt.toISOString() : null}))},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+      } catch (historyErr: any) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-missing-4',hypothesisId:'H13',location:'admindash/src/app/pages/TechnologyOverview.tsx:loadPlatformFeatures',message:'change_history comparison failed',data:{error:historyErr?.message ?? 'unknown'},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        setLatestUpdatesFeed([]);
+      }
       setPlatformFeatures(features);
     } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-load-1',hypothesisId:'H3',location:'admindash/src/app/pages/TechnologyOverview.tsx:loadPlatformFeatures',message:'Platform features load failed',data:{error:err?.message ?? 'unknown'},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       console.error('Failed to load platform features:', err);
       setError(err.message || 'Failed to load platform features');
     } finally {
@@ -127,12 +256,45 @@ export function TechnologyOverview() {
   async function loadFeatureAnalytics(featureId: string) {
     setLoadingAnalytics(true);
     try {
+      // Use a longer date range (90 days) to capture enough history to identify returning users
+      // This ensures we can see if users have used the feature before this week
       const dateRange = {
-        start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+        start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // Last 90 days
         end: new Date(),
       };
-      const analytics = await getFeatureAnalytics(featureId, dateRange, true);
-      setSelectedFeatureAnalytics(analytics);
+      
+      console.log('📅 [loadFeatureAnalytics] Date range:', {
+        start: dateRange.start.toISOString(),
+        end: dateRange.end.toISOString(),
+        days: Math.round((dateRange.end.getTime() - dateRange.start.getTime()) / (24 * 60 * 60 * 1000)),
+      });
+      
+      // Try to load from Cloud Function (legacy)
+      try {
+        const analytics = await getFeatureAnalytics(featureId, dateRange, true);
+        setSelectedFeatureAnalytics(analytics);
+      } catch (err) {
+        console.warn('Cloud Function analytics not available, using Firestore:', err);
+      }
+      
+      // Load from Firestore (new direct queries)
+      try {
+        console.log('🔄 [loadFeatureAnalytics] Loading Firestore analytics for feature:', featureId);
+        const firestoreAnalytics = await getFeatureAnalyticsSummary(featureId, dateRange);
+        console.log('✅ [loadFeatureAnalytics] Analytics loaded:', {
+          feature: firestoreAnalytics.feature,
+          usersThisWeek: firestoreAnalytics.usersThisWeek,
+          returningUsers: firestoreAnalytics.returningUsers,
+          totalEvents: firestoreAnalytics.totalEvents,
+        });
+        setSelectedFeatureFirestoreAnalytics(firestoreAnalytics);
+      } catch (err) {
+        console.error('❌ [loadFeatureAnalytics] Failed to load Firestore analytics:', err);
+        console.error('Error details:', {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
+      }
     } catch (err: any) {
       console.error('Failed to load feature analytics:', err);
     } finally {
@@ -167,6 +329,8 @@ export function TechnologyOverview() {
     update: string;
     feature: TechnologyFeature;
     updateIndex: number;
+    updatedAt?: Date;
+    title?: string;
   }
 
   const allFeatureUpdates: FeatureUpdate[] = platformFeatures
@@ -184,8 +348,29 @@ export function TechnologyOverview() {
       const dateA = a.feature.lastUpdated?.getTime() || 0;
       const dateB = b.feature.lastUpdated?.getTime() || 0;
       return dateB - dateA;
-    })
-    .slice(0, 10); // Show latest 10 updates
+    });
+
+  const visibleFeedUpdates = latestUpdatesFeed.length > 0 ? latestUpdatesFeed : allFeatureUpdates;
+  const displayedFeedUpdates = showAllLatestUpdates ? visibleFeedUpdates : visibleFeedUpdates.slice(0, 10);
+
+  useEffect(() => {
+    if (platformFeatures.length === 0) return;
+    const sample = platformFeatures.slice(0, 6).map((f) => ({
+      id: f.id,
+      name: f.name,
+      domain: f.domain,
+      recentUpdatesType: Array.isArray(f.recentUpdates) ? 'array' : typeof f.recentUpdates,
+      recentUpdatesLen: Array.isArray(f.recentUpdates) ? f.recentUpdates.length : 0,
+      firstRecentUpdate: Array.isArray(f.recentUpdates) && f.recentUpdates.length > 0 ? f.recentUpdates[0] : null,
+      lastUpdated: f.lastUpdated instanceof Date ? f.lastUpdated.toISOString() : null,
+    }));
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-missing-3',hypothesisId:'H9',location:'admindash/src/app/pages/TechnologyOverview.tsx:platformFeaturesEffect',message:'Platform features loaded for latest-updates derivation',data:{featureCount:platformFeatures.length,allFeatureUpdatesLen:allFeatureUpdates.length,sample},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/ddaaaa74-c4f8-4176-b507-91d3bb5b2296',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cf9ac6'},body:JSON.stringify({sessionId:'cf9ac6',runId:'features-missing-4',hypothesisId:'H14',location:'admindash/src/app/pages/TechnologyOverview.tsx:allFeatureUpdates',message:'Computed feed entries from top-level recentUpdates',data:{entries:allFeatureUpdates.length,firstFive:allFeatureUpdates.slice(0,5).map((x)=>({featureId:x.feature.id,featureName:x.feature.name,updatePreview:x.update?.slice(0,120) ?? '',updateIndex:x.updateIndex,lastUpdated:x.feature.lastUpdated instanceof Date?x.feature.lastUpdated.toISOString():null}))},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [platformFeatures.length]);
 
   // Helper functions
   const getStatusColor = (status: string) => {
@@ -236,7 +421,7 @@ export function TechnologyOverview() {
 
   return (
     <div>
-      {/* Platform Status Summary */}
+      {/* Current Release Section */}
       {loadingRelease ? (
         <div className="flex items-center justify-center py-12 mb-8">
           <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#9575cd' }} />
@@ -253,10 +438,27 @@ export function TechnologyOverview() {
         </div>
       ) : (
         <div
-          className="p-8 rounded-2xl border mb-8"
+          className="p-8 rounded-2xl border mb-8 cursor-pointer transition-all"
           style={{
             backgroundColor: 'white',
             borderColor: '#e0e0e0',
+          }}
+          onClick={(e) => {
+            // Only trigger if clicking on the card itself, not on buttons/links inside
+            const target = e.target as HTMLElement;
+            if (target.closest('button') || target.closest('a')) {
+              return;
+            }
+            console.log('[TechnologyOverview] Card clicked, opening release:', currentRelease);
+            setSelectedRelease(currentRelease);
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#9575cd';
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(149, 117, 205, 0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#e0e0e0';
+            e.currentTarget.style.boxShadow = 'none';
           }}
         >
           <div className="mb-6">
@@ -281,7 +483,10 @@ export function TechnologyOverview() {
                   {currentRelease.versionName}+{currentRelease.buildNumber}
                 </span>
                 <button
-                  onClick={() => copyToClipboard(`${currentRelease.versionName}+${currentRelease.buildNumber}`)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copyToClipboard(`${currentRelease.versionName}+${currentRelease.buildNumber}`);
+                  }}
                   className="p-1 rounded transition-colors"
                   style={{ color: '#757575' }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = '#424242')}
@@ -324,10 +529,28 @@ export function TechnologyOverview() {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 no-click-through">
             <button
-              onClick={() => setSelectedRelease(currentRelease)}
-              className="px-6 py-2 rounded-xl transition-all"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (currentRelease.git?.commitSha) {
+                  console.log('[TechnologyOverview] Opening commit detail for:', currentRelease.git.commitSha);
+                  const commit = await getCommitBySha(currentRelease.git.commitSha);
+                  if (commit) {
+                    setSelectedCommit(commit);
+                  } else {
+                    // If commit not found, try to find it in commits list
+                    const commitsList = await getLatestCommits(50);
+                    const foundCommit = commitsList.find(c => c.commitSha === currentRelease.git.commitSha);
+                    if (foundCommit) {
+                      setSelectedCommit(foundCommit);
+                    } else {
+                      console.error('[TechnologyOverview] Commit not found:', currentRelease.git.commitSha);
+                    }
+                  }
+                }
+              }}
+              className="px-6 py-2 rounded-xl transition-all no-click-through"
               style={{
                 backgroundColor: '#9575cd',
                 color: 'white',
@@ -335,20 +558,21 @@ export function TechnologyOverview() {
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#7e57c2')}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#9575cd')}
             >
-              View Release Notes
+              View Commit Details
             </button>
             {currentRelease.git?.commitSha && (
               <a
                 href={getGitHubCommitUrl(currentRelease.git.commitSha, currentRelease.git.repoUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-6 py-2 rounded-xl transition-all flex items-center gap-2"
+                className="px-6 py-2 rounded-xl transition-all flex items-center gap-2 no-click-through"
                 style={{
                   backgroundColor: '#f5f5f5',
                   color: '#616161',
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#eeeeee')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
+                onClick={(e) => e.stopPropagation()}
               >
                 <GitCommit className="w-4 h-4" />
                 {currentRelease.git.commitSha.substring(0, 7)}
@@ -381,7 +605,7 @@ export function TechnologyOverview() {
                 Recent platform improvements and feature releases
               </p>
             </div>
-            {allFeatureUpdates.length > 0 && (
+            {visibleFeedUpdates.length > 0 && (
               <div
                 className="px-4 py-2 rounded-full text-sm"
                 style={{
@@ -389,19 +613,62 @@ export function TechnologyOverview() {
                   color: '#7e57c2',
                 }}
               >
-                {allFeatureUpdates.length} updates
+                {visibleFeedUpdates.length} updates
               </div>
             )}
           </div>
 
-          {/* Feed-style updates */}
-          {allFeatureUpdates.length === 0 ? (
+          {visibleFeedUpdates.length > 10 && (
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={() => setShowAllLatestUpdates((prev) => !prev)}
+                className="px-4 py-2 rounded-lg border text-sm transition-all"
+                style={{
+                  borderColor: '#9575cd',
+                  color: '#7e57c2',
+                  backgroundColor: '#f9f6ff',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3e5f5')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f9f6ff')}
+              >
+                {showAllLatestUpdates ? 'Show fewer updates' : `Show all updates (${visibleFeedUpdates.length})`}
+              </button>
+            </div>
+          )}
+
+          {/* Feed-style updates - Scrollable with 3 visible */}
+          {visibleFeedUpdates.length === 0 ? (
             <div className="text-center py-8" style={{ color: '#757575' }}>
               No feature updates available.
             </div>
           ) : (
-            <div className="space-y-4">
-              {allFeatureUpdates.map((featureUpdate) => (
+            <div 
+              className="overflow-y-auto"
+              style={{
+                maxHeight: '540px', // Height for ~3 items (each ~180px)
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#9575cd #f5f5f5',
+              }}
+            >
+              <style>{`
+                div::-webkit-scrollbar {
+                  width: 8px;
+                }
+                div::-webkit-scrollbar-track {
+                  background: #f5f5f5;
+                  border-radius: 4px;
+                }
+                div::-webkit-scrollbar-thumb {
+                  background: #9575cd;
+                  border-radius: 4px;
+                }
+                div::-webkit-scrollbar-thumb:hover {
+                  background: #7e57c2;
+                }
+              `}</style>
+              <div className="space-y-4 pr-2">
+                {displayedFeedUpdates.map((featureUpdate) => (
                 <div
                   key={featureUpdate.id}
                   onClick={() => setSelectedFeature(featureUpdate.feature)}
@@ -437,7 +704,7 @@ export function TechnologyOverview() {
                           </span>
                           <span className="text-xs" style={{ color: '#9e9e9e' }}>•</span>
                           <span className="text-xs" style={{ color: '#9e9e9e' }}>
-                            {featureUpdate.feature.lastUpdated ? formatDate(featureUpdate.feature.lastUpdated) : 'Unknown'}
+                            {featureUpdate.updatedAt ? formatDate(featureUpdate.updatedAt) : (featureUpdate.feature.lastUpdated ? formatDate(featureUpdate.feature.lastUpdated) : 'Unknown')}
                           </span>
                         </div>
                         <div className="text-xs" style={{ color: '#757575' }}>
@@ -473,6 +740,11 @@ export function TechnologyOverview() {
                         </span>
                       )}
                     </div>
+                    {featureUpdate.title && (
+                      <p className="text-sm font-semibold mb-1" style={{ color: '#424242' }}>
+                        {featureUpdate.title}
+                      </p>
+                    )}
                     <p className="text-sm leading-relaxed mb-3" style={{ color: '#616161' }}>
                       {featureUpdate.update.replace(/^\[(production|pilot)\]\s*/, '')}
                     </p>
@@ -525,7 +797,8 @@ export function TechnologyOverview() {
                     </div>
                   </div>
                 </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -649,9 +922,10 @@ export function TechnologyOverview() {
                       const isProduction = update.includes('[production]');
                       const isPilot = update.includes('[pilot]');
                       const updateText = update.replace(/^\[(production|pilot)\]\s*/, '');
+                      const updateKey = `${feature.id || 'feature'}-update-${idx}`;
                       
                       return (
-                        <li key={idx} className="flex items-start gap-1">
+                        <li key={updateKey} className="flex items-start gap-1">
                           <span 
                             className="mt-0.5" 
                             style={{ 
@@ -746,13 +1020,14 @@ export function TechnologyOverview() {
                 {commits.map((commit, index) => (
                   <tr
                     key={commit.commitSha}
-                    className={`transition-colors ${
+                    className={`transition-colors cursor-pointer ${
                       index !== commits.length - 1 ? "border-b" : ""
                     }`}
                     style={{
                       borderColor: '#f5f5f5',
                       backgroundColor: 'transparent',
                     }}
+                    onClick={() => setSelectedCommit(commit)}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = '#fafafa';
                     }}
@@ -882,16 +1157,16 @@ export function TechnologyOverview() {
                 <div className="flex items-center gap-2">
                   {isAdmin() && (
                     <button
-                      onClick={() => setEditingFeature(selectedFeature)}
+                      onClick={() => setEditingKPI(selectedFeature)}
                       className="px-4 py-2 rounded-lg text-sm transition-all"
                       style={{
-                        backgroundColor: '#f5f5f5',
-                        color: '#616161',
+                        backgroundColor: '#9575cd',
+                        color: 'white',
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#eeeeee')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#7e57c2')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#9575cd')}
                     >
-                      Edit Feature
+                      Edit KPI
                     </button>
                   )}
                   <button
@@ -921,25 +1196,29 @@ export function TechnologyOverview() {
                       className="p-4 rounded-xl"
                       style={{ backgroundColor: '#fafafa' }}
                     >
-                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Active Users</div>
+                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Users This Week</div>
                       <div className="text-2xl mb-1" style={{ color: '#424242' }}>
-                        {selectedFeatureAnalytics?.activeUsers || 0}
+                        {selectedFeatureFirestoreAnalytics?.usersThisWeek || 0}
                       </div>
                       <div className="text-xs" style={{ color: '#2e7d32' }}>
                         <TrendingUp className="w-3 h-3 inline mr-1" />
-                        Growing
+                        {selectedFeatureFirestoreAnalytics && selectedFeatureFirestoreAnalytics.usersThisWeek > 0 
+                          ? 'Active' 
+                          : 'No activity'}
                       </div>
                     </div>
                     <div
                       className="p-4 rounded-xl"
                       style={{ backgroundColor: '#fafafa' }}
                     >
-                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Adoption Rate</div>
+                      <div className="text-xs mb-2" style={{ color: '#9e9e9e' }}>Returning Users</div>
                       <div className="text-2xl mb-1" style={{ color: '#424242' }}>
-                        {selectedFeatureAnalytics?.adoptionRate || 0}%
+                        {selectedFeatureFirestoreAnalytics?.returningUsers || 0}
                       </div>
                       <div className="text-xs" style={{ color: '#757575' }}>
-                        Of total users
+                        {selectedFeatureFirestoreAnalytics && selectedFeatureFirestoreAnalytics.usersThisWeek > 0
+                          ? `${Math.round((selectedFeatureFirestoreAnalytics.returningUsers / selectedFeatureFirestoreAnalytics.usersThisWeek) * 100)}% of this week's users`
+                          : 'From previous use'}
                       </div>
                     </div>
                 <div
@@ -955,71 +1234,220 @@ export function TechnologyOverview() {
                   </div>
                 </div>
               </div>
+              
 
               {/* Charts */}
-              <div className="grid gap-6 md:grid-cols-2 mb-8">
-                <div
-                  className="p-6 rounded-xl border"
-                  style={{
-                    backgroundColor: 'white',
-                    borderColor: '#e0e0e0',
-                  }}
-                >
-                  <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
-                    User Engagement Trend
-                  </h3>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={selectedFeatureAnalytics?.engagementTrend || []}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                      <XAxis dataKey="date" stroke="#9e9e9e" tick={{ fontSize: 11 }} />
-                      <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e0e0e0',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="value"
-                        stroke="#9575cd"
-                        strokeWidth={2}
-                        dot={{ fill: '#9575cd', r: 3 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+              {selectedFeatureFirestoreAnalytics && (
+                <div className="grid gap-6 md:grid-cols-2 mb-8">
+                  {/* Events by Type Chart */}
+                  <div
+                    className="p-6 rounded-xl border"
+                    style={{
+                      backgroundColor: 'white',
+                      borderColor: '#e0e0e0',
+                    }}
+                  >
+                    <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
+                      Events by Type
+                    </h3>
+                    {Object.keys(selectedFeatureFirestoreAnalytics.eventsByType).length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart
+                          data={Object.entries(selectedFeatureFirestoreAnalytics.eventsByType)
+                            .map(([name, count]) => ({
+                              name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                              count: count as number,
+                            }))
+                            .sort((a, b) => b.count - a.count)
+                            .slice(0, 8)} // Top 8 events
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                          <XAxis
+                            dataKey="name"
+                            stroke="#9e9e9e"
+                            tick={{ fontSize: 10 }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={60}
+                          />
+                          <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e0e0e0',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                            }}
+                          />
+                          <Bar dataKey="count" fill="#9575cd" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[200px] text-sm" style={{ color: '#9e9e9e' }}>
+                        No event data available
+                      </div>
+                    )}
+                  </div>
 
-                <div
-                  className="p-6 rounded-xl border"
-                  style={{
-                    backgroundColor: 'white',
-                    borderColor: '#e0e0e0',
-                  }}
-                >
-                  <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
-                    Weekly Usage
-                  </h3>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={selectedFeatureAnalytics?.usageByWeek || []}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                      <XAxis dataKey="week" stroke="#9e9e9e" tick={{ fontSize: 11 }} />
-                      <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e0e0e0',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                      />
-                      <Bar dataKey="sessions" fill="#9575cd" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {/* Daily Activity Chart */}
+                  <div
+                    className="p-6 rounded-xl border"
+                    style={{
+                      backgroundColor: 'white',
+                      borderColor: '#e0e0e0',
+                    }}
+                  >
+                    <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
+                      Daily Activity (Last 7 Days)
+                    </h3>
+                    {selectedFeatureFirestoreAnalytics.recentEvents.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart
+                          data={(() => {
+                            // Group events by day for the last 7 days
+                            const days: Record<string, number> = {};
+                            const now = new Date();
+                            for (let i = 6; i >= 0; i--) {
+                              const date = new Date(now);
+                              date.setDate(date.getDate() - i);
+                              const dayKey = format(date, 'MMM d');
+                              days[dayKey] = 0;
+                            }
+                            
+                            selectedFeatureFirestoreAnalytics.recentEvents.forEach(event => {
+                              const eventDate = new Date(event.timestamp);
+                              const dayKey = format(eventDate, 'MMM d');
+                              if (days.hasOwnProperty(dayKey)) {
+                                days[dayKey]++;
+                              }
+                            });
+                            
+                            return Object.entries(days).map(([date, count]) => ({
+                              date,
+                              events: count,
+                            }));
+                          })()}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                          <XAxis dataKey="date" stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e0e0e0',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                            }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="events"
+                            stroke="#9575cd"
+                            strokeWidth={2}
+                            dot={{ fill: '#9575cd', r: 3 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[200px] text-sm" style={{ color: '#9e9e9e' }}>
+                        No recent activity
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cohort Breakdown Chart */}
+                  <div
+                    className="p-6 rounded-xl border"
+                    style={{
+                      backgroundColor: 'white',
+                      borderColor: '#e0e0e0',
+                    }}
+                  >
+                    <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
+                      Users by Cohort
+                    </h3>
+                    {selectedFeatureFirestoreAnalytics.cohortBreakdown.navigator > 0 ||
+                    selectedFeatureFirestoreAnalytics.cohortBreakdown.self_directed > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart
+                          data={[
+                            {
+                              name: 'Navigator',
+                              users: selectedFeatureFirestoreAnalytics.cohortBreakdown.navigator,
+                            },
+                            {
+                              name: 'Self-Directed',
+                              users: selectedFeatureFirestoreAnalytics.cohortBreakdown.self_directed,
+                            },
+                          ]}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                          <XAxis dataKey="name" stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e0e0e0',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                            }}
+                          />
+                          <Bar dataKey="users" fill="#9575cd" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[200px] text-sm" style={{ color: '#9e9e9e' }}>
+                        No cohort data available
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Trimester Breakdown Chart */}
+                  <div
+                    className="p-6 rounded-xl border"
+                    style={{
+                      backgroundColor: 'white',
+                      borderColor: '#e0e0e0',
+                    }}
+                  >
+                    <h3 className="text-sm mb-4" style={{ color: '#424242' }}>
+                      Usage by Trimester
+                    </h3>
+                    {selectedFeatureFirestoreAnalytics.trimesterBreakdown.first > 0 ||
+                    selectedFeatureFirestoreAnalytics.trimesterBreakdown.second > 0 ||
+                    selectedFeatureFirestoreAnalytics.trimesterBreakdown.third > 0 ||
+                    selectedFeatureFirestoreAnalytics.trimesterBreakdown.postpartum > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart
+                          data={[
+                            { name: '1st', events: selectedFeatureFirestoreAnalytics.trimesterBreakdown.first },
+                            { name: '2nd', events: selectedFeatureFirestoreAnalytics.trimesterBreakdown.second },
+                            { name: '3rd', events: selectedFeatureFirestoreAnalytics.trimesterBreakdown.third },
+                            { name: 'Postpartum', events: selectedFeatureFirestoreAnalytics.trimesterBreakdown.postpartum },
+                          ]}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                          <XAxis dataKey="name" stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <YAxis stroke="#9e9e9e" tick={{ fontSize: 11 }} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e0e0e0',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                            }}
+                          />
+                          <Bar dataKey="events" fill="#9575cd" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[200px] text-sm" style={{ color: '#9e9e9e' }}>
+                        No trimester data available
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* How the Feature Works */}
               {selectedFeature.howItWorks && (
@@ -1061,6 +1489,10 @@ export function TechnologyOverview() {
                   </div>
                   <div className="space-y-3">
                     {selectedFeature.recentUpdates.map((update, idx) => {
+                      // Create a unique key - use feature id if available, otherwise use index with update content hash
+                      const featureId = selectedFeature?.id || selectedFeature?.name?.toLowerCase().replace(/\s+/g, '-') || 'unknown';
+                      const updateHash = update.substring(0, 20).replace(/\s/g, '-').replace(/[^a-z0-9-]/gi, '');
+                      const updateKey = `${featureId}-update-${idx}-${updateHash}`;
                       // Check if update is tagged with [production] or [pilot]
                       const isProduction = update.includes('[production]');
                       const isPilot = update.includes('[pilot]');
@@ -1068,7 +1500,7 @@ export function TechnologyOverview() {
                       
                       return (
                         <div
-                          key={idx}
+                          key={updateKey}
                           className="p-4 rounded-lg"
                           style={{
                             backgroundColor: 'white',
@@ -1245,9 +1677,18 @@ export function TechnologyOverview() {
                   {selectedFeatureChangeHistory.length === 0 ? (
                     <div className="text-sm" style={{ color: '#757575' }}>No change history available.</div>
                   ) : (
-                    selectedFeatureChangeHistory.map((change, idx) => (
+                    selectedFeatureChangeHistory.map((change, idx) => {
+                      // Create a unique key with multiple fallbacks
+                      const changeKey = change.version 
+                        ? `${change.version}-${idx}`
+                        : change.commitSha 
+                        ? `${change.commitSha}-${idx}`
+                        : change.date 
+                        ? `change-${change.date.getTime?.() || change.date}-${idx}`
+                        : `change-${idx}-${Date.now()}`;
+                      return (
                       <div
-                        key={idx}
+                        key={changeKey}
                         className="flex gap-4 pb-3 border-b last:border-b-0"
                         style={{ borderColor: '#f5f5f5' }}
                       >
@@ -1269,7 +1710,8 @@ export function TechnologyOverview() {
                           </p>
                         </div>
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -1280,18 +1722,337 @@ export function TechnologyOverview() {
         </div>
       )}
 
-      {/* Feature Edit Modal */}
-      {editingFeature && (
-        <FeatureEditModal
-          feature={editingFeature}
-          onClose={() => setEditingFeature(null)}
+      {/* Commit Detail Drawer */}
+      {selectedCommit && (
+        <div className="fixed inset-0 z-50 flex items-start justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+            onClick={() => setSelectedCommit(null)}
+          />
+
+          {/* Drawer */}
+          <div
+            className="relative w-full max-w-3xl h-full overflow-y-auto shadow-2xl"
+            style={{ backgroundColor: '#fafafa' }}
+          >
+            {/* Drawer Header */}
+            <div
+              className="sticky top-0 p-6 border-b"
+              style={{
+                backgroundColor: 'white',
+                borderColor: '#e0e0e0',
+              }}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <GitCommit className="w-6 h-6" style={{ color: '#9575cd' }} />
+                    <h2 className="text-xl font-mono" style={{ color: '#424242' }}>
+                      {selectedCommit.commitSha.substring(0, 7)}
+                    </h2>
+                    {selectedCommit.channel && (
+                      <div
+                        className="px-3 py-1 rounded-md text-sm"
+                        style={{
+                          backgroundColor: selectedCommit.channel === 'production' ? '#e8f5e9' : '#fff3e0',
+                          color: selectedCommit.channel === 'production' ? '#2e7d32' : '#e65100',
+                        }}
+                      >
+                        {selectedCommit.channel === 'production' ? 'Production' : 'Pilot'}
+                      </div>
+                    )}
+                    {selectedCommit.fullVersion && (
+                      <div
+                        className="px-3 py-1 rounded-md text-sm"
+                        style={{
+                          backgroundColor: '#f5f5f5',
+                          color: '#616161',
+                        }}
+                      >
+                        v{selectedCommit.fullVersion}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm mb-2" style={{ color: '#757575' }}>
+                    {selectedCommit.commitMessage || 'No commit message'}
+                  </p>
+                  <div className="flex items-center gap-4 text-xs" style={{ color: '#9e9e9e' }}>
+                    <span>Author: {selectedCommit.commitAuthor || 'Unknown'}</span>
+                    <span>•</span>
+                    <span>Branch: {selectedCommit.branch || 'main'}</span>
+                    <span>•</span>
+                    <span>Date: {formatDate(selectedCommit.commitDate)}</span>
+                  </div>
+                  {selectedCommit.gitTag && (
+                    <div className="mt-2 text-xs" style={{ color: '#757575' }}>
+                      Tag: {selectedCommit.gitTag}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedCommit(null)}
+                  className="p-2 rounded-lg transition-colors"
+                  style={{ color: '#757575' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <a
+                  href={getCommitUrl(selectedCommit.commitSha)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-xl text-sm transition-all flex items-center gap-2"
+                  style={{
+                    backgroundColor: '#9575cd',
+                    color: 'white',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#7e57c2')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#9575cd')}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  View on GitHub
+                </a>
+                <button
+                  onClick={() => copyToClipboard(selectedCommit.commitSha)}
+                  className="px-4 py-2 rounded-xl text-sm transition-all flex items-center gap-2"
+                  style={{
+                    backgroundColor: '#f5f5f5',
+                    color: '#616161',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#eeeeee')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy SHA
+                </button>
+              </div>
+            </div>
+
+            {/* Commit Details Content */}
+            <div className="p-6">
+              {/* Commit Information */}
+              <div
+                className="p-6 rounded-xl border mb-6"
+                style={{
+                  backgroundColor: 'white',
+                  borderColor: '#e0e0e0',
+                }}
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className="w-5 h-5" style={{ color: '#9575cd' }} />
+                  <h3 className="text-lg" style={{ color: '#424242' }}>
+                    Commit Information
+                  </h3>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Full Commit SHA</div>
+                    <div className="font-mono text-sm" style={{ color: '#424242' }}>
+                      {selectedCommit.commitSha}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Commit Message</div>
+                    <div className="text-sm leading-relaxed" style={{ color: '#616161' }}>
+                      {selectedCommit.commitMessage || 'No commit message available'}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Author</div>
+                      <div className="text-sm" style={{ color: '#616161' }}>
+                        {selectedCommit.commitAuthor || 'Unknown'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Branch</div>
+                      <div className="text-sm" style={{ color: '#616161' }}>
+                        {selectedCommit.branch || 'main'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Commit Date</div>
+                      <div className="text-sm" style={{ color: '#616161' }}>
+                        {formatDate(selectedCommit.commitDate)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Recorded At</div>
+                      <div className="text-sm" style={{ color: '#616161' }}>
+                        {formatDate(selectedCommit.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                  {selectedCommit.buildNumber && (
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: '#9e9e9e' }}>Build Number</div>
+                      <div className="text-sm" style={{ color: '#616161' }}>
+                        {selectedCommit.buildNumber}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Associated Release */}
+              {selectedCommit.fullVersion && (
+                <div
+                  className="p-6 rounded-xl border mb-6"
+                  style={{
+                    backgroundColor: 'white',
+                    borderColor: '#e0e0e0',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-5 h-5" style={{ color: '#9575cd' }} />
+                      <h3 className="text-lg" style={{ color: '#424242' }}>
+                        Associated Release
+                      </h3>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const release = releaseHistory.find(r => r.buildNumber === selectedCommit.buildNumber);
+                        if (release) {
+                          setSelectedRelease(release);
+                          setSelectedCommit(null);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-lg text-sm transition-all"
+                      style={{
+                        backgroundColor: '#9575cd',
+                        color: 'white',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#7e57c2')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#9575cd')}
+                    >
+                      View Release Notes
+                    </button>
+                  </div>
+                  <div className="text-sm" style={{ color: '#616161' }}>
+                    Version {selectedCommit.fullVersion} ({selectedCommit.channel || 'pilot'})
+                  </div>
+                </div>
+              )}
+
+              {/* Feature Changes */}
+              <div
+                className="p-6 rounded-xl border"
+                style={{
+                  backgroundColor: 'white',
+                  borderColor: '#e0e0e0',
+                }}
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-5 h-5" style={{ color: '#9575cd' }} />
+                  <h3 className="text-lg" style={{ color: '#424242' }}>
+                    Feature Changes
+                  </h3>
+                </div>
+                {commitFeatureChanges.length === 0 ? (
+                  <div className="text-sm" style={{ color: '#757575' }}>
+                    No feature changes associated with this commit.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {commitFeatureChanges.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 rounded-lg border"
+                        style={{
+                          backgroundColor: '#fafafa',
+                          borderColor: '#e0e0e0',
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-base font-semibold" style={{ color: '#424242' }}>
+                            {item.feature.name}
+                          </h4>
+                          <button
+                            onClick={() => {
+                              setSelectedFeature(item.feature);
+                              setSelectedCommit(null);
+                            }}
+                            className="px-3 py-1 rounded-lg text-xs transition-all"
+                            style={{
+                              backgroundColor: 'transparent',
+                              color: '#9575cd',
+                              border: '1px solid #9575cd',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#9575cd';
+                              e.currentTarget.style.color = 'white';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                              e.currentTarget.style.color = '#9575cd';
+                            }}
+                          >
+                            View Feature
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {item.changes.map((change: any, changeIdx: number) => (
+                            <div
+                              key={changeIdx}
+                              className="flex gap-3 pb-2 border-b last:border-b-0"
+                              style={{ borderColor: '#f0f0f0' }}
+                            >
+                              <div
+                                className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
+                                style={{ backgroundColor: '#9575cd' }}
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs font-semibold" style={{ color: '#616161' }}>
+                                    {change.title || 'Update'}
+                                  </span>
+                                  {change.date && (
+                                    <span className="text-xs" style={{ color: '#9e9e9e' }}>
+                                      • {formatDate(change.date)}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm leading-relaxed" style={{ color: '#757575' }}>
+                                  {change.description || change.change || 'No description'}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Goals Edit Modal */}
+      {editingKPI && (
+        <KPIGoalsModal
+          feature={editingKPI}
+          analytics={selectedFeatureFirestoreAnalytics}
+          onClose={() => setEditingKPI(null)}
           onSave={() => {
             loadPlatformFeatures();
-            if (selectedFeature?.id === editingFeature.id) {
-              // Reload selected feature if it was edited
-              getFeatureById(editingFeature.id).then(feature => {
+            if (selectedFeature?.id === editingKPI.id) {
+              // Reload selected feature if KPIs were updated
+              getFeatureById(editingKPI.id).then(feature => {
                 if (feature) {
                   setSelectedFeature(feature);
+                  // Reload analytics to show updated goals
+                  if (feature.id) {
+                    loadFeatureAnalytics(feature.id);
+                  }
                 }
               });
             }

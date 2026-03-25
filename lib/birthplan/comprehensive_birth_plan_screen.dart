@@ -3,11 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../models/birth_plan.dart';
-import '../models/user_profile.dart';
 import '../services/database_service.dart';
+import '../services/analytics_service.dart';
 import '../cors/ui_theme.dart';
 import 'birth_plan_display_screen.dart';
 import 'birth_plan_formatter.dart';
+import '../widgets/qualitative_survey_dialog.dart';
+import '../widgets/feature_session_scope.dart';
 
 class ComprehensiveBirthPlanScreen extends StatefulWidget {
   final String? incompletePlanId; // For resuming incomplete plans
@@ -20,16 +22,18 @@ class ComprehensiveBirthPlanScreen extends StatefulWidget {
   });
 
   @override
-  State<ComprehensiveBirthPlanScreen> createState() => _ComprehensiveBirthPlanScreenState();
+  State<ComprehensiveBirthPlanScreen> createState() =>
+      _ComprehensiveBirthPlanScreenState();
 }
 
-class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScreen> {
+class _ComprehensiveBirthPlanScreenState
+    extends State<ComprehensiveBirthPlanScreen> {
   final _formKey = GlobalKey<FormState>();
   final DatabaseService _databaseService = DatabaseService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+
   bool _isLoading = false;
-  
+
   // Section 1: Parent Information
   final _supportPersonNameController = TextEditingController();
   final _supportPersonRelationshipController = TextEditingController();
@@ -37,19 +41,19 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   final _allergyController = TextEditingController();
   final _medicalConditionController = TextEditingController();
   final _complicationController = TextEditingController();
-  
+
   DateTime? _dueDate;
   List<String> _allergies = [];
   List<String> _medicalConditions = [];
   List<String> _pregnancyComplications = [];
-  
+
   // Section 2: Environment
   List<String> _environmentPreferences = [];
   bool? _photographyAllowed;
   bool? _videographyAllowed;
   String? _preferredLanguage;
   bool _traumaInformedCare = false;
-  
+
   // Section 3: Labor
   List<String> _preferredLaborPositions = [];
   bool _movementFreedom = true;
@@ -60,7 +64,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   String? _membraneSweepingPreference;
   String? _inductionPreference;
   String? _communicationStyle;
-  
+
   // Section 4: Pushing
   List<String> _preferredPushingPositions = [];
   String? _pushingStyle;
@@ -69,7 +73,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   String? _tearingPreference;
   String? _whoCatchesBaby;
   bool? _delayedPushingWithEpidural;
-  
+
   // Section 5: Newborn Care
   String? _delayedCordClampingPreference;
   String? _whoCutsCord;
@@ -80,20 +84,20 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   bool? _hepBVaccine;
   bool? _cordBloodBanking;
   final _cordBloodCompanyController = TextEditingController();
-  
+
   // Section 6: Feeding
   String? _feedingPreference;
   bool _lactationConsultantRequested = false;
   bool? _noPacifierUntilBreastfeeding;
   bool? _consentForDonorMilk;
-  
+
   // Section 7: Postpartum
   bool? _roomingIn;
   bool? _mentalHealthSupport;
   final _visitorPreferenceController = TextEditingController();
   final _dietaryPreferencesController = TextEditingController();
   final _postpartumPainManagementController = TextEditingController();
-  
+
   // Section 8: Cesarean
   String? _drapePreference;
   bool? _partnerInOR;
@@ -102,7 +106,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   bool? _delayNewbornCareUntilHolding;
   String? _anesthesiaPreference;
   String? _surgicalClosurePreference;
-  
+
   // Section 9: Special Considerations
   final _religiousConsiderationsController = TextEditingController();
   final _culturalConsiderationsController = TextEditingController();
@@ -112,28 +116,46 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   bool _consentBasedCare = false;
   String? _preferredBadNewsDelivery;
   final _fearReductionController = TextEditingController();
-  
+
   List<String> _anxietyTriggers = [];
   List<String> _fearReductionRequests = [];
-  
+
   // Section 10: In My Own Words
   final _inMyOwnWordsController = TextEditingController();
-  
+
   final String? _providerName = null;
 
   @override
   void initState() {
     super.initState();
+    _trackScreenView();
     _loadUserProfile();
     if (widget.savedProgress != null) {
       _loadSavedProgress();
     }
   }
 
+  Future<void> _trackScreenView() async {
+    try {
+      final analytics = AnalyticsService();
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await _databaseService.getUserProfile(userId);
+        await analytics.logScreenView(
+          screenName: 'birth_plan_creator',
+          feature: 'birth-plan-generator',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking birth plan screen view: $e');
+    }
+  }
+
   Future<void> _loadUserProfile() async {
     final userId = _auth.currentUser?.uid;
     if (userId == null) return;
-    
+
     final profile = await _databaseService.getUserProfile(userId);
     if (profile != null) {
       setState(() {
@@ -148,28 +170,37 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
   void _loadSavedProgress() {
     if (widget.savedProgress == null) return;
     final progress = widget.savedProgress!;
-    
+
     setState(() {
       _supportPersonNameController.text = progress['supportPersonName'] ?? '';
-      _supportPersonRelationshipController.text = progress['supportPersonRelationship'] ?? '';
+      _supportPersonRelationshipController.text =
+          progress['supportPersonRelationship'] ?? '';
       _contactInfoController.text = progress['contactInfo'] ?? '';
       _allergyController.text = progress['allergy'] ?? '';
       _medicalConditionController.text = progress['medicalCondition'] ?? '';
       _complicationController.text = progress['complication'] ?? '';
-      
+
       if (progress['dueDate'] != null) {
         _dueDate = DateTime.parse(progress['dueDate']);
       }
-      
+
       _allergies = List<String>.from(progress['allergies'] ?? []);
-      _medicalConditions = List<String>.from(progress['medicalConditions'] ?? []);
-      _pregnancyComplications = List<String>.from(progress['pregnancyComplications'] ?? []);
-      _environmentPreferences = List<String>.from(progress['environmentPreferences'] ?? []);
+      _medicalConditions = List<String>.from(
+        progress['medicalConditions'] ?? [],
+      );
+      _pregnancyComplications = List<String>.from(
+        progress['pregnancyComplications'] ?? [],
+      );
+      _environmentPreferences = List<String>.from(
+        progress['environmentPreferences'] ?? [],
+      );
       _photographyAllowed = progress['photographyAllowed'];
       _videographyAllowed = progress['videographyAllowed'];
       _preferredLanguage = progress['preferredLanguage'];
       _traumaInformedCare = progress['traumaInformedCare'] ?? false;
-      _preferredLaborPositions = List<String>.from(progress['preferredLaborPositions'] ?? []);
+      _preferredLaborPositions = List<String>.from(
+        progress['preferredLaborPositions'] ?? [],
+      );
       _movementFreedom = progress['movementFreedom'] ?? true;
       _monitoringPreference = progress['monitoringPreference'];
       _painManagementPreference = progress['painManagementPreference'];
@@ -178,14 +209,17 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       _membraneSweepingPreference = progress['membraneSweepingPreference'];
       _inductionPreference = progress['inductionPreference'];
       _communicationStyle = progress['communicationStyle'];
-      _preferredPushingPositions = List<String>.from(progress['preferredPushingPositions'] ?? []);
+      _preferredPushingPositions = List<String>.from(
+        progress['preferredPushingPositions'] ?? [],
+      );
       _pushingStyle = progress['pushingStyle'];
       _mirrorDuringPushing = progress['mirrorDuringPushing'];
       _episiotomyPreference = progress['episiotomyPreference'];
       _tearingPreference = progress['tearingPreference'];
       _whoCatchesBaby = progress['whoCatchesBaby'];
       _delayedPushingWithEpidural = progress['delayedPushingWithEpidural'];
-      _delayedCordClampingPreference = progress['delayedCordClampingPreference'];
+      _delayedCordClampingPreference =
+          progress['delayedCordClampingPreference'];
       _whoCutsCord = progress['whoCutsCord'];
       _immediateSkinToSkin = progress['immediateSkinToSkin'] ?? true;
       _babyStaysWithParent = progress['babyStaysWithParent'] ?? true;
@@ -195,14 +229,16 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       _cordBloodBanking = progress['cordBloodBanking'];
       _cordBloodCompanyController.text = progress['cordBloodCompany'] ?? '';
       _feedingPreference = progress['feedingPreference'];
-      _lactationConsultantRequested = progress['lactationConsultantRequested'] ?? false;
+      _lactationConsultantRequested =
+          progress['lactationConsultantRequested'] ?? false;
       _noPacifierUntilBreastfeeding = progress['noPacifierUntilBreastfeeding'];
       _consentForDonorMilk = progress['consentForDonorMilk'];
       _roomingIn = progress['roomingIn'];
       _mentalHealthSupport = progress['mentalHealthSupport'];
       _visitorPreferenceController.text = progress['visitorPreference'] ?? '';
       _dietaryPreferencesController.text = progress['dietaryPreferences'] ?? '';
-      _postpartumPainManagementController.text = progress['postpartumPainManagement'] ?? '';
+      _postpartumPainManagementController.text =
+          progress['postpartumPainManagement'] ?? '';
       _drapePreference = progress['drapePreference'];
       _partnerInOR = progress['partnerInOR'];
       _photosAllowedInOR = progress['photosAllowedInOR'];
@@ -210,8 +246,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       _delayNewbornCareUntilHolding = progress['delayNewbornCareUntilHolding'];
       _anesthesiaPreference = progress['anesthesiaPreference'];
       _surgicalClosurePreference = progress['surgicalClosurePreference'];
-      _religiousConsiderationsController.text = progress['religiousConsiderations'] ?? '';
-      _culturalConsiderationsController.text = progress['culturalConsiderations'] ?? '';
+      _religiousConsiderationsController.text =
+          progress['religiousConsiderations'] ?? '';
+      _culturalConsiderationsController.text =
+          progress['culturalConsiderations'] ?? '';
       _accessibilityNeedsController.text = progress['accessibilityNeeds'] ?? '';
       _traumaHistoryController.text = progress['traumaHistory'] ?? '';
       _anxietyTriggerController.text = progress['anxietyTrigger'] ?? '';
@@ -219,7 +257,9 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       _consentBasedCare = progress['consentBasedCare'] ?? false;
       _preferredBadNewsDelivery = progress['preferredBadNewsDelivery'];
       _fearReductionController.text = progress['fearReduction'] ?? '';
-      _fearReductionRequests = List<String>.from(progress['fearReductionRequests'] ?? []);
+      _fearReductionRequests = List<String>.from(
+        progress['fearReductionRequests'] ?? [],
+      );
       _inMyOwnWordsController.text = progress['inMyOwnWords'] ?? '';
     });
   }
@@ -258,26 +298,27 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
 
     try {
       final userId = _auth.currentUser!.uid;
-      
+
       // Get user profile for name
       final profile = await _databaseService.getUserProfile(userId);
       if (profile == null) {
         throw Exception('User profile not found');
       }
-      
+
       // Create birth plan object
       final birthPlan = BirthPlan(
         userId: userId,
         fullName: profile.username,
         dueDate: _dueDate,
-        supportPersonName: _supportPersonNameController.text.trim().isEmpty 
-            ? null 
+        supportPersonName: _supportPersonNameController.text.trim().isEmpty
+            ? null
             : _supportPersonNameController.text.trim(),
-        supportPersonRelationship: _supportPersonRelationshipController.text.trim().isEmpty 
-            ? null 
+        supportPersonRelationship:
+            _supportPersonRelationshipController.text.trim().isEmpty
+            ? null
             : _supportPersonRelationshipController.text.trim(),
-        emergencyContact: _contactInfoController.text.trim().isEmpty 
-            ? null 
+        emergencyContact: _contactInfoController.text.trim().isEmpty
+            ? null
             : _contactInfoController.text.trim(),
         allergies: _allergies,
         medicalConditions: _medicalConditions,
@@ -293,7 +334,8 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         painManagementPreference: _painManagementPreference,
         useDoula: _useDoula,
         waterLaborAvailable: _waterLaborAvailable,
-        augmentationPreference: _membraneSweepingPreference, // membrane sweep is now part of augmentation
+        augmentationPreference:
+            _membraneSweepingPreference, // membrane sweep is now part of augmentation
         inductionMethodsPreference: _inductionPreference,
         communicationStyle: _communicationStyle,
         preferredPushingPositions: _preferredPushingPositions,
@@ -306,11 +348,14 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         delayedCordClampingPreference: _delayedCordClampingPreference,
         whoCutsCord: _whoCutsCord,
         immediateSkinToSkin: _immediateSkinToSkin,
-        delayedNewbornProcedures: _babyStaysWithParent, // babyStaysWithParent -> delayedNewbornProcedures
+        delayedNewbornProcedures:
+            _babyStaysWithParent, // babyStaysWithParent -> delayedNewbornProcedures
         vitaminK: _vitaminK,
         // eyeOintment removed
         hepBVaccine: _hepBVaccine,
-        placentaPreference: _cordBloodBanking == true ? 'Save placenta' : null, // cordBloodBanking -> placentaPreference
+        placentaPreference: _cordBloodBanking == true
+            ? 'Save placenta'
+            : null, // cordBloodBanking -> placentaPreference
         // cordBloodCompany removed
         feedingPreference: _feedingPreference,
         lactationConsultantRequested: _lactationConsultantRequested,
@@ -318,14 +363,15 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         consentForDonorMilk: _consentForDonorMilk,
         roomingIn: _roomingIn,
         mentalHealthScreeningPreference: _mentalHealthSupport,
-        visitorsAfterBirth: _visitorPreferenceController.text.trim().isEmpty 
-            ? null 
+        visitorsAfterBirth: _visitorPreferenceController.text.trim().isEmpty
+            ? null
             : _visitorPreferenceController.text.trim(),
-        dietaryPreferences: _dietaryPreferencesController.text.trim().isEmpty 
-            ? null 
+        dietaryPreferences: _dietaryPreferencesController.text.trim().isEmpty
+            ? null
             : _dietaryPreferencesController.text.trim(),
-        postpartumPainControlPlan: _postpartumPainManagementController.text.trim().isEmpty 
-            ? null 
+        postpartumPainControlPlan:
+            _postpartumPainManagementController.text.trim().isEmpty
+            ? null
             : _postpartumPainManagementController.text.trim(),
         cesareanDrapePreference: _drapePreference,
         supportPersonInOR: _partnerInOR,
@@ -334,22 +380,24 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         // delayNewbornCareUntilHolding removed
         // anesthesiaPreference removed
         // surgicalClosurePreference removed
-        culturalReligiousRituals: _religiousConsiderationsController.text.trim().isEmpty 
-            ? null 
+        culturalReligiousRituals:
+            _religiousConsiderationsController.text.trim().isEmpty
+            ? null
             : _religiousConsiderationsController.text.trim(),
         // culturalConsiderations removed (now part of culturalReligiousRituals)
-        accessibilityNeeds: _accessibilityNeedsController.text.trim().isEmpty 
-            ? null 
+        accessibilityNeeds: _accessibilityNeedsController.text.trim().isEmpty
+            ? null
             : _accessibilityNeedsController.text.trim(),
-        pastBirthTraumaOrComplications: _traumaHistoryController.text.trim().isEmpty 
-            ? null 
+        pastBirthTraumaOrComplications:
+            _traumaHistoryController.text.trim().isEmpty
+            ? null
             : _traumaHistoryController.text.trim(),
         anxietyTriggers: _anxietyTriggers,
         consentBasedCare: _consentBasedCare,
         preferredBadNewsDelivery: _preferredBadNewsDelivery,
         fearReductionRequests: _fearReductionRequests,
-        inMyOwnWords: _inMyOwnWordsController.text.trim().isEmpty 
-            ? null 
+        inMyOwnWords: _inMyOwnWordsController.text.trim().isEmpty
+            ? null
             : _inMyOwnWordsController.text.trim(),
         providerName: _providerName,
       );
@@ -357,7 +405,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       // Format the birth plan
       final formatter = BirthPlanFormatter();
       final formattedPlan = formatter.format(birthPlan);
-      
+
       // Update birth plan with formatted content
       final updatedPlan = BirthPlan(
         id: birthPlan.id,
@@ -405,7 +453,8 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         noPacifierUntilBreastfeeding: birthPlan.noPacifierUntilBreastfeeding,
         consentForDonorMilk: birthPlan.consentForDonorMilk,
         roomingIn: birthPlan.roomingIn,
-        mentalHealthScreeningPreference: birthPlan.mentalHealthScreeningPreference,
+        mentalHealthScreeningPreference:
+            birthPlan.mentalHealthScreeningPreference,
         visitorsAfterBirth: birthPlan.visitorsAfterBirth,
         dietaryPreferences: birthPlan.dietaryPreferences,
         postpartumPainControlPlan: birthPlan.postpartumPainControlPlan,
@@ -419,7 +468,8 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
         culturalReligiousRituals: birthPlan.culturalReligiousRituals,
         // culturalConsiderations removed (now part of culturalReligiousRituals)
         accessibilityNeeds: birthPlan.accessibilityNeeds,
-        pastBirthTraumaOrComplications: birthPlan.pastBirthTraumaOrComplications,
+        pastBirthTraumaOrComplications:
+            birthPlan.pastBirthTraumaOrComplications,
         anxietyTriggers: birthPlan.anxietyTriggers,
         consentBasedCare: birthPlan.consentBasedCare,
         preferredBadNewsDelivery: birthPlan.preferredBadNewsDelivery,
@@ -440,24 +490,53 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       // Generate and save todos
       await _generateTodos(updatedPlan);
 
+      // Track birth plan completion
+      try {
+        final analytics = AnalyticsService();
+        await analytics.logBirthPlanCompleted(
+          completionTime: DateTime.now().millisecondsSinceEpoch,
+          sectionsCompleted: 10, // Approximate number of sections
+          userProfile: profile,
+        );
+      } catch (e) {
+        print('Error tracking birth plan completion: $e');
+      }
+
       setState(() => _isLoading = false);
 
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BirthPlanDisplayScreen(
-              birthPlan: updatedPlan.copyWith(id: docRef.id),
-            ),
+        // Show qualitative survey dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => QualitativeSurveyDialog(
+            feature: 'birth-plan-generator',
+            questions: [
+              'My birth plan reflects what matters most to me.',
+              'I feel prepared to discuss my birth preferences.',
+              'Creating this birth plan felt manageable.',
+            ],
+            title: 'Birth Plan Feedback',
+            sourceId: docRef.id,
+            onCompleted: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BirthPlanDisplayScreen(
+                    birthPlan: updatedPlan.copyWith(id: docRef.id),
+                  ),
+                ),
+              );
+            },
           ),
         );
       }
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     }
   }
@@ -484,7 +563,8 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
     if (plan.monitoringPreference == 'Intermittent') {
       todos.add({
         'title': 'Confirm intermittent monitoring eligibility',
-        'description': 'Ask if you qualify for intermittent monitoring during unmedicated birth',
+        'description':
+            'Ask if you qualify for intermittent monitoring during unmedicated birth',
         'category': 'Medical Preparation',
       });
     }
@@ -503,17 +583,43 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       });
     }
     todos.addAll([
-      {'title': 'Schedule your hospital tour', 'description': 'Tour the labor and delivery unit', 'category': 'Medical Preparation'},
-      {'title': 'Complete pre-registration for your hospital', 'description': 'Fill out hospital pre-registration forms', 'category': 'Medical Preparation'},
-      {'title': 'Confirm pediatrician selection', 'description': 'Choose and confirm pediatrician for baby', 'category': 'Medical Preparation'},
+      {
+        'title': 'Schedule your hospital tour',
+        'description': 'Tour the labor and delivery unit',
+        'category': 'Medical Preparation',
+      },
+      {
+        'title': 'Complete pre-registration for your hospital',
+        'description': 'Fill out hospital pre-registration forms',
+        'category': 'Medical Preparation',
+      },
+      {
+        'title': 'Confirm pediatrician selection',
+        'description': 'Choose and confirm pediatrician for baby',
+        'category': 'Medical Preparation',
+      },
     ]);
 
     // Labor Comfort Prep To-Dos
-    if (plan.painManagementPreference != null || plan.lightingPreference != null || plan.noisePreference != null) {
+    if (plan.painManagementPreference != null ||
+        plan.lightingPreference != null ||
+        plan.noisePreference != null) {
       todos.addAll([
-        {'title': 'Pack labor comfort items', 'description': 'Playlist, dim lights, robe, heating pad', 'category': 'Labor Comfort Prep'},
-        {'title': 'Download your birth playlist', 'description': 'Create and download music for labor', 'category': 'Labor Comfort Prep'},
-        {'title': 'Buy snacks + electrolyte drinks for labor', 'description': 'Stock up on labor snacks', 'category': 'Labor Comfort Prep'},
+        {
+          'title': 'Pack labor comfort items',
+          'description': 'Playlist, dim lights, robe, heating pad',
+          'category': 'Labor Comfort Prep',
+        },
+        {
+          'title': 'Download your birth playlist',
+          'description': 'Create and download music for labor',
+          'category': 'Labor Comfort Prep',
+        },
+        {
+          'title': 'Buy snacks + electrolyte drinks for labor',
+          'description': 'Stock up on labor snacks',
+          'category': 'Labor Comfort Prep',
+        },
       ]);
     }
     if (plan.preferredLaborPositions.contains('Birthing ball')) {
@@ -530,7 +636,8 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
     });
 
     // Paperwork & Permissions To-Dos
-    if (plan.placentaPreference != null && plan.placentaPreference!.contains('Save')) {
+    if (plan.placentaPreference != null &&
+        plan.placentaPreference!.contains('Save')) {
       todos.add({
         'title': 'Complete paperwork for cord blood banking',
         'description': 'Fill out cord blood banking forms',
@@ -538,30 +645,69 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       });
     }
     todos.addAll([
-      {'title': 'Add hospital to insurance notifications', 'description': 'Notify insurance of hospital choice', 'category': 'Paperwork & Permissions'},
-      {'title': 'Fill out breast pump order forms', 'description': 'Order breast pump through insurance', 'category': 'Paperwork & Permissions'},
-      {'title': 'Print 2 copies of the birth plan', 'description': 'Print birth plan for hospital bag', 'category': 'Paperwork & Permissions'},
-      {'title': 'Arrange FMLA / maternity leave paperwork', 'description': 'Complete leave paperwork', 'category': 'Paperwork & Permissions'},
-      {'title': 'Create a visitor list + boundaries', 'description': 'Prepare visitor guidelines for nurses', 'category': 'Paperwork & Permissions'},
+      {
+        'title': 'Add hospital to insurance notifications',
+        'description': 'Notify insurance of hospital choice',
+        'category': 'Paperwork & Permissions',
+      },
+      {
+        'title': 'Fill out breast pump order forms',
+        'description': 'Order breast pump through insurance',
+        'category': 'Paperwork & Permissions',
+      },
+      {
+        'title': 'Print 2 copies of the birth plan',
+        'description': 'Print birth plan for hospital bag',
+        'category': 'Paperwork & Permissions',
+      },
+      {
+        'title': 'Arrange FMLA / maternity leave paperwork',
+        'description': 'Complete leave paperwork',
+        'category': 'Paperwork & Permissions',
+      },
+      {
+        'title': 'Create a visitor list + boundaries',
+        'description': 'Prepare visitor guidelines for nurses',
+        'category': 'Paperwork & Permissions',
+      },
     ]);
 
     // Baby Care To-Dos
-    if (plan.feedingPreference == 'Breastfeeding' || plan.feedingPreference == 'Combo feeding') {
+    if (plan.feedingPreference == 'Breastfeeding' ||
+        plan.feedingPreference == 'Combo feeding') {
       todos.addAll([
-        {'title': 'Purchase breastfeeding supplies', 'description': 'Nipple cream, pump parts, bottles as backup', 'category': 'Baby Care'},
-        {'title': 'Confirm hospital has a lactation consultant', 'description': 'Verify lactation support availability', 'category': 'Baby Care'},
+        {
+          'title': 'Purchase breastfeeding supplies',
+          'description': 'Nipple cream, pump parts, bottles as backup',
+          'category': 'Baby Care',
+        },
+        {
+          'title': 'Confirm hospital has a lactation consultant',
+          'description': 'Verify lactation support availability',
+          'category': 'Baby Care',
+        },
       ]);
     }
-    if (plan.feedingPreference == 'Formula feeding' || plan.feedingPreference == 'Combo feeding') {
+    if (plan.feedingPreference == 'Formula feeding' ||
+        plan.feedingPreference == 'Combo feeding') {
       todos.add({
         'title': 'Order formula samples',
-        'description': 'Get formula samples if planning mixed or formula feeding',
+        'description':
+            'Get formula samples if planning mixed or formula feeding',
         'category': 'Baby Care',
       });
     }
     todos.addAll([
-      {'title': 'Buy newborn onesies, swaddles, diapers', 'description': 'Stock up on newborn essentials', 'category': 'Baby Care'},
-      {'title': 'Install the car seat and get it inspected', 'description': 'Install and verify car seat installation', 'category': 'Baby Care'},
+      {
+        'title': 'Buy newborn onesies, swaddles, diapers',
+        'description': 'Stock up on newborn essentials',
+        'category': 'Baby Care',
+      },
+      {
+        'title': 'Install the car seat and get it inspected',
+        'description': 'Install and verify car seat installation',
+        'category': 'Baby Care',
+      },
     ]);
 
     // Logistical To-Dos
@@ -580,17 +726,42 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       });
     }
     todos.addAll([
-      {'title': 'Arrange child or pet care for day of labor', 'description': 'Plan childcare/pet care', 'category': 'Logistical'},
-      {'title': 'Map fastest route to hospital', 'description': 'Plan routes at various times of day', 'category': 'Logistical'},
-      {'title': 'Add doula/midwife/pediatrician contacts', 'description': 'Save important contacts in phone', 'category': 'Logistical'},
+      {
+        'title': 'Arrange child or pet care for day of labor',
+        'description': 'Plan childcare/pet care',
+        'category': 'Logistical',
+      },
+      {
+        'title': 'Map fastest route to hospital',
+        'description': 'Plan routes at various times of day',
+        'category': 'Logistical',
+      },
+      {
+        'title': 'Add doula/midwife/pediatrician contacts',
+        'description': 'Save important contacts in phone',
+        'category': 'Logistical',
+      },
     ]);
 
     // Mental & Emotional Support To-Dos
-    if (plan.traumaInformedCare || plan.pastBirthTraumaOrComplications != null) {
+    if (plan.traumaInformedCare ||
+        plan.pastBirthTraumaOrComplications != null) {
       todos.addAll([
-        {'title': 'Identify grounding techniques', 'description': 'Practice techniques for medical exams', 'category': 'Mental & Emotional Support'},
-        {'title': 'Share trauma-informed preferences with OB team', 'description': 'Communicate needs to care team', 'category': 'Mental & Emotional Support'},
-        {'title': 'Create a "How to Support Me" card for partner', 'description': 'Prepare support instructions', 'category': 'Mental & Emotional Support'},
+        {
+          'title': 'Identify grounding techniques',
+          'description': 'Practice techniques for medical exams',
+          'category': 'Mental & Emotional Support',
+        },
+        {
+          'title': 'Share trauma-informed preferences with OB team',
+          'description': 'Communicate needs to care team',
+          'category': 'Mental & Emotional Support',
+        },
+        {
+          'title': 'Create a "How to Support Me" card for partner',
+          'description': 'Prepare support instructions',
+          'category': 'Mental & Emotional Support',
+        },
       ]);
     }
     if (plan.mentalHealthScreeningPreference == true) {
@@ -608,33 +779,93 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
 
     // Home Preparation To-Dos
     todos.addAll([
-      {'title': 'Prepare a postpartum recovery basket', 'description': 'Pads, pain spray, peri bottle', 'category': 'Home Preparation'},
-      {'title': 'Set up baby sleep space', 'description': 'Prepare baby\'s sleeping area', 'category': 'Home Preparation'},
-      {'title': 'Wash baby clothes + sheets', 'description': 'Prepare baby laundry', 'category': 'Home Preparation'},
-      {'title': 'Stock freezer meals', 'description': 'Prepare meals for postpartum', 'category': 'Home Preparation'},
-      {'title': 'Set aside comfortable postpartum clothing', 'description': 'Prepare recovery wardrobe', 'category': 'Home Preparation'},
-      {'title': 'Prepare a feeding station', 'description': 'Burp cloths, water bottle, snacks', 'category': 'Home Preparation'},
+      {
+        'title': 'Prepare a postpartum recovery basket',
+        'description': 'Pads, pain spray, peri bottle',
+        'category': 'Home Preparation',
+      },
+      {
+        'title': 'Set up baby sleep space',
+        'description': 'Prepare baby\'s sleeping area',
+        'category': 'Home Preparation',
+      },
+      {
+        'title': 'Wash baby clothes + sheets',
+        'description': 'Prepare baby laundry',
+        'category': 'Home Preparation',
+      },
+      {
+        'title': 'Stock freezer meals',
+        'description': 'Prepare meals for postpartum',
+        'category': 'Home Preparation',
+      },
+      {
+        'title': 'Set aside comfortable postpartum clothing',
+        'description': 'Prepare recovery wardrobe',
+        'category': 'Home Preparation',
+      },
+      {
+        'title': 'Prepare a feeding station',
+        'description': 'Burp cloths, water bottle, snacks',
+        'category': 'Home Preparation',
+      },
     ]);
 
     // Time-Specific To-Dos
     final weeksPregnant = _calculateWeeksPregnant(plan.dueDate);
     if (weeksPregnant >= 30 && weeksPregnant < 35) {
       todos.addAll([
-        {'title': 'Hospital tour', 'description': 'Tour labor and delivery unit', 'category': 'Time-Specific (30-34 weeks)'},
-        {'title': 'Birth class', 'description': 'Attend childbirth education class', 'category': 'Time-Specific (30-34 weeks)'},
-        {'title': 'Pediatrician selection', 'description': 'Choose pediatrician', 'category': 'Time-Specific (30-34 weeks)'},
+        {
+          'title': 'Hospital tour',
+          'description': 'Tour labor and delivery unit',
+          'category': 'Time-Specific (30-34 weeks)',
+        },
+        {
+          'title': 'Birth class',
+          'description': 'Attend childbirth education class',
+          'category': 'Time-Specific (30-34 weeks)',
+        },
+        {
+          'title': 'Pediatrician selection',
+          'description': 'Choose pediatrician',
+          'category': 'Time-Specific (30-34 weeks)',
+        },
       ]);
     } else if (weeksPregnant >= 35 && weeksPregnant < 38) {
       todos.addAll([
-        {'title': 'Pack hospital bag', 'description': 'Prepare hospital bag', 'category': 'Time-Specific (35-37 weeks)'},
-        {'title': 'Install car seat', 'description': 'Install and verify car seat', 'category': 'Time-Specific (35-37 weeks)'},
-        {'title': 'Finalize birth plan', 'description': 'Review and finalize birth plan', 'category': 'Time-Specific (35-37 weeks)'},
+        {
+          'title': 'Pack hospital bag',
+          'description': 'Prepare hospital bag',
+          'category': 'Time-Specific (35-37 weeks)',
+        },
+        {
+          'title': 'Install car seat',
+          'description': 'Install and verify car seat',
+          'category': 'Time-Specific (35-37 weeks)',
+        },
+        {
+          'title': 'Finalize birth plan',
+          'description': 'Review and finalize birth plan',
+          'category': 'Time-Specific (35-37 weeks)',
+        },
       ]);
     } else if (weeksPregnant >= 38) {
       todos.addAll([
-        {'title': 'Prepare home', 'description': 'Final home preparations', 'category': 'Time-Specific (38-40 weeks)'},
-        {'title': 'Reduce schedule to lower stress', 'description': 'Simplify commitments', 'category': 'Time-Specific (38-40 weeks)'},
-        {'title': 'Keep hospital bag by door', 'description': 'Ready to go at a moment\'s notice', 'category': 'Time-Specific (38-40 weeks)'},
+        {
+          'title': 'Prepare home',
+          'description': 'Final home preparations',
+          'category': 'Time-Specific (38-40 weeks)',
+        },
+        {
+          'title': 'Reduce schedule to lower stress',
+          'description': 'Simplify commitments',
+          'category': 'Time-Specific (38-40 weeks)',
+        },
+        {
+          'title': 'Keep hospital bag by door',
+          'description': 'Ready to go at a moment\'s notice',
+          'category': 'Time-Specific (38-40 weeks)',
+        },
       ]);
     }
 
@@ -744,7 +975,7 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       if (userId == null) return;
 
       final progressData = _getProgressData();
-      
+
       // Check if there's any meaningful data
       bool hasData = false;
       for (var value in progressData.values) {
@@ -767,9 +998,9 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             .collection('birth_plans')
             .doc(widget.incompletePlanId)
             .update({
-          'progressData': progressData,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+              'progressData': progressData,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
       } else {
         await FirebaseFirestore.instance.collection('birth_plans').add({
           'userId': userId,
@@ -788,7 +1019,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
+    return FeatureSessionScope(
+      feature: 'birth-plan-generator',
+      entrySource: 'comprehensive_birth_plan',
+      child: PopScope(
       canPop: true,
       onPopInvoked: (didPop) async {
         if (didPop) {
@@ -805,193 +1039,197 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                    // Header (matching NewUI)
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.arrow_back, color: AppTheme.textMuted),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Birth plan',
-                                style: TextStyle(
-                                  fontSize: 24, // text-2xl
-                                  fontWeight: FontWeight.w400, // font-normal
-                                  color: AppTheme.textSecondary, // text-[#4a3f52]
-                                ),
+                  // Header (matching NewUI)
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.arrow_back, color: AppTheme.textMuted),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Birth plan',
+                              style: TextStyle(
+                                fontSize: 24, // text-2xl
+                                fontWeight: FontWeight.w400, // font-normal
+                                color: AppTheme.textSecondary, // text-[#4a3f52]
                               ),
-                              const SizedBox(height: 4), // mb-2
-                              Text(
-                                'Share your preferences with your care team',
-                                style: TextStyle(
-                                  fontSize: 14, // text-sm
-                                  color: AppTheme.textLight, // text-[#8b7a95]
-                                  fontWeight: FontWeight.w300, // font-light
-                                ),
+                            ),
+                            const SizedBox(height: 4), // mb-2
+                            Text(
+                              'Share your preferences with your care team',
+                              style: TextStyle(
+                                fontSize: 14, // text-sm
+                                color: AppTheme.textLight, // text-[#8b7a95]
+                                fontWeight: FontWeight.w300, // font-light
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32), // mb-8
-
-                    // Intro Card (matching NewUI)
-                    Container(
-                      padding: const EdgeInsets.all(28), // p-7
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Color(0xFFEBE4F3), // from-[#ebe4f3]
-                            Color(0xFFE0D5EB), // via-[#e0d5eb]
-                            Color(0xFFE8DFE8), // to-[#e8dfe8]
+                            ),
                           ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(32), // rounded-[32px]
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.06),
-                            blurRadius: 24,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Your voice matters',
-                            style: TextStyle(
-                              fontSize: 18, // text-lg
-                              fontWeight: FontWeight.w400, // font-normal
-                              color: AppTheme.textSecondary, // text-[#4a3f52]
-                            ),
-                          ),
-                          const SizedBox(height: 8), // mb-2
-                          Text(
-                            'This plan helps you communicate your wishes. Remember: plans can change, and that\'s okay. This is about starting a conversation with your care team.',
-                            style: TextStyle(
-                              fontSize: 14, // text-sm
-                              color: AppTheme.textMuted, // text-[#6b5c75]
-                              fontWeight: FontWeight.w300, // font-light
-                              height: 1.5, // leading-relaxed
-                            ),
-                          ),
+                    ],
+                  ),
+                  const SizedBox(height: 32), // mb-8
+                  // Intro Card (matching NewUI)
+                  Container(
+                    padding: const EdgeInsets.all(28), // p-7
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFFEBE4F3), // from-[#ebe4f3]
+                          Color(0xFFE0D5EB), // via-[#e0d5eb]
+                          Color(0xFFE8DFE8), // to-[#e8dfe8]
                         ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      borderRadius: BorderRadius.circular(32), // rounded-[32px]
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 24,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-              
-                    // Section 1: Parent Information
-                    _buildSection1(),
-                    const SizedBox(height: 24),
-              
-                    // Section 2: Environment
-                    _buildSection2(),
-                    const SizedBox(height: 24),
-              
-                    // Section 3: Labor
-                    _buildSection3(),
-                    const SizedBox(height: 24),
-              
-                    // Section 4: Pushing
-                    _buildSection4(),
-                    const SizedBox(height: 24),
-              
-                    // Section 5: Newborn Care
-                    _buildSection5(),
-                    const SizedBox(height: 24),
-              
-                    // Section 6: Feeding
-                    _buildSection6(),
-                    const SizedBox(height: 24),
-              
-                    // Section 7: Postpartum
-                    _buildSection7(),
-                    const SizedBox(height: 24),
-              
-                    // Section 8: Cesarean
-                    _buildSection8(),
-                    const SizedBox(height: 24),
-              
-                    // Section 9: Special Considerations
-                    _buildSection9(),
-                    const SizedBox(height: 24),
-              
-                    // Section 10: In My Own Words
-                    _buildSection10(),
-                    const SizedBox(height: 32),
-              
-                    // Generate Button
-                    Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              // TODO: Download PDF
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('PDF download coming soon!')),
-                              );
-                            },
-                            icon: const Icon(Icons.download),
-                            label: const Text('Download PDF'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF663399),
-                              side: const BorderSide(color: Color(0xFF663399)),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
+                        Text(
+                          'Your voice matters',
+                          style: TextStyle(
+                            fontSize: 18, // text-lg
+                            fontWeight: FontWeight.w400, // font-normal
+                            color: AppTheme.textSecondary, // text-[#4a3f52]
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _generateBirthPlan,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF663399),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.share, size: 18),
-                                      SizedBox(width: 8),
-                                      Text('Save Plan'),
-                                    ],
-                                  ),
+                        const SizedBox(height: 8), // mb-2
+                        Text(
+                          'This plan helps you communicate your wishes. Remember: plans can change, and that\'s okay. This is about starting a conversation with your care team.',
+                          style: TextStyle(
+                            fontSize: 14, // text-sm
+                            color: AppTheme.textMuted, // text-[#6b5c75]
+                            fontWeight: FontWeight.w300, // font-light
+                            height: 1.5, // leading-relaxed
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Section 1: Parent Information
+                  _buildSection1(),
+                  const SizedBox(height: 24),
+
+                  // Section 2: Environment
+                  _buildSection2(),
+                  const SizedBox(height: 24),
+
+                  // Section 3: Labor
+                  _buildSection3(),
+                  const SizedBox(height: 24),
+
+                  // Section 4: Pushing
+                  _buildSection4(),
+                  const SizedBox(height: 24),
+
+                  // Section 5: Newborn Care
+                  _buildSection5(),
+                  const SizedBox(height: 24),
+
+                  // Section 6: Feeding
+                  _buildSection6(),
+                  const SizedBox(height: 24),
+
+                  // Section 7: Postpartum
+                  _buildSection7(),
+                  const SizedBox(height: 24),
+
+                  // Section 8: Cesarean
+                  _buildSection8(),
+                  const SizedBox(height: 24),
+
+                  // Section 9: Special Considerations
+                  _buildSection9(),
+                  const SizedBox(height: 24),
+
+                  // Section 10: In My Own Words
+                  _buildSection10(),
+                  const SizedBox(height: 32),
+
+                  // Generate Button
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            // TODO: Download PDF
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('PDF download coming soon!'),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.download),
+                          label: const Text('Download PDF'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF663399),
+                            side: const BorderSide(color: Color(0xFF663399)),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _generateBirthPlan,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF663399),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.share, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Save Plan'),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildSection1() {
@@ -1014,7 +1252,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           children: [
             Icon(Icons.people, color: const Color(0xFF663399), size: 20),
             const SizedBox(width: 8),
-            const Text('My Support Team', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'My Support Team',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
         initiallyExpanded: true,
@@ -1025,12 +1266,18 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
               children: [
                 ListTile(
                   title: const Text('Due Date'),
-                  subtitle: Text(_dueDate != null ? DateFormat('MMMM d, yyyy').format(_dueDate!) : 'Tap to select'),
+                  subtitle: Text(
+                    _dueDate != null
+                        ? DateFormat('MMMM d, yyyy').format(_dueDate!)
+                        : 'Tap to select',
+                  ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
                     final date = await showDatePicker(
                       context: context,
-                      initialDate: _dueDate ?? DateTime.now().add(const Duration(days: 180)),
+                      initialDate:
+                          _dueDate ??
+                          DateTime.now().add(const Duration(days: 180)),
                       firstDate: DateTime.now(),
                       lastDate: DateTime.now().add(const Duration(days: 365)),
                     );
@@ -1040,39 +1287,66 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _supportPersonNameController,
-                  decoration: const InputDecoration(labelText: 'Support Person(s) Name', prefixIcon: Icon(Icons.people)),
+                  decoration: const InputDecoration(
+                    labelText: 'Support Person(s) Name',
+                    prefixIcon: Icon(Icons.people),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _supportPersonRelationshipController,
-                  decoration: const InputDecoration(labelText: 'Relationship', prefixIcon: Icon(Icons.family_restroom)),
+                  decoration: const InputDecoration(
+                    labelText: 'Relationship',
+                    prefixIcon: Icon(Icons.family_restroom),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _contactInfoController,
-                  decoration: const InputDecoration(labelText: 'Contact Info (for emergencies)', prefixIcon: Icon(Icons.phone)),
+                  decoration: const InputDecoration(
+                    labelText: 'Contact Info (for emergencies)',
+                    prefixIcon: Icon(Icons.phone),
+                  ),
                 ),
                 const SizedBox(height: 16),
-                _buildListInput('Allergies', _allergyController, _allergies, (item) {
-                  setState(() => _allergies.add(item));
-                  _allergyController.clear();
-                }, (index) {
-                  setState(() => _allergies.removeAt(index));
-                }),
+                _buildListInput(
+                  'Allergies',
+                  _allergyController,
+                  _allergies,
+                  (item) {
+                    setState(() => _allergies.add(item));
+                    _allergyController.clear();
+                  },
+                  (index) {
+                    setState(() => _allergies.removeAt(index));
+                  },
+                ),
                 const SizedBox(height: 16),
-                _buildListInput('Medical Conditions', _medicalConditionController, _medicalConditions, (item) {
-                  setState(() => _medicalConditions.add(item));
-                  _medicalConditionController.clear();
-                }, (index) {
-                  setState(() => _medicalConditions.removeAt(index));
-                }),
+                _buildListInput(
+                  'Medical Conditions',
+                  _medicalConditionController,
+                  _medicalConditions,
+                  (item) {
+                    setState(() => _medicalConditions.add(item));
+                    _medicalConditionController.clear();
+                  },
+                  (index) {
+                    setState(() => _medicalConditions.removeAt(index));
+                  },
+                ),
                 const SizedBox(height: 16),
-                _buildListInput('Pregnancy Complications', _complicationController, _pregnancyComplications, (item) {
-                  setState(() => _pregnancyComplications.add(item));
-                  _complicationController.clear();
-                }, (index) {
-                  setState(() => _pregnancyComplications.removeAt(index));
-                }),
+                _buildListInput(
+                  'Pregnancy Complications',
+                  _complicationController,
+                  _pregnancyComplications,
+                  (item) {
+                    setState(() => _pregnancyComplications.add(item));
+                    _complicationController.clear();
+                  },
+                  (index) {
+                    setState(() => _pregnancyComplications.removeAt(index));
+                  },
+                ),
               ],
             ),
           ),
@@ -1101,7 +1375,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           children: [
             Icon(Icons.home, color: const Color(0xFF663399), size: 20),
             const SizedBox(width: 8),
-            const Text('My Birth Environment', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'My Birth Environment',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
         children: [
@@ -1109,11 +1386,12 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _buildMultiSelectChips(
-                  'Preferred Environment',
-                  ['Calm/quiet', 'Music', 'Low light', 'Minimal staff interruptions'],
-                  _environmentPreferences,
-                ),
+                _buildMultiSelectChips('Preferred Environment', [
+                  'Calm/quiet',
+                  'Music',
+                  'Low light',
+                  'Minimal staff interruptions',
+                ], _environmentPreferences),
                 const SizedBox(height: 16),
                 SwitchListTile(
                   title: const Text('Photography Allowed'),
@@ -1127,8 +1405,12 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Preferred Language'),
-                  items: ['English', 'Spanish', 'Other'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Preferred Language',
+                  ),
+                  items: ['English', 'Spanish', 'Other']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
                   onChanged: (v) => setState(() => _preferredLanguage = v),
                 ),
                 const SizedBox(height: 16),
@@ -1166,7 +1448,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           children: [
             Icon(Icons.favorite, color: const Color(0xFF663399), size: 20),
             const SizedBox(width: 8),
-            const Text('Pain Management Preferences', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'Pain Management Preferences',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
         children: [
@@ -1174,11 +1459,15 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _buildMultiSelectChips(
-                  'Preferred Labor Positions',
-                  ['Walking', 'Birthing ball', 'Tub', 'Bed', 'Squatting', 'Hands and knees', 'Side-lying'],
-                  _preferredLaborPositions,
-                ),
+                _buildMultiSelectChips('Preferred Labor Positions', [
+                  'Walking',
+                  'Birthing ball',
+                  'Tub',
+                  'Bed',
+                  'Squatting',
+                  'Hands and knees',
+                  'Side-lying',
+                ], _preferredLaborPositions),
                 const SizedBox(height: 16),
                 SwitchListTile(
                   title: const Text('Movement Freedom'),
@@ -1188,15 +1477,33 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Monitoring Preference'),
-                  items: ['Intermittent', 'Continuous', 'Wireless if available'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Monitoring Preference',
+                  ),
+                  items: ['Intermittent', 'Continuous', 'Wireless if available']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
                   onChanged: (v) => setState(() => _monitoringPreference = v),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Pain Management Preference'),
-                  items: ['Unmedicated', 'Epidural', 'Nitrous oxide', 'IV pain meds', 'Comfort measures only'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                  onChanged: (v) => setState(() => _painManagementPreference = v),
+                  decoration: const InputDecoration(
+                    labelText: 'Pain Management Preference',
+                  ),
+                  items:
+                      [
+                            'Unmedicated',
+                            'Epidural',
+                            'Nitrous oxide',
+                            'IV pain meds',
+                            'Comfort measures only',
+                          ]
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
+                          .toList(),
+                  onChanged: (v) =>
+                      setState(() => _painManagementPreference = v),
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(
@@ -1211,19 +1518,41 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Membrane Sweeping Preference'),
-                  items: ['Yes, if offered', 'No', 'Only if medically indicated'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                  onChanged: (v) => setState(() => _membraneSweepingPreference = v),
+                  decoration: const InputDecoration(
+                    labelText: 'Membrane Sweeping Preference',
+                  ),
+                  items:
+                      ['Yes, if offered', 'No', 'Only if medically indicated']
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
+                          .toList(),
+                  onChanged: (v) =>
+                      setState(() => _membraneSweepingPreference = v),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Induction Preference if Necessary'),
-                  items: ['Natural methods first', 'Open to medical induction', 'Prefer to avoid'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Induction Preference if Necessary',
+                  ),
+                  items:
+                      [
+                            'Natural methods first',
+                            'Open to medical induction',
+                            'Prefer to avoid',
+                          ]
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
+                          .toList(),
                   onChanged: (v) => setState(() => _inductionPreference = v),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
-                  decoration: const InputDecoration(labelText: 'Preferred Communication Style', hintText: 'e.g., "explain options first", "keep me calm"'),
+                  decoration: const InputDecoration(
+                    labelText: 'Preferred Communication Style',
+                    hintText: 'e.g., "explain options first", "keep me calm"',
+                  ),
                   onChanged: (v) => setState(() => _communicationStyle = v),
                 ),
               ],
@@ -1254,7 +1583,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           children: [
             Icon(Icons.child_care, color: const Color(0xFF663399), size: 20),
             const SizedBox(width: 8),
-            const Text('After Baby Arrives', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'After Baby Arrives',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
         children: [
@@ -1262,15 +1594,19 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _buildMultiSelectChips(
-                  'Preferred Pushing Positions',
-                  ['Hands and knees', 'Side-lying', 'Squatting', 'Semi-reclined', 'Whatever feels right'],
-                  _preferredPushingPositions,
-                ),
+                _buildMultiSelectChips('Preferred Pushing Positions', [
+                  'Hands and knees',
+                  'Side-lying',
+                  'Squatting',
+                  'Semi-reclined',
+                  'Whatever feels right',
+                ], _preferredPushingPositions),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(labelText: 'Pushing Style'),
-                  items: ['Guided', 'Spontaneous', 'Either'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  items: ['Guided', 'Spontaneous', 'Either']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
                   onChanged: (v) => setState(() => _pushingStyle = v),
                 ),
                 SwitchListTile(
@@ -1280,25 +1616,46 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Episiotomy Preference'),
-                  items: ['Avoid unless absolutely necessary', 'Open to if needed', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Episiotomy Preference',
+                  ),
+                  items:
+                      [
+                            'Avoid unless absolutely necessary',
+                            'Open to if needed',
+                            'No preference',
+                          ]
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
+                          .toList(),
                   onChanged: (v) => setState(() => _episiotomyPreference = v),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
-                  decoration: const InputDecoration(labelText: 'Tearing Preference', hintText: 'e.g., warm compresses, perineal support'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tearing Preference',
+                    hintText: 'e.g., warm compresses, perineal support',
+                  ),
                   onChanged: (v) => setState(() => _tearingPreference = v),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Who Catches the Baby'),
-                  items: ['Partner', 'Doctor', 'Midwife', 'Myself'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Who Catches the Baby',
+                  ),
+                  items: ['Partner', 'Doctor', 'Midwife', 'Myself']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
                   onChanged: (v) => setState(() => _whoCatchesBaby = v),
                 ),
                 SwitchListTile(
-                  title: const Text('Preference for delayed pushing if epidural present'),
+                  title: const Text(
+                    'Preference for delayed pushing if epidural present',
+                  ),
                   value: _delayedPushingWithEpidural ?? false,
-                  onChanged: (v) => setState(() => _delayedPushingWithEpidural = v),
+                  onChanged: (v) =>
+                      setState(() => _delayedPushingWithEpidural = v),
                 ),
               ],
             ),
@@ -1328,7 +1685,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           children: [
             Icon(Icons.child_care, color: const Color(0xFF663399), size: 20),
             const SizedBox(width: 8),
-            const Text('Newborn Care', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'Newborn Care',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
         children: [
@@ -1337,14 +1697,31 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             child: Column(
               children: [
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Delayed Cord Clamping Preference'),
-                  items: ['1-3 minutes', '3-5 minutes', 'Until cord stops pulsing', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                  onChanged: (v) => setState(() => _delayedCordClampingPreference = v),
+                  decoration: const InputDecoration(
+                    labelText: 'Delayed Cord Clamping Preference',
+                  ),
+                  items:
+                      [
+                            '1-3 minutes',
+                            '3-5 minutes',
+                            'Until cord stops pulsing',
+                            'No preference',
+                          ]
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
+                          .toList(),
+                  onChanged: (v) =>
+                      setState(() => _delayedCordClampingPreference = v),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Who Cuts the Cord'),
-                  items: ['Partner', 'Myself', 'Doctor', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Who Cuts the Cord',
+                  ),
+                  items: ['Partner', 'Myself', 'Doctor', 'No preference']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
                   onChanged: (v) => setState(() => _whoCutsCord = v),
                 ),
                 const SizedBox(height: 16),
@@ -1385,7 +1762,9 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _cordBloodCompanyController,
-                    decoration: const InputDecoration(labelText: 'Cord Blood Company'),
+                    decoration: const InputDecoration(
+                      labelText: 'Cord Blood Company',
+                    ),
                   ),
                 ],
               ],
@@ -1416,7 +1795,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           children: [
             Icon(Icons.restaurant, color: const Color(0xFF663399), size: 20),
             const SizedBox(width: 8),
-            const Text('Feeding Preferences', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'Feeding Preferences',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
         children: [
@@ -1425,20 +1807,28 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             child: Column(
               children: [
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Feeding Preference'),
-                  items: ['Breastfeeding', 'Formula feeding', 'Combo feeding'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Feeding Preference',
+                  ),
+                  items: ['Breastfeeding', 'Formula feeding', 'Combo feeding']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
                   onChanged: (v) => setState(() => _feedingPreference = v),
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(
                   title: const Text('Lactation Consultant Requested'),
                   value: _lactationConsultantRequested,
-                  onChanged: (v) => setState(() => _lactationConsultantRequested = v),
+                  onChanged: (v) =>
+                      setState(() => _lactationConsultantRequested = v),
                 ),
                 SwitchListTile(
-                  title: const Text('No Pacifier Until Breastfeeding Established'),
+                  title: const Text(
+                    'No Pacifier Until Breastfeeding Established',
+                  ),
                   value: _noPacifierUntilBreastfeeding ?? false,
-                  onChanged: (v) => setState(() => _noPacifierUntilBreastfeeding = v),
+                  onChanged: (v) =>
+                      setState(() => _noPacifierUntilBreastfeeding = v),
                 ),
                 SwitchListTile(
                   title: const Text('Consent for Donor Milk if Needed'),
@@ -1473,7 +1863,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           children: [
             Icon(Icons.healing, color: const Color(0xFF663399), size: 20),
             const SizedBox(width: 8),
-            const Text('Postpartum Care', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'Postpartum Care',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
         children: [
@@ -1495,17 +1888,27 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _visitorPreferenceController,
-                  decoration: const InputDecoration(labelText: 'Visitors Allowed? Times?', hintText: 'e.g., partner only for first 24 hours'),
+                  decoration: const InputDecoration(
+                    labelText: 'Visitors Allowed? Times?',
+                    hintText: 'e.g., partner only for first 24 hours',
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _dietaryPreferencesController,
-                  decoration: const InputDecoration(labelText: 'Dietary Preferences', hintText: 'e.g., vegetarian, etc.'),
+                  decoration: const InputDecoration(
+                    labelText: 'Dietary Preferences',
+                    hintText: 'e.g., vegetarian, etc.',
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _postpartumPainManagementController,
-                  decoration: const InputDecoration(labelText: 'Pain Management Preferences Postpartum', hintText: 'e.g., ibuprofen first, then stronger meds if needed'),
+                  decoration: const InputDecoration(
+                    labelText: 'Pain Management Preferences Postpartum',
+                    hintText:
+                        'e.g., ibuprofen first, then stronger meds if needed',
+                  ),
                 ),
               ],
             ),
@@ -1533,14 +1936,24 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
       child: ExpansionTile(
         title: Row(
           children: [
-            Icon(Icons.medical_services, color: const Color(0xFF663399), size: 20),
+            Icon(
+              Icons.medical_services,
+              color: const Color(0xFF663399),
+              size: 20,
+            ),
             const SizedBox(width: 8),
             const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Cesarean Preferences', style: TextStyle(fontWeight: FontWeight.w600)),
-                  Text('Important even if planning vaginal birth', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(
+                    'Cesarean Preferences',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    'Important even if planning vaginal birth',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
                 ],
               ),
             ),
@@ -1552,8 +1965,12 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             child: Column(
               children: [
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Drape Preference'),
-                  items: ['Clear drape', 'Standard drape', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Drape Preference',
+                  ),
+                  items: ['Clear drape', 'Standard drape', 'No preference']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
                   onChanged: (v) => setState(() => _drapePreference = v),
                 ),
                 const SizedBox(height: 16),
@@ -1574,21 +1991,41 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
                   onChanged: (v) => setState(() => _babyOnChestImmediately = v),
                 ),
                 SwitchListTile(
-                  title: const Text('Delay Routine Newborn Care Until Parent Holding Baby'),
+                  title: const Text(
+                    'Delay Routine Newborn Care Until Parent Holding Baby',
+                  ),
                   value: _delayNewbornCareUntilHolding ?? false,
-                  onChanged: (v) => setState(() => _delayNewbornCareUntilHolding = v),
+                  onChanged: (v) =>
+                      setState(() => _delayNewbornCareUntilHolding = v),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Preferred Anesthesia Type'),
-                  items: ['Spinal', 'Epidural', 'General (if emergency)', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Preferred Anesthesia Type',
+                  ),
+                  items:
+                      [
+                            'Spinal',
+                            'Epidural',
+                            'General (if emergency)',
+                            'No preference',
+                          ]
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
+                          .toList(),
                   onChanged: (v) => setState(() => _anesthesiaPreference = v),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Surgical Closure Preference'),
-                  items: ['Staples', 'Sutures', 'Dissolvable', 'No preference'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                  onChanged: (v) => setState(() => _surgicalClosurePreference = v),
+                  decoration: const InputDecoration(
+                    labelText: 'Surgical Closure Preference',
+                  ),
+                  items: ['Staples', 'Sutures', 'Dissolvable', 'No preference']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (v) =>
+                      setState(() => _surgicalClosurePreference = v),
                 ),
               ],
             ),
@@ -1618,7 +2055,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           children: [
             Icon(Icons.warning_amber, color: Colors.amber.shade600, size: 20),
             const SizedBox(width: 8),
-            const Text('If Things Change', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'If Things Change',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
         children: [
@@ -1626,55 +2066,88 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-        TextFormField(
-          controller: _religiousConsiderationsController,
-          decoration: const InputDecoration(labelText: 'Religious Considerations'),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _culturalConsiderationsController,
-          decoration: const InputDecoration(labelText: 'Cultural Considerations'),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _accessibilityNeedsController,
-          decoration: const InputDecoration(labelText: 'Accessibility Needs'),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _traumaHistoryController,
-          decoration: const InputDecoration(labelText: 'History of Trauma (only if you choose)'),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-        _buildListInput('Anxiety Triggers', _anxietyTriggerController, _anxietyTriggers, (item) {
-          setState(() => _anxietyTriggers.add(item));
-          _anxietyTriggerController.clear();
-        }, (index) {
-          setState(() => _anxietyTriggers.removeAt(index));
-        }),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          title: const Text('Requests for More Consent-Based Care'),
-          value: _consentBasedCare,
-          onChanged: (v) => setState(() => _consentBasedCare = v),
-        ),
-        const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Preferred Ways to Receive Bad News'),
-                  items: ['Private conversation', 'With partner present', 'Written first, then discussion', 'Direct and clear'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                  onChanged: (v) => setState(() => _preferredBadNewsDelivery = v),
+                TextFormField(
+                  controller: _religiousConsiderationsController,
+                  decoration: const InputDecoration(
+                    labelText: 'Religious Considerations',
+                  ),
+                  maxLines: 2,
                 ),
                 const SizedBox(height: 16),
-                _buildListInput('Things That Reduce Fear/Panic', _fearReductionController, _fearReductionRequests, (item) {
-                  setState(() => _fearReductionRequests.add(item));
-                  _fearReductionController.clear();
-                }, (index) {
-                  setState(() => _fearReductionRequests.removeAt(index));
-                }),
+                TextFormField(
+                  controller: _culturalConsiderationsController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cultural Considerations',
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _accessibilityNeedsController,
+                  decoration: const InputDecoration(
+                    labelText: 'Accessibility Needs',
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _traumaHistoryController,
+                  decoration: const InputDecoration(
+                    labelText: 'History of Trauma (only if you choose)',
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                _buildListInput(
+                  'Anxiety Triggers',
+                  _anxietyTriggerController,
+                  _anxietyTriggers,
+                  (item) {
+                    setState(() => _anxietyTriggers.add(item));
+                    _anxietyTriggerController.clear();
+                  },
+                  (index) {
+                    setState(() => _anxietyTriggers.removeAt(index));
+                  },
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Requests for More Consent-Based Care'),
+                  value: _consentBasedCare,
+                  onChanged: (v) => setState(() => _consentBasedCare = v),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(
+                    labelText: 'Preferred Ways to Receive Bad News',
+                  ),
+                  items:
+                      [
+                            'Private conversation',
+                            'With partner present',
+                            'Written first, then discussion',
+                            'Direct and clear',
+                          ]
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
+                          .toList(),
+                  onChanged: (v) =>
+                      setState(() => _preferredBadNewsDelivery = v),
+                ),
+                const SizedBox(height: 16),
+                _buildListInput(
+                  'Things That Reduce Fear/Panic',
+                  _fearReductionController,
+                  _fearReductionRequests,
+                  (item) {
+                    setState(() => _fearReductionRequests.add(item));
+                    _fearReductionController.clear();
+                  },
+                  (index) {
+                    setState(() => _fearReductionRequests.removeAt(index));
+                  },
+                ),
               ],
             ),
           ),
@@ -1703,7 +2176,10 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
           children: [
             Icon(Icons.edit_note, color: const Color(0xFF663399), size: 20),
             const SizedBox(width: 8),
-            const Text('Additional Notes', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'Additional Notes',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
         initiallyExpanded: true,
@@ -1778,7 +2254,11 @@ class _ComprehensiveBirthPlanScreenState extends State<ComprehensiveBirthPlanScr
     );
   }
 
-  Widget _buildMultiSelectChips(String label, List<String> options, List<String> selected) {
+  Widget _buildMultiSelectChips(
+    String label,
+    List<String> options,
+    List<String> selected,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1890,65 +2370,86 @@ extension BirthPlanCopyWith on BirthPlan {
       fullName: fullName ?? this.fullName,
       dueDate: dueDate ?? this.dueDate,
       supportPersonName: supportPersonName ?? this.supportPersonName,
-      supportPersonRelationship: supportPersonRelationship ?? this.supportPersonRelationship,
+      supportPersonRelationship:
+          supportPersonRelationship ?? this.supportPersonRelationship,
       emergencyContact: emergencyContact ?? this.emergencyContact,
       allergies: allergies ?? this.allergies,
       medicalConditions: medicalConditions ?? this.medicalConditions,
-      pregnancyComplications: pregnancyComplications ?? this.pregnancyComplications,
+      pregnancyComplications:
+          pregnancyComplications ?? this.pregnancyComplications,
       // environmentPreferences removed
       photographyAllowed: photographyAllowed ?? this.photographyAllowed,
       videographyAllowed: videographyAllowed ?? this.videographyAllowed,
       preferredLanguage: preferredLanguage ?? this.preferredLanguage,
       traumaInformedCare: traumaInformedCare ?? this.traumaInformedCare,
-      preferredLaborPositions: preferredLaborPositions ?? this.preferredLaborPositions,
+      preferredLaborPositions:
+          preferredLaborPositions ?? this.preferredLaborPositions,
       movementFreedom: movementFreedom ?? this.movementFreedom,
       monitoringPreference: monitoringPreference ?? this.monitoringPreference,
-      painManagementPreference: painManagementPreference ?? this.painManagementPreference,
+      painManagementPreference:
+          painManagementPreference ?? this.painManagementPreference,
       useDoula: useDoula ?? this.useDoula,
       waterLaborAvailable: waterLaborAvailable ?? this.waterLaborAvailable,
-      augmentationPreference: augmentationPreference ?? this.augmentationPreference,
-      inductionMethodsPreference: inductionMethodsPreference ?? this.inductionMethodsPreference,
+      augmentationPreference:
+          augmentationPreference ?? this.augmentationPreference,
+      inductionMethodsPreference:
+          inductionMethodsPreference ?? this.inductionMethodsPreference,
       communicationStyle: communicationStyle ?? this.communicationStyle,
-      preferredPushingPositions: preferredPushingPositions ?? this.preferredPushingPositions,
+      preferredPushingPositions:
+          preferredPushingPositions ?? this.preferredPushingPositions,
       coachingStyle: coachingStyle ?? this.coachingStyle,
       mirrorDuringPushing: mirrorDuringPushing ?? this.mirrorDuringPushing,
       episiotomyPreference: episiotomyPreference ?? this.episiotomyPreference,
       // tearingPreference removed
       whoCatchesBaby: whoCatchesBaby ?? this.whoCatchesBaby,
-      delayedPushingWithEpidural: delayedPushingWithEpidural ?? this.delayedPushingWithEpidural,
-      delayedCordClampingPreference: delayedCordClampingPreference ?? this.delayedCordClampingPreference,
+      delayedPushingWithEpidural:
+          delayedPushingWithEpidural ?? this.delayedPushingWithEpidural,
+      delayedCordClampingPreference:
+          delayedCordClampingPreference ?? this.delayedCordClampingPreference,
       whoCutsCord: whoCutsCord ?? this.whoCutsCord,
       immediateSkinToSkin: immediateSkinToSkin ?? this.immediateSkinToSkin,
-      delayedNewbornProcedures: delayedNewbornProcedures ?? this.delayedNewbornProcedures,
+      delayedNewbornProcedures:
+          delayedNewbornProcedures ?? this.delayedNewbornProcedures,
       vitaminK: vitaminK ?? this.vitaminK,
       // eyeOintment removed
       hepBVaccine: hepBVaccine ?? this.hepBVaccine,
       placentaPreference: placentaPreference ?? this.placentaPreference,
       // cordBloodCompany removed
       feedingPreference: feedingPreference ?? this.feedingPreference,
-      lactationConsultantRequested: lactationConsultantRequested ?? this.lactationConsultantRequested,
-      noPacifierUntilBreastfeeding: noPacifierUntilBreastfeeding ?? this.noPacifierUntilBreastfeeding,
+      lactationConsultantRequested:
+          lactationConsultantRequested ?? this.lactationConsultantRequested,
+      noPacifierUntilBreastfeeding:
+          noPacifierUntilBreastfeeding ?? this.noPacifierUntilBreastfeeding,
       consentForDonorMilk: consentForDonorMilk ?? this.consentForDonorMilk,
       roomingIn: roomingIn ?? this.roomingIn,
-      mentalHealthScreeningPreference: mentalHealthScreeningPreference ?? this.mentalHealthScreeningPreference,
+      mentalHealthScreeningPreference:
+          mentalHealthScreeningPreference ??
+          this.mentalHealthScreeningPreference,
       visitorsAfterBirth: visitorsAfterBirth ?? this.visitorsAfterBirth,
       dietaryPreferences: dietaryPreferences ?? this.dietaryPreferences,
-      postpartumPainControlPlan: postpartumPainControlPlan ?? this.postpartumPainControlPlan,
-      cesareanDrapePreference: cesareanDrapePreference ?? this.cesareanDrapePreference,
+      postpartumPainControlPlan:
+          postpartumPainControlPlan ?? this.postpartumPainControlPlan,
+      cesareanDrapePreference:
+          cesareanDrapePreference ?? this.cesareanDrapePreference,
       supportPersonInOR: supportPersonInOR ?? this.supportPersonInOR,
       // photosAllowedInOR removed
-      immediateSkinToSkinInOR: immediateSkinToSkinInOR ?? this.immediateSkinToSkinInOR,
+      immediateSkinToSkinInOR:
+          immediateSkinToSkinInOR ?? this.immediateSkinToSkinInOR,
       // delayNewbornCareUntilHolding removed
       // anesthesiaPreference removed
       // surgicalClosurePreference removed
-      culturalReligiousRituals: culturalReligiousRituals ?? this.culturalReligiousRituals,
+      culturalReligiousRituals:
+          culturalReligiousRituals ?? this.culturalReligiousRituals,
       // culturalConsiderations removed
       accessibilityNeeds: accessibilityNeeds ?? this.accessibilityNeeds,
-      pastBirthTraumaOrComplications: pastBirthTraumaOrComplications ?? this.pastBirthTraumaOrComplications,
+      pastBirthTraumaOrComplications:
+          pastBirthTraumaOrComplications ?? this.pastBirthTraumaOrComplications,
       anxietyTriggers: anxietyTriggers ?? this.anxietyTriggers,
       consentBasedCare: consentBasedCare ?? this.consentBasedCare,
-      preferredBadNewsDelivery: preferredBadNewsDelivery ?? this.preferredBadNewsDelivery,
-      fearReductionRequests: fearReductionRequests ?? this.fearReductionRequests,
+      preferredBadNewsDelivery:
+          preferredBadNewsDelivery ?? this.preferredBadNewsDelivery,
+      fearReductionRequests:
+          fearReductionRequests ?? this.fearReductionRequests,
       inMyOwnWords: inMyOwnWords ?? this.inMyOwnWords,
       formattedPlan: formattedPlan ?? this.formattedPlan,
       createdAt: createdAt ?? this.createdAt,
@@ -1957,4 +2458,3 @@ extension BirthPlanCopyWith on BirthPlan {
     );
   }
 }
-

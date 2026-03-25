@@ -53,7 +53,19 @@ export async function getFeatureAnalytics(
  */
 export async function logFeatureEvent(
   featureId: string,
-  eventName: 'feature_view_start' | 'feature_view_end' | 'feature_completion' | 'feature_export' | 'feature_share',
+  eventName:
+    | 'feature_view_start'
+    | 'feature_view_end'
+    | 'feature_completion'
+    | 'feature_export'
+    | 'feature_share'
+    | 'provider_selected_success'
+    | 'screen_time_spent'
+    | 'feature_time_spent'
+    | 'community_post_replied'
+    | 'community_post_liked'
+    | 'learning_module_completed'
+    | 'flow_abandoned',
   metadata?: Record<string, any>,
   durationMs?: number
 ): Promise<void> {

@@ -14,8 +14,6 @@ import {
 import { 
   doc, 
   getDoc, 
-  setDoc, 
-  serverTimestamp,
   collection,
   query,
   where,
@@ -60,26 +58,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // First, try by uid (standard approach)
       const adminDoc = await getDoc(doc(firestore, 'ADMIN', uid));
       if (adminDoc.exists()) {
-        console.log('Found admin role by uid:', uid);
+        if (import.meta.env.DEV) {
+          console.debug('Found admin role by uid:', uid);
+        }
         return 'admin';
       }
 
       const researchDoc = await getDoc(doc(firestore, 'RESEARCH_PARTNERS', uid));
       if (researchDoc.exists()) {
-        console.log('Found research_partner role by uid:', uid);
+        if (import.meta.env.DEV) {
+          console.debug('Found research_partner role by uid:', uid);
+        }
         return 'research_partner';
       }
 
       const communityDoc = await getDoc(doc(firestore, 'COMMUNITY_MANAGERS', uid));
       if (communityDoc.exists()) {
-        console.log('Found community_manager role by uid:', uid);
+        if (import.meta.env.DEV) {
+          console.debug('Found community_manager role by uid:', uid);
+        }
         return 'community_manager';
       }
 
       // Fallback: If not found by uid, try by email (in case document is keyed by email)
       if (email) {
-        console.log('Role not found by uid, trying by email:', email);
-        
+        if (import.meta.env.DEV) {
+          console.debug('Role not found by uid, trying by email:', email);
+        }
+
         // Query ADMIN collection by email
         const adminQuery = query(
           collection(firestore, 'ADMIN'),
@@ -87,7 +93,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         const adminSnapshot = await getDocs(adminQuery);
         if (!adminSnapshot.empty) {
-          console.log('Found admin role by email:', email);
           return 'admin';
         }
 
@@ -98,7 +103,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         const researchSnapshot = await getDocs(researchQuery);
         if (!researchSnapshot.empty) {
-          console.log('Found research_partner role by email:', email);
           return 'research_partner';
         }
 
@@ -109,12 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         const communitySnapshot = await getDocs(communityQuery);
         if (!communitySnapshot.empty) {
-          console.log('Found community_manager role by email:', email);
           return 'community_manager';
         }
       }
 
-      console.warn('No role found for user:', { uid, email });
+      if (import.meta.env.DEV) {
+        console.warn('No role found for user:', { uid, email });
+      }
       return null;
     } catch (error) {
       console.error('Error resolving user role:', error);
@@ -125,13 +130,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Load user profile when auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setLoading(true);
       setUser(firebaseUser);
-      
+
       if (firebaseUser) {
         try {
-          console.log('Resolving role for user:', { uid: firebaseUser.uid, email: firebaseUser.email });
+          if (import.meta.env.DEV) {
+            console.debug('Resolving role for user:', { uid: firebaseUser.uid, email: firebaseUser.email });
+          }
           const role = await resolveUserRole(firebaseUser.uid, firebaseUser.email);
-          console.log('Resolved role:', role);
+          if (import.meta.env.DEV) {
+            console.debug('Resolved role:', role);
+          }
           setUserProfile({
             uid: firebaseUser.uid,
             email: firebaseUser.email,
@@ -150,13 +160,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUserProfile(null);
       }
-      
+
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
+  /**
+   * Only establishes the Firebase session. Role and userProfile are applied in
+   * onAuthStateChanged so we never navigate with loading=false and userProfile=null.
+   */
   async function signIn(email: string, password: string) {
     await signInWithEmailAndPassword(auth, email, password);
   }

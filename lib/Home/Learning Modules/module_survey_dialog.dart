@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../cors/ui_theme.dart';
+import '../../services/analytics_service.dart';
+import '../../services/database_service.dart';
 
 class ModuleSurveyDialog extends StatefulWidget {
   final String moduleTitle;
@@ -20,6 +22,8 @@ class ModuleSurveyDialog extends StatefulWidget {
 }
 
 class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
   int _understandingRating = 0;
   int _nextStepsRating = 0;
   int _confidenceRating = 0;
@@ -81,6 +85,18 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
             .collection('ModuleFeedback')
             .add(surveyData);
       }
+
+      try {
+        final profile = await _databaseService.getUserProfile(userId);
+        final avg = ((_understandingRating + _nextStepsRating + _confidenceRating) / 3)
+            .round();
+        await _analytics.logLearningModuleSurveySubmitted(
+          surveyContext: 'module_archive_gate',
+          moduleId: widget.taskId,
+          averageRating: avg,
+          userProfile: profile,
+        );
+      } catch (_) {}
 
       if (mounted) {
         Navigator.of(context).pop();

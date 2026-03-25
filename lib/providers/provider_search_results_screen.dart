@@ -1,80 +1,113 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/provider.dart';
 import '../services/provider_repository.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/provider_search_loading.dart';
 import '../constants/provider_types.dart';
 import 'provider_profile_screen.dart';
 import 'add_provider_screen.dart';
+import '../widgets/qualitative_survey_dialog.dart';
 
 class ProviderSearchResultsScreen extends StatefulWidget {
   final Map<String, dynamic> searchParams;
 
-  const ProviderSearchResultsScreen({
-    super.key,
-    required this.searchParams,
-  });
+  const ProviderSearchResultsScreen({super.key, required this.searchParams});
 
   @override
-  State<ProviderSearchResultsScreen> createState() => _ProviderSearchResultsScreenState();
+  State<ProviderSearchResultsScreen> createState() =>
+      _ProviderSearchResultsScreenState();
 }
 
-class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScreen> {
+class _ProviderSearchResultsScreenState
+    extends State<ProviderSearchResultsScreen> {
   final ProviderRepository _repository = ProviderRepository();
   List<Provider> _providers = [];
   bool _isLoading = true;
   String? _error;
   String _sortBy = 'Highest rated';
-  Map<String, Map<String, dynamic>> _providerMatchInfo = {}; // Store match scores and filters
-  List<String> _searchProviderTypeIds = []; // Store search provider type IDs for card display
+  Map<String, Map<String, dynamic>> _providerMatchInfo =
+      {}; // Store match scores and filters
+  List<String> _searchProviderTypeIds =
+      []; // Store search provider type IDs for card display
 
   @override
   void initState() {
     super.initState();
+    _trackScreenView();
     _performSearch();
+  }
+
+  Future<void> _trackScreenView() async {
+    try {
+      final analytics = AnalyticsService();
+      final databaseService = DatabaseService();
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userProfile = await databaseService.getUserProfile(userId);
+        await analytics.logScreenView(
+          screenName: 'provider_search_results',
+          feature: 'provider-search',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking provider search results screen view: $e');
+    }
   }
 
   /// Refresh provider data after returning from profile screen
   Future<void> _refreshProviderData(Provider provider) async {
     try {
-      print('🔄 [ResultsScreen] Refreshing provider data for: ${provider.name}');
+      print(
+        '🔄 [ResultsScreen] Refreshing provider data for: ${provider.name}',
+      );
       // Wait a moment for Firestore to index the new review
       await Future.delayed(const Duration(milliseconds: 1000));
-      
+
       // Find the provider in the list (it may have been updated with Firestore ID)
-      final index = _providers.indexWhere((p) => 
-        p.name == provider.name && 
-        (p.id == provider.id || 
-         (p.locations.isNotEmpty && provider.locations.isNotEmpty && 
-          p.locations.first.city == provider.locations.first.city))
+      final index = _providers.indexWhere(
+        (p) =>
+            p.name == provider.name &&
+            (p.id == provider.id ||
+                (p.locations.isNotEmpty &&
+                    provider.locations.isNotEmpty &&
+                    p.locations.first.city == provider.locations.first.city)),
       );
-      
+
       if (index >= 0) {
         final currentProvider = _providers[index];
         final providerIdToUse = currentProvider.id ?? provider.id;
-        
+
         // Try to reload from Firestore if we have a valid Firestore ID
-        if (providerIdToUse != null && 
+        if (providerIdToUse != null &&
             providerIdToUse.isNotEmpty &&
-            !providerIdToUse.startsWith('api_') && 
+            !providerIdToUse.startsWith('api_') &&
             !providerIdToUse.startsWith('name_') &&
             !providerIdToUse.startsWith('npi_')) {
           try {
-            final updatedProvider = await _repository.getProvider(providerIdToUse);
+            final updatedProvider = await _repository.getProvider(
+              providerIdToUse,
+            );
             if (updatedProvider != null && mounted) {
               setState(() {
                 _providers[index] = updatedProvider;
               });
-              print('✅ [ResultsScreen] Updated provider at index $index with Firestore data: reviewCount=${updatedProvider.reviewCount}');
+              print(
+                '✅ [ResultsScreen] Updated provider at index $index with Firestore data: reviewCount=${updatedProvider.reviewCount}',
+              );
               return;
             }
           } catch (e) {
-            print('⚠️ [ResultsScreen] Could not reload provider from Firestore: $e');
+            print(
+              '⚠️ [ResultsScreen] Could not reload provider from Firestore: $e',
+            );
           }
         }
-        
+
         // Fallback: reload reviews and update rating
         await _reloadProviderReviews(currentProvider);
       } else {
@@ -98,32 +131,43 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
           reviewProviderId = 'npi_${provider.npi}';
         } else if (provider.locations.isNotEmpty) {
           final loc = provider.locations.first;
-          final namePart = provider.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+          final namePart = provider.name
+              .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')
+              .toLowerCase();
           reviewProviderId = 'api_${namePart}_${loc.city}_${loc.zip}';
         } else if (provider.name.isNotEmpty) {
-          final namePart = provider.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+          final namePart = provider.name
+              .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')
+              .toLowerCase();
           reviewProviderId = 'name_$namePart';
         }
       }
-      
+
       if (reviewProviderId != null && reviewProviderId.isNotEmpty) {
         final reviews = await _repository.getProviderReviews(reviewProviderId);
         if (reviews.isNotEmpty && mounted) {
-          final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
+          final totalRating = reviews.fold<double>(
+            0.0,
+            (sum, review) => sum + review.rating,
+          );
           final averageRating = totalRating / reviews.length;
-          
+
           setState(() {
-            final index = _providers.indexWhere((p) => 
-              p.name == provider.name && 
-              (p.locations.isEmpty || provider.locations.isEmpty || 
-               p.locations.first.city == provider.locations.first.city)
+            final index = _providers.indexWhere(
+              (p) =>
+                  p.name == provider.name &&
+                  (p.locations.isEmpty ||
+                      provider.locations.isEmpty ||
+                      p.locations.first.city == provider.locations.first.city),
             );
             if (index >= 0) {
               _providers[index] = _providers[index].copyWith(
                 rating: averageRating,
                 reviewCount: reviews.length,
               );
-              print('✅ [ResultsScreen] Updated provider rating: $averageRating, review count: ${reviews.length}');
+              print(
+                '✅ [ResultsScreen] Updated provider rating: $averageRating, review count: ${reviews.length}',
+              );
             }
           });
         }
@@ -141,24 +185,33 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
     });
 
     try {
-      final providerTypeIds = widget.searchParams['providerTypeIds'] as List<String>;
+      final providerTypeIds =
+          widget.searchParams['providerTypeIds'] as List<String>;
       print('🔍 [ResultsScreen] Calling repository.searchProviders...');
       print('🔍 [ResultsScreen] Payload details:');
       print('🔍 [ResultsScreen]   - ZIP: ${widget.searchParams['zip']}');
       print('🔍 [ResultsScreen]   - City: ${widget.searchParams['city']}');
-      print('🔍 [ResultsScreen]   - Health Plan: ${widget.searchParams['healthPlan']}');
+      print(
+        '🔍 [ResultsScreen]   - Health Plan: ${widget.searchParams['healthPlan']}',
+      );
       print('🔍 [ResultsScreen]   - Provider Type IDs: $providerTypeIds');
-      print('🔍 [ResultsScreen]   - Provider Type IDs count: ${providerTypeIds.length}');
+      print(
+        '🔍 [ResultsScreen]   - Provider Type IDs count: ${providerTypeIds.length}',
+      );
       print('🔍 [ResultsScreen]   - Radius: ${widget.searchParams['radius']}');
-      print('🔍 [ResultsScreen]   - Include NPI: ${widget.searchParams['includeNPI']}');
-      
+      print(
+        '🔍 [ResultsScreen]   - Include NPI: ${widget.searchParams['includeNPI']}',
+      );
+
       final results = await _repository.searchProviders(
         zip: widget.searchParams['zip'] as String,
         city: widget.searchParams['city'] as String,
         healthPlan: widget.searchParams['healthPlan'] as String,
         providerTypeIds: providerTypeIds,
         radius: widget.searchParams['radius'] as int,
-        specialty: (widget.searchParams['specialties'] as List<String>?)?.isNotEmpty == true
+        specialty:
+            (widget.searchParams['specialties'] as List<String>?)?.isNotEmpty ==
+                true
             ? (widget.searchParams['specialties'] as List<String>).first
             : null,
         includeNpi: widget.searchParams['includeNPI'] as bool? ?? false,
@@ -168,22 +221,28 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
         telehealth: widget.searchParams['telehealth'] as bool?,
       );
 
-      print('✅ [ResultsScreen] Repository returned ${results.length} providers');
+      print(
+        '✅ [ResultsScreen] Repository returned ${results.length} providers',
+      );
 
       // Calculate match scores for each provider based on active filters
       // Show all providers, but prioritize by how many filters they match
       final activeFilters = <String, dynamic>{};
-      
+
       // Log provider type IDs being searched
-      print('🔍 [ResultsScreen] Searching with provider type IDs: $providerTypeIds');
+      print(
+        '🔍 [ResultsScreen] Searching with provider type IDs: $providerTypeIds',
+      );
       if (providerTypeIds.isNotEmpty) {
-        final providerTypeNames = providerTypeIds.map((id) {
-          final name = ProviderTypes.getDisplayName(id);
-          return '$id (${name ?? "Unknown"})';
-        }).join(', ');
+        final providerTypeNames = providerTypeIds
+            .map((id) {
+              final name = ProviderTypes.getDisplayName(id);
+              return '$id (${name ?? "Unknown"})';
+            })
+            .join(', ');
         print('🔍 [ResultsScreen] Provider types: $providerTypeNames');
       }
-      
+
       if (widget.searchParams['mamaApprovedOnly'] == true) {
         activeFilters['mamaApproved'] = true;
       }
@@ -197,7 +256,8 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
         activeFilters['telehealth'] = true;
       }
       if ((widget.searchParams['specialties'] as List?)?.isNotEmpty == true) {
-        activeFilters['specialty'] = (widget.searchParams['specialties'] as List).first;
+        activeFilters['specialty'] =
+            (widget.searchParams['specialties'] as List).first;
       }
       if ((widget.searchParams['identityTags'] as List?)?.isNotEmpty == true) {
         activeFilters['identityTags'] = widget.searchParams['identityTags'];
@@ -212,67 +272,97 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
         final matchedFilters = <String>[];
 
         // Provider type matching (most important filter)
-        if (activeFilters.containsKey('providerTypeIds') && provider.providerTypes.isNotEmpty) {
-          final selectedTypeIds = activeFilters['providerTypeIds'] as List<String>;
+        if (activeFilters.containsKey('providerTypeIds') &&
+            provider.providerTypes.isNotEmpty) {
+          final selectedTypeIds =
+              activeFilters['providerTypeIds'] as List<String>;
           // Normalize IDs to API format (single digits 1-9 WITH leading zeros: "01", "02", "09")
           final normalizedSelected = selectedTypeIds.map((id) {
             final numId = int.tryParse(id);
             if (numId != null && numId >= 1 && numId <= 9) {
-              return id.padLeft(2, '0'); // Add leading zero (API format: "01", "09")
+              return id.padLeft(
+                2,
+                '0',
+              ); // Add leading zero (API format: "01", "09")
             }
             return id; // Return as-is for double digits (10+)
           }).toList();
-          
+
           final normalizedProvider = provider.providerTypes.map((id) {
             final numId = int.tryParse(id);
             if (numId != null && numId >= 1 && numId <= 9) {
-              return id.padLeft(2, '0'); // Add leading zero (API format: "01", "09")
+              return id.padLeft(
+                2,
+                '0',
+              ); // Add leading zero (API format: "01", "09")
             }
             return id; // Return as-is for double digits (10+)
           }).toList();
-          
+
           // Check if any provider type matches
-          final matchingTypes = normalizedSelected.where((selectedId) => 
-            normalizedProvider.contains(selectedId)
-          ).toList();
-          
+          final matchingTypes = normalizedSelected
+              .where((selectedId) => normalizedProvider.contains(selectedId))
+              .toList();
+
           if (matchingTypes.isNotEmpty) {
-            matchScore += matchingTypes.length; // Weight provider type matches more
-            final typeNames = matchingTypes.map((id) => ProviderTypes.getDisplayName(id) ?? id).join(', ');
+            matchScore +=
+                matchingTypes.length; // Weight provider type matches more
+            final typeNames = matchingTypes
+                .map((id) => ProviderTypes.getDisplayName(id) ?? id)
+                .join(', ');
             matchedFilters.add('Provider type: $typeNames');
-            print('✅ [ResultsScreen] Provider ${provider.name} matches types: $typeNames');
+            print(
+              '✅ [ResultsScreen] Provider ${provider.name} matches types: $typeNames',
+            );
           } else {
-            print('⚠️ [ResultsScreen] Provider ${provider.name} types (${provider.providerTypes}) do not match search types ($normalizedSelected)');
+            print(
+              '⚠️ [ResultsScreen] Provider ${provider.name} types (${provider.providerTypes}) do not match search types ($normalizedSelected)',
+            );
           }
         }
 
-        if (activeFilters.containsKey('mamaApproved') && provider.mamaApproved == true) {
+        if (activeFilters.containsKey('mamaApproved') &&
+            provider.mamaApproved == true) {
           matchScore++;
           matchedFilters.add('Mama Approved');
         }
-        if (activeFilters.containsKey('acceptsPregnantWomen') && provider.acceptsPregnantWomen == true) {
+        if (activeFilters.containsKey('acceptsPregnantWomen') &&
+            provider.acceptsPregnantWomen == true) {
           matchScore++;
           matchedFilters.add('Accepts pregnant patients');
         }
-        if (activeFilters.containsKey('acceptsNewborns') && provider.acceptsNewborns == true) {
+        if (activeFilters.containsKey('acceptsNewborns') &&
+            provider.acceptsNewborns == true) {
           matchScore++;
           matchedFilters.add('Accepts newborns');
         }
-        if (activeFilters.containsKey('telehealth') && provider.telehealth == true) {
+        if (activeFilters.containsKey('telehealth') &&
+            provider.telehealth == true) {
           matchScore++;
           matchedFilters.add('Telehealth');
         }
-        if (activeFilters.containsKey('specialty') && provider.specialty != null) {
+        if (activeFilters.containsKey('specialty') &&
+            provider.specialty != null) {
           final selectedSpecialty = activeFilters['specialty'] as String;
-          if (provider.specialty!.toLowerCase().contains(selectedSpecialty.toLowerCase()) ||
-              provider.specialties.any((s) => s.toLowerCase().contains(selectedSpecialty.toLowerCase()))) {
+          if (provider.specialty!.toLowerCase().contains(
+                selectedSpecialty.toLowerCase(),
+              ) ||
+              provider.specialties.any(
+                (s) =>
+                    s.toLowerCase().contains(selectedSpecialty.toLowerCase()),
+              )) {
             matchScore++;
             matchedFilters.add('Specialty match');
           }
         }
-        if (activeFilters.containsKey('identityTags') && provider.identityTags.isNotEmpty) {
-          final selectedTags = (activeFilters['identityTags'] as List).map((t) => t.toString().toLowerCase()).toList();
-          final providerTags = provider.identityTags.map((t) => t.name.toLowerCase()).toList();
+        if (activeFilters.containsKey('identityTags') &&
+            provider.identityTags.isNotEmpty) {
+          final selectedTags = (activeFilters['identityTags'] as List)
+              .map((t) => t.toString().toLowerCase())
+              .toList();
+          final providerTags = provider.identityTags
+              .map((t) => t.name.toLowerCase())
+              .toList();
           if (selectedTags.any((tag) => providerTags.contains(tag))) {
             matchScore++;
             matchedFilters.add('Identity match');
@@ -290,25 +380,25 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
       providersWithScores.sort((a, b) {
         final providerA = a['provider'] as Provider;
         final providerB = b['provider'] as Provider;
-        
+
         // First priority: Match score (providers matching more filters come first)
         final scoreA = a['matchScore'] as int;
         final scoreB = b['matchScore'] as int;
         if (scoreA != scoreB) {
           return scoreB.compareTo(scoreA); // Higher score first
         }
-        
+
         // Second priority: Mama Approved providers
         if (providerA.mamaApproved && !providerB.mamaApproved) return -1;
         if (!providerA.mamaApproved && providerB.mamaApproved) return 1;
-        
+
         // Third priority: Rating
         final ratingA = providerA.rating ?? 0.0;
         final ratingB = providerB.rating ?? 0.0;
         if (ratingA != ratingB) {
           return ratingB.compareTo(ratingA);
         }
-        
+
         // Fourth priority: Review count
         final countA = providerA.reviewCount ?? 0;
         final countB = providerB.reviewCount ?? 0;
@@ -316,42 +406,54 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
       });
 
       // Extract providers and store match info, calculate ratings from reviews
-      final filtered = await Future.wait(providersWithScores.map((item) async {
-        final provider = item['provider'] as Provider;
-        // Debug: log rating info
-        print('🔍 [ResultsScreen] Provider: ${provider.name}, Rating: ${provider.rating}, ReviewCount: ${provider.reviewCount}, ID: ${provider.id}');
-        
-        // Use the repository method to enrich provider with reviews
-        // This will find the provider in Firestore first, then fetch reviews using the correct ID
-        try {
-          final enrichedProvider = await _repository.enrichProviderWithReviews(provider);
-          print('✅ [ResultsScreen] Enriched ${provider.name}: rating=${enrichedProvider.rating}, reviewCount=${enrichedProvider.reviewCount}, FirestoreID=${enrichedProvider.id}');
-          return enrichedProvider;
-        } catch (e) {
-          print('⚠️ [ResultsScreen] Error enriching provider ${provider.name}: $e');
-          return provider; // Return original provider on error
-        }
-      }));
+      final filtered = await Future.wait(
+        providersWithScores.map((item) async {
+          final provider = item['provider'] as Provider;
+          // Debug: log rating info
+          print(
+            '🔍 [ResultsScreen] Provider: ${provider.name}, Rating: ${provider.rating}, ReviewCount: ${provider.reviewCount}, ID: ${provider.id}',
+          );
+
+          // Use the repository method to enrich provider with reviews
+          // This will find the provider in Firestore first, then fetch reviews using the correct ID
+          try {
+            final enrichedProvider = await _repository
+                .enrichProviderWithReviews(provider);
+            print(
+              '✅ [ResultsScreen] Enriched ${provider.name}: rating=${enrichedProvider.rating}, reviewCount=${enrichedProvider.reviewCount}, FirestoreID=${enrichedProvider.id}',
+            );
+            return enrichedProvider;
+          } catch (e) {
+            print(
+              '⚠️ [ResultsScreen] Error enriching provider ${provider.name}: $e',
+            );
+            return provider; // Return original provider on error
+          }
+        }),
+      );
 
       // Store match info for display
       _providerMatchInfo = Map.fromEntries(
-        providersWithScores.map((item) => MapEntry(
-          (item['provider'] as Provider).id ?? '',
-          {
+        providersWithScores.map(
+          (item) => MapEntry((item['provider'] as Provider).id ?? '', {
             'score': item['matchScore'] as int,
             'filters': item['matchedFilters'] as List<String>,
-          },
-        )),
+          }),
+        ),
       );
 
       print('✅ [ResultsScreen] After scoring: ${filtered.length} providers');
-      print('📊 [ResultsScreen] Match scores: ${_providerMatchInfo.values.map((v) => v['score']).join(', ')}');
+      print(
+        '📊 [ResultsScreen] Match scores: ${_providerMatchInfo.values.map((v) => v['score']).join(', ')}',
+      );
 
       setState(() {
         _providers = filtered;
         _isLoading = false;
         _searchProviderTypeIds = providerTypeIds; // Store for card display
-        print('✅ [ResultsScreen] setState called with ${filtered.length} providers');
+        print(
+          '✅ [ResultsScreen] setState called with ${filtered.length} providers',
+        );
         // Clear error if we got results (even if empty)
         if (filtered.isEmpty) {
           _error = null; // Empty results is not an error
@@ -376,15 +478,21 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
         break;
       case 'Nearest':
         providers.sort((a, b) {
-          final distA = a.locations.isNotEmpty ? a.locations.first.distance : null;
-          final distB = b.locations.isNotEmpty ? b.locations.first.distance : null;
+          final distA = a.locations.isNotEmpty
+              ? a.locations.first.distance
+              : null;
+          final distB = b.locations.isNotEmpty
+              ? b.locations.first.distance
+              : null;
           final distAValue = distA ?? double.infinity;
           final distBValue = distB ?? double.infinity;
           return distAValue.compareTo(distBValue);
         });
         break;
       case 'Most reviewed':
-        providers.sort((a, b) => (b.reviewCount ?? 0).compareTo(a.reviewCount ?? 0));
+        providers.sort(
+          (a, b) => (b.reviewCount ?? 0).compareTo(a.reviewCount ?? 0),
+        );
         break;
       case 'Mama Approved first':
         providers.sort((a, b) {
@@ -408,15 +516,18 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
     return Scaffold(
       backgroundColor: Color(0xFFF7F5F9), // bg-[#f7f5f9]
       body: Container(
-        decoration: BoxDecoration(
-          color: Color(0xFFF7F5F9),
-        ),
+        decoration: BoxDecoration(color: Color(0xFFF7F5F9)),
         child: SafeArea(
           child: Column(
             children: [
               // Header (matching NewUI exactly)
               Container(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32), // px-6 pt-6 pb-8
+                padding: const EdgeInsets.fromLTRB(
+                  24,
+                  24,
+                  24,
+                  32,
+                ), // px-6 pt-6 pb-8
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
@@ -464,7 +575,10 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                         Row(
                           children: [
                             IconButton(
-                              icon: Icon(Icons.arrow_back, color: Color(0xFF8B7A95)),
+                              icon: Icon(
+                                Icons.arrow_back,
+                                color: Color(0xFF8B7A95),
+                              ),
                               onPressed: () => Navigator.pop(context),
                             ),
                             Expanded(
@@ -475,8 +589,11 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                                     'Search results',
                                     style: TextStyle(
                                       fontSize: 24, // text-2xl
-                                      fontWeight: FontWeight.w400, // font-normal
-                                      color: Color(0xFF4A3F52), // text-[#4a3f52]
+                                      fontWeight:
+                                          FontWeight.w400, // font-normal
+                                      color: Color(
+                                        0xFF4A3F52,
+                                      ), // text-[#4a3f52]
                                     ),
                                   ),
                                   const SizedBox(height: 8), // mb-2
@@ -484,7 +601,9 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                                     '${_providers.length} providers found near you',
                                     style: TextStyle(
                                       fontSize: 14, // text-sm
-                                      color: Color(0xFF6B5C75), // text-[#6b5c75]
+                                      color: Color(
+                                        0xFF6B5C75,
+                                      ), // text-[#6b5c75]
                                       fontWeight: FontWeight.w300, // font-light
                                     ),
                                   ),
@@ -504,320 +623,411 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                 child: _isLoading
                     ? const ProviderSearchLoading()
                     : _error != null
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(32),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.error_outline, size: 48, color: AppTheme.error),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'Error loading providers',
-                                    style: TextStyle(
-                                      color: AppTheme.textMuted,
-                                      fontWeight: FontWeight.w400,
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: AppTheme.error,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Error loading providers',
+                                style: TextStyle(
+                                  color: AppTheme.textMuted,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _error!,
+                                style: TextStyle(
+                                  color: AppTheme.textLight,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w300,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Color(0xFFD4C5E0),
+                                      Color(0xFFA89CB5),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: ElevatedButton(
+                                  onPressed: _performSearch,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(24),
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _error!,
+                                  child: Text(
+                                    'Try Again',
                                     style: TextStyle(
-                                      color: AppTheme.textLight,
-                                      fontSize: 12,
                                       fontWeight: FontWeight.w300,
                                     ),
-                                    textAlign: TextAlign.center,
                                   ),
-                                  const SizedBox(height: 16),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Builder(
+                        builder: (context) {
+                          if (_providers.isEmpty) {
+                            return _buildEmptyState();
+                          } else {
+                            return SingleChildScrollView(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ), // px-6
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Trust Banner (matching NewUI)
                                   Container(
+                                    margin: const EdgeInsets.only(
+                                      bottom: 24,
+                                    ), // mb-6
+                                    padding: const EdgeInsets.all(20), // p-5
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
                                         colors: [
-                                          Color(0xFFD4C5E0),
-                                          Color(0xFFA89CB5),
+                                          Color(0xFFF0EAD8), // from-[#f0ead8]
+                                          Color(0xFFF5F0E8), // to-[#f5f0e8]
                                         ],
                                       ),
-                                      borderRadius: BorderRadius.circular(24),
+                                      borderRadius: BorderRadius.circular(28),
+                                      border: Border.all(
+                                        color: Color(
+                                          0xFFE8DFC8,
+                                        ).withOpacity(0.5),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
                                     ),
-                                    child: ElevatedButton(
-                                      onPressed: _performSearch,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.transparent,
-                                        shadowColor: Colors.transparent,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 24,
-                                          vertical: 14,
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(
+                                          Icons.shield,
+                                          color: Color(0xFFC9B087),
+                                          size: 20,
                                         ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(24),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'These providers are sourced from Ohio Medicaid directories + NPI registry. Community trust indicators come from verified patient reviews.',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Color(0xFF6B5C75),
+                                              fontWeight: FontWeight.w300,
+                                              height: 1.5,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                      child: Text(
-                                        'Try Again',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w300,
-                                        ),
-                                      ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : Builder(
-                            builder: (context) {
-                              if (_providers.isEmpty) {
-                                return _buildEmptyState();
-                              } else {
-                                return SingleChildScrollView(
-                                  padding: const EdgeInsets.symmetric(horizontal: 24), // px-6
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      // Trust Banner (matching NewUI)
-                                      Container(
-                                        margin: const EdgeInsets.only(bottom: 24), // mb-6
-                                        padding: const EdgeInsets.all(20), // p-5
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Color(0xFFF0EAD8), // from-[#f0ead8]
-                                              Color(0xFFF5F0E8), // to-[#f5f0e8]
+
+                                  // Sorting (matching NewUI)
+                                  Container(
+                                    margin: const EdgeInsets.only(
+                                      bottom: 24,
+                                    ), // mb-6
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Sorted by distance',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Color(0xFF8B7A95),
+                                            fontWeight: FontWeight.w300,
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(
+                                              0.8,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: AppTheme.borderLighter
+                                                  .withOpacity(0.5),
+                                            ),
+                                          ),
+                                          child: DropdownButton<String>(
+                                            value: _sortBy,
+                                            underline: const SizedBox(),
+                                            isDense: true,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF6B5C75),
+                                              fontWeight: FontWeight.w300,
+                                            ),
+                                            items: const [
+                                              DropdownMenuItem(
+                                                value: 'Nearest',
+                                                child: Text('Nearest first'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'Highest rated',
+                                                child: Text('Highest rated'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'Most reviewed',
+                                                child: Text('Most reviewed'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'Mama Approved first',
+                                                child: Text('Mama Approved™'),
+                                              ),
                                             ],
+                                            onChanged: (value) {
+                                              if (value != null) {
+                                                setState(() {
+                                                  _sortBy = value;
+                                                  _sortProviders(_providers);
+                                                });
+                                              }
+                                            },
                                           ),
-                                          borderRadius: BorderRadius.circular(28),
-                                          border: Border.all(
-                                            color: Color(0xFFE8DFC8).withOpacity(0.5),
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.04),
-                                              blurRadius: 16,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
                                         ),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Icon(
-                                              Icons.shield,
-                                              color: Color(0xFFC9B087),
-                                              size: 20,
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Text(
-                                                'These providers are sourced from Ohio Medicaid directories + NPI registry. Community trust indicators come from verified patient reviews.',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: Color(0xFF6B5C75),
-                                                  fontWeight: FontWeight.w300,
-                                                  height: 1.5,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      
-                                      // Sorting (matching NewUI)
-                                      Container(
-                                        margin: const EdgeInsets.only(bottom: 24), // mb-6
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              'Sorted by distance',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Color(0xFF8B7A95),
-                                                fontWeight: FontWeight.w300,
-                                              ),
-                                            ),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 16,
-                                                vertical: 8,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white.withOpacity(0.8),
-                                                borderRadius: BorderRadius.circular(16),
-                                                border: Border.all(
-                                                  color: AppTheme.borderLighter.withOpacity(0.5),
-                                                ),
-                                              ),
-                                              child: DropdownButton<String>(
-                                                value: _sortBy,
-                                                underline: const SizedBox(),
-                                                isDense: true,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Color(0xFF6B5C75),
-                                                  fontWeight: FontWeight.w300,
-                                                ),
-                                                items: const [
-                                                  DropdownMenuItem(
-                                                    value: 'Nearest',
-                                                    child: Text('Nearest first'),
-                                                  ),
-                                                  DropdownMenuItem(
-                                                    value: 'Highest rated',
-                                                    child: Text('Highest rated'),
-                                                  ),
-                                                  DropdownMenuItem(
-                                                    value: 'Most reviewed',
-                                                    child: Text('Most reviewed'),
-                                                  ),
-                                                  DropdownMenuItem(
-                                                    value: 'Mama Approved first',
-                                                    child: Text('Mama Approved™'),
-                                                  ),
-                                                ],
-                                                onChanged: (value) {
-                                                  if (value != null) {
-                                                    setState(() {
-                                                      _sortBy = value;
-                                                      _sortProviders(_providers);
-                                                    });
-                                                  }
-                                                },
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      
-                                      // Provider Cards (matching NewUI)
-                                      ..._providers.map((provider) {
-                                        final matchInfo = _providerMatchInfo[provider.id ?? ''] ?? {'score': 0, 'filters': <String>[]};
-                                        return _ProviderCard(
-                                          provider: provider,
-                                          repository: _repository,
-                                          matchedFilters: (matchInfo['filters'] as List<String>?) ?? [],
-                                          matchScore: (matchInfo['score'] as int?) ?? 0,
-                                          searchProviderTypeIds: _searchProviderTypeIds,
-                                          onTap: () async {
-                                            final result = await Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => ProviderProfileScreen(
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Provider Cards (matching NewUI)
+                                  ..._providers.map((provider) {
+                                    final matchInfo =
+                                        _providerMatchInfo[provider.id ?? ''] ??
+                                        {'score': 0, 'filters': <String>[]};
+                                    return _ProviderCard(
+                                      provider: provider,
+                                      repository: _repository,
+                                      matchedFilters:
+                                          (matchInfo['filters']
+                                              as List<String>?) ??
+                                          [],
+                                      matchScore:
+                                          (matchInfo['score'] as int?) ?? 0,
+                                      searchProviderTypeIds:
+                                          _searchProviderTypeIds,
+                                      onTap: () async {
+                                        // Track provider profile view
+                                        try {
+                                          final analytics = AnalyticsService();
+                                          final databaseService =
+                                              DatabaseService();
+                                          final userId = FirebaseAuth
+                                              .instance
+                                              .currentUser
+                                              ?.uid;
+                                          if (userId != null) {
+                                            final userProfile =
+                                                await databaseService
+                                                    .getUserProfile(userId);
+                                            await analytics
+                                                .logProviderProfileViewed(
+                                                  providerId:
+                                                      provider.id ?? 'unknown',
+                                                  userProfile: userProfile,
+                                                );
+                                            await analytics
+                                                .logProviderSelectedSuccess(
+                                                  providerId:
+                                                      provider.id ?? 'unknown',
+                                                  selectionMethod:
+                                                      'search_results_tap',
+                                                  userProfile: userProfile,
+                                                );
+                                          }
+                                        } catch (e) {
+                                          print(
+                                            'Error tracking provider profile view: $e',
+                                          );
+                                        }
+
+                                        final result = await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ProviderProfileScreen(
                                                   provider: provider,
                                                   providerId: provider.id,
                                                 ),
+                                          ),
+                                        );
+                                        // If a review was submitted, refresh the provider data
+                                        if (result != null && mounted) {
+                                          // Result contains the Firestore provider ID
+                                          final firestoreProviderId =
+                                              result is String ? result : null;
+                                          print(
+                                            '✅ [ResultsScreen] Review submitted, Firestore ID: $firestoreProviderId',
+                                          );
+
+                                          // Update provider ID if we got a Firestore ID
+                                          if (firestoreProviderId != null &&
+                                              firestoreProviderId !=
+                                                  provider.id &&
+                                              !firestoreProviderId.startsWith(
+                                                'api_',
+                                              ) &&
+                                              !firestoreProviderId.startsWith(
+                                                'name_',
+                                              ) &&
+                                              !firestoreProviderId.startsWith(
+                                                'npi_',
+                                              )) {
+                                            // Update the provider in the list with the Firestore ID
+                                            final index = _providers.indexWhere(
+                                              (p) =>
+                                                  p.name == provider.name &&
+                                                  (p.id == provider.id ||
+                                                      (p.locations.isNotEmpty &&
+                                                          provider
+                                                              .locations
+                                                              .isNotEmpty &&
+                                                          p
+                                                                  .locations
+                                                                  .first
+                                                                  .city ==
+                                                              provider
+                                                                  .locations
+                                                                  .first
+                                                                  .city)),
+                                            );
+                                            if (index >= 0) {
+                                              setState(() {
+                                                _providers[index] =
+                                                    _providers[index].copyWith(
+                                                      id: firestoreProviderId,
+                                                    );
+                                              });
+                                              print(
+                                                '✅ [ResultsScreen] Updated provider ID to Firestore ID: $firestoreProviderId',
+                                              );
+                                            }
+                                          }
+
+                                          // Refresh this provider's data (reviews, rating, etc.)
+                                          await _refreshProviderData(provider);
+                                        }
+                                      },
+                                    );
+                                  }).toList(),
+
+                                  const SizedBox(height: 32), // mt-8
+                                  // Can't Find Provider (matching NewUI)
+                                  Container(
+                                    padding: const EdgeInsets.all(24), // p-6
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Color(0xFFFAF7FB), // from-[#faf7fb]
+                                          Color(0xFFF9F5FB), // to-[#f9f5fb]
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(28),
+                                      border: Border.all(
+                                        color: AppTheme.borderLightest
+                                            .withOpacity(0.5),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Can\'t find who you\'re looking for?',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w400,
+                                            color: Color(0xFF4A3F52),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8), // mb-4
+                                        Text(
+                                          'Help build this directory by adding providers you trust. Your contribution helps other mothers find quality care.',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Color(0xFF6B5C75),
+                                            fontWeight: FontWeight.w300,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16), // mb-4
+                                        InkWell(
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const AddProviderScreen(),
                                               ),
                                             );
-                                            // If a review was submitted, refresh the provider data
-                                            if (result != null && mounted) {
-                                              // Result contains the Firestore provider ID
-                                              final firestoreProviderId = result is String ? result : null;
-                                              print('✅ [ResultsScreen] Review submitted, Firestore ID: $firestoreProviderId');
-                                              
-                                              // Update provider ID if we got a Firestore ID
-                                              if (firestoreProviderId != null && 
-                                                  firestoreProviderId != provider.id &&
-                                                  !firestoreProviderId.startsWith('api_') && 
-                                                  !firestoreProviderId.startsWith('name_') &&
-                                                  !firestoreProviderId.startsWith('npi_')) {
-                                                // Update the provider in the list with the Firestore ID
-                                                final index = _providers.indexWhere((p) => 
-                                                  p.name == provider.name && 
-                                                  (p.id == provider.id || 
-                                                   (p.locations.isNotEmpty && provider.locations.isNotEmpty && 
-                                                    p.locations.first.city == provider.locations.first.city))
-                                                );
-                                                if (index >= 0) {
-                                                  setState(() {
-                                                    _providers[index] = _providers[index].copyWith(id: firestoreProviderId);
-                                                  });
-                                                  print('✅ [ResultsScreen] Updated provider ID to Firestore ID: $firestoreProviderId');
-                                                }
-                                              }
-                                              
-                                              // Refresh this provider's data (reviews, rating, etc.)
-                                              await _refreshProviderData(provider);
-                                            }
                                           },
-                                        );
-                                      }).toList(),
-                                      
-                                      const SizedBox(height: 32), // mt-8
-                                      
-                                      // Can't Find Provider (matching NewUI)
-                                      Container(
-                                        padding: const EdgeInsets.all(24), // p-6
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Color(0xFFFAF7FB), // from-[#faf7fb]
-                                              Color(0xFFF9F5FB), // to-[#f9f5fb]
-                                            ],
+                                          child: Text(
+                                            'Add a provider →',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Color(0xFFA89CB5),
+                                              fontWeight: FontWeight.w300,
+                                            ),
                                           ),
-                                          borderRadius: BorderRadius.circular(28),
-                                          border: Border.all(
-                                            color: AppTheme.borderLightest.withOpacity(0.5),
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.04),
-                                              blurRadius: 16,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
                                         ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Can\'t find who you\'re looking for?',
-                                              style: TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w400,
-                                                color: Color(0xFF4A3F52),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8), // mb-4
-                                            Text(
-                                              'Help build this directory by adding providers you trust. Your contribution helps other mothers find quality care.',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Color(0xFF6B5C75),
-                                                fontWeight: FontWeight.w300,
-                                                height: 1.5,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 16), // mb-4
-                                            InkWell(
-                                              onTap: () {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) => const AddProviderScreen(),
-                                                  ),
-                                                );
-                                              },
-                                              child: Text(
-                                                'Add a provider →',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: Color(0xFFA89CB5),
-                                                  fontWeight: FontWeight.w300,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      
-                                      const SizedBox(height: 100), // Space for bottom nav
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                );
-                              }
-                            },
-                          ),
+
+                                  const SizedBox(
+                                    height: 100,
+                                  ), // Space for bottom nav
+                                ],
+                              ),
+                            );
+                          }
+                        },
+                      ),
               ),
             ],
           ),
@@ -832,9 +1042,7 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.8),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppTheme.borderLighter.withOpacity(0.5),
-        ),
+        border: Border.all(color: AppTheme.borderLighter.withOpacity(0.5)),
       ),
       child: Text(
         label,
@@ -849,19 +1057,22 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
 
   Widget _buildCulturalMatchDisclaimer() {
     // Check if any providers have verified identity tags matching the search
-    final identityTags = widget.searchParams['identityTags'] as List<String>? ?? [];
+    final identityTags =
+        widget.searchParams['identityTags'] as List<String>? ?? [];
     if (identityTags.isEmpty) return const SizedBox.shrink();
-    
+
     final hasVerifiedMatches = _providers.any((provider) {
       if (provider.identityTags.isEmpty) return false;
       // Check if provider has any verified identity tags that match the search
-      return provider.identityTags.any((tag) => 
-        identityTags.contains(tag.name) && tag.verificationStatus == 'verified'
+      return provider.identityTags.any(
+        (tag) =>
+            identityTags.contains(tag.name) &&
+            tag.verificationStatus == 'verified',
       );
     });
-    
+
     if (hasVerifiedMatches) return const SizedBox.shrink();
-    
+
     // No verified matches found - show disclaimer (matching NewUI)
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -874,9 +1085,7 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
           ],
         ),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: Color(0xFFE8DFC8).withOpacity(0.5),
-        ),
+        border: Border.all(color: Color(0xFFE8DFC8).withOpacity(0.5)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -888,11 +1097,7 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.info_outline,
-            size: 20,
-            color: Color(0xFFC9B087),
-          ),
+          Icon(Icons.info_outline, size: 20, color: Color(0xFFC9B087)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -925,11 +1130,14 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
   }
 
   Widget _buildEmptyState() {
-    final hasSpecialty = (widget.searchParams['specialties'] as List<String>?)?.isNotEmpty == true;
+    final hasSpecialty =
+        (widget.searchParams['specialties'] as List<String>?)?.isNotEmpty ==
+        true;
     final includeNPI = widget.searchParams['includeNPI'] as bool? ?? false;
     final currentRadius = widget.searchParams['radius'] as int? ?? 10;
-    final providerTypeIds = widget.searchParams['providerTypeIds'] as List<String>? ?? [];
-    
+    final providerTypeIds =
+        widget.searchParams['providerTypeIds'] as List<String>? ?? [];
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -940,10 +1148,7 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
             const SizedBox(height: 16),
             const Text(
               'No providers found',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Container(
@@ -958,19 +1163,23 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                 children: [
                   const Text(
                     'Try these suggestions:',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
-                  _buildSuggestion('Widen your search radius (currently ${currentRadius} miles)'),
+                  _buildSuggestion(
+                    'Widen your search radius (currently ${currentRadius} miles)',
+                  ),
                   if (!providerTypeIds.contains('01'))
                     _buildSuggestion('Add "Hospital" (01) to provider types'),
-                  if (!providerTypeIds.contains('20') && !providerTypeIds.contains('09'))
-                    _buildSuggestion('Add "Physician / Osteopath Individual" (20) or "OB-GYN" (09)'),
+                  if (!providerTypeIds.contains('20') &&
+                      !providerTypeIds.contains('09'))
+                    _buildSuggestion(
+                      'Add "Physician / Osteopath Individual" (20) or "OB-GYN" (09)',
+                    ),
                   if (!includeNPI && hasSpecialty)
-                    _buildSuggestion('Enable NPI fallback to search additional providers'),
+                    _buildSuggestion(
+                      'Enable NPI fallback to search additional providers',
+                    ),
                   if (includeNPI && !hasSpecialty)
                     _buildSuggestion('Select a specialty to enable NPI search'),
                   _buildSuggestion('Try a different health plan'),
@@ -991,7 +1200,10 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.brandPurple,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1007,7 +1219,35 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                   icon: const Icon(Icons.add),
                   label: const Text('Add Provider'),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => QualitativeSurveyDialog(
+                        feature: 'provider-search',
+                        questions: [
+                          'I found providers I trust.',
+                          'The search results were relevant to my needs.',
+                          'I feel confident about the providers I found.',
+                        ],
+                        title: 'Provider Search Feedback',
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.feedback_outlined),
+                  label: const Text('Feedback'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                 ),
               ],
@@ -1029,10 +1269,7 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[700],
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
             ),
           ),
         ],
@@ -1052,9 +1289,7 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
           ],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.borderLighter.withOpacity(0.5),
-        ),
+        border: Border.all(color: AppTheme.borderLighter.withOpacity(0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1097,9 +1332,11 @@ class _ProviderSearchResultsScreenState extends State<ProviderSearchResultsScree
                 _buildFilterChip('Accepts newborns'),
               if (widget.searchParams['telehealth'] == true)
                 _buildFilterChip('Telehealth'),
-              if ((widget.searchParams['specialties'] as List?)?.isNotEmpty == true)
+              if ((widget.searchParams['specialties'] as List?)?.isNotEmpty ==
+                  true)
                 _buildFilterChip('Specialty'),
-              if ((widget.searchParams['identityTags'] as List?)?.isNotEmpty == true)
+              if ((widget.searchParams['identityTags'] as List?)?.isNotEmpty ==
+                  true)
                 _buildFilterChip('Identity match'),
             ],
           ),
@@ -1139,7 +1376,9 @@ class _ProviderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final location = provider.locations.isNotEmpty ? provider.locations.first : null;
+    final location = provider.locations.isNotEmpty
+        ? provider.locations.first
+        : null;
     final distance = location?.distance != null
         ? '${location!.distance!.toStringAsFixed(1)} miles'
         : null;
@@ -1149,9 +1388,7 @@ class _ProviderCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.6),
         borderRadius: BorderRadius.circular(32), // rounded-[32px]
-        border: Border.all(
-          color: AppTheme.borderLighter.withOpacity(0.5),
-        ),
+        border: Border.all(color: AppTheme.borderLighter.withOpacity(0.5)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
@@ -1195,7 +1432,9 @@ class _ProviderCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    provider.name.isNotEmpty ? provider.name[0].toUpperCase() : '?',
+                    provider.name.isNotEmpty
+                        ? provider.name[0].toUpperCase()
+                        : '?',
                     style: TextStyle(
                       fontSize: 32, // text-2xl
                       fontWeight: FontWeight.w500,
@@ -1277,56 +1516,92 @@ class _ProviderCard extends StatelessWidget {
                         children: [
                           // Provider Type Tags (only show types with display names)
                           ...provider.providerTypes
-                              .where((typeId) => ProviderTypes.getDisplayName(typeId) != null) // Filter out codes without display names
+                              .where(
+                                (typeId) =>
+                                    ProviderTypes.getDisplayName(typeId) !=
+                                    null,
+                              ) // Filter out codes without display names
                               .map((typeId) {
-                            final typeName = ProviderTypes.getDisplayName(typeId)!; // Safe to use ! since we filtered
-                            final isMatched = searchProviderTypeIds.any((searchId) {
-                              // Normalize to API format (single digits 1-9 WITH leading zeros: "01", "02", "09")
-                              final normalizedSearch = int.tryParse(searchId) != null && int.parse(searchId) >= 1 && int.parse(searchId) <= 9
-                                  ? searchId.padLeft(2, '0') // Add leading zero (API format: "01", "09")
-                                  : searchId;
-                              final normalizedType = int.tryParse(typeId) != null && int.parse(typeId) >= 1 && int.parse(typeId) <= 9
-                                  ? typeId.padLeft(2, '0') // Add leading zero (API format: "01", "09")
-                                  : typeId;
-                              return normalizedSearch == normalizedType;
-                            });
-                            
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: isMatched 
-                                    ? Color(0xFFE8F5E9).withOpacity(0.8) // Green for matched
-                                    : Color(0xFFF5F5F5).withOpacity(0.8), // Gray for unmatched
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: isMatched
-                                      ? Color(0xFF4CAF50).withOpacity(0.3)
-                                      : Color(0xFFE0E0E0).withOpacity(0.5),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (isMatched)
-                                    Icon(Icons.check_circle, size: 14, color: Color(0xFF4CAF50)),
-                                  if (isMatched) const SizedBox(width: 4),
-                                  Text(
-                                    typeName,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isMatched ? Color(0xFF2E7D32) : Color(0xFF6B5C75),
-                                      fontWeight: FontWeight.w400,
+                                final typeName = ProviderTypes.getDisplayName(
+                                  typeId,
+                                )!; // Safe to use ! since we filtered
+                                final isMatched = searchProviderTypeIds.any((
+                                  searchId,
+                                ) {
+                                  // Normalize to API format (single digits 1-9 WITH leading zeros: "01", "02", "09")
+                                  final normalizedSearch =
+                                      int.tryParse(searchId) != null &&
+                                          int.parse(searchId) >= 1 &&
+                                          int.parse(searchId) <= 9
+                                      ? searchId.padLeft(
+                                          2,
+                                          '0',
+                                        ) // Add leading zero (API format: "01", "09")
+                                      : searchId;
+                                  final normalizedType =
+                                      int.tryParse(typeId) != null &&
+                                          int.parse(typeId) >= 1 &&
+                                          int.parse(typeId) <= 9
+                                      ? typeId.padLeft(
+                                          2,
+                                          '0',
+                                        ) // Add leading zero (API format: "01", "09")
+                                      : typeId;
+                                  return normalizedSearch == normalizedType;
+                                });
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isMatched
+                                        ? Color(0xFFE8F5E9).withOpacity(
+                                            0.8,
+                                          ) // Green for matched
+                                        : Color(0xFFF5F5F5).withOpacity(
+                                            0.8,
+                                          ), // Gray for unmatched
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: isMatched
+                                          ? Color(0xFF4CAF50).withOpacity(0.3)
+                                          : Color(0xFFE0E0E0).withOpacity(0.5),
                                     ),
                                   ),
-                                ],
-                              ),
-                            );
-                          }),
-                          
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (isMatched)
+                                        Icon(
+                                          Icons.check_circle,
+                                          size: 14,
+                                          color: Color(0xFF4CAF50),
+                                        ),
+                                      if (isMatched) const SizedBox(width: 4),
+                                      Text(
+                                        typeName,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isMatched
+                                              ? Color(0xFF2E7D32)
+                                              : Color(0xFF6B5C75),
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+
                           // Mama Approved Badge
                           if (provider.mamaApproved)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
@@ -1359,12 +1634,13 @@ class _ProviderCard extends StatelessWidget {
                                 ],
                               ),
                             ),
-                          
+
                           // Identity Tags (including BIPOC)
                           ...provider.identityTags.map((tag) {
-                            final isVerified = tag.verificationStatus == 'verified';
+                            final isVerified =
+                                tag.verificationStatus == 'verified';
                             final isBipoc = tag.name.toLowerCase() == 'bipoc';
-                            
+
                             return Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -1372,17 +1648,29 @@ class _ProviderCard extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: isBipoc
-                                    ? Color(0xFFE8F5E9).withOpacity(0.9) // Green background for BIPOC
+                                    ? Color(0xFFE8F5E9).withOpacity(
+                                        0.9,
+                                      ) // Green background for BIPOC
                                     : (isVerified
-                                        ? Color(0xFFE3F2FD).withOpacity(0.8) // Blue for verified
-                                        : Color(0xFFFFF3E0).withOpacity(0.8)), // Orange for pending
+                                          ? Color(0xFFE3F2FD).withOpacity(
+                                              0.8,
+                                            ) // Blue for verified
+                                          : Color(0xFFFFF3E0).withOpacity(
+                                              0.8,
+                                            )), // Orange for pending
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: isBipoc
-                                      ? Color(0xFF4CAF50).withOpacity(0.4) // Green border for BIPOC
+                                      ? Color(0xFF4CAF50).withOpacity(
+                                          0.4,
+                                        ) // Green border for BIPOC
                                       : (isVerified
-                                          ? Color(0xFF2196F3).withOpacity(0.3) // Blue border
-                                          : Color(0xFFFF9800).withOpacity(0.3)), // Orange border
+                                            ? Color(0xFF2196F3).withOpacity(
+                                                0.3,
+                                              ) // Blue border
+                                            : Color(0xFFFF9800).withOpacity(
+                                                0.3,
+                                              )), // Orange border
                                 ),
                               ),
                               child: Row(
@@ -1390,32 +1678,47 @@ class _ProviderCard extends StatelessWidget {
                                 children: [
                                   if (isVerified || isBipoc)
                                     Icon(
-                                      isBipoc ? Icons.verified : Icons.check_circle,
+                                      isBipoc
+                                          ? Icons.verified
+                                          : Icons.check_circle,
                                       size: 14,
-                                      color: isBipoc ? Color(0xFF2E7D32) : Color(0xFF1976D2),
+                                      color: isBipoc
+                                          ? Color(0xFF2E7D32)
+                                          : Color(0xFF1976D2),
                                     ),
-                                  if (isVerified || isBipoc) const SizedBox(width: 4),
+                                  if (isVerified || isBipoc)
+                                    const SizedBox(width: 4),
                                   Text(
                                     tag.name,
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: isBipoc
-                                          ? Color(0xFF2E7D32) // Dark green for BIPOC
+                                          ? Color(
+                                              0xFF2E7D32,
+                                            ) // Dark green for BIPOC
                                           : (isVerified
-                                              ? Color(0xFF1976D2) // Blue for verified
-                                              : Color(0xFFE65100)), // Orange for pending
-                                      fontWeight: FontWeight.w500, // Slightly bolder for visibility
+                                                ? Color(
+                                                    0xFF1976D2,
+                                                  ) // Blue for verified
+                                                : Color(
+                                                    0xFFE65100,
+                                                  )), // Orange for pending
+                                      fontWeight: FontWeight
+                                          .w500, // Slightly bolder for visibility
                                     ),
                                   ),
                                 ],
                               ),
                             );
                           }),
-                          
+
                           // Match Score Indicator
                           if (matchScore > 0)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: Color(0xFFE3F2FD).withOpacity(0.8),
                                 borderRadius: BorderRadius.circular(14),
@@ -1426,7 +1729,11 @@ class _ProviderCard extends StatelessWidget {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.star, size: 14, color: Color(0xFF1976D2)),
+                                  Icon(
+                                    Icons.star,
+                                    size: 14,
+                                    color: Color(0xFF1976D2),
+                                  ),
                                   const SizedBox(width: 4),
                                   Text(
                                     '$matchScore filter${matchScore > 1 ? 's' : ''} match',
@@ -1452,11 +1759,7 @@ class _ProviderCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            Icons.star,
-                            size: 20,
-                            color: Color(0xFFC9B087),
-                          ),
+                          Icon(Icons.star, size: 20, color: Color(0xFFC9B087)),
                           const SizedBox(width: 6),
                           Text(
                             provider.rating != null && provider.rating! > 0

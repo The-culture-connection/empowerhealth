@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/learning_module.dart';
 import '../../services/ai_service.dart';
+import '../../services/analytics_service.dart';
+import '../../services/database_service.dart';
 import '../../cors/ui_theme.dart';
 import 'learning_module_detail_screen.dart';
 import 'module_survey_dialog.dart';
@@ -17,7 +19,39 @@ class LearningModulesScreenV2 extends StatefulWidget {
 class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
   final AIService _aiService = AIService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
   String _filterType = 'all'; // 'all', 'todos', 'modules', or 'archived'
+
+  Future<void> _logLearningModuleCompleted({
+    required String moduleId,
+    required String moduleTitle,
+  }) async {
+    try {
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) return;
+
+      // Best-effort profile hydration; event still logs if profile read fails.
+      final userProfile = await _databaseService.getUserProfile(userId);
+      await _analytics.logLearningModuleCompleted(
+        moduleId: moduleId,
+        moduleTopic: moduleTitle,
+        completionStatus: 'archived_from_list',
+        userProfile: userProfile,
+      );
+    } catch (e) {
+      try {
+        await _analytics.logLearningModuleCompleted(
+          moduleId: moduleId,
+          moduleTopic: moduleTitle,
+          completionStatus: 'archived_from_list',
+          userProfile: null,
+        );
+      } catch (_) {
+        // Swallow analytics-only failures to avoid blocking UX.
+      }
+    }
+  }
 
   // Helper to get icon for module
   IconData _getModuleIcon(String title) {
@@ -420,6 +454,10 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                                           'isCompleted': true,
                                                           'isArchived': true,
                                                         });
+                                                        await _logLearningModuleCompleted(
+                                                          moduleId: taskId,
+                                                          moduleTitle: title,
+                                                        );
                                                       },
                                                     ),
                                                   );
@@ -433,6 +471,12 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                             'isCompleted': true,
                                             'isArchived': true,
                                           });
+                                          if (!isTodo) {
+                                            await _logLearningModuleCompleted(
+                                              moduleId: taskId,
+                                              moduleTitle: title,
+                                            );
+                                          }
                                         } else {
                                           // When unchecked, unmark as completed and unarchive
                                           await doc.reference.update({
@@ -555,6 +599,10 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                                                     'isCompleted': true,
                                                                     'isArchived': true,
                                                                   });
+                                                                  await _logLearningModuleCompleted(
+                                                                    moduleId: taskId,
+                                                                    moduleTitle: title,
+                                                                  );
                                                                 },
                                                               ),
                                                             );
@@ -568,6 +616,12 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                                       'isCompleted': true,
                                                       'isArchived': true,
                                                     });
+                                                    if (!isTodo) {
+                                                      await _logLearningModuleCompleted(
+                                                        moduleId: taskId,
+                                                        moduleTitle: title,
+                                                      );
+                                                    }
                                                   },
                                                   style: TextButton.styleFrom(
                                                     padding: EdgeInsets.zero,
@@ -616,6 +670,10 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                                                   await doc.reference.update({
                                                                     'isArchived': true,
                                                                   });
+                                                                  await _logLearningModuleCompleted(
+                                                                    moduleId: taskId,
+                                                                    moduleTitle: title,
+                                                                  );
                                                                 },
                                                               ),
                                                             );
@@ -626,6 +684,12 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                                     }
                                                     // Survey completed or it's a todo, proceed with archiving
                                                     await doc.reference.update({'isArchived': true});
+                                                    if (!isTodo) {
+                                                      await _logLearningModuleCompleted(
+                                                        moduleId: taskId,
+                                                        moduleTitle: title,
+                                                      );
+                                                    }
                                                   },
                                                   style: TextButton.styleFrom(
                                                     padding: EdgeInsets.zero,

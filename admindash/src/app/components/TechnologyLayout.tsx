@@ -3,7 +3,6 @@ import { Outlet, NavLink } from "react-router";
 export function TechnologyLayout() {
   const tabs = [
     { to: "/technology", label: "Platform Overview", end: true },
-    { to: "/technology/system-status", label: "System Reliability", end: false },
     { to: "/technology/instructions", label: "Instructions", end: false },
   ];
 
@@ -15,7 +14,7 @@ export function TechnologyLayout() {
             Technology Overview
           </h1>
           <p style={{ color: '#616161' }}>
-            Platform operational status, functional capabilities, and system reliability monitoring
+            Platform releases, feature catalog, and implementation details
           </p>
         </div>
 

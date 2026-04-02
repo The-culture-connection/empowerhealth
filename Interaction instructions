@@ -1,0 +1,19 @@
+Pull from github to emulator 
+# 1. Fetch all remote branches
+git fetch origin
+
+# 2. Switch to the branch with the UI changes
+git cursor/refactor-flutter-project-structure-and-navigation-adc5
+
+# 3. Pull the latest changes (if needed)
+git cursor/refactor-flutter-project-structure-and-navigation-adc5
+
+# 4. Switch to main branch
+git checkout main
+
+# 5. Merge the UI changes into main
+git cursor/refactor-flutter-project-structure-and-navigation-adc5
+
+# 6. Push to main
+git push origin main
+

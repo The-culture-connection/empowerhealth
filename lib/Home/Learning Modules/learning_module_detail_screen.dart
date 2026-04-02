@@ -1,0 +1,863 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../cors/ui_theme.dart' show AppTheme;
+import '../../learning/notes_dialog.dart';
+import '../../services/analytics_service.dart';
+import '../../services/database_service.dart';
+import '../../widgets/qualitative_survey_dialog.dart';
+
+class LearningModuleDetailScreen extends StatefulWidget {
+  final String title;
+  final String content;
+  final String icon;
+  final String? taskId; // Add taskId to track which module this survey is for
+  final String? moduleId; // Module ID for analytics
+
+  const LearningModuleDetailScreen({
+    super.key,
+    required this.title,
+    required this.content,
+    required this.icon,
+    this.taskId,
+    this.moduleId,
+  });
+
+  @override
+  State<LearningModuleDetailScreen> createState() =>
+      _LearningModuleDetailScreenState();
+}
+
+class _LearningModuleDetailScreenState
+    extends State<LearningModuleDetailScreen> {
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
+  DateTime? _viewStartTime;
+  bool _hasTrackedView = false;
+  bool _hasTrackedCompletion = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _trackModuleView();
+  }
+
+  Future<void> _trackModuleView() async {
+    if (_hasTrackedView) return;
+    _hasTrackedView = true;
+    _viewStartTime = DateTime.now();
+
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      final userProfile = await _databaseService.getUserProfile(userId);
+      await _analytics.logLearningModuleViewed(
+        moduleId: widget.moduleId ?? widget.taskId ?? 'unknown',
+        moduleTopic: widget.title,
+        userProfile: userProfile,
+      );
+      await _analytics.logLearningModuleStarted(
+        moduleId: widget.moduleId ?? widget.taskId ?? 'unknown',
+        moduleTopic: widget.title,
+        userProfile: userProfile,
+      );
+    } catch (e) {
+      print('Error tracking module view: $e');
+    }
+  }
+
+  Future<void> _trackModuleExit() async {
+    if (_viewStartTime == null) return;
+
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final seconds = DateTime.now().difference(_viewStartTime!).inSeconds;
+    final moduleId = widget.moduleId ?? widget.taskId ?? 'unknown';
+
+    try {
+      final userProfile = await _databaseService.getUserProfile(userId);
+
+      await _analytics.logFeatureTimeSpent(
+        feature: 'learning-modules',
+        timeSpentSeconds: seconds,
+        sourceId: moduleId,
+        userProfile: userProfile,
+      );
+
+      if (!_hasTrackedCompletion) {
+        _hasTrackedCompletion = true;
+        await _analytics.logLearningModuleCompleted(
+          moduleId: moduleId,
+          moduleTopic: widget.title,
+          timeSpentSeconds: seconds,
+          completionStatus: seconds >= 45 ? 'completed' : 'partial',
+          userProfile: userProfile,
+        );
+      }
+
+      if (seconds < 20) {
+        await _analytics.logFlowAbandoned(
+          flowName: 'learning_module',
+          stepName: 'module_detail',
+          reason: 'early_exit',
+          feature: 'learning-modules',
+          userProfile: userProfile,
+        );
+      }
+    } catch (e) {
+      print('Error tracking module exit: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _trackModuleExit();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppTheme.surfaceCard, AppTheme.backgroundWarm],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.title,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Learning Module',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.note_add),
+                      tooltip: 'Add Note',
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) =>
+                              NotesDialog(moduleTitle: widget.title),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.share),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: widget.content));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Copied to clipboard!')),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Selectable text for highlighting
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceCard,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.grey.shade100),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome,
+                                  size: 18,
+                                  color: const Color(0xFF663399),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Long-press text to highlight and add a note',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF663399),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            _MarkdownStyleText(
+                              content: widget.content,
+                              moduleTitle: widget.title,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Action buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Saved to favorites!'),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.bookmark_outline),
+                              label: const Text('Save'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF663399),
+                                side: const BorderSide(
+                                  color: Color(0xFF663399),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Clipboard.setData(
+                                  ClipboardData(text: widget.content),
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Copied to clipboard!'),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.copy),
+                              label: const Text('Copy'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF663399),
+                                foregroundColor: AppTheme.brandWhite,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 32),
+                      const Divider(),
+                      const SizedBox(height: 16),
+
+                      // Survey Section
+                      _buildNewSurveySection(),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Inline card that opens [QualitativeSurveyDialog] (replaces the old star-rating block).
+  Widget _buildNewSurveySection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.feedback_outlined, color: AppTheme.brandPurple),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Module feedback',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF663399),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Share a quick rating about how clear and helpful this module was.',
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                showDialog<void>(
+                  context: context,
+                  builder: (context) => QualitativeSurveyDialog(
+                    feature: 'learning-modules',
+                    title: 'Learning module feedback',
+                    sourceId: widget.moduleId ?? widget.taskId,
+                    questions: const [
+                      'I understand what this means for my care.',
+                      'I know what I need to do next.',
+                      'I feel confident about my next steps.',
+                    ],
+                  ),
+                );
+              },
+              icon: const Icon(Icons.rate_review_outlined),
+              label: const Text('Give feedback'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF663399),
+                side: const BorderSide(color: Color(0xFF663399)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Old survey section removed - replaced with QualitativeSurveyDialog
+// Keeping class name for backward compatibility but it's now unused
+class _ModuleReviewSectionOld extends StatefulWidget {
+  final String moduleTitle;
+  final String? taskId;
+
+  const _ModuleReviewSectionOld({required this.moduleTitle, this.taskId});
+
+  @override
+  State<_ModuleReviewSectionOld> createState() =>
+      _ModuleReviewSectionOldState();
+}
+
+class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
+  final AnalyticsService _analytics = AnalyticsService();
+  final DatabaseService _databaseService = DatabaseService();
+  int _understandingRating = 0;
+  int _nextStepsRating = 0;
+  int _confidenceRating = 0;
+  final TextEditingController _commentsController = TextEditingController();
+  bool _isSubmitting = false;
+  bool _hasSubmitted = false;
+
+  @override
+  void dispose() {
+    _commentsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfSurveyCompleted();
+  }
+
+  Future<void> _checkIfSurveyCompleted() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null || widget.taskId == null) return;
+
+    try {
+      final surveyQuery = await FirebaseFirestore.instance
+          .collection('ModuleFeedback')
+          .where('userId', isEqualTo: userId)
+          .where('taskId', isEqualTo: widget.taskId)
+          .limit(1)
+          .get();
+
+      if (surveyQuery.docs.isNotEmpty) {
+        final surveyData = surveyQuery.docs.first.data();
+        setState(() {
+          _understandingRating = surveyData['understandingRating'] ?? 0;
+          _nextStepsRating = surveyData['nextStepsRating'] ?? 0;
+          _confidenceRating = surveyData['confidenceRating'] ?? 0;
+          _commentsController.text = surveyData['comments'] ?? '';
+          _hasSubmitted = true;
+        });
+      }
+    } catch (e) {
+      print('Error checking survey completion: $e');
+    }
+  }
+
+  Future<void> _submitSurvey() async {
+    if (_understandingRating == 0 ||
+        _nextStepsRating == 0 ||
+        _confidenceRating == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please answer all questions'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final surveyData = {
+        'userId': userId,
+        'moduleTitle': widget.moduleTitle,
+        'taskId': widget.taskId,
+        'understandingRating': _understandingRating,
+        'nextStepsRating': _nextStepsRating,
+        'confidenceRating': _confidenceRating,
+        'comments': _commentsController.text.trim().isEmpty
+            ? null
+            : _commentsController.text.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      // Check if survey already exists
+      if (widget.taskId != null) {
+        final existingSurvey = await FirebaseFirestore.instance
+            .collection('ModuleFeedback')
+            .where('userId', isEqualTo: userId)
+            .where('taskId', isEqualTo: widget.taskId)
+            .limit(1)
+            .get();
+
+        if (existingSurvey.docs.isNotEmpty) {
+          // Update existing survey
+          await existingSurvey.docs.first.reference.update(surveyData);
+        } else {
+          // Create new survey
+          await FirebaseFirestore.instance
+              .collection('ModuleFeedback')
+              .add(surveyData);
+        }
+      } else {
+        // If no taskId, just add without taskId reference
+        await FirebaseFirestore.instance
+            .collection('ModuleFeedback')
+            .add(surveyData);
+      }
+
+      setState(() {
+        _isSubmitting = false;
+        _hasSubmitted = true;
+      });
+
+      try {
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+        if (userId != null) {
+          final userProfile = await _databaseService.getUserProfile(userId);
+          await _analytics.logConfidenceSignalSubmitted(
+            understandMeaningScore: _understandingRating,
+            knowNextStepScore: _nextStepsRating,
+            confidenceScore: _confidenceRating,
+            userProfile: userProfile,
+          );
+        }
+      } catch (e) {
+        print('Error tracking confidence signal: $e');
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Thank you for your feedback!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error submitting survey: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildStarRating(
+    String label,
+    int rating,
+    Function(int) onRatingChanged,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (index) {
+            return GestureDetector(
+              onTap: () {
+                onRatingChanged(index + 1);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Icon(
+                  index < rating ? Icons.star : Icons.star_border,
+                  size: 40,
+                  color: index < rating ? Colors.amber : Colors.grey,
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            rating == 0 ? 'Tap stars to rate' : '$rating out of 5 stars',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasSubmitted) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Thank you for completing the survey!',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.green,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Module Survey',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.brandPurple,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Please rate your experience with this module:',
+          style: TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+        const SizedBox(height: 24),
+        _buildStarRating(
+          'I understand what this means.',
+          _understandingRating,
+          (rating) {
+            setState(() => _understandingRating = rating);
+          },
+        ),
+        const SizedBox(height: 32),
+        _buildStarRating('I know what I need to do next.', _nextStepsRating, (
+          rating,
+        ) {
+          setState(() => _nextStepsRating = rating);
+        }),
+        const SizedBox(height: 32),
+        _buildStarRating(
+          'I feel confident about my next steps.',
+          _confidenceRating,
+          (rating) {
+            setState(() => _confidenceRating = rating);
+          },
+        ),
+        const SizedBox(height: 32),
+        const Text(
+          'General Comments (Optional)',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _commentsController,
+          decoration: InputDecoration(
+            hintText: 'Share any additional thoughts or feedback...',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: AppTheme.brandPurple,
+                width: 2,
+              ),
+            ),
+          ),
+          maxLines: 4,
+          minLines: 3,
+        ),
+        const SizedBox(height: 32),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _isSubmitting ? null : _submitSurvey,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.brandPurple,
+              foregroundColor: AppTheme.brandWhite,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: _isSubmitting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
+                    ),
+                  )
+                : const Text(
+                    'Submit Survey',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MarkdownStyleText extends StatefulWidget {
+  final String content;
+  final String moduleTitle;
+
+  const _MarkdownStyleText({required this.content, required this.moduleTitle});
+
+  @override
+  State<_MarkdownStyleText> createState() => _MarkdownStyleTextState();
+}
+
+class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
+  @override
+  Widget build(BuildContext context) {
+    // Fix $1 formatting issue - replace $1 with proper section breaks first
+    final cleanedContent = widget.content.replaceAll('\$1', '\n\n---\n\n');
+    final lines = cleanedContent.split('\n');
+    final widgets = <Widget>[];
+
+    for (var line in lines) {
+      if (line.trim().isEmpty) {
+        widgets.add(const SizedBox(height: 8));
+        continue;
+      }
+
+      if (line.startsWith('## ')) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 8),
+            child: Text(
+              line.substring(3),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.brandPurple,
+              ),
+            ),
+          ),
+        );
+      } else if (line.startsWith('### ')) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 6),
+            child: Text(
+              line.substring(4),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+          ),
+        );
+      } else if (line.startsWith('• ') || line.startsWith('- ')) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(left: 16, bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('• ', style: TextStyle(fontSize: 16)),
+                Expanded(
+                  child: Text(
+                    line.substring(2),
+                    style: const TextStyle(fontSize: 16, height: 1.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else if (line.trim() == '---' || line.trim().startsWith('---')) {
+        // Section divider
+        widgets.add(
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(thickness: 2, color: AppTheme.brandPurple),
+          ),
+        );
+      } else {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: SelectableText(
+              line,
+              style: const TextStyle(fontSize: 16, height: 1.5),
+              onSelectionChanged: (selection, cause) {
+                if (selection.isValid &&
+                    cause == SelectionChangedCause.longPress) {
+                  final selectedText = line
+                      .substring(
+                        selection.start.clamp(0, line.length),
+                        selection.end.clamp(0, line.length),
+                      )
+                      .trim();
+                  if (selectedText.length > 3) {
+                    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Selected: ${selectedText.length > 40 ? selectedText.substring(0, 40) + "..." : selectedText}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                ScaffoldMessenger.of(
+                                  context,
+                                ).hideCurrentSnackBar();
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => NotesDialog(
+                                    preFilledText: selectedText,
+                                    moduleTitle: widget.moduleTitle,
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Add Note',
+                                style: TextStyle(color: AppTheme.brandWhite),
+                              ),
+                            ),
+                          ],
+                        ),
+                        duration: const Duration(seconds: 5),
+                        backgroundColor: AppTheme.brandPurple,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ),
+        );
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
+  }
+}

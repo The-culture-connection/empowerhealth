@@ -1,0 +1,362 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import '../../providers/profile_creation_provider.dart';
+import '../../cors/ui_theme.dart';
+
+class BasicInfoStep extends StatefulWidget {
+  const BasicInfoStep({super.key});
+
+  @override
+  State<BasicInfoStep> createState() => _BasicInfoStepState();
+}
+
+class _BasicInfoStepState extends State<BasicInfoStep> {
+  final _formKey = GlobalKey<FormState>();
+  final _zipCodeController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _stateController = TextEditingController();
+  final _childAgeMonthsController = TextEditingController();
+  
+  @override
+  void initState() {
+    super.initState();
+    final provider = Provider.of<ProfileCreationProvider>(context, listen: false);
+    _zipCodeController.text = provider.zipCode;
+    _cityController.text = provider.city;
+    _stateController.text = provider.state;
+    _childAgeMonthsController.text = provider.childAgeMonths?.toString() ?? '';
+  }
+
+  @override
+  void dispose() {
+    _zipCodeController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _childAgeMonthsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ProfileCreationProvider>(
+      builder: (context, provider, child) {
+        return Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Let\'s start with some basic information about you.',
+                style: TextStyle(fontSize: 16, color: Colors.black87),
+              ),
+              const SizedBox(height: AppTheme.spacingXL),
+
+              // Username
+              TextFormField(
+                initialValue: provider.username,
+                decoration: const InputDecoration(
+                  labelText: 'Username',
+                  hintText: 'Choose a username',
+                  prefixIcon: Icon(Icons.person_outline),
+                  helperText: 'This will be displayed in the community and reviews',
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a username';
+                  }
+                  if (value.length < 3) {
+                    return 'Username must be at least 3 characters';
+                  }
+                  if (value.length > 20) {
+                    return 'Username must be 20 characters or less';
+                  }
+                  // Check for valid characters (alphanumeric, underscore, hyphen)
+                  if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(value)) {
+                    return 'Username can only contain letters, numbers, underscores, and hyphens';
+                  }
+                  return null;
+                },
+                onChanged: (value) {
+                  provider.updateBasicInfo(username: value.trim());
+                },
+              ),
+              const SizedBox(height: AppTheme.spacingXL),
+
+              // Age
+              TextFormField(
+                initialValue: provider.age.toString(),
+                decoration: const InputDecoration(
+                  labelText: 'Age',
+                  hintText: 'Enter your age',
+                  prefixIcon: Icon(Icons.cake_outlined),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your age';
+                  }
+                  final age = int.tryParse(value);
+                  if (age == null || age < 13 || age > 100) {
+                    return 'Please enter a valid age';
+                  }
+                  return null;
+                },
+                onChanged: (value) {
+                  final age = int.tryParse(value);
+                  if (age != null) {
+                    provider.updateBasicInfo(age: age);
+                  }
+                },
+              ),
+              const SizedBox(height: AppTheme.spacingXL),
+
+              // Pregnancy Status - Single Select
+              _buildSectionHeader('Pregnancy Status'),
+              const SizedBox(height: AppTheme.spacingM),
+              
+              RadioListTile<String>(
+                title: const Text('I am currently pregnant'),
+                value: 'pregnant',
+                groupValue: provider.isPregnant ? 'pregnant' : (provider.isPostpartum ? 'postpartum' : null),
+                activeColor: AppTheme.brandPurple,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (value) {
+                  provider.updateBasicInfo(isPregnant: true, isPostpartum: false);
+                },
+              ),
+
+              if (provider.isPregnant) ...[
+                const SizedBox(height: AppTheme.spacingM),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Due Date'),
+                  subtitle: Text(
+                    provider.dueDate != null
+                        ? DateFormat('MMMM d, yyyy').format(provider.dueDate!)
+                        : 'Tap to select',
+                  ),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: provider.dueDate ?? DateTime.now().add(const Duration(days: 180)),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null) {
+                      provider.updateBasicInfo(dueDate: date);
+                    }
+                  },
+                ),
+                if (provider.dueDate != null) ...[
+                  const SizedBox(height: AppTheme.spacingM),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.brandPurple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: AppTheme.brandPurple),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Current Trimester: ${_calculateTrimester(provider.dueDate)}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.brandPurple,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+
+              const SizedBox(height: AppTheme.spacingM),
+              
+              RadioListTile<String>(
+                title: const Text('I am postpartum'),
+                value: 'postpartum',
+                groupValue: provider.isPregnant ? 'pregnant' : (provider.isPostpartum ? 'postpartum' : null),
+                activeColor: AppTheme.brandPurple,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (value) {
+                  provider.updateBasicInfo(isPregnant: false, isPostpartum: true);
+                },
+              ),
+
+              if (provider.isPostpartum) ...[
+                const SizedBox(height: AppTheme.spacingM),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Delivery Date'),
+                  subtitle: Text(
+                    provider.deliveryDate != null
+                        ? DateFormat('MMMM d, yyyy').format(provider.deliveryDate!)
+                        : 'Tap to select',
+                  ),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: provider.deliveryDate ?? DateTime.now().subtract(const Duration(days: 30)),
+                      firstDate: DateTime.now().subtract(const Duration(days: 730)),
+                      lastDate: DateTime.now(),
+                    );
+                    if (date != null) {
+                      provider.updateBasicInfo(deliveryDate: date);
+                    }
+                  },
+                ),
+                if (provider.deliveryDate != null) ...[
+                  const SizedBox(height: AppTheme.spacingM),
+                  TextFormField(
+                    controller: _childAgeMonthsController,
+                    decoration: const InputDecoration(
+                      labelText: 'Child\'s Age (in months)',
+                      hintText: 'Auto-calculated from delivery date',
+                      prefixIcon: Icon(Icons.child_care),
+                    ),
+                    keyboardType: TextInputType.number,
+                    readOnly: true,
+                  ),
+                ],
+              ],
+
+              const SizedBox(height: AppTheme.spacingXL),
+
+              // Zip Code
+              TextFormField(
+                controller: _zipCodeController,
+                decoration: const InputDecoration(
+                  labelText: 'Zip Code',
+                  hintText: 'Enter your zip code',
+                  prefixIcon: Icon(Icons.location_on_outlined),
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your zip code';
+                  }
+                  if (value.length != 5) {
+                    return 'Please enter a valid 5-digit zip code';
+                  }
+                  return null;
+                },
+                onChanged: (value) {
+                  provider.updateBasicInfo(zipCode: value);
+                },
+              ),
+              const SizedBox(height: AppTheme.spacingXL),
+              
+              // City
+              TextFormField(
+                controller: _cityController,
+                decoration: const InputDecoration(
+                  labelText: 'City',
+                  hintText: 'Enter your city',
+                  prefixIcon: Icon(Icons.location_city_outlined),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your city';
+                  }
+                  return null;
+                },
+                onChanged: (value) {
+                  provider.updateBasicInfo(city: value);
+                },
+              ),
+              const SizedBox(height: AppTheme.spacingXL),
+              
+              // State
+              TextFormField(
+                controller: _stateController,
+                decoration: const InputDecoration(
+                  labelText: 'State',
+                  hintText: 'Enter your state (e.g., OH)',
+                  prefixIcon: Icon(Icons.map_outlined),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your state';
+                  }
+                  return null;
+                },
+                onChanged: (value) {
+                  provider.updateBasicInfo(state: value.toUpperCase());
+                },
+              ),
+              const SizedBox(height: AppTheme.spacingL),
+
+              // Insurance Type
+              DropdownButtonFormField<String>(
+                value: provider.insuranceType.isEmpty ? null : provider.insuranceType,
+                decoration: const InputDecoration(
+                  labelText: 'Insurance Type',
+                  hintText: 'Select your insurance type',
+                  prefixIcon: Icon(Icons.medical_services_outlined),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'Private', child: Text('Private Insurance')),
+                  DropdownMenuItem(value: 'Medicaid', child: Text('Medicaid')),
+                  DropdownMenuItem(value: 'Medicare', child: Text('Medicare')),
+                  DropdownMenuItem(value: 'Uninsured', child: Text('Uninsured')),
+                  DropdownMenuItem(value: 'Other', child: Text('Other')),
+                ],
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please select your insurance type';
+                  }
+                  return null;
+                },
+                onChanged: (value) {
+                  if (value != null) {
+                    provider.updateBasicInfo(insuranceType: value);
+                  }
+                },
+              ),
+              const SizedBox(height: AppTheme.spacingXXL),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.brandPurple,
+        fontFamily: 'Primary',
+      ),
+    );
+  }
+
+  String _calculateTrimester(DateTime? dueDate) {
+    if (dueDate == null) return 'First';
+    
+    final now = DateTime.now();
+    final daysUntilDue = dueDate.difference(now).inDays;
+    final weeksPregnant = 40 - (daysUntilDue / 7).floor();
+    
+    if (weeksPregnant <= 0) return 'First';
+    if (weeksPregnant <= 13) return 'First';
+    if (weeksPregnant <= 27) return 'Second';
+    return 'Third';
+  }
+}
+
+
+
+
+
+

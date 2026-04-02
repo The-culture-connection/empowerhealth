@@ -1,0 +1,192 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the path
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Helper function to check if user is admin (checks ADMIN collection by uid)
+    function isAdmin() {
+      return isAuthenticated() && 
+             firestore.exists(/databases/(default)/documents/ADMIN/$(request.auth.uid));
+    }
+    
+    // Helper function to check if user is research partner
+    function isResearchPartner() {
+      return isAuthenticated() && 
+             firestore.exists(/databases/(default)/documents/RESEARCH_PARTNERS/$(request.auth.uid));
+    }
+    
+    // Helper function to check if user is community manager
+    function isCommunityManager() {
+      return isAuthenticated() && 
+             firestore.exists(/databases/(default)/documents/COMMUNITY_MANAGERS/$(request.auth.uid));
+    }
+    
+    // Helper function to check if user has any admin dashboard role
+    function hasAdminRole() {
+      return isAdmin() || isResearchPartner() || isCommunityManager();
+    }
+    
+    // Fallback: Check admin by email (for backwards compatibility)
+    function isAdminByEmail() {
+      return isAuthenticated() && 
+             request.auth.token.email != null &&
+             (request.auth.token.email == 'osrgnoi@gmail.com' ||
+              request.auth.token.email == 'corinntaylor@gmail.com');
+    }
+    
+    // Combined admin check (uid-based or email-based fallback)
+    function isAdminAny() {
+      return isAdmin() || isAdminByEmail();
+    }
+    
+    // ============================================
+    // MOBILE APP STORAGE PATHS
+    // ============================================
+    
+    // Visit summaries - users can read/write their own, admins can read all
+    match /visit_summaries/{userId}/{allPaths=**} {
+      // Mobile app: users can read/write their own files
+      allow read, write: if isOwner(userId);
+      
+      // Admin dashboard: admins can read all (for analytics/reports)
+      allow read: if hasAdminRole();
+      
+      // Service account access (Cloud Functions)
+      allow read: if request.auth == null;
+    }
+    
+    // User file uploads - users can manage their own, admins can read all
+    match /users/{userId}/file_uploads/{allPaths=**} {
+      // Mobile app: users can read/write their own files
+      allow read, write: if isOwner(userId);
+      
+      // Admin dashboard: admins can read all (for analytics/reports)
+      allow read: if hasAdminRole();
+      
+      // Service account access (Cloud Functions)
+      allow read: if request.auth == null;
+    }
+    
+    // User profile images/avatars
+    match /users/{userId}/profile/{allPaths=**} {
+      // Mobile app: users can read/write their own
+      allow read: if isAuthenticated(); // All authenticated users can read (for display)
+      allow write: if isOwner(userId);
+      
+      // Admin dashboard: admins can read all
+      allow read: if hasAdminRole();
+    }
+    
+    // Learning module content/files
+    match /learning_modules/{allPaths=**} {
+      // All authenticated users can read learning module files
+      allow read: if isAuthenticated();
+      // Only admins can upload/update learning module content
+      allow write: if isAdminAny();
+    }
+    
+    // Birth plan documents
+    match /birth_plans/{userId}/{allPaths=**} {
+      // Mobile app: users can read/write their own birth plan files
+      allow read, write: if isOwner(userId);
+      
+      // Admin dashboard: admins can read all (for analytics/reports)
+      allow read: if hasAdminRole();
+    }
+    
+    // Journal attachments (if any)
+    match /journals/{userId}/attachments/{allPaths=**} {
+      // Mobile app: users can read/write their own attachments
+      allow read, write: if isOwner(userId);
+      
+      // Admin dashboard: admins can read all (for analytics/reports)
+      allow read: if hasAdminRole();
+    }
+    
+    // Community post attachments/images
+    match /community/{postId}/{allPaths=**} {
+      // All authenticated users can read community post attachments
+      allow read: if isAuthenticated();
+      // Users can upload attachments to their own posts
+      // Admins can upload to any post
+      allow write: if isAuthenticated() && (
+        // TODO: Add check for post ownership
+        true ||
+        isAdminAny()
+      );
+    }
+    
+    // Provider images/logos
+    match /providers/{providerId}/{allPaths=**} {
+      // All authenticated users can read provider images
+      allow read: if isAuthenticated();
+      // Only admins can upload/update provider images
+      allow write: if isAdminAny();
+    }
+    
+    // ============================================
+    // ADMIN DASHBOARD STORAGE PATHS
+    // ============================================
+    
+    // Admin documents (Privacy Policy, Terms, etc.)
+    match /admin_documents/{docType}/{allPaths=**} {
+      // All authenticated users can read admin documents (for display in app)
+      allow read: if isAuthenticated();
+      // Only admins can upload/update admin documents
+      allow write: if isAdminAny();
+    }
+    
+    // Analytics exports/reports
+    match /analytics_exports/{allPaths=**} {
+      // Only admins and research partners can read exports
+      allow read: if isAdmin() || isResearchPartner();
+      // Only admins can create exports
+      allow write: if isAdminAny();
+    }
+    
+    // Report exports
+    match /report_exports/{allPaths=**} {
+      // Only admins and research partners can read exports
+      allow read: if isAdmin() || isResearchPartner();
+      // Only admins can create exports
+      allow write: if isAdminAny();
+    }
+    
+    // Build version assets (if any)
+    match /build_versions/{allPaths=**} {
+      // All authenticated users can read
+      allow read: if isAuthenticated();
+      // Only admins can write
+      allow write: if isAdminAny();
+    }
+    
+    // Notification assets (images, etc.)
+    match /notifications/{allPaths=**} {
+      // Admins and community managers can read/write
+      allow read, write: if isAdminAny() || isCommunityManager();
+    }
+    
+    // ============================================
+    // DEFAULT: BLOCK EVERYTHING ELSE
+    // ============================================
+    
+    // Block all other paths by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

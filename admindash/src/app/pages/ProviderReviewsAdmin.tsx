@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import {
   collection,
+  doc,
   onSnapshot,
   orderBy,
   query,
   limit,
   Timestamp,
+  updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
-import { firestore } from "../../firebase/firebase";
-import { Loader2 } from "lucide-react";
+import { auth, firestore } from "../../firebase/firebase";
+import { CheckCircle, Loader2, XCircle } from "lucide-react";
 
 type Row = {
   id: string;
@@ -30,6 +33,7 @@ export function ProviderReviewsAdmin() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(
@@ -72,6 +76,28 @@ export function ProviderReviewsAdmin() {
     return () => unsub();
   }, []);
 
+  async function setReviewStatus(id: string, status: "resolved" | "removed") {
+    setBusyId(id);
+    setError("");
+    const uid = auth.currentUser?.uid ?? null;
+    try {
+      await updateDoc(doc(firestore, "reviews", id), {
+        status,
+        updatedAt: serverTimestamp(),
+        ...(status === "resolved"
+          ? { moderationResolvedAt: serverTimestamp() }
+          : { moderationRemovedAt: serverTimestamp() }),
+        ...(uid ? { moderatedBy: uid } : {}),
+      });
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    } catch (e) {
+      console.error(e);
+      setError(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-8 flex items-center gap-2" style={{ color: "var(--warm-500)" }}>
@@ -87,8 +113,9 @@ export function ProviderReviewsAdmin() {
         Provider reviews
       </h1>
       <p className="text-sm mb-6" style={{ color: "var(--warm-500)" }}>
-        Recent rows from <code className="text-xs">reviews</code> (newest 150). Use Firestore or future tools to change{" "}
-        <code className="text-xs">status</code> (e.g. removed).
+        Recent rows from <code className="text-xs">reviews</code> (newest 150). Only{" "}
+        <code className="text-xs">published</code> reviews appear in the app. <strong>Resolve</strong> marks moderation
+        complete (hidden from app). <strong>Remove</strong> is a stronger takedown (hidden from app).
       </p>
       {error ? (
         <div className="mb-4 p-4 rounded-xl text-sm bg-red-50 text-red-700">{error}</div>
@@ -106,6 +133,9 @@ export function ProviderReviewsAdmin() {
             ]
               .filter(Boolean)
               .join(" · ");
+            const busy = busyId === r.id;
+            const st = r.status ?? "published";
+            const canModerate = st === "published";
             return (
               <li
                 key={r.id}
@@ -119,7 +149,7 @@ export function ProviderReviewsAdmin() {
                   <span className="text-xs opacity-70">{when}</span>
                 </div>
                 <div className="text-xs mt-1 opacity-80">
-                  Provider: <code>{r.providerId}</code> · status: {r.status}
+                  Provider: <code>{r.providerId}</code> · status: <strong>{st}</strong>
                 </div>
                 {r.wouldRecommend ? (
                   <div className="text-xs text-green-700 mt-1">Would recommend</div>
@@ -135,6 +165,30 @@ export function ProviderReviewsAdmin() {
                   <p className="mt-2" style={{ color: "var(--warm-600)" }}>
                     {r.reviewText}
                   </p>
+                ) : null}
+                {canModerate ? (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void setReviewStatus(r.id, "resolved")}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50"
+                      style={{ backgroundColor: "var(--lavender-600)" }}
+                    >
+                      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                      Resolve
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void setReviewStatus(r.id, "removed")}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-700 disabled:opacity-50"
+                      style={{ backgroundColor: "#fef2f2" }}
+                    >
+                      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                      Remove
+                    </button>
+                  </div>
                 ) : null}
               </li>
             );

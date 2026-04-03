@@ -24,6 +24,8 @@ class Provider {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final String? source; // 'medicaid', 'npi', 'user_submission'
+  /// When true, admin hid this Firestore directory row from in-app search / merges.
+  final bool directoryHidden;
   /// Single label when present (e.g. "Medicaid", "Commercial").
   final String? acceptedHealthType;
   /// Multiple accepted plan / payer types from Firestore.
@@ -53,6 +55,7 @@ class Provider {
     this.createdAt,
     this.updatedAt,
     this.source,
+    this.directoryHidden = false,
     this.acceptedHealthType,
     this.acceptedHealthTypes = const [],
   });
@@ -163,6 +166,7 @@ class Provider {
           ? (map['updatedAt'] as Timestamp).toDate()
           : null,
       source: map['source'],
+      directoryHidden: map['directoryHidden'] == true,
       acceptedHealthType: map['acceptedHealthType'] as String?,
       acceptedHealthTypes: (map['acceptedHealthTypes'] as List<dynamic>?)
               ?.map((e) => e.toString())
@@ -196,6 +200,7 @@ class Provider {
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
       'source': source,
+      'directoryHidden': directoryHidden,
       'acceptedHealthType': acceptedHealthType,
       'acceptedHealthTypes': acceptedHealthTypes,
     };
@@ -225,6 +230,7 @@ class Provider {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? source,
+    bool? directoryHidden,
     String? acceptedHealthType,
     List<String>? acceptedHealthTypes,
   }) {
@@ -252,6 +258,7 @@ class Provider {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       source: source ?? this.source,
+      directoryHidden: directoryHidden ?? this.directoryHidden,
       acceptedHealthType: acceptedHealthType ?? this.acceptedHealthType,
       acceptedHealthTypes: acceptedHealthTypes ?? this.acceptedHealthTypes,
     );

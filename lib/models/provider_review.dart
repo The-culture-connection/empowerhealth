@@ -15,7 +15,7 @@ class ProviderReview {
   final bool explainedClearly;
   /// Short answer: what the provider did especially well.
   final String? whatWentWell;
-  /// published | pending | removed — moderation pipeline (default published).
+  /// published | pending | removed | resolved — moderation (app lists published only).
   final String status;
   final int helpfulCount;
   final DateTime createdAt;

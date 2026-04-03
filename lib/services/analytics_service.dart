@@ -1577,7 +1577,7 @@ class AnalyticsService {
     required String providerId,
     required String reasonCategory,
     String? reasonCategoryLabel,
-    bool hasDetails,
+    required bool hasDetails,
     UserProfile? userProfile,
   }) async {
     await logEvent(

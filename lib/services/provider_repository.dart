@@ -360,7 +360,9 @@ class ProviderRepository {
                   (zip.isEmpty || l['zip']?.toString() == zip)
                 );
                 if (match) {
-                  return Provider.fromMap(doc.data(), id: doc.id);
+                  final d = doc.data();
+                  if (d['directoryHidden'] == true) continue;
+                  return Provider.fromMap(d, id: doc.id);
                 }
               }
             }
@@ -384,7 +386,9 @@ class ProviderRepository {
     try {
       final doc = await _firestore.collection('providers').doc(providerId).get();
       if (doc.exists) {
-        return Provider.fromMap(doc.data()!, id: doc.id);
+        final p = Provider.fromMap(doc.data()!, id: doc.id);
+        if (p.directoryHidden) return null;
+        return p;
       }
     } catch (e) {
       print('❌ Error getting provider: $e');
@@ -547,6 +551,7 @@ class ProviderRepository {
             
             for (var doc in nameQuery.docs) {
               final providerData = doc.data();
+              if (providerData['directoryHidden'] == true) continue;
               // If we have city, match it
               if (searchCity == null || 
                   (providerData['locations'] != null && 
@@ -889,12 +894,15 @@ class ProviderRepository {
         }
       }
       
-      final reviewCount = allReviews.length;
-      
-      // Calculate average rating
+      final publishedOnly = allReviews
+          .where((r) => (r['status'] as String? ?? 'published') == 'published')
+          .toList();
+      final reviewCount = publishedOnly.length;
+
+      // Calculate average rating (published reviews only — matches app profile)
       double? averageRating;
-      if (allReviews.isNotEmpty) {
-        final totalRating = allReviews.fold<double>(
+      if (publishedOnly.isNotEmpty) {
+        final totalRating = publishedOnly.fold<double>(
           0.0,
           (sum, review) => sum + ((review['rating'] as num?)?.toDouble() ?? 0.0),
         );
@@ -1031,7 +1039,9 @@ class ProviderRepository {
     void tryAdd(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
       if (!seen.add(doc.id)) return;
       try {
-        out.add(Provider.fromMap(doc.data(), id: doc.id));
+        final m = doc.data();
+        if (m['directoryHidden'] == true) return;
+        out.add(Provider.fromMap(m, id: doc.id));
       } catch (_) {}
     }
 
@@ -1122,7 +1132,9 @@ class ProviderRepository {
       final list = <Provider>[];
       for (final doc in snap.docs) {
         try {
-          final p = Provider.fromMap(doc.data(), id: doc.id);
+          final m = doc.data();
+          if (m['directoryHidden'] == true) continue;
+          final p = Provider.fromMap(m, id: doc.id);
           if (p.showsMamaApprovedBadge) {
             list.add(p);
           }
@@ -1150,7 +1162,9 @@ class ProviderRepository {
       final list = <Provider>[];
       for (final doc in snap.docs) {
         try {
-          final p = Provider.fromMap(doc.data(), id: doc.id);
+          final m = doc.data();
+          if (m['directoryHidden'] == true) continue;
+          final p = Provider.fromMap(m, id: doc.id);
           if (p.showsMamaApprovedBadge) {
             list.add(p);
           }

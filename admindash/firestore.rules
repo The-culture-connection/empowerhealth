@@ -561,10 +561,11 @@ service cloud.firestore {
       // Updates: Regular users can update their own provider data (from reviews)
       // Admins can update any provider, including mamaApproved field
       allow update: if isAuthenticated() && (
-        // Admin can update anything, including mamaApproved
         isAdminAny() ||
-        // Regular users can update but cannot set/change mamaApproved
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['mamaApproved', 'mamaApprovedCount']))
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'mamaApproved', 'mamaApprovedCount', 'directoryHidden',
+          'directoryHiddenAt', 'directoryHiddenBy'
+        ]))
       );
       
       // Only admins can delete providers
@@ -578,8 +579,7 @@ service cloud.firestore {
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.keys().hasAll(['providerId', 'userId', 'rating', 'createdAt']);
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      // Admins can update/delete any review
-      allow update, delete: if isAdminAny();
+      allow update, delete: if isAuthenticated() && (hasAdminRole() || isAdminAny());
     }
     
     // User reports about provider listings — admins triage in dashboard

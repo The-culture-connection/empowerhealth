@@ -1195,6 +1195,26 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         ),
                       ),
                     ],
+                    if (review.reviewerRaceEthnicity.isNotEmpty ||
+                        review.reviewerLanguages.isNotEmpty ||
+                        review.reviewerCulturalTags.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          ...review.reviewerRaceEthnicity.map(
+                            (t) => _experienceReviewChip(t),
+                          ),
+                          ...review.reviewerLanguages.map(
+                            (t) => _experienceReviewChip(t),
+                          ),
+                          ...review.reviewerCulturalTags.map(
+                            (t) => _experienceReviewChip(t),
+                          ),
+                        ],
+                      ),
+                    ],
                     if (review.reviewText != null) ...[
                       const SizedBox(height: 12),
                       Text(

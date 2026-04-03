@@ -15,6 +15,7 @@ import { ProviderReportsAdmin } from "./pages/ProviderReportsAdmin";
 import { ProviderReviewsAdmin } from "./pages/ProviderReviewsAdmin";
 import { IdentityClaimsAdmin } from "./pages/IdentityClaimsAdmin";
 import { ProviderDirectoryAdmin } from "./pages/ProviderDirectoryAdmin";
+import { ProviderReportProviderDetail } from "./pages/ProviderReportProviderDetail";
 import { Login } from "./pages/Login";
 import { RoleRoute } from "../components/RoleRoute";
 
@@ -116,6 +117,14 @@ export const router = createBrowserRouter([
             element: (
               <RoleRoute allowedRoles={["admin"]}>
                 <ProviderDirectoryAdmin />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: "reports/provider/:providerId",
+            element: (
+              <RoleRoute allowedRoles={["admin"]}>
+                <ProviderReportProviderDetail />
               </RoleRoute>
             ),
           },

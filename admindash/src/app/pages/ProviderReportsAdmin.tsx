@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
+import { Link } from "react-router";
 import { firestore } from "../../firebase/firebase";
 import { Loader2 } from "lucide-react";
 
@@ -55,6 +56,8 @@ export function ProviderReportsAdmin() {
             providerName: x.providerName != null ? String(x.providerName) : undefined,
             userId: String(x.userId ?? ""),
             reasonCategory: String(x.reasonCategory ?? ""),
+            reasonCategoryLabel:
+              x.reasonCategoryLabel != null ? String(x.reasonCategoryLabel) : undefined,
             details: x.details != null ? String(x.details) : undefined,
             status: x.status != null ? String(x.status) : "open",
             createdAt: x.createdAt as Timestamp | null | undefined,
@@ -103,7 +106,9 @@ export function ProviderReportsAdmin() {
         Provider listing reports
       </h1>
       <p className="text-sm mb-6" style={{ color: "var(--warm-500)" }}>
-        Submitted from the app via <code className="text-xs">provider_reports</code>. Mark reviewed when triaged.
+        Submitted from the app via <code className="text-xs">provider_reports</code>. Open the provider name to see full
+        directory metadata, past reports, and reviews. Use <strong>Remove</strong> to dismiss without implying the listing
+        was fixed.
       </p>
       {error ? (
         <div className="mb-4 p-4 rounded-xl text-sm bg-red-50 text-red-700">{error}</div>
@@ -119,6 +124,7 @@ export function ProviderReportsAdmin() {
               r.reasonCategoryLabel ??
               REASON_LABELS[r.reasonCategory] ??
               r.reasonCategory;
+            const detailHref = `/moderation/reports/provider/${encodeURIComponent(r.providerId)}`;
             return (
               <li
                 key={r.id}
@@ -127,9 +133,13 @@ export function ProviderReportsAdmin() {
               >
                 <div className="flex flex-wrap justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="font-medium" style={{ color: "var(--warm-600)" }}>
+                    <Link
+                      to={detailHref}
+                      className="font-medium text-left hover:underline block"
+                      style={{ color: "var(--lavender-700)" }}
+                    >
                       {r.providerName ?? r.providerId}
-                    </div>
+                    </Link>
                     <div className="text-sm mt-1" style={{ color: "var(--warm-500)" }}>
                       {reasonLine} · {when}
                     </div>
@@ -146,6 +156,13 @@ export function ProviderReportsAdmin() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-2 shrink-0">
+                    <Link
+                      to={detailHref}
+                      className="px-3 py-2 rounded-xl text-sm text-center border"
+                      style={{ borderColor: "var(--lavender-300)", color: "var(--lavender-700)" }}
+                    >
+                      Provider detail
+                    </Link>
                     <button
                       type="button"
                       disabled={busy || r.status === "acknowledged"}
@@ -163,6 +180,19 @@ export function ProviderReportsAdmin() {
                       style={{ backgroundColor: "var(--lavender-600)" }}
                     >
                       Resolved
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || r.status === "removed"}
+                      onClick={() => setStatus(r.id, "removed")}
+                      className="px-3 py-2 rounded-xl text-sm border disabled:opacity-50"
+                      style={{
+                        borderColor: "#fecaca",
+                        color: "#b91c1c",
+                        backgroundColor: "#fef2f2",
+                      }}
+                    >
+                      Remove
                     </button>
                   </div>
                 </div>

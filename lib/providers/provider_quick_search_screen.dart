@@ -380,6 +380,100 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                   ),
                   const SizedBox(height: 12),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Material(
+                          elevation: 2,
+                          shadowColor: Colors.black26,
+                          borderRadius: BorderRadius.circular(28),
+                          child: TextField(
+                            controller: _queryController,
+                            focusNode: _focusNode,
+                            textInputAction: TextInputAction.search,
+                            onSubmitted: (_) => _runSearch(),
+                            decoration: InputDecoration(
+                              hintText: 'Type a provider type…',
+                              prefixIcon:
+                                  Icon(Icons.search, color: AppTheme.textMuted),
+                              filled: true,
+                              fillColor: AppTheme.surfaceCard,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(28),
+                                borderSide:
+                                    BorderSide(color: AppTheme.borderLight),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(28),
+                                borderSide:
+                                    BorderSide(color: AppTheme.borderLight),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(28),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF663399),
+                                  width: 2,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      FilledButton(
+                        onPressed: _runSearch,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF663399),
+                          foregroundColor: AppTheme.brandWhite,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                        ),
+                        child: const Text('Search'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Suggestions',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ..._suggestions.map(
+                    (s) => ListTile(
+                      dense: true,
+                      title: Text(s),
+                      onTap: () => _applySuggestion(s),
+                    ),
+                  ),
+                  if (_suggestions.isEmpty &&
+                      _queryController.text.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        'No suggestions — you can still search or open expanded filters.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textMuted,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+                  Row(
                     children: [
                       Expanded(
                         child: TextField(
@@ -418,57 +512,58 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _healthPlan,
-                          decoration: InputDecoration(
-                            labelText: 'Insurance / plan',
-                            filled: true,
-                            fillColor: AppTheme.surfaceCard,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    value: _healthPlan,
+                    decoration: InputDecoration(
+                      labelText: 'Insurance / plan',
+                      filled: true,
+                      fillColor: AppTheme.surfaceCard,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: _healthPlans
+                        .map(
+                          (p) => DropdownMenuItem(
+                            value: p,
+                            child: Text(
+                              p,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
-                          items: _healthPlans
-                              .map(
-                                (p) => DropdownMenuItem(value: p, child: Text(p)),
-                              )
-                              .toList(),
-                          onChanged: (v) {
-                            if (v != null) setState(() => _healthPlan = v);
-                          },
-                        ),
+                        )
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _healthPlan = v);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    value: '$_radius',
+                    decoration: InputDecoration(
+                      labelText: 'Radius',
+                      filled: true,
+                      fillColor: AppTheme.surfaceCard,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: '$_radius',
-                          decoration: InputDecoration(
-                            labelText: 'Radius',
-                            filled: true,
-                            fillColor: AppTheme.surfaceCard,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                    ),
+                    items: _radiusOptions
+                        .map(
+                          (r) => DropdownMenuItem(
+                            value: r,
+                            child: Text('$r mi'),
                           ),
-                          items: _radiusOptions
-                              .map(
-                                (r) => DropdownMenuItem(
-                                  value: r,
-                                  child: Text('$r mi'),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (v) {
-                            if (v != null) {
-                              setState(() => _radius = int.tryParse(v) ?? 10);
-                            }
-                          },
-                        ),
-                      ),
-                    ],
+                        )
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _radius = int.tryParse(v) ?? 10);
+                      }
+                    },
                   ),
                   const SizedBox(height: 8),
                   SwitchListTile(
@@ -566,87 +661,6 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Material(
-                    elevation: 2,
-                    shadowColor: Colors.black26,
-                    borderRadius: BorderRadius.circular(28),
-                    child: TextField(
-                      controller: _queryController,
-                      focusNode: _focusNode,
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: (_) => _runSearch(),
-                      decoration: InputDecoration(
-                        hintText: 'Type a provider type…',
-                        prefixIcon:
-                            Icon(Icons.search, color: AppTheme.textMuted),
-                        filled: true,
-                        fillColor: AppTheme.surfaceCard,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(28),
-                          borderSide: BorderSide(color: AppTheme.borderLight),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(28),
-                          borderSide: BorderSide(color: AppTheme.borderLight),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(28),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF663399),
-                            width: 2,
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Suggestions',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ..._suggestions.map(
-                    (s) => ListTile(
-                      dense: true,
-                      title: Text(s),
-                      onTap: () => _applySuggestion(s),
-                    ),
-                  ),
-                  if (_suggestions.isEmpty &&
-                      _queryController.text.trim().isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(
-                        'No suggestions — you can still search or open expanded filters.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMuted,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: _runSearch,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF663399),
-                      foregroundColor: AppTheme.brandWhite,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                    ),
-                    child: const Text('Search'),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(

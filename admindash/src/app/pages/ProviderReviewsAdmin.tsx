@@ -13,6 +13,28 @@ import {
 import { auth, firestore } from "../../firebase/firebase";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
 
+function safeJson(obj: Record<string, unknown>): string {
+  return JSON.stringify(
+    obj,
+    (_, v) => {
+      if (v && typeof v === "object" && v !== null && "toDate" in v) {
+        try {
+          return (v as { toDate: () => Date }).toDate().toISOString();
+        } catch {
+          return String(v);
+        }
+      }
+      return v;
+    },
+    2,
+  );
+}
+
+function strList(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => String(x)).filter(Boolean);
+}
+
 type Row = {
   id: string;
   providerId: string;
@@ -25,8 +47,12 @@ type Row = {
   feltRespected?: boolean;
   explainedClearly?: boolean;
   whatWentWell?: string;
+  reviewerRaceEthnicity: string[];
+  reviewerLanguages: string[];
+  reviewerCulturalTags: string[];
   status?: string;
   createdAt?: Timestamp | null;
+  raw: Record<string, unknown>;
 };
 
 export function ProviderReviewsAdmin() {
@@ -59,8 +85,12 @@ export function ProviderReviewsAdmin() {
             feltRespected: x.feltRespected === true,
             explainedClearly: x.explainedClearly === true,
             whatWentWell: x.whatWentWell != null ? String(x.whatWentWell) : undefined,
+            reviewerRaceEthnicity: strList(x.reviewerRaceEthnicity),
+            reviewerLanguages: strList(x.reviewerLanguages),
+            reviewerCulturalTags: strList(x.reviewerCulturalTags),
             status: x.status != null ? String(x.status) : "published",
             createdAt: x.createdAt as Timestamp | null | undefined,
+            raw: { ...x },
           });
         });
         setRows(next);
@@ -113,9 +143,10 @@ export function ProviderReviewsAdmin() {
         Provider reviews
       </h1>
       <p className="text-sm mb-6" style={{ color: "var(--warm-500)" }}>
-        Recent rows from <code className="text-xs">reviews</code> (newest 150). Only{" "}
-        <code className="text-xs">published</code> reviews appear in the app. <strong>Resolve</strong> marks moderation
-        complete (hidden from app). <strong>Remove</strong> is a stronger takedown (hidden from app).
+        Recent rows from <code className="text-xs">reviews</code> (newest 150). Each card lists experience flags and
+        self-reported race/ethnicity, language, and cultural tags when present; expand <strong>All stored fields</strong>{" "}
+        for the full Firestore document. Only <code className="text-xs">published</code> appears in the app.{" "}
+        <strong>Resolve</strong> / <strong>Remove</strong> change <code className="text-xs">status</code>.
       </p>
       {error ? (
         <div className="mb-4 p-4 rounded-xl text-sm bg-red-50 text-red-700">{error}</div>
@@ -149,8 +180,34 @@ export function ProviderReviewsAdmin() {
                   <span className="text-xs opacity-70">{when}</span>
                 </div>
                 <div className="text-xs mt-1 opacity-80">
-                  Provider: <code>{r.providerId}</code> · status: <strong>{st}</strong>
+                  Provider: <code className="break-all">{r.providerId}</code> · doc:{" "}
+                  <code className="text-xs">{r.id}</code> · status: <strong>{st}</strong>
                 </div>
+                {r.reviewerRaceEthnicity.length +
+                  r.reviewerLanguages.length +
+                  r.reviewerCulturalTags.length >
+                0 ? (
+                  <div className="text-xs mt-2 space-y-1" style={{ color: "var(--warm-600)" }}>
+                    {r.reviewerRaceEthnicity.length > 0 ? (
+                      <div>
+                        <span className="font-medium">Race/ethnicity: </span>
+                        {r.reviewerRaceEthnicity.join(", ")}
+                      </div>
+                    ) : null}
+                    {r.reviewerLanguages.length > 0 ? (
+                      <div>
+                        <span className="font-medium">Language: </span>
+                        {r.reviewerLanguages.join(", ")}
+                      </div>
+                    ) : null}
+                    {r.reviewerCulturalTags.length > 0 ? (
+                      <div>
+                        <span className="font-medium">Cultural tags: </span>
+                        {r.reviewerCulturalTags.join(", ")}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 {r.wouldRecommend ? (
                   <div className="text-xs text-green-700 mt-1">Would recommend</div>
                 ) : null}
@@ -166,6 +223,15 @@ export function ProviderReviewsAdmin() {
                     {r.reviewText}
                   </p>
                 ) : null}
+                <details className="mt-3 text-xs">
+                  <summary className="cursor-pointer opacity-70 font-medium">All stored fields (metadata)</summary>
+                  <pre
+                    className="mt-2 p-3 rounded-lg overflow-x-auto max-h-64 overflow-y-auto text-[11px] leading-relaxed"
+                    style={{ backgroundColor: "#f8f5fc", color: "var(--warm-600)" }}
+                  >
+                    {safeJson(r.raw)}
+                  </pre>
+                </details>
                 {canModerate ? (
                   <div className="flex flex-wrap gap-2 mt-3">
                     <button

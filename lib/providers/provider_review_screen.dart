@@ -6,6 +6,7 @@ import '../models/provider.dart';
 import '../services/provider_repository.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
+import '../constants/reviewer_self_report_tags.dart';
 import '../cors/ui_theme.dart';
 
 class ProviderReviewScreen extends StatefulWidget {
@@ -38,6 +39,9 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
   bool _explainedClearly = false;
   final _whatWentWellController = TextEditingController();
   bool _isSubmitting = false;
+  final List<String> _raceEthnicity = [];
+  final List<String> _reviewLanguages = [];
+  final List<String> _culturalTags = [];
 
   @override
   void initState() {
@@ -307,6 +311,126 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
+
+                  const Text(
+                    'About you (optional)',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Helps others find perspectives like theirs. You can skip any section.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Race / ethnicity',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ReviewerSelfReportTags.raceEthnicity.map((label) {
+                      final sel = _raceEthnicity.contains(label);
+                      return FilterChip(
+                        label: Text(label, style: const TextStyle(fontSize: 12)),
+                        selected: sel,
+                        onSelected: (v) => setState(() {
+                          if (v) {
+                            _raceEthnicity.add(label);
+                          } else {
+                            _raceEthnicity.remove(label);
+                          }
+                        }),
+                        selectedColor:
+                            AppTheme.brandPurple.withValues(alpha: 0.2),
+                        checkmarkColor: AppTheme.brandPurple,
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Language',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ReviewerSelfReportTags.languages.map((label) {
+                      final sel = _reviewLanguages.contains(label);
+                      return FilterChip(
+                        label: Text(label, style: const TextStyle(fontSize: 12)),
+                        selected: sel,
+                        onSelected: (v) => setState(() {
+                          if (v) {
+                            _reviewLanguages.add(label);
+                          } else {
+                            _reviewLanguages.remove(label);
+                          }
+                        }),
+                        selectedColor:
+                            AppTheme.brandPurple.withValues(alpha: 0.2),
+                        checkmarkColor: AppTheme.brandPurple,
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Cultural / community tags',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ReviewerSelfReportTags.culturalTags.map((label) {
+                      final sel = _culturalTags.contains(label);
+                      return FilterChip(
+                        label: Text(label, style: const TextStyle(fontSize: 12)),
+                        selected: sel,
+                        onSelected: (v) => setState(() {
+                          if (v) {
+                            _culturalTags.add(label);
+                          } else {
+                            _culturalTags.remove(label);
+                          }
+                        }),
+                        selectedColor:
+                            AppTheme.brandPurple.withValues(alpha: 0.2),
+                        checkmarkColor: AppTheme.brandPurple,
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
 
                   const Text(
                     'What did they do especially well?',

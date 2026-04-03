@@ -15,6 +15,12 @@ class ProviderReview {
   final bool explainedClearly;
   /// Short answer: what the provider did especially well.
   final String? whatWentWell;
+  /// Reviewer self-report: race/ethnicity labels (optional).
+  final List<String> reviewerRaceEthnicity;
+  /// Reviewer self-report: languages (optional).
+  final List<String> reviewerLanguages;
+  /// Reviewer self-report: cultural / community tags (optional).
+  final List<String> reviewerCulturalTags;
   /// published | pending | removed | resolved — moderation (app lists published only).
   final String status;
   final int helpfulCount;
@@ -35,12 +41,20 @@ class ProviderReview {
     this.feltRespected = false,
     this.explainedClearly = false,
     this.whatWentWell,
+    this.reviewerRaceEthnicity = const [],
+    this.reviewerLanguages = const [],
+    this.reviewerCulturalTags = const [],
     this.status = 'published',
     this.helpfulCount = 0,
     required this.createdAt,
     this.updatedAt,
     this.isVerified = false,
   });
+
+  static List<String> _stringList(dynamic v) {
+    if (v is! List) return const [];
+    return v.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+  }
 
   factory ProviderReview.fromMap(Map<String, dynamic> map, {String? id}) {
     return ProviderReview(
@@ -56,6 +70,9 @@ class ProviderReview {
       feltRespected: map['feltRespected'] ?? false,
       explainedClearly: map['explainedClearly'] ?? false,
       whatWentWell: map['whatWentWell'] as String?,
+      reviewerRaceEthnicity: _stringList(map['reviewerRaceEthnicity']),
+      reviewerLanguages: _stringList(map['reviewerLanguages']),
+      reviewerCulturalTags: _stringList(map['reviewerCulturalTags']),
       status: map['status'] as String? ?? 'published',
       helpfulCount: map['helpfulCount'] ?? 0,
       createdAt: map['createdAt'] is Timestamp
@@ -81,6 +98,11 @@ class ProviderReview {
       'feltRespected': feltRespected,
       'explainedClearly': explainedClearly,
       'whatWentWell': whatWentWell,
+      if (reviewerRaceEthnicity.isNotEmpty)
+        'reviewerRaceEthnicity': reviewerRaceEthnicity,
+      if (reviewerLanguages.isNotEmpty) 'reviewerLanguages': reviewerLanguages,
+      if (reviewerCulturalTags.isNotEmpty)
+        'reviewerCulturalTags': reviewerCulturalTags,
       'status': status,
       'helpfulCount': helpfulCount,
       'createdAt': Timestamp.fromDate(createdAt),

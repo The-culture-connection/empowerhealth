@@ -26,6 +26,7 @@ type Row = {
   providerName?: string;
   userId: string;
   reasonCategory: string;
+  reasonCategoryLabel?: string;
   details?: string;
   status?: string;
   createdAt?: Timestamp | null;
@@ -114,6 +115,10 @@ export function ProviderReportsAdmin() {
           {rows.map((r) => {
             const busy = busyId === r.id;
             const when = r.createdAt?.toDate?.()?.toLocaleString?.() ?? "—";
+            const reasonLine =
+              r.reasonCategoryLabel ??
+              REASON_LABELS[r.reasonCategory] ??
+              r.reasonCategory;
             return (
               <li
                 key={r.id}
@@ -126,7 +131,7 @@ export function ProviderReportsAdmin() {
                       {r.providerName ?? r.providerId}
                     </div>
                     <div className="text-sm mt-1" style={{ color: "var(--warm-500)" }}>
-                      {REASON_LABELS[r.reasonCategory] ?? r.reasonCategory} · {when}
+                      {reasonLine} · {when}
                     </div>
                     <div className="text-xs mt-2 opacity-70">
                       Provider id: <code>{r.providerId}</code> · User: <code>{r.userId}</code>

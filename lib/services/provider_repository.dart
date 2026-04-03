@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/provider.dart';
+import '../models/provider_report.dart';
 import '../models/provider_review.dart';
 import 'firebase_functions_service.dart';
 
@@ -610,12 +611,15 @@ class ProviderRepository {
     required String reasonCategory,
     String? details,
   }) async {
+    final reasonLabel =
+        ProviderReportReason.labels[reasonCategory] ?? reasonCategory;
     await _firestore.collection('provider_reports').add({
       'providerId': providerId,
       'providerName': providerName,
       'userId': userId,
       'reasonCategory': reasonCategory,
-      'details': details,
+      'reasonCategoryLabel': reasonLabel,
+      if (details != null && details.isNotEmpty) 'details': details,
       'status': 'open',
       'createdAt': FieldValue.serverTimestamp(),
     });

@@ -20,6 +20,11 @@ class ProviderSearchPrefill {
   final List<String>? providerTypeDisplayNames;
   final List<String>? specialties;
   final bool? includeNpi;
+  /// Labels matching expanded search identity / cultural chips.
+  final List<String>? identityTagLabels;
+  final List<String>? languages;
+  final String? specialtyQuery;
+  final bool? mamaApprovedOnly;
 
   const ProviderSearchPrefill({
     this.zip,
@@ -29,6 +34,10 @@ class ProviderSearchPrefill {
     this.providerTypeDisplayNames,
     this.specialties,
     this.includeNpi,
+    this.identityTagLabels,
+    this.languages,
+    this.specialtyQuery,
+    this.mamaApprovedOnly,
   });
 }
 
@@ -139,6 +148,18 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
       }
       if (p.includeNpi != null) {
         _includeNPI = p.includeNpi!;
+      }
+      if (p.identityTagLabels != null && p.identityTagLabels!.isNotEmpty) {
+        _selectedIdentityTags = List<String>.from(p.identityTagLabels!);
+      }
+      if (p.languages != null && p.languages!.isNotEmpty) {
+        _selectedLanguages = List<String>.from(p.languages!);
+      }
+      if (p.specialtyQuery != null && p.specialtyQuery!.trim().isNotEmpty) {
+        _specialtyQueryController.text = p.specialtyQuery!.trim();
+      }
+      if (p.mamaApprovedOnly != null) {
+        _mamaApprovedOnly = p.mamaApprovedOnly!;
       }
     }
     _trackScreenView();

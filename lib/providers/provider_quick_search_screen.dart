@@ -23,17 +23,64 @@ class ProviderQuickSearchScreen extends StatefulWidget {
 
 class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
   final _queryController = TextEditingController();
+  final _zipController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _specialtyController = TextEditingController();
   final _focusNode = FocusNode();
   final _databaseService = DatabaseService();
 
-  String _zip = '';
-  String _city = '';
   int _radius = 10;
   String _healthPlan = ProviderSearchConstants.healthPlanAll;
   bool _loadingDefaults = true;
+  bool _mamaApprovedOnly = false;
+  final List<String> _selectedIdentityTags = [];
+  final List<String> _selectedLanguages = [];
 
   List<String> _suggestions = [];
   Timer? _debounce;
+
+  static const List<String> _healthPlans = [
+    ProviderSearchConstants.healthPlanAll,
+    'Buckeye',
+    'CareSource',
+    'Molina',
+    'UnitedHealthcare',
+    'Anthem',
+    'Aetna',
+    ProviderSearchConstants.healthPlanNotListed,
+  ];
+
+  static const List<String> _radiusOptions = ['3', '5', '10', '15', '25', '50'];
+
+  /// Race/ethnicity, language, and cultural tags (aligned with expanded search).
+  static const List<String> _identityTagOptions = [
+    'Black / African American',
+    'Latina/o/x',
+    'Asian / Pacific Islander',
+    'Native American / Indigenous',
+    'Middle Eastern / North African',
+    'Haitian',
+    'Nigerian',
+    'Somali',
+    'Spanish-speaking',
+    'Arabic-speaking',
+    'French-speaking',
+    'LGBTQ+ affirming',
+    'Cultural competency certified',
+  ];
+
+  static const List<String> _languageOptions = [
+    'Spanish',
+    'Arabic',
+    'French',
+    'Haitian Creole',
+    'Somali',
+    'Mandarin',
+    'Vietnamese',
+    'Tagalog',
+    'Portuguese',
+    'Russian',
+  ];
 
   List<String> get _allTypeNames {
     final names = ProviderTypes.getAllTypes().map((e) => e['name']!).toList();
@@ -56,6 +103,9 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
     _debounce?.cancel();
     _queryController.removeListener(_onQueryChanged);
     _queryController.dispose();
+    _zipController.dispose();
+    _cityController.dispose();
+    _specialtyController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -80,11 +130,9 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
     }
 
     if (mounted) {
-      setState(() {
-        _zip = zip;
-        _city = city;
-        _loadingDefaults = false;
-      });
+      _zipController.text = zip;
+      _cityController.text = city;
+      setState(() => _loadingDefaults = false);
     }
   }
 
@@ -157,6 +205,26 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
     _refreshSuggestions();
   }
 
+  void _toggleIdentity(String label) {
+    setState(() {
+      if (_selectedIdentityTags.contains(label)) {
+        _selectedIdentityTags.remove(label);
+      } else {
+        _selectedIdentityTags.add(label);
+      }
+    });
+  }
+
+  void _toggleLanguage(String label) {
+    setState(() {
+      if (_selectedLanguages.contains(label)) {
+        _selectedLanguages.remove(label);
+      } else {
+        _selectedLanguages.add(label);
+      }
+    });
+  }
+
   void _runSearch() {
     final q = _queryController.text.trim();
     if (q.isEmpty) {
@@ -168,19 +236,21 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
       );
       return;
     }
-    if (_zip.length != 5) {
+    final zip = _zipController.text.trim();
+    if (zip.length != 5) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Add a ZIP code in your profile or use Expanded search.'),
+          content: Text('Enter a 5-digit ZIP code.'),
           backgroundColor: AppTheme.brandPurple,
         ),
       );
       return;
     }
-    if (_city.isEmpty) {
+    final city = _cityController.text.trim();
+    if (city.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('We need a city — open Expanded search to enter it.'),
+          content: Text('Enter a city or open Expanded search.'),
           backgroundColor: AppTheme.brandPurple,
         ),
       );
@@ -197,24 +267,28 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
       );
       return;
     }
+
+    final spec = _specialtyController.text.trim();
+    final specialties = spec.isEmpty ? <String>[] : <String>[spec];
+
     Navigator.push(
       context,
       MaterialPageRoute<void>(
         builder: (context) => ProviderSearchResultsScreen(
           searchParams: {
-            'zip': _zip,
-            'city': _city,
+            'zip': zip,
+            'city': city,
             'radius': _radius,
             'healthPlan': _healthPlan,
             'providerTypeIds': [id],
-            'specialties': <String>[],
+            'specialties': specialties,
             'includeNPI': true,
             'telehealth': false,
             'acceptsPregnant': true,
             'acceptsNewborns': false,
-            'mamaApprovedOnly': false,
-            'identityTags': <String>[],
-            'languages': <String>[],
+            'mamaApprovedOnly': _mamaApprovedOnly,
+            'identityTags': List<String>.from(_selectedIdentityTags),
+            'languages': List<String>.from(_selectedLanguages),
           },
         ),
       ),
@@ -231,17 +305,29 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
         if (name != null) types = [name];
       }
     }
+    final zip = _zipController.text.trim();
+    final city = _cityController.text.trim();
     Navigator.push(
       context,
       MaterialPageRoute<void>(
         builder: (context) => ProviderSearchEntryScreen(
           prefill: ProviderSearchPrefill(
-            zip: _zip.isNotEmpty ? _zip : null,
-            city: _city.isNotEmpty ? _city : null,
+            zip: zip.length == 5 ? zip : null,
+            city: city.isNotEmpty ? city : null,
             radius: '$_radius',
             healthPlan: _healthPlan,
             providerTypeDisplayNames: types,
             includeNpi: true,
+            identityTagLabels: _selectedIdentityTags.isEmpty
+                ? null
+                : List<String>.from(_selectedIdentityTags),
+            languages: _selectedLanguages.isEmpty
+                ? null
+                : List<String>.from(_selectedLanguages),
+            specialtyQuery: _specialtyController.text.trim().isEmpty
+                ? null
+                : _specialtyController.text.trim(),
+            mamaApprovedOnly: _mamaApprovedOnly,
           ),
         ),
       ),
@@ -250,11 +336,20 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final zip = _zipController.text.trim();
+    final city = _cityController.text.trim();
     final summaryParts = <String>[];
-    if (_zip.length == 5) summaryParts.add('ZIP $_zip');
+    if (zip.length == 5) summaryParts.add('ZIP $zip');
     summaryParts.add('$_radius mi');
-    if (_city.isNotEmpty) summaryParts.add(_city);
+    if (city.isNotEmpty) summaryParts.add(city);
     summaryParts.add(_healthPlan);
+    if (_mamaApprovedOnly) summaryParts.add('Mama Approved');
+    if (_selectedIdentityTags.isNotEmpty) {
+      summaryParts.add('${_selectedIdentityTags.length} cultural tag(s)');
+    }
+    if (_selectedLanguages.isNotEmpty) {
+      summaryParts.add('${_selectedLanguages.length} language(s)');
+    }
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
@@ -284,6 +379,195 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _zipController,
+                          keyboardType: TextInputType.number,
+                          maxLength: 5,
+                          onChanged: (_) => setState(() {}),
+                          decoration: InputDecoration(
+                            counterText: '',
+                            labelText: 'ZIP',
+                            filled: true,
+                            fillColor: AppTheme.surfaceCard,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: _cityController,
+                          onChanged: (_) => setState(() {}),
+                          textCapitalization: TextCapitalization.words,
+                          decoration: InputDecoration(
+                            labelText: 'City',
+                            filled: true,
+                            fillColor: AppTheme.surfaceCard,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _healthPlan,
+                          decoration: InputDecoration(
+                            labelText: 'Insurance / plan',
+                            filled: true,
+                            fillColor: AppTheme.surfaceCard,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          items: _healthPlans
+                              .map(
+                                (p) => DropdownMenuItem(value: p, child: Text(p)),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) setState(() => _healthPlan = v);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: '$_radius',
+                          decoration: InputDecoration(
+                            labelText: 'Radius',
+                            filled: true,
+                            fillColor: AppTheme.surfaceCard,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          items: _radiusOptions
+                              .map(
+                                (r) => DropdownMenuItem(
+                                  value: r,
+                                  child: Text('$r mi'),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _radius = int.tryParse(v) ?? 10);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Mama Approved only'),
+                    value: _mamaApprovedOnly,
+                    activeTrackColor: AppTheme.brandPurple.withValues(alpha: 0.45),
+                    activeThumbColor: AppTheme.brandPurple,
+                    onChanged: (v) => setState(() => _mamaApprovedOnly = v),
+                  ),
+                  TextField(
+                    controller: _specialtyController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'Specialty (optional)',
+                      hintText: 'e.g. high-risk pregnancy',
+                      filled: true,
+                      fillColor: AppTheme.surfaceCard,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Theme(
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: Text(
+                        'Race/ethnicity, language & cultural tags',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      childrenPadding: const EdgeInsets.only(bottom: 8),
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Cultural / identity',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: _identityTagOptions.map((label) {
+                            final sel = _selectedIdentityTags.contains(label);
+                            return FilterChip(
+                              label: Text(
+                                label,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              selected: sel,
+                              onSelected: (_) => _toggleIdentity(label),
+                              selectedColor: AppTheme.brandPurple.withValues(alpha: 0.2),
+                              checkmarkColor: AppTheme.brandPurple,
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Language',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: _languageOptions.map((label) {
+                            final sel = _selectedLanguages.contains(label);
+                            return FilterChip(
+                              label: Text(
+                                label,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              selected: sel,
+                              onSelected: (_) => _toggleLanguage(label),
+                              selectedColor: AppTheme.brandPurple.withValues(alpha: 0.2),
+                              checkmarkColor: AppTheme.brandPurple,
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Material(
                     elevation: 2,
                     shadowColor: Colors.black26,

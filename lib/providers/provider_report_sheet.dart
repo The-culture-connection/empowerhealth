@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../cors/ui_theme.dart';
 import '../models/provider_report.dart';
+import '../services/analytics_service.dart';
+import '../services/database_service.dart';
 import '../services/provider_repository.dart';
 
 Future<void> showProviderReportSheet(
@@ -63,25 +65,34 @@ class _ProviderReportSheetBodyState extends State<_ProviderReportSheetBody> {
       return;
     }
     setState(() => _submitting = true);
+    final messenger = ScaffoldMessenger.maybeOf(context);
     try {
+      final detailsText = _detailsController.text.trim();
       await _repository.submitProviderReport(
         providerId: widget.providerId,
         providerName: widget.providerName,
         userId: uid,
         reasonCategory: _reason,
-        details: _detailsController.text.trim().isEmpty
-            ? null
-            : _detailsController.text.trim(),
+        details: detailsText.isEmpty ? null : detailsText,
       );
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Thanks — our team will review this listing.'),
-            backgroundColor: Colors.green,
-          ),
+      try {
+        final profile = await DatabaseService().getUserProfile(uid);
+        await AnalyticsService().logProviderListingReportSubmitted(
+          providerId: widget.providerId,
+          reasonCategory: _reason,
+          reasonCategoryLabel:
+              ProviderReportReason.labels[_reason] ?? _reason,
+          hasDetails: detailsText.isNotEmpty,
+          userProfile: profile,
         );
-      }
+      } catch (_) {}
+      if (mounted) Navigator.of(context).pop();
+      messenger?.showSnackBar(
+        const SnackBar(
+          content: Text('Thank you — we received your report and will review it.'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -54,7 +54,12 @@ export const EVENT_DICTIONARY: Record<string, DictionaryEntry> = {
     status: "tracked",
   },
   provider_review_submitted: {
-    measures: "User submitted a provider review (rating + optional text)",
+    measures:
+      "User submitted a provider review (rating, optional narrative, and experience flags when present: felt_heard, felt_respected, explained_clearly, has_what_went_well)",
+    status: "tracked",
+  },
+  provider_listing_report_submitted: {
+    measures: "User reported a provider listing for triage (reason_category, optional details)",
     status: "tracked",
   },
   micro_measure_submitted: {

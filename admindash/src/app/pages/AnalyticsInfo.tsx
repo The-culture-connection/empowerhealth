@@ -186,9 +186,21 @@ const SECTIONS: FeatureSection[] = [
         event: "provider_review_submitted",
         feature: "provider-search",
         phase: "action",
-        behaviorMeasured: "User submitted a provider review (rating + optional text)",
+        behaviorMeasured:
+          "User submitted a provider review (rating, optional narrative, experience flags when present)",
         status: "tracked",
-        implementationNotes: "After successful Firestore submit on ProviderReviewScreen.",
+        implementationNotes:
+          "After successful Firestore submit on ProviderReviewScreen; metadata includes felt_heard, felt_respected, explained_clearly, has_what_went_well, review_text_length when applicable.",
+      },
+      {
+        id: "ps-provider_listing_report_submitted",
+        event: "provider_listing_report_submitted",
+        feature: "provider-search",
+        phase: "action",
+        behaviorMeasured: "User reported a provider listing for admin triage",
+        status: "tracked",
+        implementationNotes:
+          "After successful `provider_reports` write from provider report sheet; includes reason_category, reason_category_label, has_details.",
       },
       {
         id: "ps-provider_filter_applied",

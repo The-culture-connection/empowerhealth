@@ -65,6 +65,52 @@ function zeroInWhitelist(ev: NormalizedEvent[], whitelist: readonly string[]): s
   return whitelist.filter((n) => (counts.get(n) || 0) === 0);
 }
 
+/** Review + listing-report analytics (metadata from mobile `logEvent` payloads). */
+function providerPeerFeedbackFromEvents(ev: NormalizedEvent[]): {
+  lines: string[];
+  extraKpis: { key: string; label: string; value: string | number }[];
+} {
+  const rev = ev.filter((e) => e.eventName === "provider_review_submitted");
+  const rep = ev.filter((e) => e.eventName === "provider_listing_report_submitted");
+  const nRev = rev.length;
+  const nRep = rep.length;
+  const metaT = (e: NormalizedEvent, k: string) => e.metadata[k] === true;
+  const heard = rev.filter((e) => metaT(e, "felt_heard")).length;
+  const respected = rev.filter((e) => metaT(e, "felt_respected")).length;
+  const clear = rev.filter((e) => metaT(e, "explained_clearly")).length;
+  const www = rev.filter((e) => metaT(e, "has_what_went_well")).length;
+  const share = (num: number) => (nRev > 0 ? M.pct(M.safeRate(num, nRev)) : "n/a");
+
+  const lines: string[] = [
+    `Provider directory peer signals in this event set: ${nRev} review submissions, ${nRep} listing reports.`,
+  ];
+  if (nRev > 0) {
+    lines.push(
+      `Among review events, shares with felt_heard / felt_respected / explained_clearly / has_what_went_well are ≈ ${share(heard)} / ${share(respected)} / ${share(clear)} / ${share(www)}.`,
+    );
+  } else if (nRep > 0) {
+    lines.push("No review events in range; listing reports still show users flagging directory issues.");
+  }
+
+  const extraKpis: { key: string; label: string; value: string | number }[] = [
+    { key: "provider_review_events", label: "provider_review_submitted (count)", value: nRev },
+    {
+      key: "provider_listing_report_events",
+      label: "provider_listing_report_submitted (count)",
+      value: nRep,
+    },
+  ];
+  if (nRev > 0) {
+    extraKpis.push(
+      { key: "review_felt_heard_share", label: "Reviews w/ felt_heard", value: share(heard) },
+      { key: "review_felt_respected_share", label: "Reviews w/ felt_respected", value: share(respected) },
+      { key: "review_explained_clearly_share", label: "Reviews w/ explained_clearly", value: share(clear) },
+      { key: "review_has_www_share", label: "Reviews w/ has_what_went_well", value: share(www) },
+    );
+  }
+  return { lines, extraKpis };
+}
+
 function pulseOutcome(ev: NormalizedEvent[]): OutcomeSignalsBlock {
   const n =
     ev.filter((e) => e.eventName === "micro_measure_submitted" || e.eventName === "confidence_signal_submitted")
@@ -211,8 +257,10 @@ export function buildSelfAdvocacyReport(dataset: ReportDataset, params: ReportPa
   const zeros = zeroInWhitelist(ev, WHITELIST[type]);
 
   const pulse = pulseOutcome(ev);
+  const peer = providerPeerFeedbackFromEvents(ev);
   const outcome: OutcomeSignalsBlock = {
     lines: [
+      ...peer.lines,
       ...pulse.lines,
       `CareSurvey: ${care.length} submissions; composite access score (1–5): ${avgCare != null ? avgCare.toFixed(2) : "n/a"}.`,
     ],
@@ -234,10 +282,18 @@ export function buildSelfAdvocacyReport(dataset: ReportDataset, params: ReportPa
   if (conclusions.length === 0) {
     conclusions.push("Widen the date range or confirm instrumentation if confidence and journal signals look thin.");
   }
+  if (peer.extraKpis[0] && Number(peer.extraKpis[0].value) > 0) {
+    conclusions.push(
+      "Provider reviews in this window carry structured experience flags—useful for whether users feel heard and respected in care settings.",
+    );
+  }
+  if (Number(peer.extraKpis[1]?.value ?? 0) > 0) {
+    conclusions.push("Listing reports indicate users exercising judgment on directory accuracy and safety.");
+  }
 
   const trend = mainTrendFromDaily(ev, "journal_entry_created");
   const evidence: EvidenceReport = {
-    summaryParagraph: `Self-advocacy confidence is summarized using only journal, visit-summary, micro-measure, confidence pulse, and CareSurvey sources listed below. ${users.size} users generated at least one whitelisted analytics event in range; CareSurvey adds structured navigation confidence.`,
+    summaryParagraph: `Self-advocacy confidence is summarized using journal, visit-summary, micro-measure, confidence pulse, CareSurvey, and provider directory peer signals (reviews + listing reports) listed below. ${users.size} users generated at least one whitelisted analytics event in range; CareSurvey adds structured navigation confidence.`,
     totalUsers: users.size,
     dateRangeLabel: makeSummary("", params).dateRangeLabel,
     mainTrend: trend,
@@ -248,6 +304,7 @@ export function buildSelfAdvocacyReport(dataset: ReportDataset, params: ReportPa
       { key: "journalUsers", label: "Users w/ journal_entry_created", value: journalUsers.size },
       { key: "careSurveyN", label: "CareSurvey submissions", value: care.length },
       { key: "avgCareComposite", label: "Avg CareSurvey composite", value: avgCare != null ? avgCare.toFixed(2) : "n/a" },
+      ...peer.extraKpis,
     ],
     outcomeSignals: outcome,
     conclusions,
@@ -444,8 +501,10 @@ export function buildEngagementPathwayReport(dataset: ReportDataset, params: Rep
     conclusions.push(`Average screen_time_spent duration where present: ${avgScreen != null ? `${avgScreen.toFixed(0)}s` : "n/a"}; feature_time_spent: ${avgFeat != null ? `${avgFeat.toFixed(0)}s` : "n/a"}.`);
   }
 
+  const peer = providerPeerFeedbackFromEvents(ev);
+
   const evidence: EvidenceReport = {
-    summaryParagraph: `Engagement compares only the listed shell, learning, provider, community, journal, and birth-plan events. Cohort tags come from event metadata (navigator / self_directed). ${users.size} users generated at least one whitelisted event.`,
+    summaryParagraph: `Engagement compares the listed shell, learning, provider (including reviews and listing reports), community, journal, and birth-plan events. Cohort tags come from event metadata (navigator / self_directed). ${users.size} users generated at least one whitelisted event.`,
     totalUsers: users.size,
     dateRangeLabel: makeSummary("", params).dateRangeLabel,
     mainTrend: mainTrendFromDaily(ev, "session_started"),
@@ -459,9 +518,13 @@ export function buildEngagementPathwayReport(dataset: ReportDataset, params: Rep
       { key: "moduleRate_self", label: "Module completion rate (self-directed users)", value: M.pct(selfRate) },
       { key: "avgScreenSec", label: "Avg screen_time_spent duration (s)", value: avgScreen != null ? avgScreen.toFixed(0) : "n/a" },
       { key: "avgFeatureSec", label: "Avg feature_time_spent duration (s)", value: avgFeat != null ? avgFeat.toFixed(0) : "n/a" },
+      ...peer.extraKpis,
     ],
     outcomeSignals: {
-      lines: ["Outcome surveys are not primary in this report; focus is behavioral engagement by cohort."],
+      lines: [
+        ...peer.lines,
+        "Outcome surveys are not primary in this report; focus is behavioral engagement by cohort.",
+      ],
     },
     conclusions,
     coverageNote: coverageNoteFromRows(rowsE, zeros),
@@ -587,6 +650,7 @@ export function buildCommunitySupportReport(dataset: ReportDataset, params: Repo
   const overlap = new Set([...postU].filter((u) => journalU.has(u)));
 
   const helpful = M.countByEvent(ev, "helpfulness_survey_submitted");
+  const peer = providerPeerFeedbackFromEvents(ev);
 
   const conclusions: string[] = [];
   if (postU.size > 0 && journalU.size > 0 && overlap.size > 0) {
@@ -601,9 +665,12 @@ export function buildCommunitySupportReport(dataset: ReportDataset, params: Repo
   if (conclusions.length < 2) {
     conclusions.push("Reply and like counts help gauge reciprocity; widen dates if interaction counts look small.");
   }
+  if (Number(peer.extraKpis[0]?.value ?? 0) > 0) {
+    conclusions.push("Provider reviews tie community-adjacent trust signals to real care experiences shared in-app.");
+  }
 
   const evidence: EvidenceReport = {
-    summaryParagraph: `Community support is measured only from community, journal, helpfulness, and CareSurvey sources listed. ${users.size} users had ≥1 whitelisted event.`,
+    summaryParagraph: `Community support is measured from community, journal, helpfulness, CareSurvey, and provider peer-feedback events (reviews + listing reports) listed. ${users.size} users had ≥1 whitelisted event.`,
     totalUsers: users.size,
     dateRangeLabel: makeSummary("", params).dateRangeLabel,
     mainTrend: mainTrendFromDaily(ev, "community_post_created"),
@@ -616,9 +683,11 @@ export function buildCommunitySupportReport(dataset: ReportDataset, params: Repo
       { key: "careSurveyN", label: "CareSurvey submissions", value: care.length },
       { key: "avgCare", label: "Avg CareSurvey composite", value: avgCare != null ? avgCare.toFixed(2) : "n/a" },
       { key: "helpfulness", label: "helpfulness_survey_submitted", value: helpful },
+      ...peer.extraKpis,
     ],
     outcomeSignals: {
       lines: [
+        ...peer.lines,
         `CareSurvey (clarity / access proxy): ${care.length} docs, avg composite ${avgCare != null ? avgCare.toFixed(2) : "n/a"}.`,
         `Users both posting and journaling: ${overlap.size} (overlap among users with either action).`,
       ],

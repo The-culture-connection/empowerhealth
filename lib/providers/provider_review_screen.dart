@@ -122,9 +122,15 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
 
       try {
         final profile = await _databaseService.getUserProfile(userId);
+        final well = _whatWentWellController.text.trim();
         await _analytics.logProviderReviewSubmitted(
           providerId: firestoreProviderId ?? review.providerId,
           rating: _rating,
+          feltHeard: _feltHeard,
+          feltRespected: _feltRespected,
+          explainedClearly: _explainedClearly,
+          hasWhatWentWell: well.isNotEmpty,
+          reviewTextLength: _reviewController.text.trim().length,
           userProfile: profile,
         );
       } catch (e) {

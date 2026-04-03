@@ -1550,6 +1550,11 @@ class AnalyticsService {
   Future<void> logProviderReviewSubmitted({
     required String providerId,
     int? rating,
+    bool? feltHeard,
+    bool? feltRespected,
+    bool? explainedClearly,
+    bool? hasWhatWentWell,
+    int? reviewTextLength,
     UserProfile? userProfile,
   }) async {
     await logEvent(
@@ -1558,6 +1563,32 @@ class AnalyticsService {
       parameters: {
         'provider_id': providerId,
         if (rating != null) 'rating': rating,
+        if (feltHeard != null) 'felt_heard': feltHeard,
+        if (feltRespected != null) 'felt_respected': feltRespected,
+        if (explainedClearly != null) 'explained_clearly': explainedClearly,
+        if (hasWhatWentWell != null) 'has_what_went_well': hasWhatWentWell,
+        if (reviewTextLength != null) 'review_text_length': reviewTextLength,
+      },
+      userProfile: userProfile,
+    );
+  }
+
+  Future<void> logProviderListingReportSubmitted({
+    required String providerId,
+    required String reasonCategory,
+    String? reasonCategoryLabel,
+    bool hasDetails,
+    UserProfile? userProfile,
+  }) async {
+    await logEvent(
+      eventName: 'provider_listing_report_submitted',
+      feature: 'provider-search',
+      parameters: {
+        'provider_id': providerId,
+        'reason_category': reasonCategory,
+        if (reasonCategoryLabel != null && reasonCategoryLabel.isNotEmpty)
+          'reason_category_label': reasonCategoryLabel,
+        'has_details': hasDetails,
       },
       userProfile: userProfile,
     );

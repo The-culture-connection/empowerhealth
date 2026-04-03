@@ -20,6 +20,8 @@ export const WHITELIST: Record<ReportType, readonly string[]> = {
     "visit_summary_viewed",
     "micro_measure_submitted",
     "confidence_signal_submitted",
+    "provider_review_submitted",
+    "provider_listing_report_submitted",
   ],
   care_navigation_success: [
     "provider_search_initiated",
@@ -73,6 +75,8 @@ export const WHITELIST: Record<ReportType, readonly string[]> = {
     "journal_entry_created",
     "journal_mood_selected",
     "helpfulness_survey_submitted",
+    "provider_review_submitted",
+    "provider_listing_report_submitted",
   ],
 };
 

@@ -310,6 +310,7 @@ class ProviderRepository {
 
   /// Find provider in Firestore by NPI or name+location match
   /// Returns null on any error (permission-denied, not found, etc.)
+  /// Skips [directoryHidden] rows so removed listings are not reattached.
   /// This method should never throw - all errors are caught and return null
   Future<Provider?> _findProviderInFirestore(Provider provider) async {
     try {
@@ -319,11 +320,13 @@ class ProviderRepository {
           final query = await _firestore
               .collection('providers')
               .where('npi', isEqualTo: provider.npi)
-              .limit(1)
+              .limit(10)
               .get();
 
-          if (query.docs.isNotEmpty) {
-            return Provider.fromMap(query.docs.first.data(), id: query.docs.first.id);
+          for (final doc in query.docs) {
+            final data = doc.data();
+            if (data['directoryHidden'] == true) continue;
+            return Provider.fromMap(data, id: doc.id);
           }
         } catch (e) {
           // Permission denied or other Firestore error - return null silently
@@ -352,17 +355,16 @@ class ProviderRepository {
             // Filter by location in memory
             for (var doc in nameQuery.docs) {
               final data = doc.data();
+              if (data['directoryHidden'] == true) continue;
               if (data['locations'] != null && data['locations'] is List) {
                 final locations = data['locations'] as List;
-                final match = locations.any((l) => 
-                  l is Map && 
+                final match = locations.any((l) =>
+                  l is Map &&
                   (city.isEmpty || (l['city']?.toString().toUpperCase() ?? '') == city.toUpperCase()) &&
                   (zip.isEmpty || l['zip']?.toString() == zip)
                 );
                 if (match) {
-                  final d = doc.data();
-                  if (d['directoryHidden'] == true) continue;
-                  return Provider.fromMap(d, id: doc.id);
+                  return Provider.fromMap(data, id: doc.id);
                 }
               }
             }
@@ -394,6 +396,49 @@ class ProviderRepository {
       print('❌ Error getting provider: $e');
     }
     return null;
+  }
+
+  /// When opening a profile from search, re-check Firestore so [directoryHidden]
+  /// and fresh fields apply. Returns null if this listing was removed from the app directory.
+  Future<Provider?> resolveDirectoryListingForProfile(Provider p) async {
+    try {
+      if (p.id != null && p.id!.isNotEmpty) {
+        final snap =
+            await _firestore.collection('providers').doc(p.id!).get();
+        if (snap.exists) {
+          final data = snap.data()!;
+          if (data['directoryHidden'] == true) return null;
+          return Provider.fromMap(data, id: snap.id);
+        }
+        return p;
+      }
+
+      if (p.npi != null && p.npi!.isNotEmpty) {
+        final q = await _firestore
+            .collection('providers')
+            .where('npi', isEqualTo: p.npi)
+            .limit(20)
+            .get();
+        if (q.docs.isEmpty) return p;
+
+        final hiddenOnly = q.docs.every(
+          (d) => d.data()['directoryHidden'] == true,
+        );
+        if (hiddenOnly) return null;
+
+        final visible = q.docs.where(
+          (d) => d.data()['directoryHidden'] != true,
+        );
+        if (visible.isEmpty) return p;
+        final first = visible.first;
+        return p.copyWith(id: first.id);
+      }
+
+      return p;
+    } catch (e) {
+      print('⚠️ [ProviderRepository] resolveDirectoryListingForProfile: $e');
+      return p;
+    }
   }
 
   /// Enrich a provider with reviews by finding it in Firestore first
@@ -495,29 +540,30 @@ class ProviderRepository {
           final providerQuery = await _firestore
               .collection('providers')
               .where('npi', isEqualTo: npi)
-              .limit(1)
+              .limit(10)
               .get();
-          
-          if (providerQuery.docs.isNotEmpty) {
-            final firestoreProviderId = providerQuery.docs.first.id;
+
+          for (final doc in providerQuery.docs) {
+            if (doc.data()['directoryHidden'] == true) continue;
+            final firestoreProviderId = doc.id;
             print('✅ [ProviderRepository] Found Firestore provider with ID: $firestoreProviderId');
-            // Search reviews by Firestore ID
             try {
               final reviewsQuery = await _firestore
                   .collection('reviews')
                   .where('providerId', isEqualTo: firestoreProviderId)
                   .get();
-              
-              for (var doc in reviewsQuery.docs) {
-                if (!seenReviewIds.contains(doc.id)) {
-                  seenReviewIds.add(doc.id);
-                  allReviews.add(ProviderReview.fromMap(doc.data(), id: doc.id));
+
+              for (var rdoc in reviewsQuery.docs) {
+                if (!seenReviewIds.contains(rdoc.id)) {
+                  seenReviewIds.add(rdoc.id);
+                  allReviews.add(ProviderReview.fromMap(rdoc.data(), id: rdoc.id));
                 }
               }
               print('✅ [ProviderRepository] Found ${reviewsQuery.docs.length} additional reviews by Firestore ID: $firestoreProviderId');
             } catch (e) {
               print('⚠️ [ProviderRepository] Error getting reviews by Firestore ID: $e');
             }
+            break;
           }
         } catch (e) {
           print('⚠️ [ProviderRepository] Error finding Firestore provider by NPI: $e');
@@ -659,7 +705,8 @@ class ProviderRepository {
       
       // Update provider's review count after saving review
       await _updateProviderReviewCount(effectiveProviderId);
-      
+      await _mergeReviewIdentityIntoProvider(effectiveProviderId, review);
+
       // If admin marked as Mama Approved, update provider
       if (markMamaApproved && effectiveProviderId.isNotEmpty) {
         try {
@@ -704,18 +751,20 @@ class ProviderRepository {
     try {
       print('💾 [ProviderRepository] Saving provider to Firestore: ${provider.name}');
       
-      // Try to find existing provider by NPI first
+      // Try to find existing provider by NPI first (skip directory-hidden rows)
       String? providerId;
       if (provider.npi != null && provider.npi!.isNotEmpty) {
         final npiQuery = await _firestore
             .collection('providers')
             .where('npi', isEqualTo: provider.npi)
-            .limit(1)
+            .limit(10)
             .get();
-        
-        if (!npiQuery.docs.isEmpty) {
-          providerId = npiQuery.docs.first.id;
+
+        for (final doc in npiQuery.docs) {
+          if (doc.data()['directoryHidden'] == true) continue;
+          providerId = doc.id;
           print('✅ [ProviderRepository] Found existing provider by NPI: $providerId');
+          break;
         }
       }
       
@@ -730,11 +779,12 @@ class ProviderRepository {
         
         for (var doc in nameQuery.docs) {
           final data = doc.data();
+          if (data['directoryHidden'] == true) continue;
           if (data['locations'] != null && data['locations'] is List) {
             final locations = data['locations'] as List;
-            final match = locations.any((l) => 
-              l is Map && 
-              l['city'] == loc.city && 
+            final match = locations.any((l) =>
+              l is Map &&
+              l['city'] == loc.city &&
               l['zip'] == loc.zip
             );
             if (match) {
@@ -825,6 +875,100 @@ class ProviderRepository {
     }
   }
 
+  /// Resolves a Firestore `providers` document id for review-side updates, or null if hidden/missing.
+  Future<String?> _resolveVisibleFirestoreProviderDocId(String providerId) async {
+    if (providerId.isEmpty) return null;
+
+    if (providerId.startsWith('npi_')) {
+      final npi = providerId.substring(4);
+      final npiQuery = await _firestore
+          .collection('providers')
+          .where('npi', isEqualTo: npi)
+          .limit(10)
+          .get();
+      for (final d in npiQuery.docs) {
+        if (d.data()['directoryHidden'] == true) continue;
+        return d.id;
+      }
+      return null;
+    }
+
+    final doc = await _firestore.collection('providers').doc(providerId).get();
+    if (!doc.exists || doc.data()?['directoryHidden'] == true) return null;
+    return providerId;
+  }
+
+  /// Merges visit prompts and self-report labels from a review into `identityTags` (source: review).
+  Future<void> _mergeReviewIdentityIntoProvider(
+    String providerId,
+    ProviderReview review,
+  ) async {
+    final docId = await _resolveVisibleFirestoreProviderDocId(providerId);
+    if (docId == null) return;
+
+    final hasInput = review.feltHeard ||
+        review.feltRespected ||
+        review.explainedClearly ||
+        review.reviewerRaceEthnicity.isNotEmpty ||
+        review.reviewerLanguages.isNotEmpty ||
+        review.reviewerCulturalTags.isNotEmpty;
+    if (!hasInput) return;
+
+    final snap = await _firestore.collection('providers').doc(docId).get();
+    if (!snap.exists || snap.data()?['directoryHidden'] == true) return;
+
+    final data = snap.data()!;
+    final existing = (data['identityTags'] as List<dynamic>?) ?? [];
+    final byNameKey = <String, Map<String, dynamic>>{};
+    for (final e in existing) {
+      if (e is Map) {
+        final m = Map<String, dynamic>.from(e);
+        final n = (m['name'] as String?)?.trim().toLowerCase() ?? '';
+        if (n.isEmpty) continue;
+        byNameKey[n] = m;
+      }
+    }
+
+    final startCount = byNameKey.length;
+
+    void tryAdd(String label, String category) {
+      final trimmed = label.trim();
+      if (trimmed.isEmpty) return;
+      final key = trimmed.toLowerCase();
+      if (byNameKey.containsKey(key)) return;
+      final slug = key.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+      var id = 'review_${category}_${slug.isEmpty ? 'x' : slug}';
+      if (id.length > 120) id = id.substring(0, 120);
+      byNameKey[key] = {
+        'id': id,
+        'name': trimmed,
+        'category': category,
+        'source': 'review',
+        'verificationStatus': 'pending',
+      };
+    }
+
+    if (review.feltHeard) tryAdd('Felt heard', 'visit');
+    if (review.feltRespected) tryAdd('Felt respected', 'visit');
+    if (review.explainedClearly) tryAdd('Explained clearly', 'visit');
+    for (final t in review.reviewerRaceEthnicity) {
+      tryAdd(t, 'race');
+    }
+    for (final t in review.reviewerLanguages) {
+      tryAdd(t, 'language');
+    }
+    for (final t in review.reviewerCulturalTags) {
+      tryAdd(t, 'cultural');
+    }
+
+    if (byNameKey.length == startCount) return;
+
+    await _firestore.collection('providers').doc(docId).update({
+      'identityTags': byNameKey.values.toList(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   /// Update provider's review count after a review is submitted
   Future<void> _updateProviderReviewCount(String providerId) async {
     try {
@@ -833,21 +977,26 @@ class ProviderRepository {
       // Check if providerId is a Firestore ID or composite ID
       String? firestoreProviderId = providerId;
       
-      // Handle NPI-based IDs
+      // Handle NPI-based IDs (ignore directory-hidden matches)
       if (providerId.startsWith('npi_')) {
         final npi = providerId.substring(4);
         final npiQuery = await _firestore
             .collection('providers')
             .where('npi', isEqualTo: npi)
-            .limit(1)
+            .limit(10)
             .get();
-        
-        if (!npiQuery.docs.isEmpty) {
-          firestoreProviderId = npiQuery.docs.first.id;
+
+        String? foundId;
+        for (final d in npiQuery.docs) {
+          if (d.data()['directoryHidden'] == true) continue;
+          foundId = d.id;
+          break;
+        }
+        if (foundId != null) {
+          firestoreProviderId = foundId;
           print('✅ [ProviderRepository] Found Firestore provider by NPI: $firestoreProviderId');
         } else {
-          // Provider not in Firestore yet, can't update
-          print('⚠️ [ProviderRepository] Provider with NPI $npi not found in Firestore');
+          print('⚠️ [ProviderRepository] Provider with NPI $npi not found in Firestore (or hidden)');
           return;
         }
       }
@@ -859,12 +1008,14 @@ class ProviderRepository {
         print('⚠️ [ProviderRepository] Composite ID detected, provider should be saved first');
         return;
       }
-      
-      if (firestoreProviderId == null) {
-        print('⚠️ [ProviderRepository] Could not determine Firestore provider ID');
+
+      final providerSnap =
+          await _firestore.collection('providers').doc(firestoreProviderId).get();
+      if (!providerSnap.exists || providerSnap.data()?['directoryHidden'] == true) {
+        print('⚠️ [ProviderRepository] Skip review count update: doc missing or directoryHidden');
         return;
       }
-      
+
       // Count ALL reviews for this provider (by both original providerId and Firestore ID)
       final reviewsByOriginalId = await _firestore
           .collection('reviews')

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   collection,
   doc,
@@ -225,8 +225,21 @@ export function ProviderReviewsAdmin() {
                 ) : null}
                 <details className="mt-3 text-xs">
                   <summary className="cursor-pointer opacity-70 font-medium">All stored fields (metadata)</summary>
+                  <dl
+                    className="mt-2 grid grid-cols-[minmax(6rem,1fr)_minmax(0,2fr)] gap-x-3 gap-y-1.5 p-3 rounded-lg max-h-56 overflow-y-auto"
+                    style={{ backgroundColor: "#faf8fc", color: "var(--warm-600)" }}
+                  >
+                    {Object.keys(r.raw)
+                      .sort()
+                      .map((k) => (
+                        <Fragment key={k}>
+                          <dt className="font-medium opacity-85 break-all">{k}</dt>
+                          <dd className="break-words opacity-90">{formatFieldValue(r.raw[k])}</dd>
+                        </Fragment>
+                      ))}
+                  </dl>
                   <pre
-                    className="mt-2 p-3 rounded-lg overflow-x-auto max-h-64 overflow-y-auto text-[11px] leading-relaxed"
+                    className="mt-2 p-3 rounded-lg overflow-x-auto max-h-48 overflow-y-auto text-[11px] leading-relaxed"
                     style={{ backgroundColor: "#f8f5fc", color: "var(--warm-600)" }}
                   >
                     {safeJson(r.raw)}

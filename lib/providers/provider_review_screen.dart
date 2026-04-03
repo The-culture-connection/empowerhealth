@@ -99,12 +99,21 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
         userId: userId,
         userName: userName,
         rating: _rating,
-        reviewText: _reviewController.text.trim().isEmpty 
-            ? null 
+        reviewText: _reviewController.text.trim().isEmpty
+            ? null
             : _reviewController.text.trim(),
         wouldRecommend: _wouldRecommend,
+        feltHeard: _feltHeard,
+        feltRespected: _feltRespected,
+        explainedClearly: _explainedClearly,
+        whatWentWell: _whatWentWellController.text.trim().isEmpty
+            ? null
+            : _whatWentWellController.text.trim(),
+        reviewerRaceEthnicity: List<String>.from(_raceEthnicity),
+        reviewerLanguages: List<String>.from(_reviewLanguages),
+        reviewerCulturalTags: List<String>.from(_culturalTags),
         createdAt: DateTime.now(),
-        isVerified: true, // Provider reviews are verified
+        isVerified: false,
       );
 
       // Save provider to Firestore if provided, then submit review

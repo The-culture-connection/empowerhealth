@@ -41,23 +41,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   bool _showTagInfo = false;
   bool _reviewSubmitted = false; // Track if a review was submitted
   DateTime? _screenOpenedAt;
+  /// Shown when profile cannot load (e.g. [directoryHidden] or missing doc).
+  String? _profileUnavailableMessage;
 
   @override
   void initState() {
     super.initState();
     _screenOpenedAt = DateTime.now();
     if (widget.provider != null) {
-      // Provider passed directly - no need to load
-      setState(() {
-        _provider = widget.provider;
-        _isLoading = false;
-      });
-      // Track provider profile view and screen view
-      _trackProviderProfileView();
-      _trackScreenView();
-      // Always try to load reviews, even if provider doesn't have Firestore ID
-      // (might have NPI or composite ID)
-      _loadReviews();
+      _isLoading = true;
+      Future.microtask(() => _resolveProviderForProfile(widget.provider!));
     } else if (widget.providerId != null && widget.providerId!.isNotEmpty) {
       // Load from Firestore
       _loadProvider();
@@ -67,6 +60,42 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  /// Reconcile search/navigation payload with Firestore so hidden listings disappear.
+  Future<void> _resolveProviderForProfile(Provider initial) async {
+    try {
+      final resolved =
+          await _repository.resolveDirectoryListingForProfile(initial);
+      if (!mounted) return;
+      if (resolved == null) {
+        setState(() {
+          _provider = null;
+          _isLoading = false;
+          _profileUnavailableMessage =
+              'This provider is no longer listed in the directory.';
+        });
+        return;
+      }
+      setState(() {
+        _provider = resolved;
+        _isLoading = false;
+        _profileUnavailableMessage = null;
+      });
+      _trackProviderProfileView();
+      _trackScreenView();
+      _loadReviews();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _provider = initial;
+        _isLoading = false;
+        _profileUnavailableMessage = null;
+      });
+      _trackProviderProfileView();
+      _trackScreenView();
+      _loadReviews();
     }
   }
 
@@ -143,12 +172,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       setState(() {
         _provider = provider;
         _isLoading = false;
+        _profileUnavailableMessage = provider == null
+            ? 'This provider is no longer listed in the directory.'
+            : null;
       });
-      // Track provider profile view after loading
-      if (provider != null) {
-        _trackProviderProfileView();
-      }
-      // Track provider profile view after loading
       if (provider != null) {
         _trackProviderProfileView();
       }
@@ -791,72 +818,152 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     );
   }
 
+  String _identityCategoryTitle(String category) {
+    final c = category.toLowerCase().trim();
+    switch (c) {
+      case 'visit':
+        return 'Visit experience';
+      case 'race':
+        return 'Race / ethnicity';
+      case 'language':
+        return 'Language';
+      case 'cultural':
+        return 'Cultural';
+      case 'specialty':
+        return 'Specialty';
+      case 'certification':
+        return 'Certification';
+      default:
+        if (c.isEmpty) return 'Other tags';
+        return '${c[0].toUpperCase()}${c.substring(1)}';
+    }
+  }
+
+  int _identityCategoryOrder(String category) {
+    const order = [
+      'visit',
+      'race',
+      'language',
+      'cultural',
+      'specialty',
+      'certification',
+    ];
+    final c = category.toLowerCase().trim();
+    final i = order.indexOf(c);
+    return i >= 0 ? i : 50;
+  }
+
+  Widget _buildIdentityTagChip(IdentityTag tag) {
+    final verified = tag.verificationStatus == 'verified';
+    final screenW = MediaQuery.sizeOf(context).width;
+    final maxTagW = (screenW - 80).clamp(160.0, screenW);
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxTagW),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.purple.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.purple.shade100),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                tag.name,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.brandPurple,
+                  fontWeight: FontWeight.w300,
+                ),
+                softWrap: true,
+              ),
+            ),
+            if (verified) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.check_circle, size: 14, color: AppTheme.brandPurple),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildIdentityTags() {
     if (_provider!.identityTags.isEmpty) return const SizedBox.shrink();
+
+    final byCategory = <String, List<IdentityTag>>{};
+    for (final tag in _provider!.identityTags) {
+      final key = tag.category.trim().isEmpty ? 'other' : tag.category.trim();
+      byCategory.putIfAbsent(key, () => []).add(tag);
+    }
+    for (final list in byCategory.values) {
+      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    }
+    final categories = byCategory.keys.toList()
+      ..sort((a, b) {
+        final oa = _identityCategoryOrder(a);
+        final ob = _identityCategoryOrder(b);
+        if (oa != ob) return oa.compareTo(ob);
+        return a.toLowerCase().compareTo(b.toLowerCase());
+      });
 
     return _buildSection(
       title: 'Identity & Cultural Tags',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Identity & Cultural Tags',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: AppTheme.textSecondary,
+          Align(
+            alignment: Alignment.centerRight,
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _showTagInfo = !_showTagInfo;
+                });
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'About these tags',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        _showTagInfo = !_showTagInfo;
-                      });
-                    },
-                    child: Icon(
+                    const SizedBox(width: 6),
+                    Icon(
                       Icons.info_outline,
                       size: 18,
                       color: AppTheme.brandPurple,
                     ),
-                  ),
-                ],
-              ),
-              TextButton(
-                onPressed: () {
-                  // TODO: Navigate to add tag
-                },
-                child: Text(
-                  '+ Add tag',
-                  style: TextStyle(
-                    color: AppTheme.brandPurple,
-                    fontWeight: FontWeight.w300,
-                  ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
           if (_showTagInfo) ...[
             const SizedBox(height: 12),
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFE3F2FD), Color(0xFFF3E5F5)],
-                ),
+                color: const Color(0xFFF3ECFA),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.blue.shade100),
+                border: Border.all(color: Colors.purple.shade100),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'About identity tags:',
+                    'About identity tags',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
@@ -865,7 +972,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'These help mothers find culturally concordant care. Tags show their source and verification status for transparency. Community members can add tags, which are then reviewed by our team.',
+                    'These help you find culturally concordant care. Tags may come from the community or from visit experiences; verified tags show a checkmark.',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppTheme.textMuted,
@@ -876,114 +983,26 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          ..._provider!.identityTags.map((tag) {
-            MaterialColor statusColor;
-            IconData statusIcon;
-            switch (tag.verificationStatus) {
-              case 'verified':
-                statusColor = Colors.green;
-                statusIcon = Icons.check_circle;
-                break;
-              case 'pending':
-                statusColor = Colors.amber;
-                statusIcon = Icons.access_time;
-                break;
-              default:
-                statusColor = Colors.grey;
-                statusIcon = Icons.help_outline;
-            }
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: statusColor.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: statusColor.shade200),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            statusIcon,
-                            size: 16,
-                            color: statusColor.shade700,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            tag.name,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
-                              color: statusColor.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceCard.withOpacity(0.55),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          tag.verificationStatus,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: statusColor.shade700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Source: ${tag.source}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
           const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: () {
-              // TODO: Implement report
-            },
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+          for (final cat in categories) ...[
+            Text(
+              _identityCategoryTitle(cat),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: AppTheme.textSecondary,
               ),
-              side: BorderSide(color: AppTheme.borderLight),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.flag, size: 16, color: AppTheme.textMuted),
-                const SizedBox(width: 8),
-                Text(
-                  'Report incorrect info',
-                  style: TextStyle(
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
-              ],
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: byCategory[cat]!
+                  .map((tag) => _buildIdentityTagChip(tag))
+                  .toList(),
             ),
-          ),
+            const SizedBox(height: 16),
+          ],
         ],
       ),
     );
@@ -1089,28 +1108,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             color: AppTheme.textSecondary,
                           ),
                         ),
-                        if (review.isVerified)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.blue.shade200,
-                              ),
-                            ),
-                            child: Text(
-                              'Verified Patient',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: AppTheme.brandPurple,
-                                fontWeight: FontWeight.w300,
-                              ),
-                            ),
-                          ),
                         if (review.wouldRecommend)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -1160,6 +1157,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         review.feltRespected ||
                         review.explainedClearly) ...[
                       const SizedBox(height: 10),
+                      Text(
+                        'How was your visit?',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
@@ -1199,20 +1205,107 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         review.reviewerLanguages.isNotEmpty ||
                         review.reviewerCulturalTags.isNotEmpty) ...[
                       const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          ...review.reviewerRaceEthnicity.map(
-                            (t) => _experienceReviewChip(t),
+                      if (review.reviewerRaceEthnicity.isNotEmpty) ...[
+                        Text(
+                          'Race / ethnicity',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textMuted,
                           ),
-                          ...review.reviewerLanguages.map(
-                            (t) => _experienceReviewChip(t),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: review.reviewerRaceEthnicity
+                              .map((t) => _experienceReviewChip(t))
+                              .toList(),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      if (review.reviewerLanguages.isNotEmpty) ...[
+                        Text(
+                          'Language',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textMuted,
                           ),
-                          ...review.reviewerCulturalTags.map(
-                            (t) => _experienceReviewChip(t),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: review.reviewerLanguages
+                              .map((t) => _experienceReviewChip(t))
+                              .toList(),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      if (review.reviewerCulturalTags.isNotEmpty) ...[
+                        Text(
+                          'Cultural tags',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textMuted,
                           ),
-                        ],
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: review.reviewerCulturalTags
+                              .map((t) => _experienceReviewChip(t))
+                              .toList(),
+                        ),
+                      ],
+                    ],
+                    if (review.helpfulCount > 0) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${review.helpfulCount} found this helpful',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                    ],
+                    if (review.experienceFields != null &&
+                        review.experienceFields!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Additional notes',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        review.experienceFields!.entries
+                            .map((e) => '${e.key}: ${e.value}')
+                            .join('\n'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w300,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                    if (review.updatedAt != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Updated ${review.updatedAt!.toLocal().toString().split('.').first}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.textLight,
+                          fontWeight: FontWeight.w300,
+                        ),
                       ),
                     ],
                     if (review.reviewText != null) ...[

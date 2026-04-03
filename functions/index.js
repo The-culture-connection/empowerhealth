@@ -4740,7 +4740,11 @@ async function searchFirestoreProviders(searchParams) {
     // Filter providers by location and provider types
     for (const doc of snapshot.docs) {
       const data = doc.data();
-      
+
+      if (data.directoryHidden === true) {
+        continue;
+      }
+
       // Check if provider has locations matching the search
       if (!data.locations || !Array.isArray(data.locations) || data.locations.length === 0) {
         continue;
@@ -4821,27 +4825,35 @@ async function searchFirestoreProviders(searchParams) {
 // Helper function to enrich providers with Firestore data
 async function enrichProvidersWithFirestore(providers) {
   const enriched = [];
-  
+
   for (const provider of providers) {
     try {
       // Try to find provider in Firestore by NPI or name+location
       let firestoreProvider = null;
       let firestoreId = null;
-      
-      // Try by NPI first
+      let matchedHiddenDirectory = false;
+
+      // Try by NPI first (skip directory-hidden; if only hidden matches, drop this listing)
       if (provider.npi) {
         const npiQuery = await admin.firestore()
           .collection("providers")
           .where("npi", "==", provider.npi)
-          .limit(1)
+          .limit(10)
           .get();
-        
-        if (!npiQuery.empty) {
-          firestoreProvider = npiQuery.docs[0].data();
-          firestoreId = npiQuery.docs[0].id;
+
+        for (const doc of npiQuery.docs) {
+          const data = doc.data();
+          if (data.directoryHidden === true) {
+            matchedHiddenDirectory = true;
+            continue;
+          }
+          firestoreProvider = data;
+          firestoreId = doc.id;
+          matchedHiddenDirectory = false;
+          break;
         }
       }
-      
+
       // If not found by NPI, try by name+location
       if (!firestoreProvider && provider.locations && provider.locations.length > 0) {
         const loc = provider.locations[0];
@@ -4850,21 +4862,29 @@ async function enrichProvidersWithFirestore(providers) {
           .where("name", "==", provider.name)
           .limit(10)
           .get();
-        
-        // Find matching location
+
         for (const doc of nameQuery.docs) {
           const data = doc.data();
           if (data.locations && Array.isArray(data.locations)) {
-            const match = data.locations.find((l) => 
+            const match = data.locations.find((l) =>
               l.city === loc.city && l.zip === loc.zip
             );
             if (match) {
+              if (data.directoryHidden === true) {
+                matchedHiddenDirectory = true;
+                continue;
+              }
               firestoreProvider = data;
               firestoreId = doc.id;
+              matchedHiddenDirectory = false;
               break;
             }
           }
         }
+      }
+
+      if (!firestoreProvider && matchedHiddenDirectory) {
+        continue;
       }
       
       // Calculate average rating from reviews
@@ -4894,26 +4914,27 @@ async function enrichProvidersWithFirestore(providers) {
         }
       }
       
-      // If no rating found and provider has NPI, try to find reviews by NPI
+      // If no rating found and provider has NPI, try to find reviews by NPI (visible directory rows only)
       if ((rating == null || rating == 0) && provider.npi) {
         try {
-          // Try to find provider by NPI to get Firestore ID
           const npiProviderQuery = await admin.firestore()
             .collection("providers")
             .where("npi", "==", provider.npi)
-            .limit(1)
+            .limit(10)
             .get();
-          
-          if (!npiProviderQuery.empty) {
-            const npiProviderId = npiProviderQuery.docs[0].id;
+
+          for (const doc of npiProviderQuery.docs) {
+            const pdata = doc.data();
+            if (pdata.directoryHidden === true) continue;
+            const npiProviderId = doc.id;
             const reviewsQuery = await admin.firestore()
               .collection("reviews")
               .where("providerId", "==", npiProviderId)
               .limit(50)
               .get();
-            
+
             if (!reviewsQuery.empty) {
-              const reviews = reviewsQuery.docs.map((doc) => doc.data());
+              const reviews = reviewsQuery.docs.map((d) => d.data());
               if (reviews.length > 0) {
                 const totalRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
                 rating = totalRating / reviews.length;
@@ -4921,6 +4942,7 @@ async function enrichProvidersWithFirestore(providers) {
                 console.log(`[Enrich] Provider NPI ${provider.npi}: calculated rating ${rating} from ${reviews.length} reviews`);
               }
             }
+            break;
           }
         } catch (error) {
           console.error(`Error getting reviews by NPI for ${provider.npi}:`, error);

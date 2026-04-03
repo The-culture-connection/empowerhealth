@@ -8,6 +8,7 @@ import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/mama_approved_community_badge.dart';
+import 'provider_report_sheet.dart';
 import 'provider_review_screen.dart';
 
 class ProviderProfileScreen extends StatefulWidget {
@@ -31,6 +32,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   Provider? _provider;
   List<ProviderReview> _reviews = [];
   bool _isLoading = true;
+
+  /// Shown on profile; moderated reviews can be hidden via [ProviderReview.status].
+  List<ProviderReview> get _publishedReviews =>
+      _reviews.where((r) => r.status == 'published').toList();
   bool _isSaved = false;
   bool _showMamaApprovedInfo = false;
   bool _showTagInfo = false;
@@ -152,6 +157,17 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  String _reportProviderId() {
+    if (_provider == null) return 'unknown';
+    final id = _provider!.id;
+    if (id != null && id.isNotEmpty) return id;
+    final npi = _provider!.npi;
+    if (npi != null && npi.isNotEmpty) return 'npi_$npi';
+    final pid = widget.providerId;
+    if (pid != null && pid.isNotEmpty) return pid;
+    return 'unknown';
   }
 
   Future<void> _loadReviews() async {
@@ -321,6 +337,34 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       _buildProviderHeader(),
                       const SizedBox(height: 16), // mb-4
                       _buildQuickActions(),
+                      if (_provider != null) ...[
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.center,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              showProviderReportSheet(
+                                context,
+                                providerId: _reportProviderId(),
+                                providerName: _provider!.primaryDisplayName,
+                              );
+                            },
+                            icon: Icon(
+                              Icons.flag_outlined,
+                              size: 18,
+                              color: AppTheme.textMuted,
+                            ),
+                            label: Text(
+                              'Report inaccurate or harmful info',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textMuted,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16), // mb-4
                       _buildContactInfo(),
                       const SizedBox(height: 16), // mb-4
@@ -464,9 +508,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               Text(
                 _provider!.rating != null && _provider!.rating! > 0
                     ? _provider!.rating!.toStringAsFixed(1)
-                    : _reviews.isNotEmpty
-                    ? (_reviews.fold<double>(0.0, (sum, r) => sum + r.rating) /
-                              _reviews.length)
+                    : _publishedReviews.isNotEmpty
+                    ? (_publishedReviews.fold<double>(
+                            0.0, (sum, r) => sum + r.rating) /
+                          _publishedReviews.length)
                           .toStringAsFixed(1)
                     : 'N/A',
                 style: const TextStyle(
@@ -477,7 +522,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                '(${_reviews.length} reviews)',
+                '(${_publishedReviews.length} reviews)',
                 style: TextStyle(
                   fontSize: 14,
                   color: AppTheme.brandWhite.withOpacity(0.8),
@@ -992,16 +1037,35 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     );
   }
 
+  Widget _experienceReviewChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3E5F5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE1BEE7)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          color: AppTheme.brandPurple,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+    );
+  }
+
   Widget _buildReviews() {
     // Use actual review count from loaded reviews
-    final reviewCount = _reviews.length;
+    final reviewCount = _publishedReviews.length;
     return _buildSection(
       title: 'Patient Experiences ($reviewCount)',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_reviews.isNotEmpty) ...[
-            ..._reviews.take(3).toList().map((review) {
+          if (_publishedReviews.isNotEmpty) ...[
+            ..._publishedReviews.take(3).map((review) {
               return Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(16),
@@ -1092,6 +1156,45 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         ),
                       ],
                     ),
+                    if (review.feltHeard ||
+                        review.feltRespected ||
+                        review.explainedClearly) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          if (review.feltHeard)
+                            _experienceReviewChip('Felt heard'),
+                          if (review.feltRespected)
+                            _experienceReviewChip('Felt respected'),
+                          if (review.explainedClearly)
+                            _experienceReviewChip('Explained clearly'),
+                        ],
+                      ),
+                    ],
+                    if (review.whatWentWell != null &&
+                        review.whatWentWell!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'What went well',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        review.whatWentWell!.trim(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w300,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                     if (review.reviewText != null) ...[
                       const SizedBox(height: 12),
                       Text(
@@ -1300,15 +1403,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           if (updatedProvider != null && mounted) {
                             setState(() {
                               _provider = updatedProvider.copyWith(
-                                // Use reviews we just loaded for rating/count
-                                rating: _reviews.isNotEmpty
-                                    ? _reviews.fold<double>(
+                                rating: _publishedReviews.isNotEmpty
+                                    ? _publishedReviews.fold<double>(
                                             0.0,
                                             (sum, r) => sum + r.rating,
                                           ) /
-                                          _reviews.length
+                                          _publishedReviews.length
                                     : updatedProvider.rating,
-                                reviewCount: _reviews.length,
+                                reviewCount: _publishedReviews.length,
                               );
                             });
                             print(
@@ -1339,13 +1441,13 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         // Update with current review count even if no Firestore ID
                         setState(() {
                           _provider = _provider!.copyWith(
-                            reviewCount: _reviews.length,
-                            rating: _reviews.isNotEmpty
-                                ? _reviews.fold<double>(
+                            reviewCount: _publishedReviews.length,
+                            rating: _publishedReviews.isNotEmpty
+                                ? _publishedReviews.fold<double>(
                                         0.0,
                                         (sum, r) => sum + r.rating,
                                       ) /
-                                      _reviews.length
+                                      _publishedReviews.length
                                 : null,
                           );
                         });

@@ -9,6 +9,14 @@ class ProviderReview {
   final String? reviewText;
   final Map<String, dynamic>? experienceFields; // Custom experience fields
   final bool wouldRecommend;
+  /// Experience prompts (optional; stored for transparency / filters later).
+  final bool feltHeard;
+  final bool feltRespected;
+  final bool explainedClearly;
+  /// Short answer: what the provider did especially well.
+  final String? whatWentWell;
+  /// published | pending | removed — moderation pipeline (default published).
+  final String status;
   final int helpfulCount;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -23,6 +31,11 @@ class ProviderReview {
     this.reviewText,
     this.experienceFields,
     required this.wouldRecommend,
+    this.feltHeard = false,
+    this.feltRespected = false,
+    this.explainedClearly = false,
+    this.whatWentWell,
+    this.status = 'published',
     this.helpfulCount = 0,
     required this.createdAt,
     this.updatedAt,
@@ -39,6 +52,11 @@ class ProviderReview {
       reviewText: map['reviewText'],
       experienceFields: map['experienceFields'] as Map<String, dynamic>?,
       wouldRecommend: map['wouldRecommend'] ?? false,
+      feltHeard: map['feltHeard'] ?? false,
+      feltRespected: map['feltRespected'] ?? false,
+      explainedClearly: map['explainedClearly'] ?? false,
+      whatWentWell: map['whatWentWell'] as String?,
+      status: map['status'] as String? ?? 'published',
       helpfulCount: map['helpfulCount'] ?? 0,
       createdAt: map['createdAt'] is Timestamp
           ? (map['createdAt'] as Timestamp).toDate()
@@ -59,6 +77,11 @@ class ProviderReview {
       'reviewText': reviewText,
       'experienceFields': experienceFields,
       'wouldRecommend': wouldRecommend,
+      'feltHeard': feltHeard,
+      'feltRespected': feltRespected,
+      'explainedClearly': explainedClearly,
+      'whatWentWell': whatWentWell,
+      'status': status,
       'helpfulCount': helpfulCount,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,

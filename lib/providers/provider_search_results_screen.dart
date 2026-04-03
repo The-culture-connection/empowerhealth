@@ -1550,6 +1550,32 @@ class _ProviderCard extends StatelessWidget {
                                     ],
                                   ),
                                 ],
+                                if (Provider.sourceCoverageLabel(provider.source) !=
+                                    null) ...[
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(
+                                        Icons.source_outlined,
+                                        size: 16,
+                                        color: Color(0xFF8B7A95),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          'Listing: ${Provider.sourceCoverageLabel(provider.source)}',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF8B7A95),
+                                            fontWeight: FontWeight.w300,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),

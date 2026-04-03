@@ -602,6 +602,25 @@ class ProviderRepository {
     }
   }
 
+  /// Report a provider listing (stored for admin review).
+  Future<void> submitProviderReport({
+    required String providerId,
+    required String providerName,
+    required String userId,
+    required String reasonCategory,
+    String? details,
+  }) async {
+    await _firestore.collection('provider_reports').add({
+      'providerId': providerId,
+      'providerName': providerName,
+      'userId': userId,
+      'reasonCategory': reasonCategory,
+      'details': details,
+      'status': 'open',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   /// Submit a provider review
   /// Prevents duplicates by checking for existing review from same user for same provider within last minute
   /// Also ensures provider is saved to Firestore and review count is updated

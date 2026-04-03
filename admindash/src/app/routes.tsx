@@ -11,6 +11,9 @@ import { Reports } from "./pages/Reports";
 import { Notifications } from "./pages/Notifications";
 import { ModerationHub } from "./pages/ModerationHub";
 import { ProviderModeration } from "./pages/ProviderModeration";
+import { ProviderReportsAdmin } from "./pages/ProviderReportsAdmin";
+import { ProviderReviewsAdmin } from "./pages/ProviderReviewsAdmin";
+import { IdentityClaimsAdmin } from "./pages/IdentityClaimsAdmin";
 import { Login } from "./pages/Login";
 import { RoleRoute } from "../components/RoleRoute";
 
@@ -104,6 +107,30 @@ export const router = createBrowserRouter([
             element: (
               <RoleRoute allowedRoles={["admin"]}>
                 <ProviderModeration />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: "reports",
+            element: (
+              <RoleRoute allowedRoles={["admin"]}>
+                <ProviderReportsAdmin />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: "reviews",
+            element: (
+              <RoleRoute allowedRoles={["admin"]}>
+                <ProviderReviewsAdmin />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: "identity-claims",
+            element: (
+              <RoleRoute allowedRoles={["admin"]}>
+                <IdentityClaimsAdmin />
               </RoleRoute>
             ),
           },

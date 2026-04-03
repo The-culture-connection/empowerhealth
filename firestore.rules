@@ -585,6 +585,16 @@ service cloud.firestore {
       allow update, delete: if isAdminAny();
     }
     
+    // User reports about provider listings — admins triage in dashboard
+    match /provider_reports/{reportId} {
+      allow create: if isAuthenticated() &&
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['providerId', 'userId', 'reasonCategory', 'createdAt']);
+      allow read: if isAdminAny();
+      allow update: if isAdminAny();
+      allow delete: if false;
+    }
+    
     // Provider submissions - users can create, admins can read/update
     match /provider_submissions/{submissionId} {
       allow create: if isAuthenticated() && 

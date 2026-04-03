@@ -33,6 +33,10 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
   
   int _rating = 0;
   bool _wouldRecommend = false;
+  bool _feltHeard = false;
+  bool _feltRespected = false;
+  bool _explainedClearly = false;
+  final _whatWentWellController = TextEditingController();
   bool _isSubmitting = false;
 
   @override
@@ -43,6 +47,7 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
   @override
   void dispose() {
     _reviewController.dispose();
+    _whatWentWellController.dispose();
     super.dispose();
   }
 
@@ -230,9 +235,98 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
                   ),
                   const SizedBox(height: 24),
 
+                  const Text(
+                    'How was your visit?',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'These help other parents beyond stars alone.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceCard,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        CheckboxListTile(
+                          value: _feltHeard,
+                          onChanged: (v) =>
+                              setState(() => _feltHeard = v ?? false),
+                          activeColor: AppTheme.brandPurple,
+                          title: const Text(
+                            'I felt heard',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        CheckboxListTile(
+                          value: _feltRespected,
+                          onChanged: (v) =>
+                              setState(() => _feltRespected = v ?? false),
+                          activeColor: AppTheme.brandPurple,
+                          title: const Text(
+                            'I felt respected',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        CheckboxListTile(
+                          value: _explainedClearly,
+                          onChanged: (v) =>
+                              setState(() => _explainedClearly = v ?? false),
+                          activeColor: AppTheme.brandPurple,
+                          title: const Text(
+                            'Things were explained clearly',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  const Text(
+                    'What did they do especially well?',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _whatWentWellController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: 'Optional — e.g. listened without rushing…',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      filled: true,
+                      fillColor: AppTheme.surfaceInput,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
                   // Review Text
                   const Text(
-                    'Your Experience',
+                    'Anything else about your experience?',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -250,7 +344,6 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
                       filled: true,
                       fillColor: AppTheme.surfaceInput,
                     ),
-                    // Review text is optional, no validation needed
                   ),
                   const SizedBox(height: 24),
 

@@ -40,6 +40,75 @@ function getOpenAIClient(apiKey) {
   });
 }
 
+/** Parse client appointmentDate: YYYY-MM-DD (preferred) or ISO (date part only) or Timestamp. */
+function parseAppointmentCalendarParts(appointmentDate) {
+  if (appointmentDate == null || appointmentDate === "") {
+    const n = new Date();
+    return {y: n.getUTCFullYear(), m: n.getUTCMonth() + 1, d: n.getUTCDate()};
+  }
+  if (appointmentDate && typeof appointmentDate.toDate === "function") {
+    const dt = appointmentDate.toDate();
+    return {y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate()};
+  }
+  if (typeof appointmentDate === "string") {
+    const dateStr = appointmentDate.split("T")[0].trim();
+    const parts = dateStr.split("-").map(Number);
+    if (parts.length >= 3 && parts.every((n) => !Number.isNaN(n))) {
+      return {y: parts[0], m: parts[1], d: parts[2]};
+    }
+  }
+  if (appointmentDate instanceof Date) {
+    return {
+      y: appointmentDate.getUTCFullYear(),
+      m: appointmentDate.getUTCMonth() + 1,
+      d: appointmentDate.getUTCDate(),
+    };
+  }
+  const n = new Date();
+  return {y: n.getUTCFullYear(), m: n.getUTCMonth() + 1, d: n.getUTCDate()};
+}
+
+function firestoreTimestampFromCalendarYmd(y, m, d) {
+  return admin.firestore.Timestamp.fromDate(
+    new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0)),
+  );
+}
+
+function calendarYmdKey(y, m, d) {
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+function appointmentCalendarKeyFromValue(val) {
+  const {y, m, d} = parseAppointmentCalendarParts(val);
+  return calendarYmdKey(y, m, d);
+}
+
+/** OpenAI sometimes returns prose or fenced JSON; extract and parse. */
+function parseJsonFromOpenAIContent(raw) {
+  if (!raw || typeof raw !== "string") {
+    throw new Error("Empty AI response");
+  }
+  let s = raw.trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (fence) {
+    s = fence[1].trim();
+  }
+  try {
+    return JSON.parse(s);
+  } catch (e1) {
+    const i = s.indexOf("{");
+    const j = s.lastIndexOf("}");
+    if (i !== -1 && j > i) {
+      try {
+        return JSON.parse(s.slice(i, j + 1));
+      } catch (e2) {
+        /* fall through */
+      }
+    }
+    throw e1;
+  }
+}
+
 // Helper function to simplify text to 6th grade level
 async function simplifyTo6thGrade(text, context = "") {
   try {
@@ -844,19 +913,19 @@ async function analyzeVisitSummaryPDF({pdfText, appointmentDate, educationLevel,
       const learningStyle = (userProfile?.learningStyle || "visual").toString();
       const insuranceType = (userProfile?.insuranceType || "").toString();
 
-    // Determine reading level based on education
+    // Target ~5th grade for health literacy support (not diagnosis or care decisions)
     const getReadingLevel = (educationLevel) => {
-      if (!educationLevel) return "6th grade";
+      if (!educationLevel) return "about 5th grade";
       if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
-        return "8th grade";
+        return "about 6th grade";
       }
       if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
-        return "6th-7th grade";
+        return "about 5th–6th grade";
       }
-      return "5th-6th grade";
+      return "about 5th grade";
     };
 
-      const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "6th grade";
+      const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "about 5th grade";
 
   console.log("🤖 Calling OpenAI API for analysis...");
       const openai = getOpenAIClient(openaiApiKey.value());
@@ -865,18 +934,25 @@ async function analyzeVisitSummaryPDF({pdfText, appointmentDate, educationLevel,
         messages: [
           {
             role: "system",
-            content: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. 
-Generate a comprehensive, plain-language visit summary at a ${readingLevel} reading level using professional clinical language. 
-Avoid casual terms like "momma". Structure your response as a JSON object with specific sections.`,
+            content: `You are a culturally affirming, trauma-informed health literacy educator for EmpowerHealth Watch (maternal health).
+
+Your role is strictly to help the user READ and UNDERSTAND paperwork or visit-related text in plain language at a ${readingLevel} reading level.
+
+You do NOT diagnose, treat, or interpret clinical findings as medical truth. You do not replace a clinician. Frame everything as understanding what the document or visit notes say, questions to ask the care team, and practical next steps — not as definitive medical advice.
+
+Accept and work from: after-visit summaries, discharge instructions, provider or nurse notes, printed visit recaps, and similar documents — even if the text is partial or informal.
+
+Avoid casual terms like "momma". Your entire reply must be one JSON object only — no apologies, no "It seems…", no markdown fences, no text before or after the JSON.`,
           },
           {
             role: "user",
-            content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary. 
-Explain medical terms clearly, outline next steps, offer advocacy questions the mother can ask, and provide supportive, trauma-informed language. 
-Tailor the content to her trimester (${trimester}), stated concerns (${JSON.stringify(concerns)}), and birth preferences (${JSON.stringify(birthPlanPreferences)}). 
-Include a short explanation, what to expect, questions to ask, and when to seek help.
+            content: `From the following document or visit text, produce JSON that helps the user understand what they have in front of them.
 
-Visit Summary:
+Explain medical terms simply. Include "tap-to-explain" style entries in keyMedicalTerms (term + short explanation). Prefer short sentences and short paragraphs.
+
+Tailor tone to trimester (${trimester}), concerns (${JSON.stringify(concerns)}), birth preferences (${JSON.stringify(birthPlanPreferences)}).
+
+Document / visit text:
 ${pdfText}
 
 User Context:
@@ -890,12 +966,14 @@ User Context:
 Return a JSON object with the following structure:
 {
   "summary": {
-    "howBabyIsDoing": "Brief summary of fetal health, measurements, heartbeat, movements, development",
-    "howYouAreDoing": "Brief summary of maternal health, vitals, symptoms, concerns addressed",
+    "whatThisMeans": "1–3 short paragraphs at ${readingLevel} level: in plain words, what this visit or document is mainly about (literacy support only — not a diagnosis)",
+    "importantNextSteps": "Plain language: what to do next, follow-ups, scheduling — separate from medication list",
+    "howBabyIsDoing": "If applicable: brief plain-language note on fetal/baby-related content; else empty string",
+    "howYouAreDoing": "If applicable: brief plain-language note on your health topics mentioned; else empty string",
     "keyMedicalTerms": [
-      {"term": "term name", "explanation": "plain language explanation"}
+      {"term": "term name", "explanation": "plain language explanation for tap-to-read"}
     ],
-    "nextSteps": "Plain language breakdown of next steps",
+    "nextSteps": "May repeat or align with importantNextSteps; plain language only",
     "questionsToAsk": [
       "Question 1",
       "Question 2"
@@ -937,8 +1015,9 @@ Return a JSON object with the following structure:
 }
 
 CRITICAL REQUIREMENTS:
-1. Explain key medical terms mentioned - add to keyMedicalTerms array
-2. Break down next steps in plain language - add to nextSteps
+0. Fill **whatThisMeans** and **importantNextSteps** clearly; they drive the main "What this means" and "Important next steps" sections in the app.
+1. Explain key medical terms mentioned — add at least 3–8 items to keyMedicalTerms when the text includes clinical words (for tap-to-explain in the app).
+2. Break down next steps in plain language — importantNextSteps and nextSteps should be consistent and actionable (who to call, what to schedule), not diagnostic conclusions.
 3. **questionsToAsk**: At least 4 specific questions for the next visit (advocacy-focused); shown in the visit detail "Questions to ask" card in the app.
 4. **visitNotes**: 2–4 short, affirming strings for the visit detail "Notes" card—warm reminders of what mattered, strengths, or gentle encouragement (not the same as empowermentTips; visitNotes are reflective, tips are action-oriented).
 5. Provide empowerment + advocacy tips based on that specific encounter - add to empowermentTips AND create todos
@@ -996,48 +1075,26 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
 
       const responseContent = response.choices[0].message.content;
       let parsedResponse;
-      
-      try {
-        parsedResponse = JSON.parse(responseContent);
-      } catch (parseError) {
-    console.error("❌ JSON parse error:", parseError);
-    throw new Error("❌ Failed to parse AI response");
-  }
 
-  // Check for existing summary with same appointment date to prevent duplicates
-      // Normalize appointment date to start of day for comparison
-      // Parse the date string consistently - handle ISO 8601 format
-      console.log(`🟢 [DEBUG] Helper: Starting duplicate check`);
-      let appointmentDateObj;
-      if (typeof appointmentDate === 'string') {
-        console.log(`🟢 [DEBUG] Helper: Parsing date string: ${appointmentDate}`);
-        // Parse ISO 8601 date string (e.g., "2026-02-12T00:00:00.000Z" or "2026-02-12")
-        const dateStr = appointmentDate.split('T')[0]; // Get just the date part
-        console.log(`🟢 [DEBUG] Helper: Extracted date part: ${dateStr}`);
-        const [year, month, day] = dateStr.split('-').map(Number);
-        console.log(`🟢 [DEBUG] Helper: Parsed components: year=${year}, month=${month}, day=${day}`);
-        appointmentDateObj = new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed
-        console.log(`🟢 [DEBUG] Helper: Created Date object: ${appointmentDateObj.toISOString()}`);
-      } else if (appointmentDate instanceof Date) {
-        console.log(`🟢 [DEBUG] Helper: Date is already a Date object: ${appointmentDate.toISOString()}`);
-        appointmentDateObj = appointmentDate;
-      } else {
-        console.log(`🟢 [DEBUG] Helper: Date is unknown type, using current date`);
-        appointmentDateObj = new Date();
+      try {
+        parsedResponse = parseJsonFromOpenAIContent(responseContent);
+      } catch (parseError) {
+        console.error("❌ JSON parse error:", parseError);
+        throw new Error("❌ Failed to parse AI response: " + parseError.message);
       }
-      
-      // Normalize to start of day in UTC to avoid timezone issues
-      const normalizedDate = new Date(Date.UTC(
-        appointmentDateObj.getUTCFullYear(),
-        appointmentDateObj.getUTCMonth(),
-        appointmentDateObj.getUTCDate(),
-        0, 0, 0, 0 // Set to midnight UTC
-      ));
-      const appointmentTimestamp = admin.firestore.Timestamp.fromDate(normalizedDate);
-      
-      console.log(`📅 Normalized appointment date (helper): ${normalizedDate.toISOString()} (original: ${appointmentDate})`);
-      console.log(`🟢 [DEBUG] Helper: Normalized date components: year=${normalizedDate.getUTCFullYear()}, month=${normalizedDate.getUTCMonth() + 1}, day=${normalizedDate.getUTCDate()}`);
-      console.log(`🟢 [DEBUG] Helper: Firestore Timestamp: ${appointmentTimestamp.toDate().toISOString()}`);
+
+      if (!parsedResponse.summary || typeof parsedResponse.summary !== "object" || Array.isArray(parsedResponse.summary)) {
+        throw new Error("AI JSON must include a \"summary\" object");
+      }
+
+  // Same **calendar** date as the picker (YYYY-MM-DD from client). Store noon UTC so US TZs don't show prior day.
+      console.log(`🟢 [DEBUG] Helper: Starting duplicate check`);
+      const {y, m, d} = parseAppointmentCalendarParts(appointmentDate);
+      const incomingCalendarKey = calendarYmdKey(y, m, d);
+      const appointmentTimestamp = firestoreTimestampFromCalendarYmd(y, m, d);
+      const normalizedDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+
+      console.log(`📅 Appointment calendar key (helper): ${incomingCalendarKey} → Firestore: ${appointmentTimestamp.toDate().toISOString()} (original: ${appointmentDate})`);
       
       // Check if summary already exists for this date using range query to catch timezone variations
       const dayStart = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
@@ -1121,45 +1178,12 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
       
       console.log(`🟢 [DEBUG] Helper: Total summaries in collection: ${allUserSummaries.size}`);
       
-      // Filter client-side to find matches (handles both Timestamp and string formats)
       const matchingSummaries = allUserSummaries.docs.filter((doc) => {
-        const data = doc.data();
-        const existingDate = data.appointmentDate;
-        
+        const existingDate = doc.data().appointmentDate;
         if (!existingDate) return false;
-        
-        // Try to normalize the existing date
-        let existingDateObj;
-        if (existingDate.toDate && typeof existingDate.toDate === 'function') {
-          // It's a Firestore Timestamp
-          existingDateObj = existingDate.toDate();
-        } else if (existingDate instanceof Date) {
-          existingDateObj = existingDate;
-        } else if (typeof existingDate === 'string') {
-          // It's a string - parse it
-          try {
-            const dateStr = existingDate.split('T')[0];
-            const [year, month, day] = dateStr.split('-').map(Number);
-            existingDateObj = new Date(Date.UTC(year, month - 1, day));
-          } catch (e) {
-            return false;
-          }
-        } else {
-          return false;
-        }
-        
-        // Normalize to start of day for comparison
-        const existingNormalized = new Date(Date.UTC(
-          existingDateObj.getUTCFullYear(),
-          existingDateObj.getUTCMonth(),
-          existingDateObj.getUTCDate(),
-          0, 0, 0, 0
-        ));
-        
-        // Compare normalized dates
-        return existingNormalized.getTime() === normalizedDate.getTime();
+        return appointmentCalendarKeyFromValue(existingDate) === incomingCalendarKey;
       });
-      
+
       console.log(`🟢 [DEBUG] Helper: Client-side filter found: ${matchingSummaries.length} matching summaries`);
       
       let existingSummaries = { empty: matchingSummaries.length === 0, docs: matchingSummaries, size: matchingSummaries.length };
@@ -1224,7 +1248,10 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
         parsedResponse.summary,
         parsedResponse.learningModules || []
       );
-      
+      if (typeof formattedSummary !== "string" || !formattedSummary.trim()) {
+        throw new Error("Could not build visit summary text from AI output");
+      }
+
       console.log(`🟢 [DEBUG] Helper: Creating new summary document`);
       const summaryRef = await admin.firestore()
           .collection("users")
@@ -1607,15 +1634,16 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
       console.log(`✅ Received response (${responseContent.length} chars)`);
       let parsedResponse;
       try {
-        const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) || 
-                         responseContent.match(/```\s*([\s\S]*?)\s*```/);
-        const jsonString = jsonMatch ? jsonMatch[1] : responseContent;
-        parsedResponse = JSON.parse(jsonString);
+        parsedResponse = parseJsonFromOpenAIContent(responseContent);
         console.log(`✅ Parsed JSON response successfully`);
       } catch (parseError) {
         console.error("❌ JSON parse error:", parseError);
         console.error("Response content:", responseContent.substring(0, 500));
         throw new HttpsError("internal", `❌ Failed to parse AI response: ${parseError.message}`);
+      }
+
+      if (!parsedResponse.summary || typeof parsedResponse.summary !== "object" || Array.isArray(parsedResponse.summary)) {
+        throw new HttpsError("internal", "AI response missing a valid \"summary\" object. Please try again.");
       }
 
       // Clean up uploaded file and assistant
@@ -1631,38 +1659,12 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
       console.log(`💾 Saving results to Firestore...`);
       console.log(`🔵 [DEBUG] Starting duplicate check process`);
       
-      // Normalize appointment date to start of day in UTC to avoid timezone issues
-      // Parse the date string consistently - handle ISO 8601 format
-      let appointmentDateObj;
-      if (typeof appointmentDate === 'string') {
-        console.log(`🔵 [DEBUG] Parsing date string: ${appointmentDate}`);
-        // Parse ISO 8601 date string (e.g., "2026-02-12T00:00:00.000Z" or "2026-02-12")
-        const dateStr = appointmentDate.split('T')[0]; // Get just the date part
-        console.log(`🔵 [DEBUG] Extracted date part: ${dateStr}`);
-        const [year, month, day] = dateStr.split('-').map(Number);
-        console.log(`🔵 [DEBUG] Parsed components: year=${year}, month=${month}, day=${day}`);
-        appointmentDateObj = new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed
-        console.log(`🔵 [DEBUG] Created Date object: ${appointmentDateObj.toISOString()}`);
-      } else if (appointmentDate instanceof Date) {
-        console.log(`🔵 [DEBUG] Date is already a Date object: ${appointmentDate.toISOString()}`);
-        appointmentDateObj = appointmentDate;
-      } else {
-        console.log(`🔵 [DEBUG] Date is unknown type, using current date`);
-        appointmentDateObj = new Date();
-      }
-      
-      // Normalize to start of day in UTC (ensure we're using UTC to avoid timezone shifts)
-      const normalizedDate = new Date(Date.UTC(
-        appointmentDateObj.getUTCFullYear(),
-        appointmentDateObj.getUTCMonth(),
-        appointmentDateObj.getUTCDate(),
-        0, 0, 0, 0 // Set to midnight UTC
-      ));
-      const appointmentTimestamp = admin.firestore.Timestamp.fromDate(normalizedDate);
-      
-      console.log(`📅 Normalized appointment date: ${normalizedDate.toISOString()} (original: ${appointmentDate})`);
-      console.log(`🔵 [DEBUG] Normalized date components: year=${normalizedDate.getUTCFullYear()}, month=${normalizedDate.getUTCMonth() + 1}, day=${normalizedDate.getUTCDate()}`);
-      console.log(`🔵 [DEBUG] Firestore Timestamp: ${appointmentTimestamp.toDate().toISOString()}`);
+      const {y, m, d} = parseAppointmentCalendarParts(appointmentDate);
+      const incomingCalendarKey = calendarYmdKey(y, m, d);
+      const appointmentTimestamp = firestoreTimestampFromCalendarYmd(y, m, d);
+      const normalizedDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+
+      console.log(`📅 Appointment calendar key: ${incomingCalendarKey} → Firestore noon UTC: ${appointmentTimestamp.toDate().toISOString()} (original: ${appointmentDate})`);
       
       // Check if summary already exists for this date to prevent duplicates
       // Use a range query to catch any timezone-related variations (within 24 hours)
@@ -1766,51 +1768,16 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
       
       console.log(`🔵 [DEBUG] Total summaries in collection: ${allUserSummaries.size}`);
       
-      // Filter client-side to find matches (handles both Timestamp and string formats)
       const matchingSummaries = allUserSummaries.docs.filter((doc) => {
-        const data = doc.data();
-        const existingDate = data.appointmentDate;
-        
+        const existingDate = doc.data().appointmentDate;
         if (!existingDate) return false;
-        
-        // Try to normalize the existing date
-        let existingDateObj;
-        if (existingDate.toDate && typeof existingDate.toDate === 'function') {
-          // It's a Firestore Timestamp
-          existingDateObj = existingDate.toDate();
-        } else if (existingDate instanceof Date) {
-          existingDateObj = existingDate;
-        } else if (typeof existingDate === 'string') {
-          // It's a string - parse it
-          try {
-            const dateStr = existingDate.split('T')[0];
-            const [year, month, day] = dateStr.split('-').map(Number);
-            existingDateObj = new Date(Date.UTC(year, month - 1, day));
-          } catch (e) {
-            return false;
-          }
-        } else {
-          return false;
-        }
-        
-        // Normalize to start of day for comparison
-        const existingNormalized = new Date(Date.UTC(
-          existingDateObj.getUTCFullYear(),
-          existingDateObj.getUTCMonth(),
-          existingDateObj.getUTCDate(),
-          0, 0, 0, 0
-        ));
-        
-        // Compare normalized dates
-        const matches = existingNormalized.getTime() === normalizedDate.getTime();
-        
+        const matches = appointmentCalendarKeyFromValue(existingDate) === incomingCalendarKey;
         if (matches) {
-          console.log(`🔵 [DEBUG] Found matching summary: ${doc.id}, existing date: ${existingDateObj.toISOString()}, normalized: ${existingNormalized.toISOString()}`);
+          console.log(`🔵 [DEBUG] Found matching summary by calendar key: ${doc.id}`);
         }
-        
         return matches;
       });
-      
+
       console.log(`🔵 [DEBUG] Client-side filter found: ${matchingSummaries.length} matching summaries`);
       
       let existingSummaries = { empty: matchingSummaries.length === 0, docs: matchingSummaries, size: matchingSummaries.length };
@@ -1875,7 +1842,10 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
         parsedResponse.summary,
         parsedResponse.learningModules || []
       );
-      
+      if (typeof formattedSummary !== "string" || !formattedSummary.trim()) {
+        throw new HttpsError("internal", "Could not build visit summary text from AI output. Please try again.");
+      }
+
       let summaryRef;
       if (!existingSummaries.empty) {
         console.log(`⚠️ Summary already exists for appointment date ${normalizedDate.toISOString()}, updating existing entry`);
@@ -2101,47 +2071,71 @@ exports.summarizeAfterVisitPDF = onCall(
 
 // Helper function to format summary for display (matches image format)
 function formatSummaryForDisplay(summary, learningModules = []) {
+  if (summary == null || typeof summary !== "object" || Array.isArray(summary)) {
+    return typeof summary === "string" ? summary : "";
+  }
   let formatted = "";
-  
-  // How Your Baby Is Doing (shown on card - put first)
-  if (summary.howBabyIsDoing) {
-    formatted += `## How Your Baby Is Doing\n${summary.howBabyIsDoing}\n\n`;
+
+  const whatMeansRaw = summary.whatThisMeans && String(summary.whatThisMeans).trim();
+  const legacyBabyYou = [summary.howBabyIsDoing, summary.howYouAreDoing].filter(Boolean).join("\n\n");
+  if (whatMeansRaw) {
+    formatted += `## What This Means\n${whatMeansRaw}\n\n`;
+  } else if (legacyBabyYou) {
+    if (summary.howBabyIsDoing) {
+      formatted += `## How Your Baby Is Doing\n${summary.howBabyIsDoing}\n\n`;
+    }
+    if (summary.howYouAreDoing) {
+      formatted += `## How You Are Doing\n${summary.howYouAreDoing}\n\n`;
+    }
   }
-  
-  // How You Are Doing
-  if (summary.howYouAreDoing) {
-    formatted += `## How You Are Doing\n${summary.howYouAreDoing}\n\n`;
+
+  const nextParts = [];
+  if (summary.importantNextSteps && String(summary.importantNextSteps).trim()) {
+    nextParts.push(String(summary.importantNextSteps).trim());
   }
-  
-  // Actions To Take section (combines next steps, follow-up, empowerment tips)
-  let actionsToTake = [];
-  
-  if (summary.nextSteps) {
-    actionsToTake.push(summary.nextSteps);
+  if (summary.nextSteps && String(summary.nextSteps).trim()) {
+    nextParts.push(String(summary.nextSteps).trim());
   }
-  
-  if (summary.followUpInstructions) {
-    actionsToTake.push(summary.followUpInstructions);
+  if (summary.followUpInstructions && String(summary.followUpInstructions).trim()) {
+    nextParts.push(String(summary.followUpInstructions).trim());
   }
-  
   if (summary.empowermentTips && summary.empowermentTips.length > 0) {
-    actionsToTake.push(...summary.empowermentTips);
+    nextParts.push(...summary.empowermentTips.map((t) => String(t)));
   }
-  
+  if (nextParts.length > 0) {
+    formatted += `## Important Next Steps\n${nextParts.join("\n\n")}\n\n`;
+  } else {
+    // Legacy: single "Actions To Take" blob (includes meds) for older AI output
+    const actionsToTake = [];
+    if (summary.nextSteps) actionsToTake.push(summary.nextSteps);
+    if (summary.followUpInstructions) actionsToTake.push(summary.followUpInstructions);
+    if (summary.empowermentTips && summary.empowermentTips.length > 0) {
+      actionsToTake.push(...summary.empowermentTips);
+    }
+    if (summary.medications && summary.medications.length > 0) {
+      summary.medications.forEach((med) => {
+        let text = `Continue taking ${med.name}`;
+        if (med.purpose) text += ` (${med.purpose})`;
+        if (med.instructions) text += `. ${med.instructions}`;
+        actionsToTake.push(text);
+      });
+    }
+    if (actionsToTake.length > 0) {
+      formatted += `## Actions To Take\n${actionsToTake.join(" ")}\n\n`;
+    }
+  }
+
   if (summary.medications && summary.medications.length > 0) {
-    const medInstructions = summary.medications.map(med => {
-      let text = `Continue taking ${med.name}`;
-      if (med.purpose) text += ` (${med.purpose})`;
-      if (med.instructions) text += `. ${med.instructions}`;
-      return text;
+    formatted += `## Medications Mentioned\n`;
+    summary.medications.forEach((med) => {
+      let line = `**${med.name || "Medication"}**`;
+      if (med.purpose) line += `: ${med.purpose}`;
+      if (med.instructions) line += ` — ${med.instructions}`;
+      formatted += `${line}\n`;
     });
-    actionsToTake.push(...medInstructions);
+    formatted += `\n`;
   }
-  
-  if (actionsToTake.length > 0) {
-    formatted += `## Actions To Take\n${actionsToTake.join(' ')}\n\n`;
-  }
-  
+
   // Suggested Learning Topics (from learning modules)
   if (learningModules && learningModules.length > 0) {
     formatted += `## Suggested Learning Topics\n`;
@@ -2151,19 +2145,19 @@ function formatSummaryForDisplay(summary, learningModules = []) {
     });
     formatted += `\n`;
   }
-  
-  // Key Medical Terms Explained
+
+  // Key Medical Terms (tap-to-explain in app)
   if (summary.keyMedicalTerms && summary.keyMedicalTerms.length > 0) {
-    formatted += `## Key Medical Terms Explained\n`;
-    summary.keyMedicalTerms.forEach(term => {
+    formatted += `## Key Medical Terms (tap to read)\n`;
+    summary.keyMedicalTerms.forEach((term) => {
       formatted += `**${term.term}**: ${term.explanation}\n`;
     });
     formatted += `\n`;
   }
-  
-  // Questions to Ask at Your Next Visit
+
+  // Questions to Ask
   if (summary.questionsToAsk && summary.questionsToAsk.length > 0) {
-    formatted += `## Questions to Ask at Your Next Visit\n`;
+    formatted += `## Questions to Ask\n`;
     summary.questionsToAsk.forEach((q, i) => {
       formatted += `${i + 1}. ${q}\n`;
     });
@@ -2586,6 +2580,75 @@ exports.deleteUserAccount = onCall(
     }
   }
 );
+
+// ============================================================================
+// COMMUNITY: delete reply (reply author or post author only)
+// ============================================================================
+
+exports.deleteCommunityReply = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated");
+  }
+  const uid = request.auth.uid;
+  const dataIn = request.data || {};
+  const postId = dataIn.postId;
+  const replyId = dataIn.replyId;
+  const legacyContent = dataIn.legacyContent;
+  const legacyCreatedAtSeconds = dataIn.legacyCreatedAtSeconds;
+
+  if (!postId || typeof postId !== "string") {
+    throw new HttpsError("invalid-argument", "postId is required");
+  }
+
+  const ref = admin.firestore().collection("community_posts").doc(postId);
+
+  await admin.firestore().runTransaction(async (txn) => {
+    const snap = await txn.get(ref);
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Post not found");
+    }
+    const data = snap.data();
+    const postAuthorId = data.userId;
+    const replies = Array.isArray(data.replies) ? [...data.replies] : [];
+
+    let index = -1;
+    if (replyId && typeof replyId === "string") {
+      index = replies.findIndex((r) => r && r.replyId === replyId);
+    }
+    if (index === -1 && legacyContent != null && typeof legacyContent === "string") {
+      index = replies.findIndex((r) => {
+        if (!r || r.userId !== uid) return false;
+        if (r.content !== legacyContent) return false;
+        if (legacyCreatedAtSeconds != null && typeof legacyCreatedAtSeconds === "number") {
+          const ca = r.createdAt;
+          if (ca && typeof ca.seconds === "number") {
+            return ca.seconds === legacyCreatedAtSeconds;
+          }
+          return false;
+        }
+        return true;
+      });
+    }
+
+    if (index === -1) {
+      throw new HttpsError("not-found", "Reply not found");
+    }
+
+    const target = replies[index];
+    const replyAuthorId = target.userId;
+    if (replyAuthorId !== uid && postAuthorId !== uid) {
+      throw new HttpsError("permission-denied", "You cannot delete this reply");
+    }
+
+    replies.splice(index, 1);
+    txn.update(ref, {
+      replies,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  return {success: true};
+});
 
 // Firebase Cloud Function for Provider Search
 // This function processes provider search requests from the client

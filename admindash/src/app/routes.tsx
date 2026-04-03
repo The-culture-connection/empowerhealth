@@ -9,6 +9,8 @@ import { Analytics } from "./pages/Analytics";
 import { AnalyticsInfo } from "./pages/AnalyticsInfo";
 import { Reports } from "./pages/Reports";
 import { Notifications } from "./pages/Notifications";
+import { ModerationHub } from "./pages/ModerationHub";
+import { ProviderModeration } from "./pages/ProviderModeration";
 import { Login } from "./pages/Login";
 import { RoleRoute } from "../components/RoleRoute";
 

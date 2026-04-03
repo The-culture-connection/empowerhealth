@@ -2,36 +2,24 @@ import { useEffect, useState } from "react";
 import {
   collection,
   doc,
+  getDoc,
   onSnapshot,
   query,
-  updateDoc,
   where,
   serverTimestamp,
+  writeBatch,
   Timestamp,
 } from "firebase/firestore";
-import { firestore } from "../../firebase/firebase";
+import { auth, firestore } from "../../firebase/firebase";
+import {
+  buildProvidersPayloadFromUserProvider,
+  publicProviderDocIdForUserProvider,
+} from "../../lib/userProviderPromotion";
 import { Check, X, Loader2 } from "lucide-react";
 
 type UserProviderRow = {
   id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  website?: string;
-  source?: string;
-  status?: string;
-  submittedBy?: string;
-  userId?: string;
-  submissionNotes?: string | null;
-  createdAt?: Timestamp | null;
-  locations?: Array<{
-    address?: string;
-    city?: string;
-    state?: string;
-    zip?: string;
-    phone?: string;
-  }>;
-  specialties?: string[];
+  data: Record<string, unknown>;
 };
 
 function formatWhen(ts: Timestamp | null | undefined): string {
@@ -41,6 +29,23 @@ function formatWhen(ts: Timestamp | null | undefined): string {
   } catch {
     return "—";
   }
+}
+
+function str(v: unknown): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  return s.length ? s : null;
+}
+
+function formatBool(v: unknown): string {
+  if (v === true) return "Yes";
+  if (v === false) return "No";
+  return "—";
+}
+
+function formatStringArray(v: unknown): string | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  return v.map((x) => String(x)).join(", ");
 }
 
 export function ProviderModeration() {
@@ -59,30 +64,16 @@ export function ProviderModeration() {
       (snap) => {
         const next: UserProviderRow[] = [];
         snap.forEach((d) => {
-          const data = d.data() as Record<string, unknown>;
           next.push({
             id: d.id,
-            name: (data.name as string) || "(No name)",
-            email: data.email as string | undefined,
-            phone: data.phone as string | undefined,
-            website: data.website as string | undefined,
-            source: data.source as string | undefined,
-            status: data.status as string | undefined,
-            submittedBy: data.submittedBy as string | undefined,
-            userId: data.userId as string | undefined,
-            submissionNotes: data.submissionNotes as string | null | undefined,
-            createdAt: data.createdAt as Timestamp | null | undefined,
-            locations: Array.isArray(data.locations)
-              ? (data.locations as UserProviderRow["locations"])
-              : undefined,
-            specialties: Array.isArray(data.specialties)
-              ? (data.specialties as string[])
-              : undefined,
+            data: d.data() as Record<string, unknown>,
           });
         });
         next.sort((a, b) => {
-          const ta = a.createdAt?.toMillis() ?? 0;
-          const tb = b.createdAt?.toMillis() ?? 0;
+          const ca = a.data.createdAt;
+          const cb = b.data.createdAt;
+          const ta = ca instanceof Timestamp ? ca.toMillis() : 0;
+          const tb = cb instanceof Timestamp ? cb.toMillis() : 0;
           return tb - ta;
         });
         setRows(next);
@@ -102,11 +93,49 @@ export function ProviderModeration() {
     setBusyId(id);
     setError("");
     try {
-      await updateDoc(doc(firestore, "UserProviders", id), {
-        status: approved ? "approved" : "rejected",
-        mamaApproved: approved ? true : false,
-        updatedAt: serverTimestamp(),
-      });
+      const uid = auth.currentUser?.uid ?? null;
+      const snap = await getDoc(doc(firestore, "UserProviders", id));
+      if (!snap.exists()) {
+        setError("This submission is no longer in the queue.");
+        return;
+      }
+      const raw = snap.data() as Record<string, unknown>;
+      const pubId = publicProviderDocIdForUserProvider(id);
+
+      if (approved) {
+        const payload = buildProvidersPayloadFromUserProvider(id, raw);
+        const batch = writeBatch(firestore);
+        batch.set(doc(firestore, "providers", pubId), payload);
+        batch.update(
+          doc(firestore, "UserProviders", id),
+          {
+            status: "approved",
+            mamaApproved: true,
+            updatedAt: serverTimestamp(),
+            moderatedAt: serverTimestamp(),
+            moderationDecision: "approved",
+            publishedProviderId: pubId,
+            ...(uid ? { moderatedBy: uid } : {}),
+          },
+        );
+        await batch.commit();
+      } else {
+        const batch = writeBatch(firestore);
+        batch.delete(doc(firestore, "providers", pubId));
+        batch.update(
+          doc(firestore, "UserProviders", id),
+          {
+            status: "rejected",
+            mamaApproved: false,
+            updatedAt: serverTimestamp(),
+            moderatedAt: serverTimestamp(),
+            moderationDecision: "rejected",
+            publishedProviderId: null,
+            ...(uid ? { moderatedBy: uid } : {}),
+          },
+        );
+        await batch.commit();
+      }
     } catch (e) {
       console.error(e);
       setError(e instanceof Error ? e.message : "Update failed");
@@ -131,10 +160,12 @@ export function ProviderModeration() {
           Provider moderation
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--warm-500)" }}>
-          Pending rows in <code className="text-xs">UserProviders</code> (user submissions). Approve sets{" "}
-          <code className="text-xs">status</code> to <code className="text-xs">approved</code> and{" "}
-          <code className="text-xs">mamaApproved</code> to true; deny sets{" "}
-          <code className="text-xs">status</code> to <code className="text-xs">rejected</code>.
+          Pending rows in <code className="text-xs">UserProviders</code>.{" "}
+          <strong>Approve</strong> writes the full submission into the public{" "}
+          <code className="text-xs">providers</code> collection (document id{" "}
+          <code className="text-xs">up_&#123;submissionId&#125;</code>) with{" "}
+          <code className="text-xs">source: user_submission</code> so directory search can return them.
+          <strong className="ml-1">Deny</strong> removes that public row (if any) and marks the submission rejected.
         </p>
       </div>
 
@@ -152,13 +183,25 @@ export function ProviderModeration() {
       ) : (
         <ul className="space-y-4">
           {rows.map((r) => {
-            const loc = r.locations?.[0];
-            const locLine = loc
-              ? [loc.address, [loc.city, loc.state].filter(Boolean).join(", "), loc.zip]
+            const d = r.data;
+            const name = str(d.name) ?? "(No name)";
+            const locs = Array.isArray(d.locations) ? d.locations : [];
+            const loc0 =
+              locs[0] && typeof locs[0] === "object"
+                ? (locs[0] as Record<string, unknown>)
+                : null;
+            const locLine = loc0
+              ? [
+                  str(loc0.address),
+                  [str(loc0.city), str(loc0.state)].filter(Boolean).join(", "),
+                  str(loc0.zip),
+                ]
                   .filter(Boolean)
                   .join(" · ")
               : null;
             const busy = busyId === r.id;
+            const createdAt = d.createdAt instanceof Timestamp ? d.createdAt : null;
+
             return (
               <li
                 key={r.id}
@@ -171,57 +214,55 @@ export function ProviderModeration() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold text-lg" style={{ color: "var(--warm-600)" }}>
-                      {r.name}
+                      {name}
                     </div>
-                    {r.specialties && r.specialties.length > 0 ? (
+                    {(str(d.practiceName) || str(d.specialty)) && (
                       <div className="text-sm mt-1" style={{ color: "var(--warm-500)" }}>
-                        {r.specialties.join(", ")}
+                        {[str(d.practiceName), str(d.specialty)].filter(Boolean).join(" · ")}
                       </div>
-                    ) : null}
-                    <dl className="mt-3 grid gap-1 text-sm" style={{ color: "var(--warm-600)" }}>
-                      {r.email ? (
-                        <div>
-                          <span className="font-medium">Email: </span>
-                          {r.email}
-                        </div>
-                      ) : null}
-                      {r.phone ? (
-                        <div>
-                          <span className="font-medium">Phone: </span>
-                          {r.phone}
-                        </div>
-                      ) : null}
-                      {r.website ? (
-                        <div>
-                          <span className="font-medium">Website: </span>
-                          {r.website}
-                        </div>
-                      ) : null}
-                      {locLine ? (
-                        <div>
-                          <span className="font-medium">Location: </span>
-                          {locLine}
-                        </div>
-                      ) : null}
-                      <div>
-                        <span className="font-medium">Source: </span>
-                        {r.source ?? "—"}
+                    )}
+                    <dl
+                      className="mt-3 grid gap-1.5 text-sm"
+                      style={{ color: "var(--warm-600)" }}
+                    >
+                      <Meta label="NPI" value={str(d.npi)} />
+                      <Meta label="Provider types" value={formatStringArray(d.providerTypes)} />
+                      <Meta label="Specialties" value={formatStringArray(d.specialties)} />
+                      <Meta label="Email" value={str(d.email)} />
+                      <Meta label="Phone" value={str(d.phone)} />
+                      <Meta label="Website" value={str(d.website)} />
+                      <Meta label="Location" value={locLine} />
+                      <Meta
+                        label="Accepted health"
+                        value={
+                          formatStringArray(d.acceptedHealthTypes) ??
+                          str(d.acceptedHealthType)
+                        }
+                      />
+                      <Meta label="Accepting new patients" value={formatBool(d.acceptingNewPatients)} />
+                      <Meta label="Accepts pregnant" value={formatBool(d.acceptsPregnantWomen)} />
+                      <Meta label="Accepts newborns" value={formatBool(d.acceptsNewborns)} />
+                      <Meta label="Telehealth" value={formatBool(d.telehealth)} />
+                      <Meta
+                        label="Rating / reviews"
+                        value={
+                          d.rating != null || d.reviewCount != null
+                            ? `${d.rating ?? "—"} ★ · ${d.reviewCount ?? 0} reviews`
+                            : null
+                        }
+                      />
+                      <Meta label="Identity tags" value={formatIdentityTagsBrief(d.identityTags)} />
+                      <Meta label="Source" value={str(d.source)} />
+                      <Meta label="Submitted" value={formatWhen(createdAt)} />
+                      <Meta
+                        label="Submitted by (uid)"
+                        value={str(d.submittedBy) ?? str(d.userId)}
+                      />
+                      <Meta label="Submission notes" value={str(d.submissionNotes)} />
+                      <div className="text-xs opacity-70 pt-1">
+                        UserProviders id: {r.id} · Public id if approved:{" "}
+                        {publicProviderDocIdForUserProvider(r.id)}
                       </div>
-                      <div>
-                        <span className="font-medium">Submitted: </span>
-                        {formatWhen(r.createdAt ?? null)}
-                      </div>
-                      <div>
-                        <span className="font-medium">User ID: </span>
-                        <code className="text-xs break-all">{r.submittedBy ?? r.userId ?? "—"}</code>
-                      </div>
-                      {r.submissionNotes ? (
-                        <div>
-                          <span className="font-medium">Notes: </span>
-                          {r.submissionNotes}
-                        </div>
-                      ) : null}
-                      <div className="text-xs opacity-70 pt-1">Document: {r.id}</div>
                     </dl>
                   </div>
                   <div className="flex flex-col gap-2 shrink-0">
@@ -258,4 +299,27 @@ export function ProviderModeration() {
       )}
     </div>
   );
+}
+
+function Meta({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+  return (
+    <div>
+      <span className="font-medium">{label}: </span>
+      {value}
+    </div>
+  );
+}
+
+function formatIdentityTagsBrief(raw: unknown): string | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const names = raw
+    .map((t) => {
+      if (!t || typeof t !== "object") return null;
+      const n = (t as Record<string, unknown>).name;
+      return n != null ? String(n) : null;
+    })
+    .filter((x): x is string => Boolean(x));
+  if (names.length === 0) return `${raw.length} tag(s)`;
+  return names.join(", ");
 }

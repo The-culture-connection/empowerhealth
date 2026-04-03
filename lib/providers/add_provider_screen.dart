@@ -615,107 +615,121 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                 ),
               ),
               Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade100,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.check_circle,
-                            size: 32,
-                            color: Colors.green.shade600,
-                          ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
                         ),
-                        const SizedBox(height: 24),
-                        const Text(
-                          'Thank you!',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'We\'ve received your provider submission. Our team will review the information and publish it to help other mothers in the community.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[700],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.surfaceCard,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'What happens next?',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade100,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.check_circle,
+                                size: 32,
+                                color: Colors.green.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            const Text(
+                              'Thank you!',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'We\'ve received your provider submission. Our team will review the information and publish it to help other mothers in the community.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[700],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppTheme.surfaceCard,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'What happens next?',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildNextStepItem('Our team reviews the information (usually 1-2 business days)'),
+                                  _buildNextStepItem('We may verify details with the provider'),
+                                  _buildNextStepItem('Once approved, the provider appears in search results'),
+                                  _buildNextStepItem('You\'ll receive a notification when it\'s published'),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.brandPurple,
+                                foregroundColor: AppTheme.brandWhite,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
-                              const SizedBox(height: 12),
-                              _buildNextStepItem('Our team reviews the information (usually 1-2 business days)'),
-                              _buildNextStepItem('We may verify details with the provider'),
-                              _buildNextStepItem('Once approved, the provider appears in search results'),
-                              _buildNextStepItem('You\'ll receive a notification when it\'s published'),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.brandPurple,
-                            foregroundColor: AppTheme.brandWhite,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 32,
-                              vertical: 16,
+                              child: const Text('Back to search'),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _submitted = false;
+                                  _nameController.clear();
+                                  _providerTypeController.clear();
+                                  _specialtyController.clear();
+                                  _addressController.clear();
+                                  _cityController.clear();
+                                  _zipController.clear();
+                                  _phoneController.clear();
+                                  _emailController.clear();
+                                  _websiteController.clear();
+                                  _notesController.clear();
+                                  _selectedProviderType = '';
+                                  _selectedSpecialty = '';
+                                });
+                              },
+                              child: const Text('Add another provider'),
                             ),
-                          ),
-                          child: const Text('Back to search'),
+                            const SizedBox(height: 8),
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _submitted = false;
-                              _nameController.clear();
-                              _providerTypeController.clear();
-                              _specialtyController.clear();
-                              _addressController.clear();
-                              _cityController.clear();
-                              _zipController.clear();
-                              _phoneController.clear();
-                              _emailController.clear();
-                              _websiteController.clear();
-                              _notesController.clear();
-                              _selectedProviderType = '';
-                              _selectedSpecialty = '';
-                            });
-                          },
-                          child: const Text('Add another provider'),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],

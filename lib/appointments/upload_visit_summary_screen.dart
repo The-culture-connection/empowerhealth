@@ -19,6 +19,8 @@ import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/ai_disclaimer_banner.dart';
 import '../widgets/feature_session_scope.dart';
+import '../privacy/after_visit_privacy_screen.dart';
+import 'visit_date_utils.dart';
 
 class UploadVisitSummaryScreen extends StatefulWidget {
   const UploadVisitSummaryScreen({super.key});
@@ -120,7 +122,25 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                       fontWeight: FontWeight.w300,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(ctx).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AfterVisitPrivacyScreen(),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Your privacy (plain language)',
+                      style: TextStyle(
+                        color: AppTheme.brandPurple,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   FilledButton(
                     onPressed: () async {
                       await prefs.setBool(_transparencyPrefsKey, true);
@@ -212,12 +232,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     );
   }
 
-  static const _summarySectionLabels = [
-    'In Simpler Words',
-    'Important Information',
-    'Questions You May Want to Ask',
-  ];
-
   /// Split AI markdown on `## ` headings so we can show NewUI-style section cards.
   List<MapEntry<String?, String>> _splitMarkdownByH2(String md) {
     final lines = md.split('\n');
@@ -247,12 +261,20 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     return chunks;
   }
 
-  String _summaryLabelForSection(int index, int total) {
-    if (total <= 1) return 'In Simpler Words';
-    if (index < _summarySectionLabels.length) {
-      return _summarySectionLabels[index];
+  /// Use the real `##` heading from the model output. (Older code used fixed
+  /// labels by index, so every block after the third became "Questions You May Want to Ask".)
+  String _cardLabelForSummaryChunk(
+    MapEntry<String?, String> chunk,
+    int index,
+    int total,
+  ) {
+    final fromMd = chunk.key?.trim();
+    if (fromMd != null && fromMd.isNotEmpty) {
+      return fromMd;
     }
-    return _summarySectionLabels.last;
+    if (total <= 1) return 'In simpler words';
+    if (index == 0) return 'In simpler words';
+    return 'More from your visit';
   }
 
   List<Widget> _buildVisitSummarySections(BuildContext context) {
@@ -265,7 +287,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       if (i > 0) out.add(const SizedBox(height: 16));
       out.add(
         _visitSummarySectionCard(
-          label: _summaryLabelForSection(i, nonEmpty.length),
+          label: _cardLabelForSummaryChunk(nonEmpty[i], i, nonEmpty.length),
           body: nonEmpty[i].value.trim(),
           showReadingLevel: i == 0,
         ),
@@ -368,6 +390,27 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     }
   }
 
+  /// One page, image scaled to fill the page (visit paperwork photos).
+  Future<File> _imageBytesToTempPdf(Uint8List bytes, String baseName) async {
+    final document = PdfDocument();
+    final page = document.pages.add();
+    final bitmap = PdfBitmap(bytes);
+    final pageSize = page.getClientSize();
+    page.graphics.drawImage(
+      bitmap,
+      Rect.fromLTWH(0, 0, pageSize.width, pageSize.height),
+    );
+    final List<int> out = await document.save();
+    document.dispose();
+    final dir = await getTemporaryDirectory();
+    final safe = baseName.replaceAll(RegExp(r'[^\w\-\.]'), '_');
+    final file = File(
+      '${dir.path}/visit_img_${DateTime.now().millisecondsSinceEpoch}_$safe.pdf',
+    );
+    await file.writeAsBytes(out);
+    return file;
+  }
+
   Future<void> _pickPDF() async {
     try {
       print('📄 Opening file picker...');
@@ -381,7 +424,9 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         // Use FileType.any on Android emulator as it's more reliable
         result = await FilePicker.platform.pickFiles(
           type: Platform.isAndroid ? FileType.any : FileType.custom,
-          allowedExtensions: Platform.isAndroid ? null : ['pdf'],
+          allowedExtensions: Platform.isAndroid
+              ? null
+              : ['pdf', 'jpg', 'jpeg', 'png', 'heic', 'webp'],
           withData: true, // Load file data directly - more reliable on Android
           allowMultiple: false,
         ).timeout(
@@ -466,13 +511,27 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         final fileName = pickedFile.name.toLowerCase();
         final extension = pickedFile.extension?.toLowerCase() ?? '';
         final isPdf = extension == 'pdf' || fileName.endsWith('.pdf');
-        
-        if (!isPdf) {
-          print('❌ Selected file is not a PDF: $fileName (extension: $extension)');
+        final isImage = [
+              'jpg',
+              'jpeg',
+              'png',
+              'heic',
+              'webp',
+            ].contains(extension) ||
+            fileName.endsWith('.jpg') ||
+            fileName.endsWith('.jpeg') ||
+            fileName.endsWith('.png') ||
+            fileName.endsWith('.heic') ||
+            fileName.endsWith('.webp');
+
+        if (!isPdf && !isImage) {
+          print('❌ Unsupported file: $fileName (extension: $extension)');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('❌ Please select a PDF file. Selected: ${pickedFile.name}'),
+                content: Text(
+                  'Please choose a PDF or a photo (JPG, PNG, HEIC, WebP). Selected: ${pickedFile.name}',
+                ),
                 backgroundColor: Colors.orange,
                 duration: const Duration(seconds: 4),
                 action: SnackBarAction(
@@ -485,52 +544,70 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
           }
           return;
         }
-        
-        File? finalFile;
-        
-        // Prefer using bytes (more reliable on Android)
-        if (pickedFile.bytes != null) {
-          print('📄 Saving file from bytes...');
-          final tempDir = await getTemporaryDirectory();
-          final tempFile = File('${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}');
-          await tempFile.writeAsBytes(pickedFile.bytes!);
-          finalFile = tempFile;
-          print('📄 Temp file created: ${tempFile.path}');
-        } else if (pickedFile.path != null) {
-          print('📄 Using file path: ${pickedFile.path}');
-          final file = File(pickedFile.path!);
-          
-          // Verify file exists
-          if (await file.exists()) {
-            finalFile = file;
-            print('📄 File exists and verified');
-          } else {
-            print('❌ File does not exist at path: ${pickedFile.path}');
-            throw Exception('Selected file does not exist. Please try again.');
+
+        late final File finalFile;
+        String displayName = pickedFile.name;
+
+        if (isImage) {
+          Uint8List? imageBytes = pickedFile.bytes;
+          if (imageBytes == null && pickedFile.path != null) {
+            final f = File(pickedFile.path!);
+            if (await f.exists()) {
+              imageBytes = await f.readAsBytes();
+            }
           }
-        } else {
-          print('❌ Both file path and bytes are null!');
-          throw Exception('Could not access file data. Please try selecting the file again.');
-        }
-        
-        // Update state with the file
-        if (finalFile != null) {
-          setState(() {
-            _selectedPDF = finalFile;
-            _pdfFileName = pickedFile.name;
-          });
-          
-          print('📄 State updated with PDF file: $_pdfFileName');
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('PDF selected: $_pdfFileName'),
-                duration: const Duration(seconds: 3),
-                backgroundColor: Colors.green,
-              ),
+          if (imageBytes == null) {
+            throw Exception(
+              'Could not read image data. Please try selecting the file again.',
             );
           }
+          finalFile = await _imageBytesToTempPdf(imageBytes, pickedFile.name);
+          displayName = '${pickedFile.name} (as PDF)';
+        } else {
+          // PDF — prefer bytes (more reliable on Android)
+          if (pickedFile.bytes != null) {
+            print('📄 Saving file from bytes...');
+            final tempDir = await getTemporaryDirectory();
+            final tempFile = File(
+              '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}',
+            );
+            await tempFile.writeAsBytes(pickedFile.bytes!);
+            finalFile = tempFile;
+            print('📄 Temp file created: ${tempFile.path}');
+          } else if (pickedFile.path != null) {
+            print('📄 Using file path: ${pickedFile.path}');
+            final file = File(pickedFile.path!);
+
+            if (await file.exists()) {
+              finalFile = file;
+              print('📄 File exists and verified');
+            } else {
+              print('❌ File does not exist at path: ${pickedFile.path}');
+              throw Exception('Selected file does not exist. Please try again.');
+            }
+          } else {
+            print('❌ Both file path and bytes are null!');
+            throw Exception(
+              'Could not access file data. Please try selecting the file again.',
+            );
+          }
+        }
+
+        setState(() {
+          _selectedPDF = finalFile;
+          _pdfFileName = displayName;
+        });
+
+        print('📄 State updated with PDF file: $_pdfFileName');
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('PDF selected: $_pdfFileName'),
+              duration: const Duration(seconds: 3),
+              backgroundColor: Colors.green,
+            ),
+          );
         }
       } else {
         print('📄 File picker cancelled by user or no file selected');
@@ -630,7 +707,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
           contentType: 'application/pdf',
           customMetadata: {
             'userId': userId,
-            'appointmentDate': _selectedDate!.toIso8601String(),
+            'appointmentDate': visitAppointmentCalendarKey(_selectedDate!),
             'fileName': fileName,
             'uploadedAt': DateTime.now().toIso8601String(),
           },
@@ -663,7 +740,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         'fileName': fileName,
         'storagePath': storagePath,
         'downloadUrl': downloadUrl,
-        'appointmentDate': Timestamp.fromDate(_selectedDate!),
+        'appointmentDate': visitAppointmentFirestoreTimestamp(_selectedDate!),
         'fileSize': pdfBytes.length,
         'status': 'uploaded',
         'createdAt': FieldValue.serverTimestamp(),
@@ -730,13 +807,15 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       }
       
       print('👤 Current user: ${currentUser.uid}');
-      print('📅 Appointment date: ${_selectedDate!.toIso8601String()}');
-      
+      print(
+        '📅 Appointment date (calendar): ${visitAppointmentCalendarKey(_selectedDate!)}',
+      );
+
       // Call Firebase Function to analyze PDF
       final analysisResult = await _functionsService.analyzeVisitSummaryPDF(
         storagePath: storagePath,
         downloadUrl: downloadUrl,
-        appointmentDate: _selectedDate!.toIso8601String(),
+        appointmentDate: visitAppointmentCalendarKey(_selectedDate!),
         educationLevel: _userProfile?.educationLevel,
         userProfile: userProfileData,
       );
@@ -893,7 +972,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       // The function already saves to Firestore, so we don't need to save again
       final analysisResult = await _functionsService.analyzeVisitSummaryText(
         visitText: visitText,
-        appointmentDate: _selectedDate!.toIso8601String(),
+        appointmentDate: visitAppointmentCalendarKey(_selectedDate!),
         educationLevel: _userProfile?.educationLevel,
         userProfile: userProfileData,
         saveOriginalText: _saveOriginalText,
@@ -943,21 +1022,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       );
       if (image == null) return;
       final Uint8List bytes = await image.readAsBytes();
-      final document = PdfDocument();
-      final page = document.pages.add();
-      final bitmap = PdfBitmap(bytes);
-      final pageSize = page.getClientSize();
-      page.graphics.drawImage(
-        bitmap,
-        Rect.fromLTWH(0, 0, pageSize.width, pageSize.height),
-      );
-      final List<int> out = await document.save();
-      document.dispose();
-      final dir = await getTemporaryDirectory();
-      final file = File(
-        '${dir.path}/visit_camera_${DateTime.now().millisecondsSinceEpoch}.pdf',
-      );
-      await file.writeAsBytes(out);
+      final file = await _imageBytesToTempPdf(bytes, image.name);
       if (!mounted) return;
       setState(() {
         _selectedPDF = file;
@@ -974,6 +1039,39 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Could not use camera: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickGalleryPhotoAsPdf() async {
+    try {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+      if (image == null) return;
+      final Uint8List bytes = await image.readAsBytes();
+      final file = await _imageBytesToTempPdf(bytes, image.name);
+      if (!mounted) return;
+      setState(() {
+        _selectedPDF = file;
+        _pdfFileName = 'visit_photo.pdf';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Photo added. Tap below to analyze when ready.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open gallery: $e'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -1067,7 +1165,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Doctor visits can be overwhelming. We’re here to help you understand what was shared — starting with a clear photo of your paperwork, if you like.',
+                          'Doctor visits can be overwhelming. We’re here to help you understand paperwork in plain language — after-visit summaries, discharge instructions, provider notes, and similar documents. This is literacy support, not a diagnosis.',
                           style: TextStyle(
                             fontSize: 15,
                             height: 1.45,
@@ -1075,7 +1173,29 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                             fontWeight: FontWeight.w300,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.push<void>(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const AfterVisitPrivacyScreen(),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              'Your privacy (plain language)',
+                              style: TextStyle(
+                                color: AppTheme.brandPurple,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
                         Container(
                           padding: const EdgeInsets.all(22),
                           decoration: BoxDecoration(
@@ -1340,7 +1460,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Take a photo of your visit summary',
+                      'Photo or file',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 17,
@@ -1351,7 +1471,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Or choose a PDF from your device',
+                      'Camera, gallery, or PDF / image from Files',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -1361,31 +1481,46 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                       ),
                     ),
                     const SizedBox(height: 22),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _GradientActionButton(
-                          icon: Icons.photo_camera_outlined,
-                          label: 'Take photo',
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFD4A574), Color(0xFFE0B589)],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _GradientActionButton(
+                            icon: Icons.photo_camera_outlined,
+                            label: 'Take photo',
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFD4A574), Color(0xFFE0B589)],
+                            ),
+                            onPressed: _pickPhotoAsPdf,
                           ),
-                          onPressed: _pickPhotoAsPdf,
-                        ),
-                        const SizedBox(width: 10),
-                        _GradientActionButton(
-                          icon: Icons.description_outlined,
-                          label: 'Choose file',
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF663399),
-                              Color(0xFF7744AA),
-                              Color(0xFF8855BB),
-                            ],
+                          const SizedBox(width: 10),
+                          _GradientActionButton(
+                            icon: Icons.photo_library_outlined,
+                            label: 'Gallery',
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFFC9A882),
+                                Color(0xFFD4B896),
+                              ],
+                            ),
+                            onPressed: _pickGalleryPhotoAsPdf,
                           ),
-                          onPressed: _pickPDF,
-                        ),
-                      ],
+                          const SizedBox(width: 10),
+                          _GradientActionButton(
+                            icon: Icons.description_outlined,
+                            label: 'Choose file',
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF663399),
+                                Color(0xFF7744AA),
+                                Color(0xFF8855BB),
+                              ],
+                            ),
+                            onPressed: _pickPDF,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1393,12 +1528,13 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 14),
                 child: Text(
-                  'This works best with paperwork you were given after your visit',
+                  'After-visit summaries, discharge paperwork, and provider notes work well. Remove sensitive info you do not want in the photo.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
                     color: AppTheme.textLight,
                     fontWeight: FontWeight.w300,
+                    height: 1.4,
                   ),
                 ),
               ),

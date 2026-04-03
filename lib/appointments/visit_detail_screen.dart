@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
+import 'visit_summary_preview.dart';
 
 /// Full-screen visit detail matching NewUI [VisitDetail.tsx] — replaces modal dialog.
 class VisitDetailScreen extends StatelessWidget {
@@ -21,6 +25,27 @@ class VisitDetailScreen extends StatelessWidget {
           : (data['summary'] is Map<String, dynamic>
               ? data['summary'] as Map<String, dynamic>
               : null);
+
+  /// Markdown blob for regex fallbacks — handles `summary` stored as a Map (legacy / bad writes).
+  String? _summaryMarkdownString() {
+    final raw = data['summary'];
+    if (raw is String) {
+      final t = raw.trim();
+      if (t.isEmpty) return null;
+      if (t.startsWith('{') &&
+          (t.contains('howBabyIsDoing') || t.contains('questionsToAsk'))) {
+        return null;
+      }
+      return t;
+    }
+    if (raw is Map<String, dynamic>) {
+      return formatSummaryFromMap(raw);
+    }
+    if (raw is Map) {
+      return formatSummaryFromMap(Map<String, dynamic>.from(raw));
+    }
+    return null;
+  }
 
   String _formatHeaderDate(dynamic appointmentDate) {
     if (appointmentDate == null) return 'Visit';
@@ -45,8 +70,10 @@ class VisitDetailScreen extends StatelessWidget {
           .where((s) => s.isNotEmpty)
           .toList();
     }
-    final s = data['summary']?.toString();
+    final s = _summaryMarkdownString();
     if (s == null) return [];
+    final fromNew = _sectionLines(s, '## Questions to Ask');
+    if (fromNew.isNotEmpty) return fromNew;
     return _sectionLines(s, '## Questions to Ask at Your Next Visit');
   }
 
@@ -58,7 +85,7 @@ class VisitDetailScreen extends StatelessWidget {
           .where((t) => t.isNotEmpty)
           .toList();
     }
-    final s = data['summary']?.toString();
+    final s = _summaryMarkdownString();
     if (s == null) return [];
     return _sectionLines(s, '## Notes');
   }
@@ -84,6 +111,9 @@ class VisitDetailScreen extends StatelessWidget {
     final sd = _summaryData;
     if (sd != null) {
       final parts = <String>[];
+      if (sd['importantNextSteps'] != null) {
+        parts.add(sd['importantNextSteps'].toString());
+      }
       if (sd['nextSteps'] != null) {
         parts.add(sd['nextSteps'].toString());
       }
@@ -97,8 +127,13 @@ class VisitDetailScreen extends StatelessWidget {
       }
       if (parts.isNotEmpty) return parts.join('\n\n');
     }
-    final s = data['summary']?.toString();
+    final s = _summaryMarkdownString();
     if (s == null) return null;
+    final important = RegExp(
+      r'## Important Next Steps\n(.*?)(?=\n## |$)',
+      dotAll: true,
+    ).firstMatch(s);
+    if (important != null) return important.group(1)?.trim();
     final match = RegExp(
       r'## Actions To Take\n(.*?)(?=\n## |$)',
       dotAll: true,
@@ -106,8 +141,31 @@ class VisitDetailScreen extends StatelessWidget {
     return match?.group(1)?.trim();
   }
 
+  List<Map<String, String>> _medicationsList() {
+    final sd = _summaryData;
+    if (sd == null || sd['medications'] is! List) return [];
+    final out = <Map<String, String>>[];
+    for (final m in sd['medications'] as List) {
+      if (m is! Map) continue;
+      final name = m['name']?.toString() ?? '';
+      if (name.isEmpty) continue;
+      out.add({
+        'name': name,
+        'detail': [
+          if (m['purpose'] != null) m['purpose'].toString(),
+          if (m['instructions'] != null) m['instructions'].toString(),
+        ].where((e) => e.isNotEmpty).join(' — '),
+      });
+    }
+    return out;
+  }
+
   String _whatWasDiscussed() {
     final sd = _summaryData;
+    if (sd != null && sd['whatThisMeans'] != null) {
+      final w = sd['whatThisMeans'].toString().trim();
+      if (w.isNotEmpty) return w;
+    }
     final parts = <String>[];
     if (sd != null) {
       if (sd['howBabyIsDoing'] != null) {
@@ -118,8 +176,14 @@ class VisitDetailScreen extends StatelessWidget {
       }
     }
     if (parts.isNotEmpty) return parts.join('\n\n');
-    final s = data['summary']?.toString();
-    if (s == null) return '';
+    final s = _summaryMarkdownString();
+    if (s == null || s.isEmpty) return '';
+    final wtm = RegExp(
+      r'## What This Means\n(.*?)(?=\n## |$)',
+      dotAll: true,
+    ).firstMatch(s);
+    final wtmText = wtm?.group(1)?.trim();
+    if (wtmText != null && wtmText.isNotEmpty) return wtmText;
     final baby = RegExp(
       r'## How Your Baby Is Doing\n(.*?)(?=\n## |$)',
       dotAll: true,
@@ -224,6 +288,27 @@ class VisitDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () =>
+                          confirmDeleteVisitSummary(context, summaryId: summaryId),
+                      icon: Icon(
+                        Icons.delete_outline,
+                        size: 20,
+                        color: AppTheme.textMuted,
+                      ),
+                      label: Text(
+                        'Delete this summary',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(28),
@@ -368,7 +453,7 @@ class VisitDetailScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'In simpler words',
+                          'What this means',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -408,25 +493,34 @@ class VisitDetailScreen extends StatelessWidget {
                             final term = t['term']?.toString() ?? '';
                             final exp = t['explanation']?.toString() ?? '';
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: RichText(
-                                text: TextSpan(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: ExpansionTile(
+                                tilePadding: EdgeInsets.zero,
+                                expandedAlignment: Alignment.centerLeft,
+                                childrenPadding: const EdgeInsets.only(
+                                  bottom: 8,
+                                  left: 4,
+                                  right: 4,
+                                ),
+                                title: Text(
+                                  term,
                                   style: const TextStyle(
                                     fontSize: 14,
-                                    height: 1.45,
-                                    color: AppTheme.textSecondary,
-                                    fontWeight: FontWeight.w300,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
                                   ),
-                                  children: [
-                                    TextSpan(
-                                      text: '$term: ',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    TextSpan(text: exp),
-                                  ],
                                 ),
+                                children: [
+                                  Text(
+                                    exp,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      height: 1.45,
+                                      fontWeight: FontWeight.w300,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
                           }),
@@ -438,7 +532,7 @@ class VisitDetailScreen extends StatelessWidget {
                       _actionsMarkdown()!.trim().isNotEmpty) ...[
                     const SizedBox(height: 24),
                     Text(
-                      'ACTIONS TO TAKE',
+                      'IMPORTANT NEXT STEPS',
                       style: TextStyle(
                         fontSize: 11,
                         letterSpacing: 1.2,
@@ -461,6 +555,54 @@ class VisitDetailScreen extends StatelessWidget {
                             color: AppTheme.brandPurple,
                           ),
                         ),
+                      ),
+                    ),
+                  ],
+                  if (_medicationsList().isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      'MEDICATIONS MENTIONED',
+                      style: TextStyle(
+                        fontSize: 11,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.brandPurple.withOpacity(0.85),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _newUiCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _medicationsList().map((med) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  med['name']!,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                if (med['detail']!.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    med['detail']!,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      height: 1.45,
+                                      fontWeight: FontWeight.w300,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ),
                   ],
@@ -699,5 +841,99 @@ class VisitDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Deletes the user's visit summary, matching `file_uploads` rows (and Storage objects),
+/// and generated `learning_tasks` that reference this summary.
+Future<void> confirmDeleteVisitSummary(
+  BuildContext context, {
+  required String summaryId,
+}) async {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return;
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Delete this summary?'),
+      content: const Text(
+        'This removes the plain-language summary and your uploaded file record from your account. '
+        'To-dos created from this visit are removed when possible; you can archive any that remain from Learning.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: AppTheme.brandPurple,
+            foregroundColor: AppTheme.brandWhite,
+          ),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+
+  try {
+    final fs = FirebaseFirestore.instance;
+
+    final uploads = await fs
+        .collection('users')
+        .doc(uid)
+        .collection('file_uploads')
+        .where('summaryId', isEqualTo: summaryId)
+        .get();
+
+    for (final doc in uploads.docs) {
+      final path = doc.data()['storagePath'] as String?;
+      if (path != null && path.isNotEmpty) {
+        try {
+          await FirebaseStorage.instance.ref(path).delete();
+        } catch (_) {}
+      }
+      await doc.reference.delete();
+    }
+
+    final tasksSnap = await fs
+        .collection('learning_tasks')
+        .where('userId', isEqualTo: uid)
+        .get();
+    for (final d in tasksSnap.docs) {
+      final m = d.data();
+      if (m['visitSummaryId'] == summaryId) {
+        await d.reference.delete();
+      }
+    }
+
+    await fs
+        .collection('users')
+        .doc(uid)
+        .collection('visit_summaries')
+        .doc(summaryId)
+        .delete();
+
+    if (context.mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Summary deleted'),
+          backgroundColor: AppTheme.brandTurquoise,
+        ),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not delete: $e'),
+          backgroundColor: AppTheme.brandPurple,
+        ),
+      );
+    }
   }
 }

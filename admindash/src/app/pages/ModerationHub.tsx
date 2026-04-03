@@ -1,0 +1,74 @@
+import { Link } from "react-router";
+import { Bell, Stethoscope, ChevronRight } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
+
+export function ModerationHub() {
+  const { isAdmin } = useAuth();
+
+  return (
+    <div className="p-8 max-w-3xl">
+      <h1 className="text-2xl font-semibold mb-2" style={{ color: "var(--warm-600)" }}>
+        Moderation and Communication
+      </h1>
+      <p className="text-sm mb-8" style={{ color: "var(--warm-500)" }}>
+        Push messaging and provider submissions (admin tools).
+      </p>
+
+      <ul className="space-y-3">
+        <li>
+          <Link
+            to="/moderation/push"
+            className="flex items-center gap-4 p-5 rounded-2xl border transition-shadow hover:shadow-md"
+            style={{
+              backgroundColor: "white",
+              borderColor: "var(--lavender-200)",
+              color: "var(--warm-600)",
+            }}
+          >
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-xl"
+              style={{ backgroundColor: "var(--lavender-100)" }}
+            >
+              <Bell className="h-6 w-6" style={{ color: "var(--lavender-600)" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium">Push notifications</div>
+              <div className="text-sm mt-0.5" style={{ color: "var(--warm-500)" }}>
+                Compose FCM topic broadcasts and view recent sends.
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 opacity-50" />
+          </Link>
+        </li>
+
+        {isAdmin() && (
+          <li>
+            <Link
+              to="/moderation/providers"
+              className="flex items-center gap-4 p-5 rounded-2xl border transition-shadow hover:shadow-md"
+              style={{
+                backgroundColor: "white",
+                borderColor: "var(--lavender-200)",
+                color: "var(--warm-600)",
+              }}
+            >
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-xl"
+                style={{ backgroundColor: "var(--lavender-100)" }}
+              >
+                <Stethoscope className="h-6 w-6" style={{ color: "var(--lavender-600)" }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium">Provider moderation</div>
+                <div className="text-sm mt-0.5" style={{ color: "var(--warm-500)" }}>
+                  Approve or reject user-submitted providers in UserProviders.
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 shrink-0 opacity-50" />
+            </Link>
+          </li>
+        )}
+      </ul>
+    </div>
+  );
+}

@@ -283,6 +283,59 @@ class _CommunityScreenState extends State<CommunityScreen> {
     ];
   }
 
+  Future<void> _confirmDeletePostFromFeed(String postId, String title) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this post?'),
+        content: Text(
+          title.isEmpty
+              ? 'This removes your post and all replies. This cannot be undone.'
+              : '“$title” will be removed for everyone. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.brandPurple,
+              foregroundColor: AppTheme.brandWhite,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('community_posts')
+          .doc(postId)
+          .delete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Post deleted'),
+            backgroundColor: AppTheme.brandTurquoise,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not delete post: $e'),
+            backgroundColor: AppTheme.brandPurple,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _postCard(BuildContext context, QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final title = data['title'] ?? '';
@@ -292,37 +345,47 @@ class _CommunityScreenState extends State<CommunityScreen> {
     final category = data['category'] ?? 'General';
     final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
     final likes = List<String>.from(data['likes'] ?? []);
+    final postUserId = data['userId'] as String?;
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    final isOwnPost =
+        postUserId != null && currentUid != null && postUserId == currentUid;
 
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PostDetailScreen(postId: doc.id),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceCard,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: AppTheme.borderLight.withOpacity(0.65),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: AppTheme.borderLight.withOpacity(0.65),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Expanded(
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PostDetailScreen(postId: doc.id),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
             Container(
               width: 44,
               height: 44,
@@ -462,6 +525,17 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 ],
               ),
             ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (isOwnPost)
+              IconButton(
+                icon: Icon(Icons.delete_outline, color: AppTheme.textMuted),
+                tooltip: 'Delete post',
+                onPressed: () => _confirmDeletePostFromFeed(doc.id, '$title'),
+              ),
           ],
         ),
       ),

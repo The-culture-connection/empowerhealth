@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/ai_service.dart';
 import '../../cors/ui_theme.dart';
 import 'learning_module_detail_screen.dart';
@@ -491,6 +492,20 @@ class _StaticDetailView extends StatelessWidget {
                                     ),
                                   ),
                                 ),
+                                IconButton(
+                                  tooltip: 'Copy',
+                                  icon: Icon(Icons.copy_rounded,
+                                      size: 20, color: AppTheme.textLight),
+                                  onPressed: () {
+                                    Clipboard.setData(ClipboardData(text: s));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Copied to clipboard'),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  },
+                                ),
                               ],
                             ),
                           ),
@@ -523,6 +538,20 @@ class _StaticDetailView extends StatelessWidget {
                                       fontWeight: FontWeight.w300,
                                     ),
                                   ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Copy',
+                                  icon: Icon(Icons.copy_rounded,
+                                      size: 20, color: AppTheme.textLight),
+                                  onPressed: () {
+                                    Clipboard.setData(ClipboardData(text: s));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Copied to clipboard'),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),

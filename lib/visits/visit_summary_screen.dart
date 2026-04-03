@@ -190,14 +190,14 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
       // Save to user's profile under visit_summaries subcollection
       final userId = _auth.currentUser!.uid;
       
-      // Normalize appointment date to UTC midnight to prevent timezone issues
+      // Same calendar date as picker, stored as noon UTC (avoids "day before" in US TZs)
       DateTime? normalizedDate;
       if (_selectedDate != null) {
-        // Create UTC date at midnight to match Firebase function behavior
         normalizedDate = DateTime.utc(
           _selectedDate!.year,
           _selectedDate!.month,
           _selectedDate!.day,
+          12,
         );
       }
       

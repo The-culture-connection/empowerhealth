@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router";
+import { createBrowserRouter, Navigate, Outlet } from "react-router";
 import { Layout } from "./components/Layout";
 import { TechnologyLayout } from "./components/TechnologyLayout";
 import { Documentation } from "./pages/Documentation";
@@ -83,13 +83,29 @@ export const router = createBrowserRouter([
           </RoleRoute>
         )
       },
-      { 
-        path: "notifications", 
+      {
+        path: "notifications",
+        element: <Navigate to="/moderation/push" replace />,
+      },
+      {
+        path: "moderation",
         element: (
-          <RoleRoute allowedRoles={['admin', 'community_manager']}>
-            <Notifications />
+          <RoleRoute allowedRoles={["admin", "community_manager"]}>
+            <Outlet />
           </RoleRoute>
-        )
+        ),
+        children: [
+          { index: true, element: <ModerationHub /> },
+          { path: "push", element: <Notifications /> },
+          {
+            path: "providers",
+            element: (
+              <RoleRoute allowedRoles={["admin"]}>
+                <ProviderModeration />
+              </RoleRoute>
+            ),
+          },
+        ],
       },
     ],
   },

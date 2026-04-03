@@ -12,10 +12,12 @@ class CareNavigationSurveyScreen extends StatefulWidget {
 }
 
 class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen> {
-  String _step = 'intro'; // 'intro', 'needs', 'access', 'complete'
+  String _step = 'intro'; // 'intro', 'needs', 'access', 'outcome', 'complete'
   List<String> _selectedNeeds = [];
   Map<String, String> _accessResponses = {};
+  Map<String, String> _accessResponseTimestamps = {};
   int _currentNeedIndex = 0;
+  String? _gotWhatNeeded;
 
   final List<Map<String, String>> _careNeeds = [
     {'id': 'prenatal-postpartum', 'label': 'Prenatal or postpartum medical care'},
@@ -38,6 +40,14 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
     {'value': 'couldnt-access', 'label': "Couldn't access"},
   ];
 
+  static const List<Map<String, String>> _outcomeOptions = [
+    {'value': 'yes', 'label': 'Yes'},
+    {'value': 'mostly', 'label': 'Mostly'},
+    {'value': 'no', 'label': 'No'},
+    {'value': 'unsure', 'label': 'Not sure yet'},
+    {'value': 'skip', 'label': 'Prefer not to say'},
+  ];
+
   void _toggleNeed(String needId) {
     setState(() {
       if (_selectedNeeds.contains(needId)) {
@@ -52,6 +62,8 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
     final currentNeed = _selectedNeeds[_currentNeedIndex];
     setState(() {
       _accessResponses[currentNeed] = response;
+      _accessResponseTimestamps[currentNeed] =
+          DateTime.now().toUtc().toIso8601String();
     });
 
     // Move to next need or complete
@@ -60,13 +72,19 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         _currentNeedIndex++;
       });
     } else {
-      // Save to Firestore
-      await _saveSurveyResults();
-      if (mounted) {
-        setState(() {
-          _step = 'complete';
-        });
-      }
+      setState(() {
+        _step = 'outcome';
+      });
+    }
+  }
+
+  Future<void> _submitGotWhatNeeded(String value) async {
+    _gotWhatNeeded = value;
+    await _saveSurveyResults();
+    if (mounted) {
+      setState(() {
+        _step = 'complete';
+      });
     }
   }
 
@@ -82,6 +100,11 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         'userId': userId,
         'selectedNeeds': _selectedNeeds,
         'accessResponses': _accessResponses,
+        'accessResponseTimestamps': _accessResponseTimestamps,
+        'gotWhatNeeded': _gotWhatNeeded,
+        if (_gotWhatNeeded != null)
+          'gotWhatNeededRecordedAt':
+              DateTime.now().toUtc().toIso8601String(),
         'completedAt': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'completed',
@@ -126,6 +149,17 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
                     onTap: () {
                       if (_step == 'needs') {
                         setState(() => _step = 'intro');
+                      } else if (_step == 'outcome') {
+                        setState(() {
+                          _step = 'access';
+                          if (_selectedNeeds.isNotEmpty) {
+                            final last =
+                                _selectedNeeds[_selectedNeeds.length - 1];
+                            _accessResponses.remove(last);
+                            _accessResponseTimestamps.remove(last);
+                            _currentNeedIndex = _selectedNeeds.length - 1;
+                          }
+                        });
                       } else if (_step == 'access') {
                         if (_currentNeedIndex > 0) {
                           setState(() => _currentNeedIndex--);
@@ -161,6 +195,8 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
 
               // Access Response Step
               if (_step == 'access') _buildAccessStep(),
+
+              if (_step == 'outcome') _buildOutcomeStep(),
 
               // Complete Step
               if (_step == 'complete') _buildCompleteStep(),
@@ -679,6 +715,99 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
             child: const Text('Back'),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildOutcomeStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceCard,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppTheme.borderLight.withOpacity(0.4),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFD4A574),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Almost done',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textMuted,
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Overall, did you get what you needed?',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w400,
+            color: AppTheme.textPrimary,
+            height: 1.3,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'This is a big-picture check-in after the areas you picked.',
+          style: TextStyle(
+            fontSize: 14,
+            color: AppTheme.textMuted,
+            fontWeight: FontWeight.w300,
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 24),
+        ..._outcomeOptions.map((opt) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: InkWell(
+              onTap: () => _submitGotWhatNeeded(opt['value']!),
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceCard,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: AppTheme.shadowSoft(opacity: 0.08, blur: 20, y: 5),
+                  border: Border.all(
+                    color: AppTheme.borderLight.withOpacity(0.4),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  opt['label']!,
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.45,
+                    fontWeight: FontWeight.w300,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
       ],
     );
   }

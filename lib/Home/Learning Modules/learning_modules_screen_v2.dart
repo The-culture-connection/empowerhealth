@@ -9,6 +9,7 @@ import '../../utils/pregnancy_utils.dart';
 import 'learning_module_detail_screen.dart';
 import 'module_survey_dialog.dart';
 import 'rights_screen.dart';
+import 'birth_labor_education_topics.dart';
 
 class LearningModulesScreenV2 extends StatefulWidget {
   const LearningModulesScreenV2({super.key});
@@ -147,6 +148,12 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
       Navigator.canPop(context) ? AppTheme.backgroundWarm : Colors.transparent;
 
   List<Widget> _learningScrollHeaderSlivers() {
+    // Long two-line titles + subtitle need room; scale with system text size.
+    final textScale =
+        MediaQuery.textScalerOf(context).scale(14) / 14.0;
+    final birthStripHeight =
+        (148.0 * textScale).clamp(148.0, 210.0);
+
     return [
       SliverToBoxAdapter(
         child: Padding(
@@ -218,6 +225,105 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
         ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Birth & hospital basics',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: birthStripHeight,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: birthLaborEducationTopics.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (context, i) {
+                    final t = birthLaborEducationTopics[i];
+                    return SizedBox(
+                      width: 216,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => openBirthLaborTopic(context, t),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Ink(
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceCard,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: AppTheme.borderLight.withOpacity(0.5),
+                              ),
+                              boxShadow: AppTheme.shadowSoft(
+                                opacity: 0.05,
+                                blur: 14,
+                                y: 2,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.local_hospital_outlined,
+                                  size: 22,
+                                  color: AppTheme.brandPurple.withOpacity(0.85),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        t.title,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.2,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        t.subtitle,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          height: 1.25,
+                                          color: AppTheme.textMuted,
+                                          fontWeight: FontWeight.w300,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 20)),
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),

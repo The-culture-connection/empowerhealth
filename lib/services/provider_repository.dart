@@ -1080,4 +1080,67 @@ class ProviderRepository {
 
     return out;
   }
+
+  /// Directory providers that qualify for the community Mama Approved™ badge
+  /// (same rules as [Provider.showsMamaApprovedBadge]).
+  Future<List<Provider>> fetchMamaApprovedCommunityBadgeProviders({
+    int limit = 150,
+  }) async {
+    try {
+      final snap = await _firestore
+          .collection('providers')
+          .where(
+            'reviewCount',
+            isGreaterThanOrEqualTo: Provider.mamaApprovedMinReviewCount,
+          )
+          .limit(limit * 3)
+          .get();
+
+      final list = <Provider>[];
+      for (final doc in snap.docs) {
+        try {
+          final p = Provider.fromMap(doc.data(), id: doc.id);
+          if (p.showsMamaApprovedBadge) {
+            list.add(p);
+          }
+        } catch (_) {}
+      }
+
+      list.sort((a, b) {
+        final rb = b.rating ?? 0.0;
+        final ra = a.rating ?? 0.0;
+        final c = rb.compareTo(ra);
+        if (c != 0) return c;
+        return (b.reviewCount ?? 0).compareTo(a.reviewCount ?? 0);
+      });
+
+      if (list.length > limit) {
+        return list.sublist(0, limit);
+      }
+      return list;
+    } catch (e, st) {
+      print(
+        '⚠️ [ProviderRepository] fetchMamaApprovedCommunityBadgeProviders: $e',
+      );
+      print('⚠️ Stack: $st');
+      final snap = await _firestore.collection('providers').limit(400).get();
+      final list = <Provider>[];
+      for (final doc in snap.docs) {
+        try {
+          final p = Provider.fromMap(doc.data(), id: doc.id);
+          if (p.showsMamaApprovedBadge) {
+            list.add(p);
+          }
+        } catch (_) {}
+      }
+      list.sort((a, b) {
+        final rb = b.rating ?? 0.0;
+        final ra = a.rating ?? 0.0;
+        final c = rb.compareTo(ra);
+        if (c != 0) return c;
+        return (b.reviewCount ?? 0).compareTo(a.reviewCount ?? 0);
+      });
+      return list.length > limit ? list.sublist(0, limit) : list;
+    }
+  }
 }

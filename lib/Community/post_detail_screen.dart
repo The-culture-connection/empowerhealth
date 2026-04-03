@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
+import '../services/firebase_functions_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/trust_cue_banner.dart';
@@ -21,7 +22,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   final TextEditingController _replyController = TextEditingController();
   final AnalyticsService _analytics = AnalyticsService();
   final DatabaseService _databaseService = DatabaseService();
+  final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
   bool _isSubmittingReply = false;
+  bool _isDeletingReply = false;
   DateTime? _openedAt;
 
   @override
@@ -148,8 +151,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       final userData = userDoc.data();
       final authorName = userData?['username'] ?? 'Anonymous';
 
+      final replyId = FirebaseFirestore.instance.collection('community_posts').doc().id;
       // Use Timestamp.now() instead of FieldValue.serverTimestamp() for array elements
       final replyData = {
+        'replyId': replyId,
         'userId': userId,
         'authorName': authorName,
         'content': _replyController.text.trim(),
@@ -311,6 +316,127 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
+  Future<void> _confirmAndDeletePost(String postTitle) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this post?'),
+        content: Text(
+          postTitle.isEmpty
+              ? 'This removes your post and all replies for everyone in the community. This cannot be undone.'
+              : '“$postTitle” will be removed for everyone, including all replies. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.brandPurple,
+              foregroundColor: AppTheme.brandWhite,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('community_posts')
+          .doc(widget.postId)
+          .delete();
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Post deleted'),
+            backgroundColor: AppTheme.brandTurquoise,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not delete post: $e'),
+            backgroundColor: AppTheme.brandPurple,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmAndDeleteReply(
+    Map<String, dynamic> reply,
+    String postAuthorId, {
+    required bool isOwnReply,
+  }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this reply?'),
+        content: Text(
+          isOwnReply
+              ? 'This removes your reply for everyone. This cannot be undone.'
+              : 'This removes the reply from your thread for everyone. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.brandPurple,
+              foregroundColor: AppTheme.brandWhite,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _isDeletingReply = true);
+    try {
+      final rid = reply['replyId'] as String?;
+      final content = reply['content'] as String? ?? '';
+      final ts = reply['createdAt'] as Timestamp?;
+      await _functionsService.deleteCommunityReply(
+        postId: widget.postId,
+        replyId: rid,
+        legacyContent: rid == null ? content : null,
+        legacyCreatedAtSeconds: rid == null && ts != null ? ts.seconds : null,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reply deleted'),
+            backgroundColor: AppTheme.brandTurquoise,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not delete reply: $e'),
+            backgroundColor: AppTheme.brandPurple,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isDeletingReply = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -330,10 +456,25 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               }
               final data = snapshot.data!.data() as Map<String, dynamic>;
               final title = data['title'] ?? '';
-              return IconButton(
-                icon: Icon(Icons.flag_outlined, color: AppTheme.textMuted),
-                onPressed: () => _reportPost(widget.postId, title),
-                tooltip: 'Report post',
+              final postAuthorId = data['userId'] as String?;
+              final uid = FirebaseAuth.instance.currentUser?.uid;
+              final isPostOwner =
+                  postAuthorId != null && uid != null && postAuthorId == uid;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isPostOwner)
+                    IconButton(
+                      icon: Icon(Icons.delete_outline, color: AppTheme.textMuted),
+                      tooltip: 'Delete post',
+                      onPressed: () => _confirmAndDeletePost('$title'),
+                    ),
+                  IconButton(
+                    icon: Icon(Icons.flag_outlined, color: AppTheme.textMuted),
+                    onPressed: () => _reportPost(widget.postId, '$title'),
+                    tooltip: 'Report post',
+                  ),
+                ],
               );
             },
           ),
@@ -363,6 +504,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             data['replies'] ?? [],
           );
           final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+          final postOwnerId = data['userId'] as String?;
           final userId = FirebaseAuth.instance.currentUser?.uid;
           final isLiked = userId != null && likes.contains(userId);
 
@@ -465,7 +607,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   ),
                                   child: Center(
                                     child: Text(
-                                      authorName[0].toUpperCase(),
+                                      authorName.isNotEmpty
+                                          ? authorName[0].toUpperCase()
+                                          : '?',
                                       style: const TextStyle(
                                         color: AppTheme.brandWhite,
                                         fontWeight: FontWeight.bold,
@@ -618,8 +762,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           final replyAuthor =
                               reply['authorName'] ?? 'Anonymous';
                           final replyContent = reply['content'] ?? '';
+                          final replyUserId = reply['userId'] as String?;
                           final replyCreatedAt =
                               (reply['createdAt'] as Timestamp?)?.toDate();
+                          final canDeleteReply = userId != null &&
+                              (replyUserId == userId ||
+                                  (postOwnerId != null &&
+                                      postOwnerId == userId));
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
@@ -647,7 +796,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   ),
                                   child: Center(
                                     child: Text(
-                                      replyAuthor[0].toUpperCase(),
+                                      replyAuthor.isNotEmpty
+                                          ? replyAuthor[0].toUpperCase()
+                                          : '?',
                                       style: const TextStyle(
                                         color: AppTheme.brandWhite,
                                         fontWeight: FontWeight.bold,
@@ -701,6 +852,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     ],
                                   ),
                                 ),
+                                if (canDeleteReply)
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.delete_outline,
+                                      size: 22,
+                                      color: AppTheme.textMuted,
+                                    ),
+                                    tooltip: 'Delete reply',
+                                    onPressed: _isDeletingReply
+                                        ? null
+                                        : () => _confirmAndDeleteReply(
+                                              reply,
+                                              postOwnerId ?? '',
+                                              isOwnReply: replyUserId == userId,
+                                            ),
+                                  ),
                               ],
                             ),
                           );

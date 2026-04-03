@@ -154,6 +154,32 @@ class FirebaseFunctionsService {
     }
   }
 
+  /// Removes one reply from a community post. Server verifies caller is the
+  /// reply author or the post author. [replyId] is preferred; legacy clients
+  /// may send [legacyContent] + [legacyCreatedAtSeconds] when [replyId] is absent.
+  Future<void> deleteCommunityReply({
+    required String postId,
+    String? replyId,
+    String? legacyContent,
+    int? legacyCreatedAtSeconds,
+  }) async {
+    try {
+      final payload = <String, dynamic>{'postId': postId};
+      if (replyId != null && replyId.isNotEmpty) {
+        payload['replyId'] = replyId;
+      }
+      if (legacyContent != null) {
+        payload['legacyContent'] = legacyContent;
+      }
+      if (legacyCreatedAtSeconds != null) {
+        payload['legacyCreatedAtSeconds'] = legacyCreatedAtSeconds;
+      }
+      await _functions.httpsCallable('deleteCommunityReply').call(payload);
+    } catch (e) {
+      throw Exception('Failed to delete reply: $e');
+    }
+  }
+
   // Analyze PDF directly with OpenAI (no text extraction) - NEW FUNCTION NAME
   Future<Map<String, dynamic>> analyzeVisitSummaryPDF({
     required String storagePath,

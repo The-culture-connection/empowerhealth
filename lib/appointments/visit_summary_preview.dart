@@ -5,26 +5,58 @@
 String formatSummaryFromMap(Map<String, dynamic> summaryMap) {
   final buffer = StringBuffer();
 
-  if (summaryMap['howBabyIsDoing'] != null) {
-    buffer.writeln('## How Your Baby Is Doing');
-    buffer.writeln(summaryMap['howBabyIsDoing']);
+  void block(String heading, String body) {
+    final t = body.trim();
+    if (t.isEmpty) return;
+    buffer.writeln(heading);
+    buffer.writeln(t);
     buffer.writeln();
+  }
+
+  final wtm = summaryMap['whatThisMeans']?.toString() ?? '';
+  if (wtm.trim().isNotEmpty) {
+    block('## What This Means', wtm);
+  }
+
+  if (summaryMap['howBabyIsDoing'] != null) {
+    block('## How Your Baby Is Doing', summaryMap['howBabyIsDoing'].toString());
   }
 
   if (summaryMap['howYouAreDoing'] != null) {
-    buffer.writeln('## How You Are Doing');
-    buffer.writeln(summaryMap['howYouAreDoing']);
-    buffer.writeln();
+    block('## How You Are Doing', summaryMap['howYouAreDoing'].toString());
   }
 
-  if (summaryMap['nextSteps'] != null) {
-    buffer.writeln('## Actions To Take');
-    buffer.writeln(summaryMap['nextSteps']);
-    buffer.writeln();
+  final nextParts = <String>[];
+  final ins = summaryMap['importantNextSteps']?.toString().trim();
+  if (ins != null && ins.isNotEmpty) nextParts.add(ins);
+  final ns = summaryMap['nextSteps']?.toString().trim();
+  if (ns != null && ns.isNotEmpty) nextParts.add(ns);
+  final fu = summaryMap['followUpInstructions']?.toString().trim();
+  if (fu != null && fu.isNotEmpty) nextParts.add(fu);
+  if (summaryMap['empowermentTips'] is List) {
+    for (final t in summaryMap['empowermentTips'] as List) {
+      if (t != null && t.toString().trim().isNotEmpty) {
+        nextParts.add(t.toString().trim());
+      }
+    }
+  }
+  if (nextParts.isNotEmpty) {
+    block('## Important Next Steps', nextParts.join('\n\n'));
   }
 
-  if (summaryMap['followUpInstructions'] != null) {
-    buffer.writeln(summaryMap['followUpInstructions']);
+  if (summaryMap['medications'] is List &&
+      (summaryMap['medications'] as List).isNotEmpty) {
+    buffer.writeln('## Medications Mentioned');
+    for (final med in summaryMap['medications'] as List) {
+      if (med is! Map) continue;
+      final name = med['name']?.toString() ?? 'Medication';
+      final purpose = med['purpose']?.toString();
+      final instr = med['instructions']?.toString();
+      var line = '**$name**';
+      if (purpose != null && purpose.isNotEmpty) line += ': $purpose';
+      if (instr != null && instr.isNotEmpty) line += ' — $instr';
+      buffer.writeln(line);
+    }
     buffer.writeln();
   }
 
@@ -65,6 +97,21 @@ String formatSummaryFromMap(Map<String, dynamic> summaryMap) {
 
 String extractPreviewText(String? summary) {
   if (summary == null) return '';
+
+  final wtmMatch = RegExp(
+    r'## What This Means\n(.*?)(?=\n## |$)',
+    dotAll: true,
+  ).firstMatch(summary);
+  if (wtmMatch != null) {
+    final content = wtmMatch.group(1)?.trim() ?? '';
+    final firstSentence = content.split('.').first;
+    if (firstSentence.isNotEmpty && firstSentence.length < 100) {
+      return '$firstSentence.';
+    }
+    return content.length > 100
+        ? '${content.substring(0, 100)}...'
+        : content;
+  }
 
   final babyMatch = RegExp(
     r'## How Your Baby Is Doing\n(.*?)(?=\n## |$)',

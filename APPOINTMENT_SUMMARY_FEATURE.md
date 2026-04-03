@@ -72,14 +72,20 @@
 
 ### 4. **Upload Visit Summary Screen** ✅
 
-**Aligned with NewUI** `UploadVisitSummary.tsx`: warm background, soft blurs, back link to **My Visits**, title **Understand Your Visit**, privacy gradient card (shield), **Appointment date** section with calendar card, **Upload PDF** / **Type Text** pills, dashed-style upload card with **Choose File** and **Take Photo** (camera → single-page PDF via Syncfusion), processing info card, text mode with **Process Notes** CTA.
+**Aligned with NewUI** `UploadVisitSummary.tsx`: warm background, soft blurs, back link to **My Visits**, title **After-Visit Support**, privacy gradient card (shield), **Appointment date** section with calendar card, **Upload PDF** / **Type Text** pills, dashed-style upload card with **Take photo** (camera), **Gallery**, and **Choose file** (PDF or image → single-page PDF via Syncfusion), processing info card, text mode with **Process Notes** CTA. Screen copy states literacy support (not diagnosis) and names document types (after-visit summary, discharge paperwork, provider notes). **Your privacy (plain language)** opens **`AfterVisitPrivacyScreen`** from the main body and from the one-time transparency dialog.
 
 **Flow:**
 1. **Select Appointment Date** (`showDatePicker`, formatted in the card)
-2. **Upload PDF** or **Type Text**; PDF path supports file pick or camera PDF
+2. **Upload** or **Type Text** — camera, gallery, or file picker (PDF, JPG, PNG, HEIC, WebP); images are wrapped into one PDF page for the same Cloud Function pipeline
 3. **Process & Analyze** (existing Cloud Function + Storage flow unchanged)
 4. **View Summary** (markdown + disclaimer)
 5. Summaries stored under **`visit_summaries`** as today
+
+**How the feature works (upload & privacy):**
+- **`_imageBytesToTempPdf`** builds a full-page PDF from image bytes for any image-based path.
+- **Transparency dialog** can deep-link to **`lib/privacy/after_visit_privacy_screen.dart`** before dismiss.
+- **Result section cards** use the **exact `##` heading** from the generated markdown as each card’s purple label (so “Important Next Steps” and “Suggested Learning Topics” stay distinct—not a fixed three-title rotation that reused “Questions you may want to ask”).
+- **Visit detail** (`VisitDetailScreen`) supports user deletion of summaries and related uploads; see dossier §4 in **`admindash/FEATURES.md`** for the full After-Visit Support contract.
 
 **UI Features:**
 - ✅ No purple app bar; **Navigator** back row + `AppTheme.backgroundWarm`

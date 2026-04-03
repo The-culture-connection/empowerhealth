@@ -13,6 +13,7 @@ import '../cors/ui_theme.dart';
 import '../widgets/mama_approved_community_badge.dart';
 import 'add_provider_screen.dart';
 import 'provider_profile_screen.dart';
+import 'mama_approved_providers_screen.dart';
 import 'provider_quick_search_screen.dart';
 import 'provider_search_entry_screen.dart';
 
@@ -353,64 +354,90 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Mama Approved™ — community reviews (not insurer “verified”)
-                              Container(
-                                padding: const EdgeInsets.all(16), // p-4
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFF8F3),
-                                  borderRadius: BorderRadius.circular(24), // rounded-3xl
-                                  border: Border.all(
-                                    color: const Color(0xFFE8D4C0).withOpacity(0.7),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: [
-                                            Color(0xFFFFF6ED),
-                                            Color(0xFFF0E6FA),
-                                          ],
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    Navigator.push<void>(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (context) =>
+                                            const MamaApprovedProvidersScreen(),
                                       ),
-                                      child: const Icon(
-                                        Icons.favorite_rounded,
-                                        color: Color(0xFF7D4E9E),
-                                        size: 22,
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: Ink(
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF8F3),
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: const Color(0xFFE8D4C0)
+                                            .withOpacity(0.7),
+                                        width: 1,
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            'Mama Approved™ on this list',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                              color: AppTheme.textPrimary,
+                                          Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              gradient: const LinearGradient(
+                                                colors: [
+                                                  Color(0xFFFFF6ED),
+                                                  Color(0xFFF0E6FA),
+                                                ],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: const Icon(
+                                              Icons.favorite_rounded,
+                                              color: Color(0xFF7D4E9E),
+                                              size: 22,
                                             ),
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Shows up when other parents left at least 3 reviews and the average is 4★ or higher — real experiences, not a medical seal.',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: AppTheme.textMuted,
-                                              fontWeight: FontWeight.w300,
-                                              height: 1.35,
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Mama Approved™ on this list',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: AppTheme.textPrimary,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'Tap to see all Mama Approved™ providers. Badges appear when other parents left at least 3 reviews and the average is 4★ or higher — real experiences, not a medical seal.',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppTheme.textMuted,
+                                                    fontWeight: FontWeight.w300,
+                                                    height: 1.35,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
+                                          ),
+                                          Icon(
+                                            Icons.chevron_right_rounded,
+                                            color: AppTheme.textMuted,
+                                            size: 22,
                                           ),
                                         ],
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 20), // mb-5

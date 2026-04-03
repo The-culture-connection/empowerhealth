@@ -70,11 +70,8 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Appointment Checklist'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: AppTheme.brandWhite,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Appointment Checklist'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(

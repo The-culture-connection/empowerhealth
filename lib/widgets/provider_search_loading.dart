@@ -234,7 +234,7 @@ class _ProviderSearchLoadingState extends State<ProviderSearchLoading>
                 customMessage:
                     'We match Ohio Medicaid and a national provider list to your ZIP, then apply the filters you chose.',
                 customSubMessage:
-                    'Fields with * are required for the directory. Mama Approved™ and tags come from the community, not insurers.',
+                    'Fields with * are required for the directory. Mama Approved™ appears when there are 3+ parent reviews averaging 4★+; tags come from the community, not insurers.',
               ),
               
               const SizedBox(height: 40),

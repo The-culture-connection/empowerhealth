@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firebase_functions_service.dart';
@@ -10,6 +9,7 @@ import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
 import 'notes_dialog.dart';
 import '../widgets/ai_disclaimer_banner.dart';
+import '../widgets/learning_module_formatted_content.dart';
 
 class ModuleDetailScreen extends StatefulWidget {
   final String title;
@@ -131,10 +131,10 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: AppTheme.brandWhite,
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(
+        context,
+        title: widget.title,
         actions: [
           IconButton(
             icon: const Icon(Icons.note_add),
@@ -225,6 +225,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               // Content with markdown support and text selection
               _SelectableMarkdownWidget(
                 content: _content!,
+                moduleTitle: widget.title,
                 onTextSelected: (selectedText) {
                   _openNotesDialog(highlightedText: selectedText);
                 },
@@ -566,10 +567,12 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
 // Selectable markdown widget that allows text selection
 class _SelectableMarkdownWidget extends StatefulWidget {
   final String content;
+  final String moduleTitle;
   final Function(String) onTextSelected;
 
   const _SelectableMarkdownWidget({
     required this.content,
+    required this.moduleTitle,
     required this.onTextSelected,
   });
 
@@ -578,19 +581,6 @@ class _SelectableMarkdownWidget extends StatefulWidget {
 }
 
 class _SelectableMarkdownWidgetState extends State<_SelectableMarkdownWidget> {
-  String? _selectedText;
-
-  String _stripMarkdown(String markdown) {
-    // Simple markdown stripping for text selection
-    return markdown
-        .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
-        .replaceAll(RegExp(r'\*\*(.*?)\*\*'), r'$1')
-        .replaceAll(RegExp(r'\*(.*?)\*'), r'$1')
-        .replaceAll(RegExp(r'`(.*?)`'), r'$1')
-        .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '')
-        .trim();
-  }
-
   @override
   Widget build(BuildContext context) {
     // Fix $1 formatting issue - replace $1 with proper section breaks
@@ -625,123 +615,19 @@ class _SelectableMarkdownWidgetState extends State<_SelectableMarkdownWidget> {
                 ],
               ),
               const SizedBox(height: 12),
-              _FormattedSelectableText(
+              LearningModuleFormattedContent(
                 content: cleanedContent,
-                onTextSelected: (text) {
-                  widget.onTextSelected(text);
-                },
+                moduleTitle: widget.moduleTitle,
+                selectionControls: _CustomTextSelectionControls(
+                  onAddNote: (text) {
+                    widget.onTextSelected(text);
+                  },
+                ),
               ),
             ],
           ),
         ),
       ],
-    );
-  }
-}
-
-// Widget that displays formatted text with proper section breaks and selectable text
-class _FormattedSelectableText extends StatelessWidget {
-  final String content;
-  final Function(String) onTextSelected;
-
-  const _FormattedSelectableText({
-    required this.content,
-    required this.onTextSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final lines = content.split('\n');
-    final widgets = <Widget>[];
-
-    for (var line in lines) {
-      if (line.trim().isEmpty) {
-        widgets.add(const SizedBox(height: 8));
-        continue;
-      }
-
-      if (line.startsWith('## ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 8),
-            child: Text(
-              line.substring(3),
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.brandPurple,
-              ),
-            ),
-          ),
-        );
-      } else if (line.startsWith('### ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 6),
-            child: Text(
-              line.substring(4),
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        );
-      } else if (line.trim() == '---' || line.trim().startsWith('---')) {
-        // Section divider
-        widgets.add(
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(
-              thickness: 2,
-              color: AppTheme.brandPurple,
-            ),
-          ),
-        );
-      } else if (line.startsWith('• ') || line.startsWith('- ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(left: 16, bottom: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('• ', style: TextStyle(fontSize: 16)),
-                Expanded(
-                  child: SelectableText(
-                    line.substring(2),
-                    style: const TextStyle(fontSize: 16, height: 1.5),
-                    selectionControls: _CustomTextSelectionControls(
-                      onAddNote: (text) {
-                        onTextSelected(text);
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: SelectableText(
-              line,
-              style: const TextStyle(fontSize: 16, height: 1.5),
-              selectionControls: _CustomTextSelectionControls(
-                onAddNote: (text) {
-                  onTextSelected(text);
-                },
-              ),
-            ),
-          ),
-        );
-      }
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widgets,
     );
   }
 }

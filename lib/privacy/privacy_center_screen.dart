@@ -171,11 +171,8 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Privacy & Trust'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: AppTheme.brandWhite,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Privacy & Trust'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(

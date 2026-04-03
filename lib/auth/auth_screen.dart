@@ -12,7 +12,8 @@ class AuthScreen extends StatelessWidget {
       feature: 'authentication-onboarding',
       entrySource: 'auth_landing',
       child: Scaffold(
-      body: Stack(
+        backgroundColor: AppTheme.backgroundWarm,
+        body: Stack(
         fit: StackFit.expand,
         children: [
           Image.asset(

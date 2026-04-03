@@ -327,13 +327,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: AppTheme.backgroundWarm,
-        body: Container(
-          decoration: BoxDecoration(
-            color: AppTheme.backgroundWarm,
-          ),
-          child: const Center(child: CircularProgressIndicator()),
-        ),
+        backgroundColor: Colors.transparent,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -364,20 +359,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Your Profile',
+                          Text(
+                            'Your profile',
                             style: TextStyle(
                               fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                              fontWeight: FontWeight.w400,
+                              color: AppTheme.textPrimary,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 8),
                           Text(
                             'Manage your information and preferences',
                             style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
+                              fontSize: 15,
+                              color: AppTheme.textMuted,
+                              fontWeight: FontWeight.w300,
                             ),
                           ),
                         ],
@@ -390,31 +386,48 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Profile Card with Gradient
+                  // Profile hero — Flutter UIdesign soft lavender (not primary CTA purple)
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      gradient: AppTheme.primaryActionGradient,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: AppTheme.shadowSoft(opacity: 0.15, blur: 20, y: 6),
+                      borderRadius: BorderRadius.circular(32),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFFEBE4F3),
+                          Color(0xFFE0D5EB),
+                          Color(0xFFE8DFE8),
+                        ],
+                      ),
+                      border: Border.all(
+                        color: const Color(0x80E0D3E8),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
                     ),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
                           width: 64,
                           height: 64,
+                          alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: AppTheme.surfaceCard.withOpacity(0.28),
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(24),
+                            color: Colors.white.withOpacity(0.45),
                           ),
-                          child: Center(
-                            child: Text(
-                              _getInitials(userName),
-                              style: const TextStyle(
-                                color: AppTheme.brandWhite,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          child: Text(
+                            _getInitials(userName),
+                            style: const TextStyle(
+                              color: AppTheme.gradientPurpleEnd,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
@@ -426,26 +439,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               Text(
                                 userName,
                                 style: const TextStyle(
-                                  color: AppTheme.brandWhite,
+                                  color: AppTheme.textPrimary,
                                   fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w400,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 user?.email ?? '',
-                                style: TextStyle(
-                                  color: AppTheme.brandWhite.withOpacity(0.8),
+                                style: const TextStyle(
+                                  color: AppTheme.textMuted,
                                   fontSize: 14,
+                                  fontWeight: FontWeight.w300,
                                 ),
                               ),
                               if (dueDate != null) ...[
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 8),
                                 Text(
-                                  'Due Date: ${DateFormat('MMMM d, yyyy').format(dueDate)}',
-                                  style: TextStyle(
-                                    color: AppTheme.brandWhite.withOpacity(0.8),
+                                  'Due date: ${DateFormat('MMMM d, yyyy').format(dueDate)}',
+                                  style: const TextStyle(
+                                    color: AppTheme.textLighter,
                                     fontSize: 14,
+                                    fontWeight: FontWeight.w300,
                                   ),
                                 ),
                               ],
@@ -456,9 +471,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           onPressed: () {
                             // Toggle edit mode - for now just show full form
                           },
-                          child: const Text(
+                          child: Text(
                             'Edit',
-                            style: TextStyle(color: AppTheme.brandWhite),
+                            style: TextStyle(
+                              color: AppTheme.textLighter,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
                         ),
                       ],

@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/provider.dart';
 import '../models/provider_review.dart';
 import 'firebase_functions_service.dart';
-import '../constants/provider_types.dart';
 
 class ProviderRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -22,6 +21,10 @@ class ProviderRepository {
     bool? acceptsPregnantWomen,
     bool? acceptsNewborns,
     bool? telehealth,
+    /// When set, API results are filtered by name/practiceName and Firestore
+    /// `providers` directory rows matching the same text are merged in (types
+    /// like ambulance "82" that Medicaid/NPI may not return under MVP types).
+    String? nameContains,
   }) async {
     try {
       // Validate provider type IDs
@@ -139,7 +142,7 @@ class ProviderRepository {
       
       // Combine Ohio Maximus providers with searchProviders results
       // Use a Set to deduplicate by name + location
-      final allProviders = <Provider>[];
+      var allProviders = <Provider>[];
       final seenProviders = <String>{};
       
       // Add Ohio Maximus providers first
@@ -161,7 +164,35 @@ class ProviderRepository {
       }
       
       print('✅ [ProviderRepository] Combined results: ${ohioMaximusProviders.length} from Ohio Maximus + ${searchProviders.length} from searchProviders = ${allProviders.length} total (${ohioMaximusProviders.length + searchProviders.length - allProviders.length} duplicates removed)');
-      
+
+      final nameQ = nameContains?.trim();
+      if (nameQ != null && nameQ.isNotEmpty) {
+        final low = nameQ.toLowerCase();
+        allProviders = allProviders.where((p) {
+          final n = p.name.toLowerCase();
+          final pr = (p.practiceName ?? '').toLowerCase();
+          return n.contains(low) || pr.contains(low);
+        }).toList();
+
+        final directoryMatches =
+            await _fetchFirestoreDirectoryProvidersByName(nameQ, zip: zip);
+        final seenKeys = <String>{
+          for (final p in allProviders) _providerDedupeKey(p),
+        };
+        for (final p in directoryMatches) {
+          final n = p.name.toLowerCase();
+          final pr = (p.practiceName ?? '').toLowerCase();
+          if (!n.contains(low) && !pr.contains(low)) continue;
+          final key = _providerDedupeKey(p);
+          if (seenKeys.contains(key)) continue;
+          seenKeys.add(key);
+          allProviders.add(p);
+        }
+        print(
+          '✅ [ProviderRepository] After name filter + directory merge: ${allProviders.length} providers (query: "$nameQ")',
+        );
+      }
+
       return allProviders;
     } catch (e, stackTrace) {
       print('❌ [ProviderRepository] Error searching providers: $e');
@@ -955,5 +986,98 @@ class ProviderRepository {
         ? '${provider.locations.first.city}_${provider.locations.first.zip}'
         : 'no_location';
     return '${provider.name.toLowerCase().trim()}_$locationKey';
+  }
+
+  String _providerDedupeKey(Provider p) {
+    if (p.id != null && p.id!.isNotEmpty) return 'id:${p.id}';
+    if (p.npi != null && p.npi!.isNotEmpty) return 'npi:${p.npi}';
+    return _getProviderKey(p);
+  }
+
+  /// Firestore `providers` collection — name / practiceName (prefix + limited scan).
+  Future<List<Provider>> _fetchFirestoreDirectoryProvidersByName(
+    String nameQuery, {
+    required String zip,
+  }) async {
+    final q = nameQuery.trim();
+    if (q.isEmpty) return [];
+    final low = q.toLowerCase();
+    final seen = <String>{};
+    final out = <Provider>[];
+
+    void tryAdd(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+      if (!seen.add(doc.id)) return;
+      try {
+        out.add(Provider.fromMap(doc.data(), id: doc.id));
+      } catch (_) {}
+    }
+
+    final col = _firestore.collection('providers');
+
+    try {
+      final snap = await col
+          .orderBy('practiceName')
+          .startAt([q])
+          .endAt(['$q\uf8ff'])
+          .limit(40)
+          .get();
+      for (final d in snap.docs) {
+        tryAdd(d);
+      }
+    } catch (e) {
+      print('⚠️ [ProviderRepository] Directory orderBy(practiceName): $e');
+    }
+
+    try {
+      final snap = await col
+          .orderBy('name')
+          .startAt([q])
+          .endAt(['$q\uf8ff'])
+          .limit(40)
+          .get();
+      for (final d in snap.docs) {
+        tryAdd(d);
+      }
+    } catch (e) {
+      print('⚠️ [ProviderRepository] Directory orderBy(name): $e');
+    }
+
+    try {
+      if (out.length < 45) {
+        final broad = await col.limit(400).get();
+        for (final d in broad.docs) {
+          if (seen.contains(d.id)) continue;
+          final m = d.data();
+          final pn = (m['practiceName'] as String? ?? '').toLowerCase();
+          final n = (m['name'] as String? ?? '').toLowerCase();
+          if (pn.contains(low) || n.contains(low)) {
+            tryAdd(d);
+            if (out.length >= 100) break;
+          }
+        }
+      }
+    } catch (e) {
+      print('⚠️ [ProviderRepository] Directory broad name scan: $e');
+    }
+
+    final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
+    if (zipDigits.length == 5) {
+      out.sort((a, b) {
+        int zipScore(Provider p) {
+          for (final loc in p.locations) {
+            if (loc.zip.replaceAll(RegExp(r'\D'), '') == zipDigits) return 0;
+          }
+          return 1;
+        }
+
+        final c = zipScore(a).compareTo(zipScore(b));
+        if (c != 0) return c;
+        return a.primaryDisplayName.toLowerCase().compareTo(
+              b.primaryDisplayName.toLowerCase(),
+            );
+      });
+    }
+
+    return out;
   }
 }

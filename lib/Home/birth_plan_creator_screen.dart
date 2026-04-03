@@ -127,11 +127,8 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Birth Plan Creator'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: AppTheme.brandWhite,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Birth Plan Creator'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(

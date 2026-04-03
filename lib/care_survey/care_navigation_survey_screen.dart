@@ -212,7 +212,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
 
         // Title
         Text(
-          'How can we support you?',
+          'Let’s check in on your care',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.w400,
@@ -224,7 +224,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
 
         // Description
         Text(
-          'Your responses help us understand what\'s working and where you might need more support. This takes about 2 minutes.',
+          'Sharing what you need helps us understand how to better support you. This takes about 2 minutes and is completely private.',
           style: TextStyle(
             fontSize: 15,
             color: AppTheme.textMuted,
@@ -269,7 +269,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Your privacy matters',
+                      'This is just for you',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -278,7 +278,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Your answers are confidential and help improve care for everyone. You can skip any question.',
+                      'Your answers are private and help us understand what support you might need. You can skip any question at any time.',
                       style: TextStyle(
                         fontSize: 14,
                         color: AppTheme.textMuted,
@@ -367,7 +367,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
 
         // Title
         Text(
-          'In the past few weeks, did you need help with:',
+          'What support have you needed recently?',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w400,
@@ -377,7 +377,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          'Select all that apply',
+          'Select any that apply — it’s okay if you don’t need any of these',
           style: TextStyle(
             fontSize: 14,
             color: AppTheme.textMuted,
@@ -497,10 +497,10 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   if (_selectedNeeds.isEmpty) {
-                    _saveSurveyResults();
-                    setState(() => _step = 'complete');
+                    await _saveSurveyResults();
+                    if (mounted) setState(() => _step = 'complete');
                   } else {
                     setState(() {
                       _step = 'access';
@@ -709,7 +709,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
           const SizedBox(height: 24),
 
           Text(
-            'Thank you for sharing',
+            'Thank you for trusting us',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w400,
@@ -721,7 +721,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
           const SizedBox(height: 12),
 
           Text(
-            'Your responses help us understand how to better support you and others in your community.',
+            'Sharing what you need takes courage. Your voice helps us understand how to better support you and others.',
             style: TextStyle(
               fontSize: 15,
               color: AppTheme.textMuted,
@@ -733,21 +733,34 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
           const SizedBox(height: 32),
 
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              gradient: AppTheme.primaryActionGradient,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: AppTheme.shadowSoft(opacity: 0.14, blur: 24, y: 8),
-            ),
-            child: Text(
-              'If you need immediate help accessing any of these services, our care team is here for you. You can reach out anytime.',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.brandWhite,
-                fontWeight: FontWeight.w300,
-                height: 1.5,
+              gradient: const LinearGradient(
+                colors: [Color(0xFFF5EEE0), Color(0xFFFAF8F4), Color(0xFFEBE0D6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              textAlign: TextAlign.center,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppTheme.borderLight.withOpacity(0.45)),
+              boxShadow: AppTheme.shadowSoft(opacity: 0.1, blur: 24, y: 6),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.favorite_border_rounded, color: const Color(0xFFD4A574), size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'You’ve taken an important step. When you’re ready, you can explore providers, learning topics, or your visit summaries in the app — at your own pace.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w300,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 32),

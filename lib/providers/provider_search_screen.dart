@@ -10,6 +10,7 @@ import '../constants/provider_search_constants.dart';
 import '../services/database_service.dart';
 import '../models/provider.dart';
 import '../cors/ui_theme.dart';
+import '../widgets/mama_approved_community_badge.dart';
 import 'add_provider_screen.dart';
 import 'provider_profile_screen.dart';
 import 'provider_quick_search_screen.dart';
@@ -137,10 +138,14 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
         }
       }
       
-      // Sort: Mama Approved first, then by review count, then by rating
+      // Sort: community Mama Approved first, then by review count, then by rating
       providers.sort((a, b) {
-        if (a.mamaApproved && !b.mamaApproved) return -1;
-        if (!a.mamaApproved && b.mamaApproved) return 1;
+        if (a.showsMamaApprovedBadge && !b.showsMamaApprovedBadge) {
+          return -1;
+        }
+        if (!a.showsMamaApprovedBadge && b.showsMamaApprovedBadge) {
+          return 1;
+        }
         
         final countA = a.reviewCount ?? 0;
         final countB = b.reviewCount ?? 0;
@@ -347,35 +352,36 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Mama Approved Section
+                              // Mama Approved™ — community reviews (not insurer “verified”)
                               Container(
                                 padding: const EdgeInsets.all(16), // p-4
                                 decoration: BoxDecoration(
-                                  color: Color(0xFFFEF9F5), // warm background
+                                  color: const Color(0xFFFFF8F3),
                                   borderRadius: BorderRadius.circular(24), // rounded-3xl
                                   border: Border.all(
-                                    color: AppTheme.borderLight,
+                                    color: const Color(0xFFE8D4C0).withOpacity(0.7),
                                     width: 1,
                                   ),
                                 ),
                                 child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Container(
                                       width: 40,
                                       height: 40,
                                       decoration: BoxDecoration(
-                                        gradient: LinearGradient(
+                                        gradient: const LinearGradient(
                                           colors: [
-                                            Color(0xFFFEF3F3), // rose-50
-                                            Color(0xFFFFF0F8), // pink-50
+                                            Color(0xFFFFF6ED),
+                                            Color(0xFFF0E6FA),
                                           ],
                                         ),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
-                                      child: Icon(
-                                        Icons.verified,
-                                        color: Color(0xFFE11D48), // rose-600
-                                        size: 20,
+                                      child: const Icon(
+                                        Icons.favorite_rounded,
+                                        color: Color(0xFF7D4E9E),
+                                        size: 22,
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -384,7 +390,7 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            'Mama Approved™ providers',
+                                            'Mama Approved™ on this list',
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w500,
@@ -393,11 +399,12 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            'Verified by community trust indicators and identity transparency.',
+                                            'Shows up when other parents left at least 3 reviews and the average is 4★ or higher — real experiences, not a medical seal.',
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: AppTheme.textMuted,
                                               fontWeight: FontWeight.w300,
+                                              height: 1.35,
                                             ),
                                           ),
                                         ],
@@ -643,14 +650,10 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                                 ),
                               ),
                             ),
-                            if (provider.mamaApproved)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: Icon(
-                                  Icons.verified,
-                                  size: 18,
-                                  color: Color(0xFFE11D48), // rose-600
-                                ),
+                            if (provider.showsMamaApprovedBadge)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: MamaApprovedCommunityBadge(compact: true),
                               ),
                           ],
                         ),

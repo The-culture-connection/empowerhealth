@@ -245,11 +245,8 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Appointment Visit Summary'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: AppTheme.brandWhite,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Appointment Visit Summary'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -741,11 +738,8 @@ class PastSummariesScreen extends StatelessWidget {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Past Visit Summaries'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: AppTheme.brandWhite,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Past Visit Summaries'),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('visit_summaries')

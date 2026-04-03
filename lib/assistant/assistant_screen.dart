@@ -230,6 +230,7 @@ class _AssistantScreenState extends State<AssistantScreen>
     final bottomPad = 20.0 + viewInsets.bottom;
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       resizeToAvoidBottomInset: true,
       body: Container(
         decoration: BoxDecoration(
@@ -257,7 +258,7 @@ class _AssistantScreenState extends State<AssistantScreen>
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                              color: AppTheme.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -265,7 +266,7 @@ class _AssistantScreenState extends State<AssistantScreen>
                             'Ask me anything about your pregnancy, care, or rights',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey.shade700,
+                              color: AppTheme.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 6),

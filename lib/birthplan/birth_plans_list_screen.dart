@@ -16,7 +16,7 @@ class BirthPlansListScreen extends StatelessWidget {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF8F4),
+      backgroundColor: AppTheme.backgroundWarm,
       body: Stack(
         children: [
           Positioned(
@@ -220,11 +220,11 @@ class BirthPlansListScreen extends StatelessWidget {
   Widget _reassuranceCard() {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [
-            Color(0xFFF5EEE0),
-            Color(0xFFFAF8F4),
-            Color(0xFFEBE0D6),
+            const Color(0xFFF5EEE0),
+            AppTheme.backgroundWarm,
+            const Color(0xFFEBE0D6),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -326,7 +326,7 @@ class BirthPlansListScreen extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              color: const Color(0xFFFAF8F4).withValues(alpha: 0.6),
+              color: AppTheme.backgroundWarm.withValues(alpha: 0.6),
             ),
             child: const Icon(
               Icons.favorite_border,
@@ -461,7 +461,7 @@ class BirthPlansListScreen extends StatelessWidget {
         },
         child: Ink(
           decoration: BoxDecoration(
-            color: const Color(0xFFFAF8F4),
+            color: AppTheme.backgroundWarm,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: const Color(0xFFE8E0F0).withValues(alpha: 0.4),

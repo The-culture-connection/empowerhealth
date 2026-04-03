@@ -7,6 +7,7 @@ import '../services/provider_repository.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
+import '../widgets/mama_approved_community_badge.dart';
 import 'provider_review_screen.dart';
 
 class ProviderProfileScreen extends StatefulWidget {
@@ -215,12 +216,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(body: const Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundWarm,
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (_provider == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Provider Not Found')),
+        backgroundColor: AppTheme.backgroundWarm,
+        appBar: AppTheme.newUiAppBar(context, title: 'Provider Not Found'),
         body: const Center(child: Text('Provider not found')),
       );
     }
@@ -412,48 +417,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   ],
                 ),
               ),
-              if (_provider!.mamaApproved)
+              if (_provider!.showsMamaApprovedBadge)
                 InkWell(
                   onTap: () {
                     setState(() {
                       _showMamaApprovedInfo = !_showMamaApprovedInfo;
                     });
                   },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.brandWhite.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.brandWhite.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.favorite_rounded,
-                          size: 16,
-                          color: AppTheme.brandWhite,
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'Mama Approved™',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.brandWhite,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.info_outline,
-                          size: 14,
-                          color: AppTheme.brandWhite.withOpacity(0.9),
-                        ),
-                      ],
-                    ),
+                  child: const MamaApprovedCommunityBadge(
+                    onDarkBackground: true,
+                    showInfoAffordance: true,
                   ),
                 ),
             ],
@@ -471,7 +444,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Mamas in our community recommended this provider from their own care experiences. It is not a stamp from a hospital or insurer — just real stories to help you choose.',
+                    'This label appears when at least three parents rated this provider and the average is 4 stars or higher. It comes from community reviews only — not from a hospital, insurer, or medical board.',
                     style: TextStyle(
                       fontSize: 14,
                       height: 1.4,
@@ -611,18 +584,24 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           ),
                         ),
                       const SizedBox(height: 4),
-                      Text(
-                        location.fullAddress,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
+                      ...location.addressLines.map(
+                        (line) => Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            line,
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.35,
+                              color: AppTheme.textMuted,
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
                         ),
                       ),
                       if (location.distance != null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          '${location.distance!.toStringAsFixed(1)} away',
+                          '${location.distance!.toStringAsFixed(1)} mi from search',
                           style: TextStyle(
                             fontSize: 12,
                             color: AppTheme.brandPurple,
@@ -1033,73 +1012,41 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  review.userName ?? 'Anonymous',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w400,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                                if (review.isVerified) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade100,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.blue.shade200,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'Verified Patient',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: AppTheme.brandPurple,
-                                        fontWeight: FontWeight.w300,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                ...List.generate(5, (index) {
-                                  return Icon(
-                                    Icons.star,
-                                    size: 14,
-                                    color: index < review.rating
-                                        ? Colors.amber
-                                        : Colors.grey[300],
-                                  );
-                                }),
-                                const SizedBox(width: 8),
-                                Text(
-                                  review.createdAt.toString().split(' ')[0],
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.textLight,
-                                    fontWeight: FontWeight.w300,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                        Text(
+                          review.userName ?? 'Anonymous',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
+                        if (review.isVerified)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.blue.shade200,
+                              ),
+                            ),
+                            child: Text(
+                              'Verified Patient',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppTheme.brandPurple,
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                          ),
                         if (review.wouldRecommend)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -1120,6 +1067,29 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                               ),
                             ),
                           ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        ...List.generate(5, (index) {
+                          return Icon(
+                            Icons.star,
+                            size: 14,
+                            color: index < review.rating
+                                ? Colors.amber
+                                : Colors.grey[300],
+                          );
+                        }),
+                        const SizedBox(width: 8),
+                        Text(
+                          review.createdAt.toString().split(' ')[0],
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textLight,
+                            fontWeight: FontWeight.w300,
+                          ),
+                        ),
                       ],
                     ),
                     if (review.reviewText != null) ...[

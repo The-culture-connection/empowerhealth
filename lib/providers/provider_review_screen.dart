@@ -34,53 +34,16 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
   int _rating = 0;
   bool _wouldRecommend = false;
   bool _isSubmitting = false;
-  bool _isAdmin = false;
-  bool _mamaApproved = false;
-  bool _isCheckingAdmin = true;
 
   @override
   void initState() {
     super.initState();
-    _checkIfAdmin();
   }
 
   @override
   void dispose() {
     _reviewController.dispose();
     super.dispose();
-  }
-
-  Future<void> _checkIfAdmin() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user?.email == null) {
-        setState(() {
-          _isAdmin = false;
-          _isCheckingAdmin = false;
-        });
-        return;
-      }
-
-      // Check if user's email exists in ADMIN collection
-      final adminQuery = await FirebaseFirestore.instance
-          .collection('ADMIN')
-          .where('email', isEqualTo: user!.email)
-          .limit(1)
-          .get();
-
-      setState(() {
-        _isAdmin = adminQuery.docs.isNotEmpty;
-        _isCheckingAdmin = false;
-      });
-      
-      print('✅ [ProviderReview] Admin check: ${user.email} is ${_isAdmin ? "admin" : "not admin"}');
-    } catch (e) {
-      print('⚠️ [ProviderReview] Error checking admin status: $e');
-      setState(() {
-        _isAdmin = false;
-        _isCheckingAdmin = false;
-      });
-    }
   }
 
   Future<void> _submitReview() async {
@@ -137,17 +100,12 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
 
       // Save provider to Firestore if provided, then submit review
       String? firestoreProviderId;
-      
-      // If admin wants to mark as Mama Approved, ensure provider is saved
-      if (_isAdmin && _mamaApproved && widget.provider != null) {
-        firestoreProviderId = await _repository.saveProviderOnReview(
-          widget.provider!,
-          markMamaApproved: true,
+      if (widget.provider != null) {
+        firestoreProviderId =
+            await _repository.saveProviderOnReview(widget.provider!);
+        print(
+          '✅ [ProviderReview] Provider saved with Firestore ID: $firestoreProviderId',
         );
-        print('✅ [ProviderReview] Provider saved with Firestore ID: $firestoreProviderId (Mama Approved)');
-      } else if (widget.provider != null) {
-        firestoreProviderId = await _repository.saveProviderOnReview(widget.provider!);
-        print('✅ [ProviderReview] Provider saved with Firestore ID: $firestoreProviderId');
       }
       
       // Submit review
@@ -195,11 +153,8 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Write a Review'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: AppTheme.brandWhite,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Write a Review'),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -327,60 +282,6 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  
-                  // Mama Approved (only for admin users)
-                  if (_isAdmin && !_isCheckingAdmin)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Color(0xFFFEF3F3), // rose-50
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Color(0xFFFECDD3)), // rose-200
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.verified,
-                            color: Color(0xFFE11D48), // rose-600
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Mama Approved™',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFFBE123C), // rose-700
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Mark this provider as Mama Approved',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Checkbox(
-                            value: _mamaApproved,
-                            onChanged: (value) {
-                              setState(() {
-                                _mamaApproved = value ?? false;
-                              });
-                            },
-                            activeColor: Color(0xFFE11D48), // rose-600
-                          ),
-                        ],
-                      ),
-                    ),
                   const SizedBox(height: 32),
 
                   // Submit Button

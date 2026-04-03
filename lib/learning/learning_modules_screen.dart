@@ -104,11 +104,8 @@ class _LearningModulesScreenState extends State<LearningModulesScreen> with Sing
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Learning Modules'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: AppTheme.brandWhite,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Learning Modules'),
       body: SingleChildScrollView(
         child: Column(
           children: [

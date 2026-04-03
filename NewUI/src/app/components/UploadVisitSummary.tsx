@@ -39,9 +39,9 @@ export function UploadVisitSummary() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-[32px] text-[#2d2235] dark:text-[#f5f0f7] font-[450] leading-[1.3] mb-2 tracking-[-0.01em] transition-colors duration-300">Understand Your Visit</h1>
+          <h1 className="text-[32px] text-[#2d2235] dark:text-[#f5f0f7] font-[450] leading-[1.3] mb-2 tracking-[-0.01em] transition-colors duration-300">After-Visit Support</h1>
           <p className="text-[#75657d] dark:text-[#cbbec9] text-[15px] font-light leading-relaxed transition-colors duration-300">
-            Add notes from your appointment
+            Doctor visits can be overwhelming. We're here to help you understand what was shared.
           </p>
         </div>
 
@@ -57,9 +57,9 @@ export function UploadVisitSummary() {
               <Shield className="w-5 h-5 text-[#d4a574] dark:text-[#e0b589] stroke-[1.5]" />
             </div>
             <div className="flex-1">
-              <h3 className="text-[#2d2235] dark:text-[#f5f0f7] text-[15px] font-[450] mb-2 tracking-[-0.005em] transition-colors duration-300">We help simplify documents you choose to upload</h3>
+              <h3 className="text-[#2d2235] dark:text-[#f5f0f7] text-[15px] font-[450] mb-2 tracking-[-0.005em] transition-colors duration-300">We help simplify the documents you share</h3>
               <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light leading-relaxed transition-colors duration-300">
-                This tool makes medical language easier to understand. It does not provide medical advice or diagnosis.
+                This tool makes medical language easier to understand. It does not provide medical advice or replace your healthcare provider.
               </p>
             </div>
           </div>
@@ -92,12 +92,12 @@ export function UploadVisitSummary() {
               onClick={() => setUploadMethod("pdf")}
               className={`flex-1 py-3.5 px-5 rounded-[20px] transition-all duration-300 font-light flex items-center justify-center gap-2 ${
                 uploadMethod === "pdf"
-                  ? "bg-gradient-to-br from-[#663399] via-[#7744aa] to-[#8855bb] text-white shadow-[0_4px_16px_rgba(102,51,153,0.25)]"
+                  ? "bg-gradient-to-br from-[#d4a574] to-[#e0b589] text-white shadow-[0_4px_16px_rgba(212,165,116,0.25)]"
                   : "bg-[#faf8f4] dark:bg-[#2a2435] text-[#75657d] dark:text-[#cbbec9] border border-[#e8e0f0]/50 dark:border-[#3a3043]/50"
               }`}
             >
-              <FileText className="w-5 h-5 stroke-[1.5]" />
-              Upload PDF
+              <Camera className="w-5 h-5 stroke-[1.5]" />
+              Take Photo
             </button>
             <button
               onClick={() => setUploadMethod("text")}
@@ -108,7 +108,7 @@ export function UploadVisitSummary() {
               }`}
             >
               <Type className="w-5 h-5 stroke-[1.5]" />
-              Type Text
+              Type Notes
             </button>
           </div>
         </section>
@@ -134,21 +134,27 @@ export function UploadVisitSummary() {
                   </div>
                 </div>
 
-                <h3 className="text-[#2d2235] dark:text-[#f5f0f7] text-[17px] font-[450] mb-2 tracking-[-0.005em] transition-colors duration-300">Upload Visit Summary PDF</h3>
+                <h3 className="text-[#2d2235] dark:text-[#f5f0f7] text-[17px] font-[450] mb-2 tracking-[-0.005em] transition-colors duration-300">Take a photo of your visit summary</h3>
                 <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light leading-relaxed mb-6 max-w-sm transition-colors duration-300">
-                  Tap to select PDF file from your device
+                  Or upload a document from your device
                 </p>
 
                 {/* Action Buttons */}
                 <div className="flex gap-3">
-                  <button className="px-6 py-3 rounded-[18px] bg-gradient-to-br from-[#663399] via-[#7744aa] to-[#8855bb] text-white hover:shadow-[0_8px_24px_rgba(102,51,153,0.3)] transition-all duration-300 font-light flex items-center gap-2">
-                    <FileText className="w-4 h-4 stroke-[2]" />
-                    Choose File
-                  </button>
-                  <button className="px-6 py-3 rounded-[18px] bg-gradient-to-br from-[#d4a574] to-[#e0b589] text-white hover:shadow-[0_8px_24px_rgba(212,165,116,0.3)] transition-all duration-300 font-light flex items-center gap-2">
+                  <Link
+                    to="/my-visits/1/summary"
+                    className="px-6 py-3 rounded-[18px] bg-gradient-to-br from-[#d4a574] to-[#e0b589] text-white hover:shadow-[0_8px_24px_rgba(212,165,116,0.3)] transition-all duration-300 font-light flex items-center gap-2"
+                  >
                     <Camera className="w-4 h-4 stroke-[2]" />
                     Take Photo
-                  </button>
+                  </Link>
+                  <Link
+                    to="/my-visits/1/summary"
+                    className="px-6 py-3 rounded-[18px] bg-gradient-to-br from-[#663399] via-[#7744aa] to-[#8855bb] text-white hover:shadow-[0_8px_24px_rgba(102,51,153,0.3)] transition-all duration-300 font-light flex items-center gap-2"
+                  >
+                    <FileText className="w-4 h-4 stroke-[2]" />
+                    Upload File
+                  </Link>
                 </div>
               </div>
             </div>
@@ -165,13 +171,16 @@ export function UploadVisitSummary() {
             <div className="relative bg-[#faf8f4] dark:bg-[#2a2435] rounded-[28px] p-6 shadow-[0_8px_32px_rgba(102,51,153,0.1),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
               <textarea
                 rows={10}
-                placeholder="Type or paste your visit notes here..."
+                placeholder="Type or paste what the provider told you..."
                 className="w-full px-5 py-4 rounded-[20px] bg-[#f7f5f9] dark:bg-[#1a1520] border border-[#e8e0f0]/50 dark:border-[#3a3043]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 resize-none text-[#4a3f52] dark:text-[#f5f0f7] placeholder:text-[#b5a8c2] font-light leading-relaxed"
               ></textarea>
 
-              <button className="w-full mt-4 py-3.5 px-6 rounded-[20px] bg-gradient-to-br from-[#663399] via-[#7744aa] to-[#8855bb] text-white hover:shadow-[0_8px_24px_rgba(102,51,153,0.3)] transition-all duration-300 font-light">
-                Process Notes
-              </button>
+              <Link
+                to="/my-visits/1/summary"
+                className="w-full mt-4 py-3.5 px-6 rounded-[20px] bg-gradient-to-br from-[#663399] via-[#7744aa] to-[#8855bb] text-white hover:shadow-[0_8px_24px_rgba(102,51,153,0.3)] transition-all duration-300 font-light block text-center"
+              >
+                Simplify This
+              </Link>
             </div>
           </section>
         )}

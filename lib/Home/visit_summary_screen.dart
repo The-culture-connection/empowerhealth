@@ -74,11 +74,8 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Visit Summary'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: AppTheme.brandWhite,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Visit Summary'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(

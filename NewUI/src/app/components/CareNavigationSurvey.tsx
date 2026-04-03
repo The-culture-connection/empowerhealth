@@ -96,9 +96,9 @@ export function CareNavigationSurvey() {
                 <Sparkles className="w-3.5 h-3.5 text-[#d4a574]" />
                 <span className="text-[#75657d] dark:text-[#cbbec9] text-xs tracking-[0.03em] font-light">Care check-in</span>
               </div>
-              <h1 className="text-[32px] text-[#2d2235] dark:text-[#f5f0f7] font-[450] leading-[1.3] mb-3 tracking-[-0.01em]">How can we support you?</h1>
+              <h1 className="text-[32px] text-[#2d2235] dark:text-[#f5f0f7] font-[450] leading-[1.3] mb-3 tracking-[-0.01em]">Let's check in on your care</h1>
               <p className="text-[#75657d] dark:text-[#cbbec9] text-[15px] font-light leading-relaxed">
-                Your responses help us understand what's working and where you might need more support. This takes about 2 minutes.
+                Sharing what you need helps us understand how to better support you. This takes about 2 minutes and is completely private.
               </p>
             </div>
 
@@ -108,9 +108,9 @@ export function CareNavigationSurvey() {
                   <Heart className="w-5 h-5 text-[#d4a574] stroke-[1.5]" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-[#663399] dark:text-[#cbbec9] text-sm font-[450] mb-2 tracking-[-0.005em]">Your privacy matters</h3>
+                  <h3 className="text-[#663399] dark:text-[#cbbec9] text-sm font-[450] mb-2 tracking-[-0.005em]">This is just for you</h3>
                   <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light leading-relaxed">
-                    Your answers are confidential and help improve care for everyone. You can skip any question.
+                    Your answers are private and help us understand what support you might need. You can skip any question at any time.
                   </p>
                 </div>
               </div>
@@ -133,8 +133,8 @@ export function CareNavigationSurvey() {
                 <div className="w-1.5 h-1.5 rounded-full bg-[#d4a574]"></div>
                 <span className="text-[#75657d] dark:text-[#cbbec9] text-xs tracking-[0.03em] font-light">Step 1 of 2</span>
               </div>
-              <h2 className="text-[28px] text-[#2d2235] dark:text-[#f5f0f7] font-[450] leading-[1.3] mb-3 tracking-[-0.01em]">In the past few weeks, did you need help with:</h2>
-              <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light">Select all that apply</p>
+              <h2 className="text-[28px] text-[#2d2235] dark:text-[#f5f0f7] font-[450] leading-[1.3] mb-3 tracking-[-0.01em]">What support have you needed recently?</h2>
+              <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light">Select any that apply — it's okay if you don't need any of these</p>
             </div>
 
             <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-8 mb-6 shadow-[0_16px_48px_rgba(102,51,153,0.14),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40">
@@ -259,20 +259,23 @@ export function CareNavigationSurvey() {
               </div>
               
               <h2 className="text-[28px] text-[#2d2235] dark:text-[#f5f0f7] font-[450] leading-[1.3] mb-3 tracking-[-0.01em]">
-                Thank you for sharing
+                Thank you for trusting us
               </h2>
-              
+
               <p className="text-[#75657d] dark:text-[#cbbec9] text-[15px] font-light leading-relaxed mb-8 max-w-md">
-                Your responses help us understand how to better support you and others in your community.
+                Sharing what you need takes courage. Your voice helps us understand how to better support you and others.
               </p>
 
-              <div className="relative bg-gradient-to-br from-[#663399] via-[#7744aa] to-[#8855bb] dark:from-[#2a2435] dark:via-[#3a3149] dark:to-[#4a3e5d] rounded-[20px] p-6 mb-8 max-w-md shadow-[0_16px_48px_rgba(102,51,153,0.2)]">
+              <div className="relative bg-gradient-to-br from-[#f5eee0] via-[#faf8f4] to-[#ebe0d6] dark:from-[#2a2435] dark:via-[#3a3149] dark:to-[#4a3e5d] rounded-[20px] p-6 mb-8 max-w-md shadow-[0_16px_48px_rgba(212,165,116,0.15)]">
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#d4a574] blur-[60px]"></div>
                 </div>
-                <p className="relative text-[#f5f0f7] text-sm font-light leading-relaxed">
-                  If you need help connecting to any of these services, we're here to support you.
-                </p>
+                <div className="relative flex items-start gap-3">
+                  <Heart className="w-5 h-5 text-[#d4a574] dark:text-[#e0b589] stroke-[1.5] flex-shrink-0 mt-0.5" />
+                  <p className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-light leading-relaxed">
+                    We're here if you need help connecting to care or navigating next steps. You're not alone in this.
+                  </p>
+                </div>
               </div>
 
               <Link

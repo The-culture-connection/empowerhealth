@@ -286,7 +286,7 @@ class _VisitSummariesList extends StatelessWidget {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'When you add a visit summary, it will show up here.',
+                                'When you add an after-visit summary, it will show up here.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: AppTheme.textMuted,
@@ -315,7 +315,7 @@ class _VisitSummariesList extends StatelessWidget {
                                   },
                                   icon: const Icon(Icons.add, color: AppTheme.brandWhite),
                                   label: const Text(
-                                    'Add Visit Summary',
+                                    'Upload visit summary',
                                     style: TextStyle(color: AppTheme.brandWhite),
                                   ),
                                   style: ElevatedButton.styleFrom(

@@ -159,7 +159,7 @@ class VisitDetailScreen extends StatelessWidget {
     final readingLevel = data['readingLevel']?.toString() ?? '6th grade level';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF8F4),
+      backgroundColor: AppTheme.backgroundWarm,
       body: Stack(
         children: [
           Positioned(

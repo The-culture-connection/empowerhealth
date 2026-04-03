@@ -11,6 +11,7 @@ export function Learning() {
       darkColor: "dark:from-[#3d3547] dark:to-[#4a4057]",
       iconColor: "text-[#8b7aa8] dark:text-[#b89fb5]",
       progress: 60,
+      link: "/learning/week-24",
     },
     {
       icon: Pill,
@@ -47,6 +48,7 @@ export function Learning() {
       darkColor: "dark:from-[#3d3547] dark:to-[#453d50]",
       iconColor: "text-[#9d8fb5] dark:text-[#b89fb5]",
       progress: 15,
+      link: "/know-your-rights",
     },
     {
       icon: Heart,
@@ -104,10 +106,14 @@ export function Learning() {
         <div className="space-y-3">
           {modules.map((module, index) => {
             const Icon = module.icon;
+            const ModuleWrapper = module.link ? Link : 'div';
+            const wrapperProps = module.link ? { to: module.link } : {};
+
             return (
-              <div
+              <ModuleWrapper
                 key={index}
-                className="bg-[#faf8f4] dark:bg-[#2a2435] rounded-[28px] p-6 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#e8e0f0]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 cursor-pointer"
+                {...wrapperProps}
+                className="block bg-[#faf8f4] dark:bg-[#2a2435] rounded-[28px] p-6 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#e8e0f0]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 cursor-pointer"
               >
                 <div className="flex items-start gap-4">
                   <div className={`w-12 h-12 rounded-[20px] bg-gradient-to-br ${module.lightColor} ${module.darkColor} flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-300`}>
@@ -135,7 +141,7 @@ export function Learning() {
                   </div>
                   <ChevronRight className="w-5 h-5 text-[#b5a8c2] dark:text-[#9d8fb5] stroke-[1.5] transition-colors" />
                 </div>
-              </div>
+              </ModuleWrapper>
             );
           })}
         </div>

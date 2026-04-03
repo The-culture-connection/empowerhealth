@@ -136,7 +136,7 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
     final birthPlan = widget.birthPlan;
     const purple = Color(0xFF663399);
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF8F4),
+      backgroundColor: AppTheme.backgroundWarm,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
@@ -190,11 +190,11 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     colors: [
-                      Color(0xFFF5EEE0),
-                      Color(0xFFFAF8F4),
-                      Color(0xFFEBE0D6),
+                      const Color(0xFFF5EEE0),
+                      AppTheme.backgroundWarm,
+                      const Color(0xFFEBE0D6),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,

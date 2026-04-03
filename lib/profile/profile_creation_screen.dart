@@ -213,11 +213,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       builder: (context, provider, child) {
         return Scaffold(
           backgroundColor: AppTheme.backgroundWarm,
-          appBar: AppBar(
-            title: const Text('Create Your Profile'),
-            elevation: 0,
-            backgroundColor: AppTheme.surfaceCard,
-          ),
+          appBar: AppTheme.newUiAppBar(context, title: 'Create Your Profile'),
           body: Column(
             children: [
               // Progress indicator
@@ -231,7 +227,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                         Expanded(
                           child: LinearProgressIndicator(
                             value: (provider.currentStep + 1) / provider.totalSteps,
-                            backgroundColor: Colors.grey[200],
+                            backgroundColor: AppTheme.borderLighter,
                             valueColor: const AlwaysStoppedAnimation<Color>(
                               AppTheme.brandPurple,
                             ),

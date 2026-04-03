@@ -132,18 +132,27 @@ ${personalContext}
 
 ${userProfile?.insuranceType ? `Insurance Type: ${userProfile.insuranceType}. Tailor information for this insurance type, including coverage considerations, what's typically covered, and any cost considerations.` : "Provide insurance-agnostic guidance that applies regardless of insurance type."}
 
-CRITICAL: This module must be DETAILED (not high-level) and follow this EXACT structure:
+CRITICAL: This module must be DETAILED (not high-level) and follow this EXACT structure.
 
-1. **What This Is (Simple Explanation)** - Clear, plain-language explanation of what this is
-2. **Why It Matters for Your Health** - Explain the "why" behind the "what" - why this matters, why it's important, what happens if ignored. Be detailed and specific.
-3. **What to Expect** - Step-by-step, detailed guidance on what will happen. Be specific and clear.
-4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts the mother can use during appointments. Examples: "Can you explain why this test is needed?", "What are my options?", "What happens if I don't do this?"
-5. **Risks, Options, and Alternatives** - Balanced, non-fearful information about risks, options, and alternatives. Be honest but not alarming.
-6. **When to Seek Medical Help** - Clear, specific guidance on when to call provider or seek emergency care
-7. **How This Connects to Your Empowerment** - How this topic relates to self-advocacy, empowerment, and informed decision-making
-8. **Key Points** - 3-5 key takeaways in bullet format
-9. **Your Rights** - 2-3 specific rights related to this topic (e.g., right to ask questions, right to refuse, right to second opinion)
-10. **Insurance Notes** - ${userProfile?.insuranceType ? `Specific information for ${userProfile.insuranceType} insurance, including coverage, costs, and what to ask your insurance about.` : "Insurance-agnostic guidance on what to ask your insurance provider about coverage and costs."}
+FORMATTING (required for the app):
+- Each section starts on its own line as a markdown H2 heading with the number and title—example: ## 1. What This Is (Simple Explanation)
+- Do NOT wrap section titles in asterisks. Use **only** inside paragraphs for short emphasis on a word or phrase (not whole headings).
+- After each heading, write 2–4 short paragraphs (not one long wall of text). Use a blank line between paragraphs.
+- For lists, use lines starting with "- " (hyphen space). Reserve bullets mainly for "Key Points" and "Your Rights" sections.
+- Do not use a giant numbered list for the whole module body; the numbered structure is only the ten section headings.
+
+The ten sections (use these exact titles after ## and the number):
+
+1. What This Is (Simple Explanation) — clear, plain-language explanation of what this is
+2. Why It Matters for Your Health — why this matters, what happens if ignored; be specific
+3. What to Expect — step-by-step, concrete guidance
+4. What You Can Ask or Say — at least 3 advocacy prompts she can use (can be bullet lines)
+5. Risks, Options, and Alternatives — balanced, non-alarming
+6. When to Seek Medical Help — when to call or seek emergency care
+7. How This Connects to Your Empowerment — self-advocacy and informed choice
+8. Key Points — 3–5 takeaways as "- " bullets
+9. Your Rights — 2–3 rights as "- " bullets
+10. Insurance Notes — ${userProfile?.insuranceType ? `Tailor for ${userProfile.insuranceType}: coverage, costs, what to ask.` : "Insurance-agnostic: what to ask about coverage and costs."}
 
 TONE & VOICE REQUIREMENTS:
 - Warm, supportive, nonjudgmental language
@@ -151,9 +160,9 @@ TONE & VOICE REQUIREMENTS:
 - Trauma-informed: Acknowledge possible fears, past negative experiences, pressure. Use supportive language that reassures and centers safety.
 - Cultural responsiveness: Reflect realities Black mothers may face (bias, being dismissed, rushed). Use validating, empowering language.
 - Avoid: Fear-based language, provider-blaming, cultural stereotypes, overly technical explanations, long paragraphs without breaks
-- Use: Short paragraphs, bulleted lists, defined terms
+- Use: Short paragraphs, defined terms, bullets only where they help (especially Key Points and Rights)
 
-Keep everything at ${readingLevel} reading level. Make it personally relevant based on the user's profile. Return the content in a structured format with clear sections.`,
+Keep everything at ${readingLevel} reading level. Make it personally relevant based on the user's profile.`,
         },
       ],
       temperature: 0.8,

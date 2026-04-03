@@ -18,8 +18,8 @@ class AppTheme {
   static const Color brandTerracotta = Color(0xFFC4956A);
   /// Stark white — use only for text/icons on purple or gold buttons
   static const Color brandWhite = Color(0xFFFFFFFF);
-  /// Gold-tinted off-white — default page / scaffold background (not stark white)
-  static const Color backgroundWarm = Color(0xFFF5F1E8);
+  /// NewUI page background — #faf8f4 (warm off-white)
+  static const Color backgroundWarm = Color(0xFFFAF8F4);
   /// Warm card / sheet / panel surface
   static const Color surfaceCard = Color(0xFFFAF7F0);
   /// Input / inset fields (NewUI --input-background)
@@ -42,6 +42,13 @@ class AppTheme {
   static const Color borderLightest = Color(0xFFF0E8F3); // #f0e8f3
   /// Subtle purple-tinted border (NewUI --border)
   static Color borderSubtlePurple = brandPurple.withOpacity(0.12);
+
+  /// Lavender ambient glow (Flutter UIdesign / Layout.tsx)
+  static const Color ambientPurpleBlur = Color(0xFFB899D4);
+  /// Bottom nav inactive icon/label (Flutter UIdesign `MainShell` light)
+  static const Color navInactiveLight = Color(0xFFCBBEC9);
+  static const Color navBarBgLight = Color(0xF2FFFFFF);
+  static const Color navBarBorderLight = Color(0xFFE8E0F0);
   
   // Gradient colors
   static const Color gradientPurpleStart = Color(0xFF8B7AA8); // #8b7aa8
@@ -220,7 +227,8 @@ class AppTheme {
         color: surfaceCard,
         elevation: 0,
         shadowColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusLarge)),
+        // Flutter UIdesign `AppTheme.light` uses 20px card radius
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         type: BottomNavigationBarType.fixed,
@@ -338,6 +346,38 @@ class AppTheme {
       fontSize: responsiveFontSize(context, baseSize: baseSize ?? 16),
       fontWeight: fontWeight ?? FontWeight.w400,
       color: color ?? brandBlack,
+    );
+  }
+
+  /// App bar aligned with NewUI: warm background, primary text (avoid solid purple bars on inner routes).
+  static AppBar newUiAppBar(
+    BuildContext context, {
+    required String title,
+    List<Widget>? actions,
+    Widget? leading,
+    bool centerTitle = true,
+    PreferredSizeWidget? bottom,
+  }) {
+    return AppBar(
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontFamily: 'Primary',
+          fontSize: 20,
+          fontWeight: FontWeight.w400,
+          color: textPrimary,
+        ),
+      ),
+      leading: leading,
+      centerTitle: centerTitle,
+      backgroundColor: backgroundWarm,
+      foregroundColor: textPrimary,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      actions: actions,
+      bottom: bottom,
     );
   }
 }

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -13,9 +12,7 @@ import '../services/database_service.dart';
 import 'provider_search_entry_screen.dart';
 import 'provider_search_results_screen.dart';
 
-enum _QuickSearchKind { providerType, providerName }
-
-/// Google-style quick search: type vs name, autocomplete, then results or expanded form.
+/// Quick search by Ohio directory provider type, then results or expanded form.
 class ProviderQuickSearchScreen extends StatefulWidget {
   const ProviderQuickSearchScreen({super.key});
 
@@ -29,18 +26,14 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
   final _focusNode = FocusNode();
   final _databaseService = DatabaseService();
 
-  _QuickSearchKind _kind = _QuickSearchKind.providerType;
-
   String _zip = '';
   String _city = '';
   int _radius = 10;
   String _healthPlan = ProviderSearchConstants.healthPlanAll;
   bool _loadingDefaults = true;
-  bool _searchingFirestoreNames = false;
 
   List<String> _suggestions = [];
   Timer? _debounce;
-  List<_ProviderDirectorySuggest> _providerSuggests = [];
 
   List<String> get _allTypeNames {
     final names = ProviderTypes.getAllTypes().map((e) => e['name']!).toList();
@@ -120,149 +113,19 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
     final raw = _queryController.text.trim();
     final q = raw.toLowerCase();
 
-    if (_kind == _QuickSearchKind.providerType) {
-      if (q.isEmpty) {
-        setState(() {
-          _suggestions = _allTypeNames.take(14).toList();
-          _providerSuggests = [];
-        });
-        return;
-      }
-      final matches = _allTypeNames
-          .where((n) => n.toLowerCase().contains(q))
-          .take(16)
-          .toList();
+    if (q.isEmpty) {
       setState(() {
-        _suggestions = matches;
-        _providerSuggests = [];
+        _suggestions = _allTypeNames.take(14).toList();
       });
       return;
     }
-
-    // Name mode: suggestions from Firestore `providers` (practiceName-first schema).
-    setState(() => _suggestions = []);
-    if (raw.isEmpty) {
-      setState(() {
-        _providerSuggests = [];
-        _searchingFirestoreNames = false;
-      });
-      return;
-    }
-    _fetchProviderDirectorySuggestions(raw);
-  }
-
-  static String? _subtitleForDoc(Map<String, dynamic> data) {
-    final spec = (data['specialty'] as String?)?.trim();
-    if (spec != null && spec.isNotEmpty) return spec;
-    final list = data['specialties'] as List<dynamic>?;
-    if (list == null || list.isEmpty) return null;
-    for (final e in list) {
-      final s = e.toString().trim();
-      if (s.isNotEmpty) return s;
-    }
-    return null;
-  }
-
-  static _ProviderDirectorySuggest? _suggestFromDoc(
-    QueryDocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data();
-    final practice = (data['practiceName'] as String?)?.trim() ?? '';
-    final name = (data['name'] as String?)?.trim() ?? '';
-    final displayTitle = practice.isNotEmpty ? practice : name;
-    if (displayTitle.isEmpty) return null;
-    final searchTerm = practice.isNotEmpty ? practice : name;
-    if (searchTerm.isEmpty) return null;
-    return _ProviderDirectorySuggest(
-      displayTitle: displayTitle,
-      subtitle: _subtitleForDoc(data),
-      searchTerm: searchTerm,
-    );
-  }
-
-  Future<void> _fetchProviderDirectorySuggestions(String prefix) async {
-    setState(() => _searchingFirestoreNames = true);
-    final seen = <String>{};
-    final out = <_ProviderDirectorySuggest>[];
-
-    void addDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
-      if (seen.contains(doc.id)) return;
-      final s = _suggestFromDoc(doc);
-      if (s == null) return;
-      seen.add(doc.id);
-      out.add(s);
-    }
-
-    try {
-      final fs = FirebaseFirestore.instance;
-      final col = fs.collection('providers');
-
-      try {
-        final s1 = await col
-            .orderBy('practiceName')
-            .startAt([prefix])
-            .endAt(['$prefix\uf8ff'])
-            .limit(14)
-            .get();
-        for (final d in s1.docs) {
-          addDoc(d);
-        }
-      } catch (_) {}
-
-      try {
-        final s2 = await col
-            .orderBy('name')
-            .startAt([prefix])
-            .endAt(['$prefix\uf8ff'])
-            .limit(14)
-            .get();
-        for (final d in s2.docs) {
-          addDoc(d);
-        }
-      } catch (_) {}
-
-      if (out.length < 8) {
-        final low = prefix.toLowerCase();
-        final broad = await col.limit(280).get();
-        final extra = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        for (final d in broad.docs) {
-          if (seen.contains(d.id)) continue;
-          final m = d.data();
-          final p = (m['practiceName'] as String? ?? '').toLowerCase();
-          final n = (m['name'] as String? ?? '').toLowerCase();
-          if (p.contains(low) || n.contains(low)) extra.add(d);
-        }
-        extra.sort((a, b) {
-          final ta = _suggestFromDoc(a)?.displayTitle ?? '';
-          final tb = _suggestFromDoc(b)?.displayTitle ?? '';
-          return ta.toLowerCase().compareTo(tb.toLowerCase());
-        });
-        for (final d in extra) {
-          addDoc(d);
-          if (out.length >= 22) break;
-        }
-      }
-
-      out.sort(
-        (a, b) => a.displayTitle.toLowerCase().compareTo(
-              b.displayTitle.toLowerCase(),
-            ),
-      );
-      final trimmed = out.take(20).toList();
-
-      if (!mounted) return;
-      setState(() {
-        _providerSuggests = trimmed;
-        _searchingFirestoreNames = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _providerSuggests = [];
-          _searchingFirestoreNames = false;
-        });
-      }
-    }
+    final matches = _allTypeNames
+        .where((n) => n.toLowerCase().contains(q))
+        .take(16)
+        .toList();
+    setState(() {
+      _suggestions = matches;
+    });
   }
 
   String? _resolveTypeId(String input) {
@@ -294,20 +157,12 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
     _refreshSuggestions();
   }
 
-  void _applyProviderDirectorySuggest(_ProviderDirectorySuggest s) {
-    final t = s.searchTerm;
-    _queryController.text = t;
-    _queryController.selection = TextSelection.collapsed(offset: t.length);
-    setState(() {});
-    _refreshSuggestions();
-  }
-
   void _runSearch() {
     final q = _queryController.text.trim();
     if (q.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Enter a provider type or name to search.'),
+          content: Text('Enter a provider type to search.'),
           backgroundColor: AppTheme.brandGold,
         ),
       );
@@ -332,42 +187,16 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
       return;
     }
 
-    if (_kind == _QuickSearchKind.providerType) {
-      final id = _resolveTypeId(q);
-      if (id == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pick a provider type from the suggestions below.'),
-            backgroundColor: AppTheme.brandGold,
-          ),
-        );
-        return;
-      }
-      Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (context) => ProviderSearchResultsScreen(
-            searchParams: {
-              'zip': _zip,
-              'city': _city,
-              'radius': _radius,
-              'healthPlan': _healthPlan,
-              'providerTypeIds': [id],
-              'specialties': <String>[],
-              'includeNPI': true,
-              'telehealth': false,
-              'acceptsPregnant': true,
-              'acceptsNewborns': false,
-              'mamaApprovedOnly': false,
-              'identityTags': <String>[],
-              'languages': <String>[],
-            },
-          ),
+    final id = _resolveTypeId(q);
+    if (id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pick a provider type from the suggestions below.'),
+          backgroundColor: AppTheme.brandGold,
         ),
       );
       return;
     }
-
     Navigator.push(
       context,
       MaterialPageRoute<void>(
@@ -377,7 +206,7 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
             'city': _city,
             'radius': _radius,
             'healthPlan': _healthPlan,
-            'providerTypeIds': List<String>.from(ProviderTypes.mvpTypes),
+            'providerTypeIds': [id],
             'specialties': <String>[],
             'includeNPI': true,
             'telehealth': false,
@@ -386,7 +215,6 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
             'mamaApprovedOnly': false,
             'identityTags': <String>[],
             'languages': <String>[],
-            'nameContains': q,
           },
         ),
       ),
@@ -396,7 +224,7 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
   void _openExpanded() {
     final q = _queryController.text.trim();
     List<String>? types;
-    if (_kind == _QuickSearchKind.providerType && q.isNotEmpty) {
+    if (q.isNotEmpty) {
       final id = _resolveTypeId(q);
       if (id != null) {
         final name = ProviderTypes.getDisplayName(id);
@@ -430,15 +258,7 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
-      appBar: AppBar(
-        backgroundColor: AppTheme.backgroundWarm,
-        elevation: 0,
-        foregroundColor: AppTheme.textSecondary,
-        title: const Text(
-          'Search providers',
-          style: TextStyle(fontWeight: FontWeight.w500, fontSize: 18),
-        ),
-      ),
+      appBar: AppTheme.newUiAppBar(context, title: 'Search providers'),
       body: _loadingDefaults
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -455,34 +275,8 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  SegmentedButton<_QuickSearchKind>(
-                    segments: const [
-                      ButtonSegment(
-                        value: _QuickSearchKind.providerType,
-                        label: Text('Provider type'),
-                        icon: Icon(Icons.category_outlined, size: 18),
-                      ),
-                      ButtonSegment(
-                        value: _QuickSearchKind.providerName,
-                        label: Text('Provider name'),
-                        icon: Icon(Icons.person_search_outlined, size: 18),
-                      ),
-                    ],
-                    selected: {_kind},
-                    onSelectionChanged: (s) {
-                      setState(() {
-                        _kind = s.first;
-                        _suggestions = [];
-                        _providerSuggests = [];
-                      });
-                      _refreshSuggestions();
-                    },
-                  ),
-                  const SizedBox(height: 16),
                   Text(
-                    _kind == _QuickSearchKind.providerType
-                        ? 'Search Ohio directory types (e.g. midwife, hospital).'
-                        : 'Search by practice or provider name; we match against results near you.',
+                    'Search Ohio directory types (e.g. midwife, hospital).',
                     style: TextStyle(
                       fontSize: 13,
                       color: AppTheme.textMuted,
@@ -500,9 +294,7 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                       textInputAction: TextInputAction.search,
                       onSubmitted: (_) => _runSearch(),
                       decoration: InputDecoration(
-                        hintText: _kind == _QuickSearchKind.providerType
-                            ? 'Type a provider type…'
-                            : 'Type a name…',
+                        hintText: 'Type a provider type…',
                         prefixIcon:
                             Icon(Icons.search, color: AppTheme.textMuted),
                         filled: true,
@@ -529,20 +321,7 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  if (_kind == _QuickSearchKind.providerName &&
-                      _searchingFirestoreNames)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: Text(
-                        'Looking up names…',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textBarelyVisible,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   Text(
                     'Suggestions',
                     style: TextStyle(
@@ -552,71 +331,19 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  if (_kind == _QuickSearchKind.providerName &&
-                      _queryController.text.trim().isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        'Start typing to see practices from the directory.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMuted,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
+                  ..._suggestions.map(
+                    (s) => ListTile(
+                      dense: true,
+                      title: Text(s),
+                      onTap: () => _applySuggestion(s),
                     ),
-                  if (_kind == _QuickSearchKind.providerName &&
-                      _providerSuggests.isNotEmpty) ...[
-                    ..._providerSuggests.map(
-                      (s) => ListTile(
-                        dense: true,
-                        leading: Icon(
-                          Icons.local_hospital_outlined,
-                          size: 20,
-                          color: AppTheme.brandPurple,
-                        ),
-                        title: Text(s.displayTitle),
-                        subtitle: s.subtitle != null
-                            ? Text(
-                                s.subtitle!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              )
-                            : null,
-                        onTap: () => _applyProviderDirectorySuggest(s),
-                      ),
-                    ),
-                  ],
-                  if (_kind == _QuickSearchKind.providerType)
-                    ..._suggestions.map(
-                      (s) => ListTile(
-                        dense: true,
-                        title: Text(s),
-                        onTap: () => _applySuggestion(s),
-                      ),
-                    ),
-                  if (_kind == _QuickSearchKind.providerType &&
-                      _suggestions.isEmpty &&
+                  ),
+                  if (_suggestions.isEmpty &&
                       _queryController.text.trim().isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Text(
                         'No suggestions — you can still search or open expanded filters.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMuted,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                  if (_kind == _QuickSearchKind.providerName &&
-                      !_searchingFirestoreNames &&
-                      _queryController.text.trim().isNotEmpty &&
-                      _providerSuggests.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(
-                        'No directory matches — you can still run search or use expanded filters.',
                         style: TextStyle(
                           fontSize: 13,
                           color: AppTheme.textMuted,
@@ -653,16 +380,4 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
             ),
     );
   }
-}
-
-class _ProviderDirectorySuggest {
-  const _ProviderDirectorySuggest({
-    required this.displayTitle,
-    this.subtitle,
-    required this.searchTerm,
-  });
-
-  final String displayTitle;
-  final String? subtitle;
-  final String searchTerm;
 }

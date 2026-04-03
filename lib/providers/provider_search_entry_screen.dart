@@ -1483,7 +1483,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                 _buildToggleRow(
                   title: 'Mama Approved™ only',
                   subtitle:
-                      'Other mamas recommended them from real visits — not a medical seal.',
+                      'At least 3 parent reviews with a 4★+ average — from the community, not insurers.',
                   value: _mamaApprovedOnly,
                   onChanged: (value) {
                     setState(() {
@@ -1497,8 +1497,9 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                       builder: (ctx) => AlertDialog(
                         title: const Text('Mama Approved™'),
                         content: const Text(
-                          'A warm shout-out from mothers in our community who felt heard and supported. '
-                          'It is not from a hospital, insurer, or medical board — just real experiences shared to help you choose.',
+                          'We show this when a provider has at least three reviews from parents in the app '
+                          'and the average rating is 4 stars or higher. It reflects what families shared — '
+                          'not an endorsement from a hospital, insurer, or medical board.',
                         ),
                         actions: [
                           TextButton(

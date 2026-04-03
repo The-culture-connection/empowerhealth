@@ -315,14 +315,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
-      appBar: AppBar(
-        title: const Text(
-          'Discussion',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-        ),
-        backgroundColor: AppTheme.surfaceCard,
-        foregroundColor: AppTheme.textPrimary,
-        elevation: 0,
+      appBar: AppTheme.newUiAppBar(
+        context,
+        title: 'Discussion',
         actions: [
           StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance
@@ -336,7 +331,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               final data = snapshot.data!.data() as Map<String, dynamic>;
               final title = data['title'] ?? '';
               return IconButton(
-                icon: Icon(Icons.flag_outlined, color: Colors.grey[600]),
+                icon: Icon(Icons.flag_outlined, color: AppTheme.textMuted),
                 onPressed: () => _reportPost(widget.postId, title),
                 tooltip: 'Report post',
               );

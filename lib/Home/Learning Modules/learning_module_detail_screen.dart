@@ -6,6 +6,7 @@ import '../../cors/ui_theme.dart' show AppTheme;
 import '../../learning/notes_dialog.dart';
 import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
+import '../../widgets/learning_module_formatted_content.dart';
 import '../../widgets/qualitative_survey_dialog.dart';
 
 class LearningModuleDetailScreen extends StatefulWidget {
@@ -121,6 +122,7 @@ class _LearningModuleDetailScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -147,10 +149,10 @@ class _LearningModuleDetailScreenState
                         children: [
                           Text(
                             widget.title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                              color: AppTheme.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -158,7 +160,7 @@ class _LearningModuleDetailScreenState
                             'Learning Module',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey[600],
+                              color: AppTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -230,7 +232,7 @@ class _LearningModuleDetailScreenState
                               ],
                             ),
                             const SizedBox(height: 16),
-                            _MarkdownStyleText(
+                            LearningModuleFormattedContent(
                               content: widget.content,
                               moduleTitle: widget.title,
                             ),
@@ -715,149 +717,6 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _MarkdownStyleText extends StatefulWidget {
-  final String content;
-  final String moduleTitle;
-
-  const _MarkdownStyleText({required this.content, required this.moduleTitle});
-
-  @override
-  State<_MarkdownStyleText> createState() => _MarkdownStyleTextState();
-}
-
-class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
-  @override
-  Widget build(BuildContext context) {
-    // Fix $1 formatting issue - replace $1 with proper section breaks first
-    final cleanedContent = widget.content.replaceAll('\$1', '\n\n---\n\n');
-    final lines = cleanedContent.split('\n');
-    final widgets = <Widget>[];
-
-    for (var line in lines) {
-      if (line.trim().isEmpty) {
-        widgets.add(const SizedBox(height: 8));
-        continue;
-      }
-
-      if (line.startsWith('## ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 8),
-            child: Text(
-              line.substring(3),
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.brandPurple,
-              ),
-            ),
-          ),
-        );
-      } else if (line.startsWith('### ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 6),
-            child: Text(
-              line.substring(4),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-          ),
-        );
-      } else if (line.startsWith('• ') || line.startsWith('- ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(left: 16, bottom: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('• ', style: TextStyle(fontSize: 16)),
-                Expanded(
-                  child: Text(
-                    line.substring(2),
-                    style: const TextStyle(fontSize: 16, height: 1.5),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else if (line.trim() == '---' || line.trim().startsWith('---')) {
-        // Section divider
-        widgets.add(
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(thickness: 2, color: AppTheme.brandPurple),
-          ),
-        );
-      } else {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: SelectableText(
-              line,
-              style: const TextStyle(fontSize: 16, height: 1.5),
-              onSelectionChanged: (selection, cause) {
-                if (selection.isValid &&
-                    cause == SelectionChangedCause.longPress) {
-                  final selectedText = line
-                      .substring(
-                        selection.start.clamp(0, line.length),
-                        selection.end.clamp(0, line.length),
-                      )
-                      .trim();
-                  if (selectedText.length > 3) {
-                    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Selected: ${selectedText.length > 40 ? selectedText.substring(0, 40) + "..." : selectedText}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).hideCurrentSnackBar();
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => NotesDialog(
-                                    preFilledText: selectedText,
-                                    moduleTitle: widget.moduleTitle,
-                                  ),
-                                );
-                              },
-                              child: const Text(
-                                'Add Note',
-                                style: TextStyle(color: AppTheme.brandWhite),
-                              ),
-                            ),
-                          ],
-                        ),
-                        duration: const Duration(seconds: 5),
-                        backgroundColor: AppTheme.brandPurple,
-                      ),
-                    );
-                  }
-                }
-              },
-            ),
-          ),
-        );
-      }
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widgets,
     );
   }
 }

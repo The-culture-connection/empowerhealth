@@ -139,52 +139,11 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
     final progress = weeksPregnant > 0 ? (weeksPregnant / 40) : 0.0;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Stack(
-        children: [
-          // Warm ambient accents (NewUI-style, non-interactive)
-          Positioned(
-            top: -80,
-            right: MediaQuery.sizeOf(context).width * 0.15,
-            child: IgnorePointer(
-              child: Container(
-                width: 280,
-                height: 280,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFD4A574).withOpacity(0.18),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: MediaQuery.sizeOf(context).height * 0.2,
-            left: -40,
-            child: IgnorePointer(
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFB899D4).withOpacity(0.14),
-                ),
-              ),
-            ),
-          ),
-          // Subtle texture overlay (NewUI)
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.015,
-              child: CustomPaint(
-                painter: _PatternPainter(),
-                size: Size.infinite,
-              ),
-            ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 120),
+              padding: const EdgeInsets.fromLTRB(24, 48, 24, 120),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -266,8 +225,10 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: () =>
-                              Navigator.pushNamed(context, Routes.learning),
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            Routes.pregnancyJourney,
+                          ),
                           borderRadius: BorderRadius.circular(24),
                           child: Ink(
                             decoration: BoxDecoration(
@@ -449,11 +410,11 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "💜 Today's Support",
+                          "💜 TODAY'S SUPPORT",
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            letterSpacing: 1.04,
+                            letterSpacing: 1.2,
                             color: AppTheme.brandPurple,
                           ),
                         ),
@@ -539,7 +500,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                                 ],
                                               ),
                                               child: const Icon(
-                                                Icons.auto_awesome,
+                                                Icons.auto_awesome_rounded,
                                                 color: Color(0xFFD4A574),
                                                 size: 26,
                                               ),
@@ -632,7 +593,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                 overline: 'My Visits',
                                 title: 'Your visits',
                                 subtitle:
-                                    'Upload your first visit summary when you\'re ready.',
+                                    'Upload your first after-visit summary when you’re ready.',
                                 description: '',
                                 onTap: () {
                                   Navigator.push(
@@ -815,11 +776,11 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                   const SizedBox(height: 40),
                   // Community (NewUI: conversational header + belonging copy)
                   Text(
-                    'From the Community 💬',
+                    'FROM THE COMMUNITY 💬',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      letterSpacing: 1.04,
+                      letterSpacing: 1.2,
                       color: AppTheme.brandPurple,
                     ),
                   ),
@@ -969,8 +930,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
               ),
             ),
           ),
-        ],
-      ),
     );
   }
 
@@ -1628,51 +1587,4 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
       ),
     );
   }
-}
-
-// Custom painter for the subtle pattern overlay (replaces SVG data URI)
-class _PatternPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF663399)
-      ..style = PaintingStyle.fill;
-
-    const tileSize = 60.0;
-    final tileCountX = (size.width / tileSize).ceil() + 1;
-    final tileCountY = (size.height / tileSize).ceil() + 1;
-
-    for (int x = 0; x < tileCountX; x++) {
-      for (int y = 0; y < tileCountY; y++) {
-        final offsetX = x * tileSize;
-        final offsetY = y * tileSize;
-        
-        // Draw the pattern (simplified version of the SVG pattern)
-        // This creates a subtle dot pattern
-        canvas.drawCircle(
-          Offset(offsetX + 6, offsetY + 6),
-          2,
-          paint,
-        );
-        canvas.drawCircle(
-          Offset(offsetX + 36, offsetY + 6),
-          2,
-          paint,
-        );
-        canvas.drawCircle(
-          Offset(offsetX + 6, offsetY + 36),
-          2,
-          paint,
-        );
-        canvas.drawCircle(
-          Offset(offsetX + 36, offsetY + 36),
-          2,
-          paint,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

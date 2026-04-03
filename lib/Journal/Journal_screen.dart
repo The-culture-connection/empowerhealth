@@ -758,12 +758,8 @@ class _JournalScreenState extends State<JournalScreen> {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.backgroundWarm,
-        ),
-        child: SafeArea(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
           child: Column(
             children: [
               // Header (matching NewUI)
@@ -777,15 +773,15 @@ class _JournalScreenState extends State<JournalScreen> {
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w400,
-                        color: AppTheme.textSecondary,
+                        color: AppTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'A safe space for your thoughts and feelings',
+                      'A private space for how you feel',
                       style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textLight,
+                        fontSize: 15,
+                        color: AppTheme.textMuted,
                         fontWeight: FontWeight.w300,
                       ),
                     ),
@@ -928,7 +924,6 @@ class _JournalScreenState extends State<JournalScreen> {
             ],
           ),
         ),
-      ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

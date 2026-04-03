@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -11,6 +11,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
 import '../services/analytics_service.dart';
@@ -51,6 +52,99 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     _trackScreenView();
     _loadUserProfile();
     _checkConsentAndShowPrivacyScreen();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowAfterVisitTransparency();
+    });
+  }
+
+  static const _transparencyPrefsKey = 'after_visit_transparency_v1';
+
+  Future<void> _maybeShowAfterVisitTransparency() async {
+    if (!mounted) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_transparencyPrefsKey) == true) return;
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) {
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceCard,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.borderLight.withOpacity(0.45)),
+                boxShadow: AppTheme.shadowMedium(opacity: 0.12, blur: 32, y: 10),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFF5EEE0), Color(0xFFEBE0D6)],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.spa_outlined, color: Color(0xFFD4A574), size: 24),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          'How After-Visit Support works',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'We simplify the language in paperwork or notes you choose to share. '
+                    'We don’t diagnose or tell you what to do medically — your care team does that.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: () async {
+                      await prefs.setBool(_transparencyPrefsKey, true);
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.brandPurple,
+                      foregroundColor: AppTheme.brandWhite,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: const Text('I understand'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      debugPrint('Transparency dialog: $e');
+    }
   }
 
   Future<void> _trackScreenView() async {
@@ -112,6 +206,139 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
               Navigator.of(context).pushNamed('/privacy-center');
             },
             child: const Text('Go to Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static const _summarySectionLabels = [
+    'In Simpler Words',
+    'Important Information',
+    'Questions You May Want to Ask',
+  ];
+
+  /// Split AI markdown on `## ` headings so we can show NewUI-style section cards.
+  List<MapEntry<String?, String>> _splitMarkdownByH2(String md) {
+    final lines = md.split('\n');
+    final chunks = <MapEntry<String?, String>>[];
+    String? currentTitle;
+    final buf = StringBuffer();
+    void flush() {
+      final text = buf.toString().trim();
+      buf.clear();
+      if (text.isEmpty && currentTitle == null) return;
+      chunks.add(MapEntry(currentTitle, text));
+      currentTitle = null;
+    }
+
+    for (final line in lines) {
+      if (line.startsWith('## ')) {
+        flush();
+        currentTitle = line.substring(3).trim();
+      } else {
+        buf.writeln(line);
+      }
+    }
+    flush();
+    if (chunks.isEmpty && md.trim().isNotEmpty) {
+      return [MapEntry(null, md.trim())];
+    }
+    return chunks;
+  }
+
+  String _summaryLabelForSection(int index, int total) {
+    if (total <= 1) return 'In Simpler Words';
+    if (index < _summarySectionLabels.length) {
+      return _summarySectionLabels[index];
+    }
+    return _summarySectionLabels.last;
+  }
+
+  List<Widget> _buildVisitSummarySections(BuildContext context) {
+    final chunks = _splitMarkdownByH2(_generatedSummary!);
+    final nonEmpty = chunks.where((c) => c.value.trim().isNotEmpty).toList();
+    if (nonEmpty.isEmpty) return [];
+
+    final out = <Widget>[];
+    for (var i = 0; i < nonEmpty.length; i++) {
+      if (i > 0) out.add(const SizedBox(height: 16));
+      out.add(
+        _visitSummarySectionCard(
+          label: _summaryLabelForSection(i, nonEmpty.length),
+          body: nonEmpty[i].value.trim(),
+          showReadingLevel: i == 0,
+        ),
+      );
+    }
+    return out;
+  }
+
+  Widget _visitSummarySectionCard({
+    required String label,
+    required String body,
+    bool showReadingLevel = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppTheme.borderLight.withOpacity(0.45)),
+        boxShadow: AppTheme.shadowSoft(opacity: 0.07, blur: 20, y: 5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              letterSpacing: 1.1,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.brandPurple.withOpacity(0.88),
+            ),
+          ),
+          if (showReadingLevel) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.brandPurple.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.menu_book_outlined, size: 16, color: AppTheme.brandPurple.withOpacity(0.85)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Adjusted toward ${_userProfile?.educationLevel ?? "6th grade"} reading level where possible.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w300,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          MarkdownBody(
+            data: body,
+            styleSheet: MarkdownStyleSheet(
+              h2: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+              h3: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              p: const TextStyle(fontSize: 15, height: 1.55, fontWeight: FontWeight.w300),
+              listBullet: TextStyle(fontSize: 15, color: AppTheme.brandPurple.withOpacity(0.9)),
+            ),
           ),
         ],
       ),
@@ -829,7 +1056,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Understand Your Visit',
+                          'After-Visit Support',
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.w400,
@@ -840,7 +1067,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Add notes from your appointment',
+                          'Doctor visits can be overwhelming. We’re here to help you understand what was shared — starting with a clear photo of your paperwork, if you like.',
                           style: TextStyle(
                             fontSize: 15,
                             height: 1.45,
@@ -898,7 +1125,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'We help simplify documents you choose to upload',
+                                      'We help simplify the documents you share',
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w500,
@@ -908,7 +1135,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      'This tool makes medical language easier to understand. It does not provide medical advice or diagnosis.',
+                                      'This tool makes medical language easier to understand. It does not provide medical advice, diagnoses, or replace your healthcare provider.',
                                       style: TextStyle(
                                         fontSize: 14,
                                         height: 1.45,
@@ -1014,8 +1241,9 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                             Expanded(
                               child: _MethodPill(
                                 selected: _inputMethod == 'pdf',
-                                icon: Icons.description_outlined,
-                                label: 'Upload PDF',
+                                icon: Icons.photo_camera_outlined,
+                                label: 'Take photo',
+                                useGoldWhenSelected: true,
                                 onTap: () =>
                                     setState(() => _inputMethod = 'pdf'),
                               ),
@@ -1025,7 +1253,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                               child: _MethodPill(
                                 selected: _inputMethod == 'text',
                                 icon: Icons.text_fields_rounded,
-                                label: 'Type Text',
+                                label: 'Type notes',
+                                useGoldWhenSelected: false,
                                 onTap: () =>
                                     setState(() => _inputMethod = 'text'),
                               ),
@@ -1111,7 +1340,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Upload Visit Summary PDF',
+                      'Take a photo of your visit summary',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 17,
@@ -1122,7 +1351,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Tap to select PDF file from your device',
+                      'Or choose a PDF from your device',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -1136,8 +1365,17 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         _GradientActionButton(
+                          icon: Icons.photo_camera_outlined,
+                          label: 'Take photo',
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFD4A574), Color(0xFFE0B589)],
+                          ),
+                          onPressed: _pickPhotoAsPdf,
+                        ),
+                        const SizedBox(width: 10),
+                        _GradientActionButton(
                           icon: Icons.description_outlined,
-                          label: 'Choose File',
+                          label: 'Choose file',
                           gradient: const LinearGradient(
                             colors: [
                               Color(0xFF663399),
@@ -1146,15 +1384,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                             ],
                           ),
                           onPressed: _pickPDF,
-                        ),
-                        const SizedBox(width: 10),
-                        _GradientActionButton(
-                          icon: Icons.photo_camera_outlined,
-                          label: 'Take Photo',
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFD4A574), Color(0xFFE0B589)],
-                          ),
-                          onPressed: _pickPhotoAsPdf,
                         ),
                       ],
                     ),
@@ -1397,7 +1626,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                                       ],
                                     )
                                   : Text(
-                                      'Process Notes',
+                                      'Simplify this visit',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w500,
@@ -1525,87 +1754,34 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                           ),
                         ),
 
-            // Generated Summary Display
+            // Generated Summary Display — sectioned like NewUI
             if (_generatedSummary != null) ...[
-              // AI Disclaimer Banner
               const AIDisclaimerBanner(
                 customMessage: 'This summary helps you understand your visit.',
-                customSubMessage: 'It does not replace medical advice from your provider.',
+                customSubMessage: 'It is not medical advice and does not replace your provider.',
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Below is a gentle breakdown of what you shared. If anything feels unclear, bring these notes to your next visit.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.45,
+                  color: AppTheme.textMuted,
+                  fontWeight: FontWeight.w300,
+                ),
               ),
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.2),
-                      spreadRadius: 2,
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.green, size: 28),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Your Visit Summary',
-                            style: AppTheme.responsiveTitleStyle(
-                              context,
-                              baseSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Adjusted to ${_userProfile?.educationLevel ?? "6th grade"} reading level',
-                              style: const TextStyle(fontSize: 12, color: Colors.blue),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 24),
-                    MarkdownBody(
-                      data: _generatedSummary!,
-                      styleSheet: MarkdownStyleSheet(
-                        h2: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.brandPurple,
-                        ),
-                        h3: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        p: const TextStyle(fontSize: 15, height: 1.6),
-                        listBullet: const TextStyle(
-                          fontSize: 15,
-                          color: AppTheme.brandPurple,
-                        ),
-                      ),
-                    ),
-                  ],
+              ..._buildVisitSummarySections(context),
+              const SizedBox(height: 12),
+              Text(
+                'Still have questions? Write them down and ask your care team — you’re not bothering anyone.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: AppTheme.textLight,
+                  fontWeight: FontWeight.w300,
                 ),
               ),
               const SizedBox(height: 16),
@@ -1618,8 +1794,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     _selectedDate = null;
                   });
                 },
-                icon: const Icon(Icons.upload_file),
-                label: const Text('Upload Another File'),
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                label: const Text('Add another visit summary'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.brandPurple,
                   side: const BorderSide(color: AppTheme.brandPurple),
@@ -1645,16 +1821,29 @@ class _MethodPill extends StatelessWidget {
     required this.selected,
     required this.icon,
     required this.label,
+    required this.useGoldWhenSelected,
     required this.onTap,
   });
 
   final bool selected;
   final IconData icon;
   final String label;
+  final bool useGoldWhenSelected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final Gradient? selectedGradient = selected
+        ? LinearGradient(
+            colors: useGoldWhenSelected
+                ? const [Color(0xFFD4A574), Color(0xFFE0B589)]
+                : const [
+                    Color(0xFF663399),
+                    Color(0xFF7744AA),
+                    Color(0xFF8855BB),
+                  ],
+          )
+        : null;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1664,15 +1853,7 @@ class _MethodPill extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            gradient: selected
-                ? const LinearGradient(
-                    colors: [
-                      Color(0xFF663399),
-                      Color(0xFF7744AA),
-                      Color(0xFF8855BB),
-                    ],
-                  )
-                : null,
+            gradient: selectedGradient,
             color: selected ? null : AppTheme.surfaceCard,
             border: Border.all(
               color: selected
@@ -1682,7 +1863,10 @@ class _MethodPill extends StatelessWidget {
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF663399).withOpacity(0.22),
+                      color: (useGoldWhenSelected
+                              ? const Color(0xFFD4A574)
+                              : const Color(0xFF663399))
+                          .withOpacity(0.22),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),

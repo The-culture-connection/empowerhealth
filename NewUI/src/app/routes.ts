@@ -22,6 +22,9 @@ import { MyVisits } from "./components/MyVisits";
 import { VisitDetail } from "./components/VisitDetail";
 import { UploadVisitSummary } from "./components/UploadVisitSummary";
 import { BirthPlanBuilder } from "./components/BirthPlanBuilder";
+import { KnowYourRights } from "./components/KnowYourRights";
+import { VisitSummarySimplified } from "./components/VisitSummarySimplified";
+import { PregnancyJourney } from "./components/PregnancyJourney";
 
 export const router = createBrowserRouter([
   {
@@ -51,6 +54,9 @@ export const router = createBrowserRouter([
       { path: "my-visits", Component: MyVisits },
       { path: "my-visits/upload", Component: UploadVisitSummary },
       { path: "my-visits/:visitId", Component: VisitDetail },
+      { path: "my-visits/:visitId/summary", Component: VisitSummarySimplified },
+      { path: "know-your-rights", Component: KnowYourRights },
+      { path: "pregnancy-journey", Component: PregnancyJourney },
     ],
   },
 ]);

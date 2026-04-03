@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../cors/ui_theme.dart';
 
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key});
@@ -6,7 +7,8 @@ class MessagesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages')),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Messages'),
       body: Stack(
         fit: StackFit.expand,
         children: [

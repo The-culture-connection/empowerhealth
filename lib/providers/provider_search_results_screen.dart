@@ -11,6 +11,7 @@ import '../constants/provider_types.dart';
 import 'provider_profile_screen.dart';
 import 'add_provider_screen.dart';
 import '../widgets/qualitative_survey_dialog.dart';
+import '../widgets/mama_approved_community_badge.dart';
 
 class ProviderSearchResultsScreen extends StatefulWidget {
   final Map<String, dynamic> searchParams;
@@ -203,6 +204,8 @@ class _ProviderSearchResultsScreenState
         '🔍 [ResultsScreen]   - Include NPI: ${widget.searchParams['includeNPI']}',
       );
 
+      final nameContains = widget.searchParams['nameContains'] as String?;
+
       var results = await _repository.searchProviders(
         zip: widget.searchParams['zip'] as String,
         city: widget.searchParams['city'] as String,
@@ -219,17 +222,8 @@ class _ProviderSearchResultsScreenState
         acceptsPregnantWomen: widget.searchParams['acceptsPregnant'] as bool?,
         acceptsNewborns: widget.searchParams['acceptsNewborns'] as bool?,
         telehealth: widget.searchParams['telehealth'] as bool?,
+        nameContains: nameContains,
       );
-
-      final nameContains = widget.searchParams['nameContains'] as String?;
-      if (nameContains != null && nameContains.trim().isNotEmpty) {
-        final q = nameContains.trim().toLowerCase();
-        results = results.where((p) {
-          final n = p.name.toLowerCase();
-          final pr = (p.practiceName ?? '').toLowerCase();
-          return n.contains(q) || pr.contains(q);
-        }).toList();
-      }
 
       print(
         '✅ [ResultsScreen] Repository returned ${results.length} providers',
@@ -332,7 +326,7 @@ class _ProviderSearchResultsScreenState
         }
 
         if (activeFilters.containsKey('mamaApproved') &&
-            provider.mamaApproved == true) {
+            provider.showsMamaApprovedBadge) {
           matchScore++;
           matchedFilters.add('Mama Approved');
         }
@@ -398,9 +392,15 @@ class _ProviderSearchResultsScreenState
           return scoreB.compareTo(scoreA); // Higher score first
         }
 
-        // Second priority: Mama Approved providers
-        if (providerA.mamaApproved && !providerB.mamaApproved) return -1;
-        if (!providerA.mamaApproved && providerB.mamaApproved) return 1;
+        // Second priority: Mama Approved (community reviews) providers
+        if (providerA.showsMamaApprovedBadge &&
+            !providerB.showsMamaApprovedBadge) {
+          return -1;
+        }
+        if (!providerA.showsMamaApprovedBadge &&
+            providerB.showsMamaApprovedBadge) {
+          return 1;
+        }
 
         // Third priority: Rating
         final ratingA = providerA.rating ?? 0.0;
@@ -442,6 +442,13 @@ class _ProviderSearchResultsScreenState
         }),
       );
 
+      var listForUi = filtered;
+      if (widget.searchParams['mamaApprovedOnly'] == true) {
+        listForUi = filtered
+            .where((p) => p.showsMamaApprovedBadge)
+            .toList();
+      }
+
       // Store match info for display
       _providerMatchInfo = Map.fromEntries(
         providersWithScores.map(
@@ -452,20 +459,20 @@ class _ProviderSearchResultsScreenState
         ),
       );
 
-      print('✅ [ResultsScreen] After scoring: ${filtered.length} providers');
+      print('✅ [ResultsScreen] After scoring: ${listForUi.length} providers');
       print(
         '📊 [ResultsScreen] Match scores: ${_providerMatchInfo.values.map((v) => v['score']).join(', ')}',
       );
 
       setState(() {
-        _providers = filtered;
+        _providers = listForUi;
         _isLoading = false;
         _searchProviderTypeIds = providerTypeIds; // Store for card display
         print(
-          '✅ [ResultsScreen] setState called with ${filtered.length} providers',
+          '✅ [ResultsScreen] setState called with ${listForUi.length} providers',
         );
         // Clear error if we got results (even if empty)
-        if (filtered.isEmpty) {
+        if (listForUi.isEmpty) {
           _error = null; // Empty results is not an error
           print('ℹ️ [ResultsScreen] Empty results - will show empty state');
         }
@@ -506,16 +513,23 @@ class _ProviderSearchResultsScreenState
         break;
       case 'Mama Approved first':
         providers.sort((a, b) {
-          if (a.mamaApproved && !b.mamaApproved) return -1;
-          if (!a.mamaApproved && b.mamaApproved) return 1;
+          if (a.showsMamaApprovedBadge && !b.showsMamaApprovedBadge) {
+            return -1;
+          }
+          if (!a.showsMamaApprovedBadge && b.showsMamaApprovedBadge) {
+            return 1;
+          }
           return (b.rating ?? 0).compareTo(a.rating ?? 0);
         });
         break;
       default: // Most relevant
         providers.sort((a, b) {
-          // Sort by Mama Approved first, then rating
-          if (a.mamaApproved && !b.mamaApproved) return -1;
-          if (!a.mamaApproved && b.mamaApproved) return 1;
+          if (a.showsMamaApprovedBadge && !b.showsMamaApprovedBadge) {
+            return -1;
+          }
+          if (!a.showsMamaApprovedBadge && b.showsMamaApprovedBadge) {
+            return 1;
+          }
           return (b.rating ?? 0).compareTo(a.rating ?? 0);
         });
     }
@@ -524,9 +538,9 @@ class _ProviderSearchResultsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF7F5F9), // bg-[#f7f5f9]
+      backgroundColor: AppTheme.backgroundWarm,
       body: Container(
-        decoration: BoxDecoration(color: Color(0xFFF7F5F9)),
+        decoration: const BoxDecoration(color: AppTheme.backgroundWarm),
         child: SafeArea(
           child: Column(
             children: [
@@ -1197,25 +1211,26 @@ class _ProviderSearchResultsScreenState
               ),
             ),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 10,
+              runSpacing: 10,
               children: [
                 ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(context); // Go back to search
                   },
-                  icon: const Icon(Icons.edit),
+                  icon: const Icon(Icons.edit, size: 20),
                   label: const Text('Edit Search'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.brandPurple,
                     foregroundColor: AppTheme.brandWhite,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
+                      horizontal: 16,
                       vertical: 12,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
                 OutlinedButton.icon(
                   onPressed: () {
                     Navigator.push(
@@ -1225,16 +1240,15 @@ class _ProviderSearchResultsScreenState
                       ),
                     );
                   },
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add, size: 20),
                   label: const Text('Add Provider'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
+                      horizontal: 16,
                       vertical: 12,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
                 OutlinedButton.icon(
                   onPressed: () {
                     showDialog(
@@ -1250,11 +1264,11 @@ class _ProviderSearchResultsScreenState
                       ),
                     );
                   },
-                  icon: const Icon(Icons.feedback_outlined),
+                  icon: const Icon(Icons.feedback_outlined, size: 20),
                   label: const Text('Feedback'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
+                      horizontal: 16,
                       vertical: 12,
                     ),
                   ),
@@ -1650,54 +1664,8 @@ class _ProviderCard extends StatelessWidget {
                                 );
                               }),
 
-                          // Mama Approved — warm community badge (purple, not clinical)
-                          if (provider.mamaApproved)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFF3ECFA),
-                                    Color(0xFFE8DDF5),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: const Color(0xFFD4C4EB),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF663399)
-                                        .withOpacity(0.06),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.favorite_rounded,
-                                    size: 15,
-                                    color: Color(0xFF663399),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    'Mama Approved™',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF5B3A8C),
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                          if (provider.showsMamaApprovedBadge)
+                            const MamaApprovedCommunityBadge(),
 
                           // Identity Tags (including BIPOC)
                           ...provider.identityTags.map((tag) {
@@ -1850,65 +1818,95 @@ class _ProviderCard extends StatelessWidget {
                   ),
                 ),
 
-                // Quick Info Grid (matching NewUI)
+                // Quick Info Grid (matching NewUI) — distance + multiline address
                 Container(
                   margin: const EdgeInsets.only(bottom: 20), // mb-5
                   padding: const EdgeInsets.all(16), // p-4
                   decoration: BoxDecoration(
-                    color: Color(0xFFF7F5F9), // bg-[#f7f5f9]
+                    color: AppTheme.backgroundWarm,
                     borderRadius: BorderRadius.circular(20), // rounded-[20px]
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Icon(
+                            Icons.location_on,
+                            size: 16,
+                            color: Color(0xFFA89CB5),
+                          ),
+                          const SizedBox(width: 8),
                           Expanded(
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.location_on,
-                                  size: 16,
-                                  color: Color(0xFFA89CB5),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    distance ?? location?.fullAddress ?? '',
+                                if (distance != null) ...[
+                                  Text(
+                                    distance!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF4A3F52),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  if (location != null &&
+                                      location!.addressLines.isNotEmpty)
+                                    const SizedBox(height: 4),
+                                ],
+                                if (location != null)
+                                  ...location!.addressLines.map(
+                                    (line) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 2),
+                                      child: Text(
+                                        line,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          height: 1.35,
+                                          color: Color(0xFF8B7A95),
+                                          fontWeight: FontWeight.w300,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                if (location == null && distance == null)
+                                  Text(
+                                    'Address not listed',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Color(0xFF8B7A95),
                                       fontWeight: FontWeight.w300,
                                     ),
                                   ),
-                                ),
                               ],
                             ),
                           ),
-                          if (provider.phone != null)
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.phone,
-                                    size: 16,
-                                    color: Color(0xFFA89CB5),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _formatPhoneNumber(provider.phone!),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF8B7A95),
-                                        fontWeight: FontWeight.w300,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                         ],
                       ),
+                      if (provider.phone != null) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.phone,
+                              size: 16,
+                              color: Color(0xFFA89CB5),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _formatPhoneNumber(provider.phone!),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF8B7A95),
+                                  fontWeight: FontWeight.w300,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

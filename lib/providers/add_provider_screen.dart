@@ -186,6 +186,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
     }
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -578,6 +579,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
 
   Widget _buildSuccessScreen() {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundWarm,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(

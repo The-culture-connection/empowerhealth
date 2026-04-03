@@ -70,27 +70,51 @@ class _CommunityScreenState extends State<CommunityScreen> {
   List<Widget> _headerSlivers(BuildContext context) {
     return [
       SliverPadding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
         sliver: SliverToBoxAdapter(
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Community',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w400,
-                  color: AppTheme.textSecondary,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Community',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w400,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'EmpowerHealth Watch',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w300,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'You\'re not alone on this journey',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textLight,
-                  fontWeight: FontWeight.w300,
+              FilledButton.tonal(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CreatePostScreen(),
+                    ),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
+                child: const Text('New post'),
               ),
             ],
           ),
@@ -253,58 +277,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
         ),
       ),
-      const SliverToBoxAdapter(child: SizedBox(height: 24)),
-      SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        sliver: SliverToBoxAdapter(
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Recent discussions',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: AppTheme.textMuted,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const CreatePostScreen(),
-                    ),
-                  );
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: AppTheme.brandWhite,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 12,
-                  ),
-                  minimumSize: const Size(0, 44),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                  ),
-                ),
-                child: const Text(
-                  'Start a conversation',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      const SliverToBoxAdapter(child: SizedBox(height: 12)),
+      const SliverToBoxAdapter(child: SizedBox(height: 8)),
       const SliverToBoxAdapter(child: CommunitySurveyBanner()),
       const SliverToBoxAdapter(child: SizedBox(height: 8)),
     ];
@@ -329,16 +302,23 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
         );
       },
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(24),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: AppTheme.surfaceCard,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
-              color: AppTheme.borderLighter.withOpacity(0.5)),
-          boxShadow: AppTheme.shadowSoft(),
+            color: AppTheme.borderLight.withOpacity(0.65),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,10 +386,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 15,
-                      height: 1.45,
-                      fontWeight: FontWeight.w400,
-                      color: AppTheme.textSecondary,
+                      fontSize: 16,
+                      height: 1.3,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimary,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -575,10 +555,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        color: AppTheme.backgroundWarm,
-        child: SafeArea(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('community_posts')
@@ -594,7 +572,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
             },
           ),
         ),
-      ),
       floatingActionButton: Container(
         width: 56,
         height: 56,

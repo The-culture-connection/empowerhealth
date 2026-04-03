@@ -43,8 +43,21 @@ class DS {
         padding: const EdgeInsets.all(12.0),
         child: logo(size: 32),
       ),
-      title: Text(title),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontFamily: 'Primary',
+          fontSize: 20,
+          fontWeight: FontWeight.w400,
+          color: AppTheme.textPrimary,
+        ),
+      ),
       actions: actions,
+      backgroundColor: AppTheme.backgroundWarm,
+      foregroundColor: AppTheme.textPrimary,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
     );
   }
 

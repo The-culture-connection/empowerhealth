@@ -67,8 +67,9 @@ class AdvocacyApp extends StatelessWidget {
           builder: (context, snapshot) {
             // Show loading while checking auth state
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
+              return Scaffold(
+                backgroundColor: AppTheme.backgroundWarm,
+                body: const Center(child: CircularProgressIndicator()),
               );
             }
             
@@ -260,11 +261,16 @@ class _AuthWrapperState extends State<_AuthWrapper> with WidgetsBindingObserver 
   @override
   Widget build(BuildContext context) {
     if (_isChecking) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundWarm,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
-    
-    return _targetScreen ?? const Scaffold(body: SizedBox.shrink());
+
+    return _targetScreen ??
+        Scaffold(
+          backgroundColor: AppTheme.backgroundWarm,
+          body: const SizedBox.shrink(),
+        );
   }
 }

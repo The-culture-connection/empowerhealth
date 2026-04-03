@@ -159,17 +159,9 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
-      appBar: AppBar(
-        title: Text(
-          'Birth Plan Creator',
-          style: TextStyle(
-            fontWeight: FontWeight.w400,
-            color: AppTheme.textSecondary,
-          ),
-        ),
-        backgroundColor: AppTheme.surfaceCard,
-        foregroundColor: AppTheme.textSecondary,
-        elevation: 0,
+      appBar: AppTheme.newUiAppBar(
+        context,
+        title: 'Birth Plan Creator',
         actions: _generatedBirthPlan != null
             ? [
                 IconButton(

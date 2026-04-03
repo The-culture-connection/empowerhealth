@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../cors/ui_theme.dart';
 
 class JournalEntryScreen extends StatelessWidget {
   const JournalEntryScreen({super.key});
@@ -6,7 +7,8 @@ class JournalEntryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('New Journal Entry')),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'New Journal Entry'),
       body: const Center(child: Text('Start writing...')),
     );
   }

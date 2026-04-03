@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../models/learning_module.dart';
-import '../../services/ai_service.dart';
+import '../../app_router.dart';
 import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
 import '../../cors/ui_theme.dart';
+import '../../utils/pregnancy_utils.dart';
 import 'learning_module_detail_screen.dart';
 import 'module_survey_dialog.dart';
+import 'rights_screen.dart';
 
 class LearningModulesScreenV2 extends StatefulWidget {
   const LearningModulesScreenV2({super.key});
@@ -17,11 +18,24 @@ class LearningModulesScreenV2 extends StatefulWidget {
 }
 
 class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
-  final AIService _aiService = AIService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final AnalyticsService _analytics = AnalyticsService();
   final DatabaseService _databaseService = DatabaseService();
   String _filterType = 'all'; // 'all', 'todos', 'modules', or 'archived'
+  dynamic _userProfile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    final profile = await _databaseService.getUserProfile(uid);
+    if (mounted) setState(() => _userProfile = profile);
+  }
 
   Future<void> _logLearningModuleCompleted({
     required String moduleId,
@@ -56,7 +70,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
   // Helper to get icon for module
   IconData _getModuleIcon(String title) {
     final lowerTitle = title.toLowerCase();
-    if (lowerTitle.contains('right') || lowerTitle.contains('advocacy')) return Icons.scale;
+    if (lowerTitle.contains('right') || lowerTitle.contains('advocacy')) return Icons.favorite_border_rounded;
     if (lowerTitle.contains('nutrition') || lowerTitle.contains('food') || lowerTitle.contains('eat')) return Icons.restaurant;
     if (lowerTitle.contains('medication') || lowerTitle.contains('medicine')) return Icons.medication;
     if (lowerTitle.contains('mental') || lowerTitle.contains('emotional') || lowerTitle.contains('wellbeing')) return Icons.favorite;
@@ -69,7 +83,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
   Map<String, Color> _getModuleColors(String title) {
     final lowerTitle = title.toLowerCase();
     if (lowerTitle.contains('right') || lowerTitle.contains('advocacy')) {
-      return {'bg': Colors.red.shade50, 'icon': Colors.red.shade600};
+      return {'bg': const Color(0xFFE8E0F0).withOpacity(0.65), 'icon': const Color(0xFF8B7AA8)};
     }
     if (lowerTitle.contains('nutrition') || lowerTitle.contains('food')) {
       return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
@@ -128,104 +142,180 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
     return buffer.toString().isEmpty ? contentMap.toString() : buffer.toString();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final userId = _auth.currentUser?.uid;
-    
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.backgroundWarm,
-        ),
-        child: SafeArea(
+  /// Pushed from Home uses an opaque page without main-shell ambient — avoid transparent → black.
+  Color get _scaffoldFill =>
+      Navigator.canPop(context) ? AppTheme.backgroundWarm : Colors.transparent;
+
+  List<Widget> _learningScrollHeaderSlivers() {
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header (matching NewUI)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const Text(
+                'Learning center',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w400,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Knowledge that empowers your choices',
+                style: TextStyle(
+                  fontSize: 15,
+                  height: 1.5,
+                  color: AppTheme.textMuted,
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          child: _LearningWeekContinueCard(userProfile: _userProfile),
+        ),
+      ),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _FilterChip(
+                  label: 'All',
+                  isSelected: _filterType == 'all',
+                  onTap: () => setState(() => _filterType = 'all'),
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'My Next Steps',
+                  isSelected: _filterType == 'todos',
+                  onTap: () => setState(() => _filterType = 'todos'),
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'Learning Modules',
+                  isSelected: _filterType == 'modules',
+                  onTap: () => setState(() => _filterType = 'modules'),
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
+                  label: 'Archived',
+                  isSelected: _filterType == 'archived',
+                  onTap: () => setState(() => _filterType = 'archived'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RightsScreen()),
+                );
+              },
+              borderRadius: BorderRadius.circular(24),
+              child: Ink(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceCard,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppTheme.borderLight.withOpacity(0.45)),
+                  boxShadow: AppTheme.shadowSoft(opacity: 0.06, blur: 20, y: 4),
+                ),
+                child: Row(
                   children: [
-                    const Text(
-                      'Learning center',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w400,
-                        color: AppTheme.textPrimary,
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFE8E0F0), Color(0xFFF0E8F6)],
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Icon(Icons.favorite_border_rounded, color: Color(0xFF9D8FB5), size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Know your rights',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Warm overviews plus optional personalized topics',
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: AppTheme.textMuted,
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Knowledge that empowers your choices',
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.5,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
-                      ),
-                    ),
+                    Icon(Icons.chevron_right_rounded, color: AppTheme.textLight),
                   ],
                 ),
               ),
-
-              // Filter Buttons (matching NewUI)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _FilterChip(
-                        label: 'All',
-                        isSelected: _filterType == 'all',
-                        onTap: () => setState(() => _filterType = 'all'),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterChip(
-                        label: 'My Next Steps',
-                        isSelected: _filterType == 'todos',
-                        onTap: () => setState(() => _filterType = 'todos'),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterChip(
-                        label: 'Learning Modules',
-                        isSelected: _filterType == 'modules',
-                        onTap: () => setState(() => _filterType = 'modules'),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterChip(
-                        label: 'Archived',
-                        isSelected: _filterType == 'archived',
-                        onTap: () => setState(() => _filterType = 'archived'),
-                      ),
-                    ],
-                  ),
-                ),
+            ),
+          ),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 20)),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'All topics',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                color: AppTheme.textSecondary,
+                letterSpacing: 0.3,
               ),
-              const SizedBox(height: 24),
+            ),
+          ),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+    ];
+  }
 
-              // All Topics Section (matching NewUI)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'All topics',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: AppTheme.textSecondary,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+  @override
+  Widget build(BuildContext context) {
+    final userId = _auth.currentUser?.uid;
 
-              // Generated Learning Modules List
-              Expanded(
-                child: StreamBuilder<QuerySnapshot>(
+    return Scaffold(
+      backgroundColor: _scaffoldFill,
+      body: SafeArea(
+        child: StreamBuilder<QuerySnapshot>(
                   stream: userId != null
                       ? FirebaseFirestore.instance
                           .collection('learning_tasks')
@@ -236,49 +326,63 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                       : null,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return CustomScrollView(
+                        slivers: [
+                          ..._learningScrollHeaderSlivers(),
+                          const SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        ],
+                      );
                     }
 
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                      return CustomScrollView(
+                        slivers: [
+                          ..._learningScrollHeaderSlivers(),
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 80,
+                                    height: 80,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                                      ),
+                                      borderRadius: BorderRadius.circular(40),
+                                    ),
+                                    child: const Icon(
+                                      Icons.book_outlined,
+                                      size: 40,
+                                      color: AppTheme.brandWhite,
+                                    ),
                                   ),
-                                  borderRadius: BorderRadius.circular(40),
-                                ),
-                                child: const Icon(
-                                  Icons.book_outlined,
-                                  size: 40,
-                                  color: AppTheme.brandWhite,
-                                ),
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    'No Learning Modules Yet',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Generate personalized learning modules from the Home screen',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: AppTheme.textMuted),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                'No Learning Modules Yet',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Generate personalized learning modules from the Home screen',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       );
                     }
 
@@ -318,27 +422,45 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                     }).toList();
 
                     if (tasks.isEmpty) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Text(
-                            _filterType == 'archived' 
-                                ? 'No archived items'
-                                : _filterType == 'todos'
-                                    ? 'No todos yet'
-                                    : _filterType == 'modules'
-                                        ? 'No learning modules yet'
-                                        : 'No items yet',
-                            style: TextStyle(color: Colors.grey[600]),
+                      return CustomScrollView(
+                        slivers: [
+                          ..._learningScrollHeaderSlivers(),
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: Text(
+                                  _filterType == 'archived'
+                                      ? 'No archived items'
+                                      : _filterType == 'todos'
+                                          ? 'No todos yet'
+                                          : _filterType == 'modules'
+                                              ? 'No learning modules yet'
+                                              : 'No items yet',
+                                  style: TextStyle(color: AppTheme.textMuted),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       );
                     }
 
-                    return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      itemCount: tasks.length,
-                      itemBuilder: (context, index) {
+                    return CustomScrollView(
+                      slivers: [
+                        ..._learningScrollHeaderSlivers(),
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        if (index == tasks.length) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8, bottom: 24),
+                            child: _LearningApproachCard(),
+                          );
+                        }
                         final doc = tasks[index];
                         final data = doc.data() as Map<String, dynamic>;
                         final title = (data['title'] ?? '').toString();
@@ -365,10 +487,10 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                         final isBirthPlanTodo = data['birthPlanId'] != null;
 
                         return Container(
-                          margin: const EdgeInsets.only(bottom: 14),
+                          margin: const EdgeInsets.only(bottom: 12),
                           decoration: BoxDecoration(
                             color: AppTheme.surfaceCard,
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(28),
                             border: Border.all(
                               color: isArchived ? AppTheme.borderLighter : AppTheme.borderLight,
                             ),
@@ -377,7 +499,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                           child: Opacity(
                             opacity: isArchived ? 0.6 : 1.0,
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(24),
+                              borderRadius: BorderRadius.circular(28),
                               onTap: () {
                                 // Only navigate to detail screen if it has content (learning modules)
                                 if (contentString.isNotEmpty && !isTodo) {
@@ -715,13 +837,248 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                           ),
                         );
                       },
+                              childCount: tasks.length + 1,
+                            ),
+                          ),
+                        ),
+                      ],
                     );
                   },
+                ),
+        ),
+    );
+  }
+}
+
+/// Week / trimester banner — parity with `Flutter UIdesign` `_ContinueCard` (profile-driven).
+class _LearningWeekContinueCard extends StatelessWidget {
+  const _LearningWeekContinueCard({this.userProfile});
+
+  final dynamic userProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    final dueDate = userProfile?.dueDate as DateTime?;
+    final weeks = PregnancyUtils.calculateWeeksPregnant(dueDate);
+    final trimester = PregnancyUtils.calculateTrimester(dueDate);
+    final title = weeks > 0
+        ? PregnancyUtils.trimesterDisplayTitle(trimester)
+        : 'Your learning journey';
+    final subtitle = weeks > 0
+        ? "Week $weeks · ${PregnancyUtils.getTrimesterInfo(trimester)}"
+        : 'Add your due date in your profile for week-by-week guidance';
+    final progress = weeks > 0 ? (weeks / 40.0).clamp(0.0, 1.0) : 0.12;
+    final caption = weeks > 0 ? '$weeks of 40 weeks' : 'Topics below are ready when you are';
+
+    const fg = AppTheme.textPrimary;
+    const muted = AppTheme.textMuted;
+    const labelMuted = Color(0xFF7D6D85);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, Routes.pregnancyJourney),
+        borderRadius: BorderRadius.circular(32),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(32),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFEBE4F3),
+                Color(0xFFE6D8ED),
+                Color(0xFFEAD9E0),
+              ],
+            ),
+            border: Border.all(color: Color(0x80E0D3E8)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                top: -20,
+                right: -10,
+                child: Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFFD4C5E0).withValues(alpha: 0.35),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: -30,
+                left: -20,
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.brandGold.withValues(alpha: 0.35),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(26),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            color: const Color(0xCCFAF8F4),
+                          ),
+                          child: const Icon(
+                            Icons.menu_book_rounded,
+                            color: AppTheme.brandPurple,
+                            size: 26,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'IN PROGRESS',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.8,
+                                  color: labelMuted,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w400,
+                                  color: fg,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                subtitle,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w300,
+                                  color: muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: SizedBox(
+                        height: 6,
+                        child: Stack(
+                          children: [
+                            Container(color: Colors.white.withValues(alpha: 0.5)),
+                            FractionallySizedBox(
+                              widthFactor: progress,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Color(0xFF8B7AA8),
+                                      AppTheme.brandGold,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      caption,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w300,
+                        color: labelMuted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Flutter UIdesign `LearningScreen` — “Plain language promise” footer.
+class _LearningApproachCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.backgroundWarm,
+            Color(0xFFFDFBFC),
+            Color(0xFFFEF9F5),
+          ],
+        ),
+        border: Border.all(color: Color(0x80E8E0F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Plain language promise',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'All our content is written at a 6th grade reading level. No confusing medical jargon—just clear, supportive guidance that helps you understand your care.',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.55,
+              fontWeight: FontWeight.w300,
+              color: AppTheme.textMuted,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -27,7 +27,7 @@ export function Home() {
 
         {/* Main Journey Card - Like a plush sectional */}
         <section className="mb-10">
-          <Link to="/learning/week-24">
+          <Link to="/pregnancy-journey">
             <div className="relative bg-gradient-to-br from-[#663399] via-[#7744aa] to-[#8855bb] dark:from-[#2a2435] dark:via-[#3a3149] dark:to-[#4a3e5d] rounded-[24px] p-8 shadow-[0_20px_60px_rgba(102,51,153,0.25),_inset_0_1px_0_rgba(255,255,255,0.1)] dark:shadow-[0_24px_72px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-500 hover:shadow-[0_24px_72px_rgba(102,51,153,0.3)] dark:hover:shadow-[0_28px_84px_rgba(0,0,0,0.6)] hover:translate-y-[-2px] cursor-pointer">
               {/* Soft inner glow - like cushion depth */}
               <div className="absolute inset-0 opacity-20">

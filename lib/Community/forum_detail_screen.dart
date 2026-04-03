@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../cors/ui_theme.dart';
 
 class ForumDetailScreen extends StatelessWidget {
   final String title;
@@ -7,7 +8,8 @@ class ForumDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: title),
       body: const Center(child: Text('Forum details go here.')),
     );
   }

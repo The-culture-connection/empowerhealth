@@ -88,6 +88,18 @@ class Provider {
     }
   }
 
+  /// Minimum reviews and average rating for the Mama Approved™ community badge.
+  static const int mamaApprovedMinReviewCount = 3;
+  static const double mamaApprovedMinAverageRating = 4.0;
+
+  /// Mama Approved™ in the app: earned from **community reviews** only
+  /// (3+ reviews and average ≥ 4★). Not the legacy Firestore `mamaApproved` flag.
+  bool get showsMamaApprovedBadge {
+    final r = rating;
+    if (r == null || r < mamaApprovedMinAverageRating) return false;
+    return (reviewCount ?? 0) >= mamaApprovedMinReviewCount;
+  }
+
   factory Provider.fromMap(Map<String, dynamic> map, {String? id}) {
     final rawName = (map['name'] as String?)?.trim() ?? '';
     final rawPractice = (map['practiceName'] as String?)?.trim() ?? '';
@@ -307,6 +319,43 @@ class ProviderLocation {
     final zipCode = zip.length > 5 ? zip.substring(0, 5) : zip;
     parts.add('$city, $state $zipCode');
     return parts.join(', ');
+  }
+
+  /// ZIP normalized for display (5 digits when longer).
+  String get zipDisplay {
+    final z = zip.trim();
+    return z.length > 5 ? z.substring(0, 5) : z;
+  }
+
+  /// City, ST ZIP on one line (readable spacing).
+  String get cityStateZipLine {
+    final c = city.trim();
+    final s = state.trim();
+    return '$c, $s $zipDisplay'.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  /// Street line(s) without duplicating city/state when the API puts everything in [address].
+  List<String> get addressLines {
+    final zip5 = zipDisplay;
+    final cityLine = cityStateZipLine;
+    var street = address.trim();
+    final suite = (address2 ?? '').trim();
+    if (suite.isNotEmpty) {
+      street = street.isEmpty ? suite : '$street, $suite';
+    }
+    if (street.isEmpty) {
+      return cityLine.isNotEmpty ? [cityLine] : [];
+    }
+    final lower = street.toLowerCase();
+    final cityLower = city.trim().toLowerCase();
+    final hasCity = cityLower.isNotEmpty && lower.contains(cityLower);
+    final hasZip = zip5.isNotEmpty && lower.contains(zip5);
+    final hasState = state.trim().length == 2 &&
+        lower.contains(state.trim().toLowerCase());
+    if (hasCity && (hasZip || hasState)) {
+      return [street];
+    }
+    return [street, cityLine];
   }
 }
 

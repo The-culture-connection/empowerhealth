@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Bell, Stethoscope, ChevronRight, Flag, FolderSearch, MessageSquare, Tags } from "lucide-react";
+import { Bell, Stethoscope, ChevronRight, Flag, Tags } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
 export function ModerationHub() {
@@ -41,33 +41,6 @@ export function ModerationHub() {
           </Link>
         </li>
 
-        {isAdmin() && (
-          <li>
-            <Link
-              to="/moderation/provider-directory"
-              className="flex items-center gap-4 p-5 rounded-2xl border transition-shadow hover:shadow-md"
-              style={{
-                backgroundColor: "white",
-                borderColor: "var(--lavender-200)",
-                color: "var(--warm-600)",
-              }}
-            >
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl"
-                style={{ backgroundColor: "var(--lavender-100)" }}
-              >
-                <FolderSearch className="h-6 w-6" style={{ color: "var(--lavender-600)" }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium">Provider directory lookup</div>
-                <div className="text-sm mt-0.5" style={{ color: "var(--warm-500)" }}>
-                  Full Firestore metadata, claims, hide from app, or delete document.
-                </div>
-              </div>
-              <ChevronRight className="h-5 w-5 shrink-0 opacity-50" />
-            </Link>
-          </li>
-        )}
         {isAdmin() && (
           <li>
             <Link
@@ -116,33 +89,6 @@ export function ModerationHub() {
                 <div className="font-medium">Provider listing reports</div>
                 <div className="text-sm mt-0.5" style={{ color: "var(--warm-500)" }}>
                   Inaccurate or harmful listing reports from the app.
-                </div>
-              </div>
-              <ChevronRight className="h-5 w-5 shrink-0 opacity-50" />
-            </Link>
-          </li>
-        )}
-        {isAdmin() && (
-          <li>
-            <Link
-              to="/moderation/reviews"
-              className="flex items-center gap-4 p-5 rounded-2xl border transition-shadow hover:shadow-md"
-              style={{
-                backgroundColor: "white",
-                borderColor: "var(--lavender-200)",
-                color: "var(--warm-600)",
-              }}
-            >
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl"
-                style={{ backgroundColor: "var(--lavender-100)" }}
-              >
-                <MessageSquare className="h-6 w-6" style={{ color: "var(--lavender-600)" }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium">Provider reviews</div>
-                <div className="text-sm mt-0.5" style={{ color: "var(--warm-500)" }}>
-                  Recent community reviews (read-only inbox).
                 </div>
               </div>
               <ChevronRight className="h-5 w-5 shrink-0 opacity-50" />

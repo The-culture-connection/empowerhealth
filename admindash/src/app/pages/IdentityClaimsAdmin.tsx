@@ -17,6 +17,9 @@ type Row = {
   providerId: string;
   userId: string;
   tagId: string;
+  tagName?: string;
+  category?: string;
+  sourceReviewId?: string;
   status: string;
   confidence?: string;
   sourceType?: string;
@@ -82,6 +85,9 @@ export function IdentityClaimsAdmin() {
             providerId: String(x.providerId ?? ""),
             userId: String(x.userId ?? ""),
             tagId: String(x.tagId ?? ""),
+            tagName: x.tagName != null ? String(x.tagName) : undefined,
+            category: x.category != null ? String(x.category) : undefined,
+            sourceReviewId: x.sourceReviewId != null ? String(x.sourceReviewId) : undefined,
             status: String(x.status ?? "pending"),
             confidence: x.confidence != null ? String(x.confidence) : undefined,
             sourceType: x.sourceType != null ? String(x.sourceType) : undefined,
@@ -228,9 +234,9 @@ export function IdentityClaimsAdmin() {
 
   function startEdit(row: Row) {
     setEditingId(row.id);
-    setEditName(row.tagId);
-    setEditCategory("identity");
-    setEditSource("user_claim");
+    setEditName((row.tagName ?? row.tagId).trim());
+    setEditCategory(row.category || "identity");
+    setEditSource(row.sourceType === "review" ? "review" : "user_claim");
   }
 
   async function saveTagEdits(row: Row) {
@@ -304,6 +310,24 @@ export function IdentityClaimsAdmin() {
                       <span className="font-medium">Tag id: </span>
                       <code>{r.tagId}</code>
                     </div>
+                    {r.tagName ? (
+                      <div className="mt-1">
+                        <span className="font-medium">Display name: </span>
+                        {r.tagName}
+                      </div>
+                    ) : null}
+                    {r.category ? (
+                      <div className="mt-1">
+                        <span className="font-medium">Category: </span>
+                        <code>{r.category}</code>
+                      </div>
+                    ) : null}
+                    {r.sourceReviewId ? (
+                      <div className="mt-1 text-xs">
+                        <span className="font-medium">Review: </span>
+                        <code className="break-all">{r.sourceReviewId}</code>
+                      </div>
+                    ) : null}
                     <div className="mt-1">
                       <span className="font-medium">Provider: </span>
                       <code className="break-all">{r.providerId}</code>

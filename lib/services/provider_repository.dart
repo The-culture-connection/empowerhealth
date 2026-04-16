@@ -708,7 +708,11 @@ class ProviderRepository {
       
       // Update provider's review count after saving review
       await _updateProviderReviewCount(effectiveProviderId);
-      await _mergeReviewIdentityIntoProvider(effectiveProviderId, review);
+      await _mergeReviewIdentityIntoProvider(
+        effectiveProviderId,
+        review,
+        reviewDocId: docRef.id,
+      );
 
       // If admin marked as Mama Approved, update provider
       if (markMamaApproved && effectiveProviderId.isNotEmpty) {
@@ -902,10 +906,12 @@ class ProviderRepository {
   }
 
   /// Merges visit prompts and self-report labels from a review into `identityTags` (source: review).
+  /// Also creates one [provider_identity_claims] document per **new** tag so the admin dashboard can triage.
   Future<void> _mergeReviewIdentityIntoProvider(
     String providerId,
-    ProviderReview review,
-  ) async {
+    ProviderReview review, {
+    required String reviewDocId,
+  }) async {
     final docId = await _resolveVisibleFirestoreProviderDocId(providerId);
     if (docId == null) return;
 
@@ -932,7 +938,7 @@ class ProviderRepository {
       }
     }
 
-    final startCount = byNameKey.length;
+    final addedTagMaps = <Map<String, dynamic>>[];
 
     void tryAdd(String label, String category) {
       final trimmed = label.trim();
@@ -942,13 +948,15 @@ class ProviderRepository {
       final slug = key.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
       var id = 'review_${category}_${slug.isEmpty ? 'x' : slug}';
       if (id.length > 120) id = id.substring(0, 120);
-      byNameKey[key] = {
+      final map = <String, dynamic>{
         'id': id,
         'name': trimmed,
         'category': category,
         'source': 'review',
         'verificationStatus': 'pending',
       };
+      byNameKey[key] = map;
+      addedTagMaps.add(map);
     }
 
     if (review.feltHeard) tryAdd('Felt heard', 'visit');
@@ -964,12 +972,29 @@ class ProviderRepository {
       tryAdd(t, 'cultural');
     }
 
-    if (byNameKey.length == startCount) return;
+    if (addedTagMaps.isEmpty) return;
 
-    await _firestore.collection('providers').doc(docId).update({
+    final batch = _firestore.batch();
+    final pRef = _firestore.collection('providers').doc(docId);
+    batch.update(pRef, {
       'identityTags': byNameKey.values.toList(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    for (final m in addedTagMaps) {
+      final cRef = _firestore.collection('provider_identity_claims').doc();
+      batch.set(cRef, {
+        'providerId': docId,
+        'userId': review.userId,
+        'tagId': m['id'],
+        'tagName': m['name'],
+        'category': m['category'],
+        'status': 'pending',
+        'sourceType': 'review',
+        'sourceReviewId': reviewDocId,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
   }
 
   /// Update provider's review count after a review is submitted

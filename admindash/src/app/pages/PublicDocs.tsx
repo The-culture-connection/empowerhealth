@@ -172,9 +172,7 @@ export function PublicDocs() {
                   .
                 </p>
               ) : (
-                <div className="prose max-w-none text-sm">
-                  <MarkdownRenderer markdown={currentDoc.content || ""} />
-                </div>
+                <MarkdownRenderer content={currentDoc.content || ""} />
               )}
             </>
           )}

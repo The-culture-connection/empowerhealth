@@ -414,7 +414,7 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
   }
 
   Future<void> _openDocsSection(String fragment) async {
-    final uri = Uri.parse('https://empowerhealth-dev.up.railway.app/documentation$fragment');
+    final uri = Uri.parse('https://empowerhealth-dev.up.railway.app/public-docs$fragment');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -287,7 +287,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
   }
 
   Future<void> _openDocsSection(BuildContext context, String fragment) async {
-    final uri = Uri.parse('https://empowerhealth-dev.up.railway.app/documentation$fragment');
+    final uri = Uri.parse('https://empowerhealth-dev.up.railway.app/public-docs$fragment');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open documentation')),

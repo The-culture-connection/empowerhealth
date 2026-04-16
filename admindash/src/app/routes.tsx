@@ -8,6 +8,7 @@ import { UsersAndRoles } from "./pages/UsersAndRoles";
 import { Analytics } from "./pages/Analytics";
 import { AnalyticsInfo } from "./pages/AnalyticsInfo";
 import { Reports } from "./pages/Reports";
+import { PublicDocs } from "./pages/PublicDocs";
 import { Notifications } from "./pages/Notifications";
 import { ModerationHub } from "./pages/ModerationHub";
 import { ProviderModeration } from "./pages/ProviderModeration";
@@ -45,6 +46,10 @@ export const router = createBrowserRouter([
             <Documentation />
           </RoleRoute>
         )
+      },
+      {
+        path: "public-docs",
+        element: <PublicDocs />,
       },
       {
         path: "technology",

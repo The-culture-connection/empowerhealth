@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import {
   collection,
   doc,
@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../firebase/firebase";
-import { Check, X, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Check, Loader2, Trash2 } from "lucide-react";
 
 const backfillClaimsCallable = httpsCallable(functions, "adminBackfillProviderIdentityClaims");
 
@@ -28,6 +28,9 @@ type Row = {
   sourceType?: string;
   sourceUrl?: string;
   createdAt?: Timestamp | null;
+  updatedAt?: Timestamp | null;
+  /** Set when an admin completes triage: verified = tag kept & verified; tag_removed = tag deleted from listing */
+  moderationAction?: string;
 };
 
 type ProviderIdentityTag = {
@@ -64,15 +67,78 @@ function readProviderTagArray(raw: unknown): ProviderIdentityTag[] {
   return out;
 }
 
+function providerListingTitle(data: Record<string, unknown> | undefined): string {
+  if (!data) return "";
+  const practice = String(data.practiceName ?? "").trim();
+  const name = String(data.name ?? "").trim();
+  return practice || name || "";
+}
+
+type ResolutionTone = "pending" | "verified" | "removed" | "closed";
+
+function resolutionPanel(row: Row): { title: string; subtitle: string; tone: ResolutionTone } {
+  const st = (row.status || "").toLowerCase();
+  const updatedWhen = row.updatedAt?.toDate?.()?.toLocaleString?.() ?? "";
+  const createdWhen = row.createdAt?.toDate?.()?.toLocaleString?.() ?? "";
+  if (st === "verified") {
+    return {
+      title: "Action: Verified",
+      subtitle: `Tag was approved and marked verified on the provider listing.${updatedWhen ? ` Completed ${updatedWhen}.` : ""}`,
+      tone: "verified",
+    };
+  }
+  if (st === "rejected") {
+    const tagRemoved = row.moderationAction === "tag_removed";
+    return {
+      title: tagRemoved ? "Action: Tag removed" : "Action: Claim closed",
+      subtitle: tagRemoved
+        ? `Tag was deleted from the provider listing; this queue item is closed.${updatedWhen ? ` Completed ${updatedWhen}.` : ""}`
+        : `Claim was rejected (legacy).${updatedWhen ? ` Updated ${updatedWhen}.` : ""}`,
+      tone: tagRemoved ? "removed" : "closed",
+    };
+  }
+  return {
+    title: "Awaiting review",
+    subtitle: createdWhen ? `No decision yet · received ${createdWhen}` : "No decision yet.",
+    tone: "pending",
+  };
+}
+
+function resolutionBannerStyle(tone: ResolutionTone): CSSProperties {
+  switch (tone) {
+    case "verified":
+      return {
+        backgroundColor: "#ecfdf5",
+        borderColor: "#a7f3d0",
+        color: "#065f46",
+      };
+    case "removed":
+      return {
+        backgroundColor: "#fef2f2",
+        borderColor: "#fecaca",
+        color: "#991b1b",
+      };
+    case "closed":
+      return {
+        backgroundColor: "#fffbeb",
+        borderColor: "#fde68a",
+        color: "#92400e",
+      };
+    default:
+      return {
+        backgroundColor: "#f8fafc",
+        borderColor: "#e2e8f0",
+        color: "#334155",
+      };
+  }
+}
+
 export function IdentityClaimsAdmin() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [providerNames, setProviderNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editCategory, setEditCategory] = useState("");
-  const [editSource, setEditSource] = useState("");
   const [backfillBusy, setBackfillBusy] = useState(false);
   const [backfillSummary, setBackfillSummary] = useState("");
 
@@ -97,6 +163,9 @@ export function IdentityClaimsAdmin() {
           sourceType: x.sourceType != null ? String(x.sourceType) : undefined,
           sourceUrl: x.sourceUrl != null ? String(x.sourceUrl) : undefined,
           createdAt: x.createdAt as Timestamp | null | undefined,
+          updatedAt: x.updatedAt instanceof Timestamp ? x.updatedAt : null,
+          moderationAction:
+            x.moderationAction != null ? String(x.moderationAction) : undefined,
         });
       });
       next.sort((a, b) => {
@@ -104,6 +173,24 @@ export function IdentityClaimsAdmin() {
         const tb = b.createdAt?.toMillis() ?? 0;
         return tb - ta;
       });
+      const ids = [...new Set(next.map((r) => r.providerId).filter(Boolean))];
+      const names: Record<string, string> = {};
+      await Promise.all(
+        ids.map(async (pid) => {
+          try {
+            const pSnap = await getDoc(doc(firestore, "providers", pid));
+            if (!pSnap.exists()) {
+              names[pid] = "";
+              return;
+            }
+            const title = providerListingTitle(pSnap.data() as Record<string, unknown>);
+            names[pid] = title || pid;
+          } catch {
+            names[pid] = "";
+          }
+        }),
+      );
+      setProviderNames(names);
       setRows(next);
     } catch (e) {
       console.error(e);
@@ -160,28 +247,32 @@ export function IdentityClaimsAdmin() {
     }
   }
 
-  async function setClaimStatus(id: string, status: string) {
-    setBusyId(id);
-    try {
-      await updateDoc(doc(firestore, "provider_identity_claims", id), {
-        status,
-        updatedAt: serverTimestamp(),
-      });
-      setRows((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, status } : r)),
-      );
-    } catch (e) {
-      console.error(e);
-      setError(e instanceof Error ? e.message : "Update failed");
-    } finally {
-      setBusyId(null);
-    }
+  async function setClaimStatus(
+    id: string,
+    status: string,
+    moderationAction: "verified" | "tag_removed",
+  ) {
+    await updateDoc(doc(firestore, "provider_identity_claims", id), {
+      status,
+      moderationAction,
+      updatedAt: serverTimestamp(),
+    });
+    const now = Timestamp.now();
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, status, moderationAction, updatedAt: now } : r,
+      ),
+    );
   }
 
-  async function updateProviderTagForClaim(
-    row: Row,
-    mode: "verify" | "edit" | "delete",
-  ) {
+  function defaultTagSource(row: Row, current: ProviderIdentityTag | null): string {
+    if (current?.source) return current.source;
+    const st = row.sourceType ?? "";
+    if (st === "review" || st === "review_backfill") return "review";
+    return "user_claim";
+  }
+
+  async function updateProviderTagForClaim(row: Row, mode: "verify" | "delete") {
     const pRef = doc(firestore, "providers", row.providerId);
     const pSnap = await getDoc(pRef);
     if (!pSnap.exists()) {
@@ -194,41 +285,17 @@ export function IdentityClaimsAdmin() {
 
     if (mode === "delete") {
       if (idx >= 0) tags.splice(idx, 1);
-    } else if (mode === "verify") {
+    } else {
       const next: ProviderIdentityTag = {
         id: row.tagId,
-        name: current?.name || row.tagId,
-        category: current?.category || "identity",
-        source: current?.source || "user_claim",
+        name: current?.name || row.tagName || row.tagId,
+        category: current?.category || row.category || "identity",
+        source: defaultTagSource(row, current),
         verificationStatus: "verified",
         verifiedAt: Timestamp.now(),
         verifiedBy: "admin_dashboard",
       };
       if (idx >= 0) tags[idx] = {...current!, ...next};
-      else tags.push(next);
-    } else {
-      const name = editName.trim();
-      const category = editCategory.trim();
-      const source = editSource.trim();
-      if (!name || !category || !source) {
-        throw new Error("Name, category, and source are required");
-      }
-      const base: ProviderIdentityTag = current || {
-        id: row.tagId,
-        name,
-        category,
-        source,
-        verificationStatus: "pending",
-        verifiedAt: null,
-        verifiedBy: null,
-      };
-      const next: ProviderIdentityTag = {
-        ...base,
-        name,
-        category,
-        source,
-      };
-      if (idx >= 0) tags[idx] = next;
       else tags.push(next);
     }
 
@@ -251,11 +318,12 @@ export function IdentityClaimsAdmin() {
   }
 
   async function verifyClaimAndTag(row: Row) {
+    if ((row.status || "").toLowerCase() !== "pending") return;
     setBusyId(row.id);
     setError("");
     try {
       await updateProviderTagForClaim(row, "verify");
-      await setClaimStatus(row.id, "verified");
+      await setClaimStatus(row.id, "verified", "verified");
     } catch (e) {
       console.error(e);
       setError(e instanceof Error ? e.message : "Verify failed");
@@ -264,50 +332,21 @@ export function IdentityClaimsAdmin() {
     }
   }
 
-  async function rejectClaim(row: Row) {
-    setBusyId(row.id);
-    setError("");
-    try {
-      await setClaimStatus(row.id, "rejected");
-    } catch (e) {
-      console.error(e);
-      setError(e instanceof Error ? e.message : "Reject failed");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  function startEdit(row: Row) {
-    setEditingId(row.id);
-    setEditName((row.tagName ?? row.tagId).trim());
-    setEditCategory(row.category || "identity");
-    const st = row.sourceType ?? "";
-    setEditSource(
-      st === "review" || st === "review_backfill" ? "review" : "user_claim",
-    );
-  }
-
-  async function saveTagEdits(row: Row) {
-    setBusyId(row.id);
-    setError("");
-    try {
-      await updateProviderTagForClaim(row, "edit");
-      setEditingId(null);
-    } catch (e) {
-      console.error(e);
-      setError(e instanceof Error ? e.message : "Tag update failed");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   async function deleteTag(row: Row) {
-    if (!window.confirm(`Delete tag ${row.tagId} from providers/${row.providerId}?`)) return;
+    if ((row.status || "").toLowerCase() !== "pending") return;
+    const listingName = providerNames[row.providerId] || row.providerId;
+    if (
+      !window.confirm(
+        `Remove tag "${row.tagName ?? row.tagId}" from listing "${listingName}"? This only deletes the tag from the provider document; the claim will be marked closed.`,
+      )
+    ) {
+      return;
+    }
     setBusyId(row.id);
     setError("");
     try {
       await updateProviderTagForClaim(row, "delete");
-      await setClaimStatus(row.id, "rejected");
+      await setClaimStatus(row.id, "rejected", "tag_removed");
     } catch (e) {
       console.error(e);
       setError(e instanceof Error ? e.message : "Delete tag failed");
@@ -331,9 +370,10 @@ export function IdentityClaimsAdmin() {
         Provider identity claims
       </h1>
       <p className="text-sm mb-4" style={{ color: "var(--warm-500)" }}>
-        Claims from review flow in <code className="text-xs">provider_identity_claims</code>. Verify will also upsert
-        the corresponding tag into <code className="text-xs">providers.identityTags</code> so the frontend can render
-        the verified checkmark. You can also edit or delete tags on the provider document from here.
+        Claims from review flow in <code className="text-xs">provider_identity_claims</code>.{" "}
+        <strong>Verify</strong> marks the tag verified on <code className="text-xs">providers.identityTags</code> so
+        the app can show the verified state. <strong>Delete tag</strong> removes that tag from the listing only and
+        closes the claim.
       </p>
       <p className="text-sm mb-4" style={{ color: "var(--warm-500)" }}>
         Older reviews only updated <code className="text-xs">providers.identityTags</code> and left this queue empty.
@@ -364,17 +404,33 @@ export function IdentityClaimsAdmin() {
         <ul className="space-y-4">
           {rows.map((r) => {
             const busy = busyId === r.id;
-            const when = r.createdAt?.toDate?.()?.toLocaleString?.() ?? "—";
-            const isEditing = editingId === r.id;
+            const panel = resolutionPanel(r);
+            const banner = resolutionBannerStyle(panel.tone);
+            const listingTitle = providerNames[r.providerId]?.trim();
+            const isPending = (r.status || "").toLowerCase() === "pending";
             return (
               <li
                 key={r.id}
                 className="rounded-2xl border p-5"
                 style={{ backgroundColor: "white", borderColor: "var(--lavender-200)" }}
               >
+                <div
+                  className="mb-4 rounded-xl border px-4 py-3 text-sm"
+                  style={banner}
+                >
+                  <div className="font-semibold">{panel.title}</div>
+                  <div className="mt-1 text-xs opacity-90 leading-snug">{panel.subtitle}</div>
+                </div>
                 <div className="flex flex-wrap justify-between gap-4">
                   <div className="min-w-0 text-sm">
-                    <div>
+                    <div className="text-base font-semibold" style={{ color: "var(--warm-600)" }}>
+                      {listingTitle || "Provider listing"}
+                    </div>
+                    <div className="mt-0.5 text-xs opacity-70 break-all">
+                      <span className="font-medium">Firestore id: </span>
+                      <code>{r.providerId}</code>
+                    </div>
+                    <div className="mt-3">
                       <span className="font-medium">Tag id: </span>
                       <code>{r.tagId}</code>
                     </div>
@@ -396,20 +452,9 @@ export function IdentityClaimsAdmin() {
                         <code className="break-all">{r.sourceReviewId}</code>
                       </div>
                     ) : null}
-                    <div className="mt-1">
-                      <span className="font-medium">Provider: </span>
-                      <code className="break-all">{r.providerId}</code>
-                    </div>
-                    <div className="mt-1">
-                      <span className="font-medium">User: </span>
-                      <code>{r.userId}</code>
-                    </div>
-                    <div className="mt-1">
-                      Status: <strong>{r.status}</strong> · {when}
-                    </div>
                     {r.sourceType ? (
-                      <div className="mt-1">
-                        Source type: <code>{r.sourceType}</code>
+                      <div className="mt-1 text-xs">
+                        Source: <code>{r.sourceType}</code>
                         {r.confidence ? <> · confidence: {r.confidence}</> : null}
                       </div>
                     ) : null}
@@ -423,101 +468,32 @@ export function IdentityClaimsAdmin() {
                         {r.sourceUrl}
                       </a>
                     ) : null}
-                    <div className="text-xs opacity-60 mt-2">Doc: {r.id}</div>
-                    {isEditing ? (
-                      <div className="mt-3 p-3 rounded-xl border text-xs space-y-2" style={{ borderColor: "var(--lavender-200)" }}>
-                        <label className="block">
-                          <span className="font-medium">Tag name</span>
-                          <input
-                            className="mt-1 w-full px-2 py-1 rounded border"
-                            style={{ borderColor: "var(--lavender-200)" }}
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="font-medium">Category</span>
-                          <input
-                            className="mt-1 w-full px-2 py-1 rounded border"
-                            style={{ borderColor: "var(--lavender-200)" }}
-                            value={editCategory}
-                            onChange={(e) => setEditCategory(e.target.value)}
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="font-medium">Source</span>
-                          <input
-                            className="mt-1 w-full px-2 py-1 rounded border"
-                            style={{ borderColor: "var(--lavender-200)" }}
-                            value={editSource}
-                            onChange={(e) => setEditSource(e.target.value)}
-                          />
-                        </label>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => saveTagEdits(r)}
-                            className="px-2 py-1 rounded-lg text-white disabled:opacity-50"
-                            style={{ backgroundColor: "var(--lavender-600)" }}
-                          >
-                            Save tag
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => setEditingId(null)}
-                            className="px-2 py-1 rounded-lg border"
-                            style={{ borderColor: "var(--lavender-200)" }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
+                    <div className="text-xs opacity-60 mt-2">Claim doc: {r.id}</div>
                   </div>
-                  <div className="flex flex-col gap-2 shrink-0">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => verifyClaimAndTag(r)}
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm text-white disabled:opacity-50"
-                      style={{ backgroundColor: "var(--lavender-600)" }}
-                    >
-                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                      Verify
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => rejectClaim(r)}
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm border disabled:opacity-50"
-                      style={{ borderColor: "var(--lavender-200)" }}
-                    >
-                      <X className="h-4 w-4" />
-                      Reject
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => (isEditing ? setEditingId(null) : startEdit(r))}
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm border disabled:opacity-50"
-                      style={{ borderColor: "var(--lavender-200)" }}
-                    >
-                      <Pencil className="h-4 w-4" />
-                      {isEditing ? "Close edit" : "Edit tag"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => deleteTag(r)}
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm border disabled:opacity-50"
-                      style={{ borderColor: "#fecaca", color: "#b91c1c", backgroundColor: "#fef2f2" }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete tag
-                    </button>
-                  </div>
+                  {isPending ? (
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => verifyClaimAndTag(r)}
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm text-white disabled:opacity-50"
+                        style={{ backgroundColor: "var(--lavender-600)" }}
+                      >
+                        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                        Verify
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => deleteTag(r)}
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm border disabled:opacity-50"
+                        style={{ borderColor: "#fecaca", color: "#b91c1c", backgroundColor: "#fef2f2" }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete tag
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </li>
             );

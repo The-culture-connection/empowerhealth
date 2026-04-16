@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import {
   collection,
@@ -8,7 +8,7 @@ import {
   limit,
   query,
   serverTimestamp,
-  updateDoc,
+  setDoc,
   where,
   Timestamp,
 } from "firebase/firestore";
@@ -24,15 +24,67 @@ const REASON_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-const STATUS_OPTIONS = [
-  "open",
-  "acknowledged",
-  "resolved",
-  "removed",
-  "listing_removed",
-] as const;
-
 const removeListingCallable = httpsCallable(functions, "adminRemoveProviderListing");
+
+/** Round-trip Timestamps in JSON editor (Firestore rejects undefined in writes). */
+const TS_KEY = "__firestoreTimestamp";
+
+function firestoreDocToJsonText(data: Record<string, unknown>): string {
+  const replacer = (_k: string, value: unknown): unknown => {
+    if (value instanceof Timestamp) return { [TS_KEY]: value.toMillis() };
+    if (
+      value &&
+      typeof value === "object" &&
+      "toMillis" in value &&
+      typeof (value as { toMillis: () => number }).toMillis === "function"
+    ) {
+      try {
+        return { [TS_KEY]: (value as { toMillis: () => number }).toMillis() };
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  };
+  return JSON.stringify(data, replacer, 2);
+}
+
+function parseJsonToProviderPayload(text: string): Record<string, unknown> {
+  const raw = JSON.parse(text) as unknown;
+  const revive = (v: unknown): unknown => {
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      const o = v as Record<string, unknown>;
+      if (typeof o[TS_KEY] === "number" && Object.keys(o).length === 1) {
+        return Timestamp.fromMillis(o[TS_KEY]);
+      }
+      const out: Record<string, unknown> = {};
+      for (const [k, val] of Object.entries(o)) out[k] = revive(val);
+      return out;
+    }
+    if (Array.isArray(v)) return v.map(revive);
+    return v;
+  };
+  const r = revive(raw);
+  if (!r || typeof r !== "object" || Array.isArray(r)) {
+    throw new Error("JSON root must be an object");
+  }
+  return r as Record<string, unknown>;
+}
+
+function stripUndefinedDeep(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    return value.map(stripUndefinedDeep).filter((x) => x !== undefined);
+  }
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (v === undefined) continue;
+    const s = stripUndefinedDeep(v);
+    if (s !== undefined) out[k] = s as unknown;
+  }
+  return out;
+}
 
 function formatValue(v: unknown): string {
   if (v == null) return "—";
@@ -77,11 +129,11 @@ export function ProviderReportProviderDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [removeListingBusy, setRemoveListingBusy] = useState(false);
-  const [reportEditId, setReportEditId] = useState<string | null>(null);
-  const [editReason, setEditReason] = useState("");
-  const [editDetails, setEditDetails] = useState("");
-  const [editStatus, setEditStatus] = useState("");
-  const [reportSaveBusy, setReportSaveBusy] = useState(false);
+
+  const [providerJsonOpen, setProviderJsonOpen] = useState(false);
+  const [providerJsonDraft, setProviderJsonDraft] = useState("");
+  const [providerSaveBusy, setProviderSaveBusy] = useState(false);
+  const [providerJsonMessage, setProviderJsonMessage] = useState("");
 
   useEffect(() => {
     if (!providerId) {
@@ -148,35 +200,37 @@ export function ProviderReportProviderDetail() {
     };
   }, [providerId]);
 
-  const beginReportEdit = useCallback((r: ReportRow) => {
-    setReportEditId(r.id);
-    setEditReason(String(r.data.reasonCategory ?? "inaccurate_info"));
-    setEditDetails(r.data.details != null ? String(r.data.details) : "");
-    setEditStatus(String(r.data.status ?? "open"));
-  }, []);
+  useEffect(() => {
+    if (!providerJsonOpen) return;
+    if (providerData) {
+      try {
+        setProviderJsonDraft(firestoreDocToJsonText(providerData));
+      } catch {
+        setProviderJsonDraft("{}");
+      }
+    }
+  }, [providerJsonOpen, providerData]);
 
-  const cancelReportEdit = useCallback(() => {
-    setReportEditId(null);
-  }, []);
-
-  async function saveReportEdit(reportId: string) {
-    setReportSaveBusy(true);
-    setError("");
+  async function saveProviderDoc() {
+    setProviderSaveBusy(true);
+    setProviderJsonMessage("");
     try {
-      const label = REASON_LABELS[editReason] ?? editReason;
-      await updateDoc(doc(firestore, "provider_reports", reportId), {
-        reasonCategory: editReason,
-        reasonCategoryLabel: label,
-        details: editDetails.trim() || null,
-        status: editStatus,
-        updatedAt: serverTimestamp(),
-      });
-      setReportEditId(null);
+      const payload = parseJsonToProviderPayload(providerJsonDraft);
+      const cleaned = stripUndefinedDeep(payload) as Record<string, unknown>;
+      await setDoc(
+        doc(firestore, "providers", providerId),
+        { ...cleaned, updatedAt: serverTimestamp() },
+        { merge: true },
+      );
+      const snap = await getDoc(doc(firestore, "providers", providerId));
+      if (snap.exists()) setProviderData(snap.data() as Record<string, unknown>);
+      setProviderJsonOpen(false);
+      setProviderJsonMessage("Listing saved.");
     } catch (e) {
       console.error(e);
-      setError(e instanceof Error ? e.message : "Save failed");
+      setProviderJsonMessage(e instanceof Error ? e.message : "Save failed");
     } finally {
-      setReportSaveBusy(false);
+      setProviderSaveBusy(false);
     }
   }
 
@@ -200,6 +254,8 @@ export function ProviderReportProviderDetail() {
       setRemoveListingBusy(false);
     }
   }
+
+  const canEditProviderDoc = Boolean(providerData && reports.length > 0);
 
   if (loading) {
     return (
@@ -248,6 +304,112 @@ export function ProviderReportProviderDetail() {
           No <code className="text-xs">providers</code> document for this id (it may have been deleted or only exists in
           API results). Reports and reviews below may still reference this id.
         </p>
+      ) : null}
+
+      {providerData && reports.length === 0 ? (
+        <p className="text-sm mb-6 p-4 rounded-xl border" style={{ borderColor: "var(--lavender-200)" }}>
+          There is a <code className="text-xs">providers</code> document but no listing reports for this id yet. Open{" "}
+          <strong>Provider directory</strong> to edit arbitrary ids, or edit JSON here after at least one report exists
+          for this provider id.
+        </p>
+      ) : null}
+
+      {canEditProviderDoc ? (
+        <section className="mb-10">
+          <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--warm-600)" }}>
+            Edit directory document
+          </h2>
+          {providerJsonMessage && !providerJsonOpen ? (
+            <p
+              className="text-sm mb-3 rounded-lg px-3 py-2"
+              style={{
+                backgroundColor:
+                  providerJsonMessage === "Listing saved." ? "#ecfdf5" : "#fef2f2",
+                color: providerJsonMessage === "Listing saved." ? "#065f46" : "#b91c1c",
+              }}
+            >
+              {providerJsonMessage}
+            </p>
+          ) : null}
+          <p className="text-sm mb-3" style={{ color: "var(--warm-500)" }}>
+            Shown because this provider id has at least one report. Edit the full{" "}
+            <code className="text-xs">providers</code> payload as JSON (timestamps appear as{" "}
+            <code className="text-xs">{`{"${TS_KEY}": millis}`}</code>). Save uses{" "}
+            <code className="text-xs">setDoc(..., merge: true)</code> and sets <code className="text-xs">updatedAt</code>.
+            Invalid JSON or the wrong root type will show an error.
+          </p>
+          {!providerJsonOpen ? (
+            <button
+              type="button"
+              onClick={() => {
+                setProviderJsonMessage("");
+                setProviderJsonOpen(true);
+              }}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-white"
+              style={{ backgroundColor: "var(--lavender-600)" }}
+            >
+              Edit listing JSON
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <textarea
+                className="w-full min-h-[320px] font-mono text-xs p-3 rounded-xl border"
+                style={{ borderColor: "var(--lavender-200)" }}
+                value={providerJsonDraft}
+                onChange={(e) => setProviderJsonDraft(e.target.value)}
+                spellCheck={false}
+              />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={providerSaveBusy}
+                  onClick={() => void saveProviderDoc()}
+                  className="px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+                  style={{ backgroundColor: "var(--lavender-600)" }}
+                >
+                  {providerSaveBusy ? <Loader2 className="h-4 w-4 animate-spin inline" /> : null}
+                  Save listing
+                </button>
+                <button
+                  type="button"
+                  disabled={providerSaveBusy}
+                  onClick={() => {
+                    setProviderJsonOpen(false);
+                    setProviderJsonMessage("");
+                  }}
+                  className="px-4 py-2 rounded-xl text-sm border"
+                  style={{ borderColor: "var(--lavender-200)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={providerSaveBusy || !providerData}
+                  onClick={() => {
+                    setProviderJsonDraft(firestoreDocToJsonText(providerData!));
+                    setProviderJsonMessage("Reset draft from last loaded document.");
+                  }}
+                  className="px-4 py-2 rounded-xl text-sm border"
+                  style={{ borderColor: "var(--lavender-200)" }}
+                >
+                  Reset from server
+                </button>
+              </div>
+              {providerJsonMessage && providerJsonOpen ? (
+                <p
+                  className={`text-sm ${providerJsonMessage.startsWith("Reset") ? "opacity-80" : "text-red-700"}`}
+                  style={
+                    providerJsonMessage.startsWith("Reset")
+                      ? { color: "var(--warm-600)" }
+                      : undefined
+                  }
+                >
+                  {providerJsonMessage}
+                </p>
+              ) : null}
+            </div>
+          )}
+        </section>
       ) : null}
 
       {providerData ? (
@@ -301,92 +463,17 @@ export function ProviderReportProviderDetail() {
                 cat;
               const when =
                 (r.data.createdAt as Timestamp | undefined)?.toDate?.()?.toLocaleString?.() ?? "—";
-              const editing = reportEditId === r.id;
               return (
                 <li
                   key={r.id}
                   className="rounded-xl border p-4 text-sm"
                   style={{ backgroundColor: "white", borderColor: "var(--lavender-200)" }}
                 >
-                  <div className="flex flex-wrap justify-between gap-2">
-                    <div className="font-medium">{label}</div>
-                    <button
-                      type="button"
-                      disabled={reportSaveBusy}
-                      onClick={() => (editing ? cancelReportEdit() : beginReportEdit(r))}
-                      className="text-xs px-2 py-1 rounded-lg border shrink-0"
-                      style={{ borderColor: "var(--lavender-200)", color: "var(--lavender-700)" }}
-                    >
-                      {editing ? "Close" : "Edit"}
-                    </button>
-                  </div>
+                  <div className="font-medium">{label}</div>
                   <div className="text-xs opacity-70 mt-1">
                     {when} · status: {st} · doc: <code className="text-xs">{r.id}</code>
                   </div>
-                  {editing ? (
-                    <div className="mt-3 space-y-2">
-                      <label className="block text-xs">
-                        <span className="opacity-80">Reason</span>
-                        <select
-                          className="mt-1 w-full px-2 py-1 rounded border text-xs"
-                          style={{ borderColor: "var(--lavender-200)" }}
-                          value={editReason}
-                          onChange={(e) => setEditReason(e.target.value)}
-                        >
-                          {Object.entries(REASON_LABELS).map(([k, lab]) => (
-                            <option key={k} value={k}>
-                              {lab}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="block text-xs">
-                        <span className="opacity-80">Details</span>
-                        <textarea
-                          className="mt-1 w-full px-2 py-1 rounded border text-xs min-h-[72px]"
-                          style={{ borderColor: "var(--lavender-200)" }}
-                          value={editDetails}
-                          onChange={(e) => setEditDetails(e.target.value)}
-                        />
-                      </label>
-                      <label className="block text-xs">
-                        <span className="opacity-80">Status</span>
-                        <select
-                          className="mt-1 w-full px-2 py-1 rounded border text-xs"
-                          style={{ borderColor: "var(--lavender-200)" }}
-                          value={editStatus}
-                          onChange={(e) => setEditStatus(e.target.value)}
-                        >
-                          {STATUS_OPTIONS.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          disabled={reportSaveBusy}
-                          onClick={() => void saveReportEdit(r.id)}
-                          className="px-3 py-1 rounded-lg text-xs text-white"
-                          style={{ backgroundColor: "var(--lavender-600)" }}
-                        >
-                          {reportSaveBusy ? <Loader2 className="h-3 w-3 animate-spin inline" /> : null}
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          disabled={reportSaveBusy}
-                          onClick={cancelReportEdit}
-                          className="px-3 py-1 rounded-lg text-xs border"
-                          style={{ borderColor: "var(--lavender-200)" }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : r.data.details != null ? (
+                  {r.data.details != null ? (
                     <p className="mt-2" style={{ color: "var(--warm-600)" }}>
                       {String(r.data.details)}
                     </p>

@@ -5120,7 +5120,11 @@ async function enrichProvidersWithFirestore(providers) {
  * block future search hits (Medicaid/NPI/Firestore merge), delete Storage prefix
  * `providers/{id}/`, and mark related reports. Callable — admin dashboard roles only.
  */
-exports.adminRemoveProviderListing = onCall(async (request) => {
+// Gen2 callables run on Cloud Run. Without `cors`, browsers block preflight from
+// non-Firebase hosts (e.g. Railway admin). Auth + assertAdminDashboardUser still gate access.
+exports.adminRemoveProviderListing = onCall(
+  {cors: true},
+  async (request) => {
   await assertAdminDashboardUser(request.auth);
 
   const providerId = request.data && request.data.providerId != null
@@ -5214,7 +5218,8 @@ exports.adminRemoveProviderListing = onCall(async (request) => {
     providerDocExisted: pSnap.exists,
     storageFilesDeleted,
   };
-});
+  },
+);
 
 // Admin function to add or update a provider manually (backend only)
 // This allows admins to add providers and mark them as Mama Approved

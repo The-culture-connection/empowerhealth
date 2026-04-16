@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   collection,
   doc,
@@ -22,14 +22,6 @@ const REASON_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-const STATUS_OPTIONS = [
-  "open",
-  "acknowledged",
-  "resolved",
-  "removed",
-  "listing_removed",
-] as const;
-
 type Row = {
   id: string;
   providerId: string;
@@ -50,10 +42,6 @@ export function ProviderReportsAdmin() {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [removeBusyId, setRemoveBusyId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editReason, setEditReason] = useState("");
-  const [editDetails, setEditDetails] = useState("");
-  const [editStatus, setEditStatus] = useState("");
 
   useEffect(() => {
     const q = query(
@@ -91,38 +79,6 @@ export function ProviderReportsAdmin() {
     );
     return () => unsub();
   }, []);
-
-  const beginEdit = useCallback((r: Row) => {
-    setEditingId(r.id);
-    setEditReason(r.reasonCategory || "inaccurate_info");
-    setEditDetails(r.details ?? "");
-    setEditStatus(r.status ?? "open");
-  }, []);
-
-  const cancelEdit = useCallback(() => {
-    setEditingId(null);
-  }, []);
-
-  async function saveEdit(reportId: string) {
-    setBusyId(reportId);
-    setError("");
-    try {
-      const label = REASON_LABELS[editReason] ?? editReason;
-      await updateDoc(doc(firestore, "provider_reports", reportId), {
-        reasonCategory: editReason,
-        reasonCategoryLabel: label,
-        details: editDetails.trim() || null,
-        status: editStatus,
-        updatedAt: serverTimestamp(),
-      });
-      setEditingId(null);
-    } catch (e) {
-      console.error(e);
-      setError(e instanceof Error ? e.message : "Update failed");
-    } finally {
-      setBusyId(null);
-    }
-  }
 
   async function setStatus(id: string, status: string) {
     setBusyId(id);
@@ -181,11 +137,11 @@ export function ProviderReportsAdmin() {
         Provider listing reports
       </h1>
       <p className="text-sm mb-6" style={{ color: "var(--warm-500)" }}>
-        Submitted from the app via <code className="text-xs">provider_reports</code>. Open the provider name for full
-        directory metadata and reviews. Use <strong>Edit report</strong> to change category, details, or status. Use{" "}
-        <strong>Remove listing</strong> after triage to delete the Firestore directory row, suppress the listing in{" "}
-        <code className="text-xs">searchProviders</code>, clear Storage under <code className="text-xs">providers/…</code>
-        , and mark <strong>all</strong> reports for that provider id <code className="text-xs">listing_removed</code>.
+        Submitted from the app via <code className="text-xs">provider_reports</code>. Open the provider name for
+        directory metadata (editable there when this id has reports), reviews, and triage actions.{" "}
+        <strong>Remove listing</strong> deletes the Firestore row, blocks search, clears Storage under{" "}
+        <code className="text-xs">providers/…</code>, and marks all reports for that id{" "}
+        <code className="text-xs">listing_removed</code>.
       </p>
       {error ? (
         <div className="mb-4 p-4 rounded-xl text-sm bg-red-50 text-red-700">{error}</div>
@@ -204,7 +160,6 @@ export function ProviderReportsAdmin() {
               r.reasonCategory;
             const detailHref = `/moderation/reports/provider/${encodeURIComponent(r.providerId)}`;
             const listingRemoved = r.status === "listing_removed";
-            const isEditing = editingId === r.id;
             return (
               <li
                 key={r.id}
@@ -227,7 +182,7 @@ export function ProviderReportsAdmin() {
                       Report id: <code>{r.id}</code> · Provider id: <code>{r.providerId}</code> · User:{" "}
                       <code>{r.userId}</code>
                     </div>
-                    {!isEditing && r.details ? (
+                    {r.details ? (
                       <p className="text-sm mt-3" style={{ color: "var(--warm-600)" }}>
                         {r.details}
                       </p>
@@ -235,74 +190,6 @@ export function ProviderReportsAdmin() {
                     <div className="text-xs mt-2">
                       Status: <strong>{r.status ?? "open"}</strong>
                     </div>
-
-                    {isEditing ? (
-                      <div
-                        className="mt-4 space-y-3 rounded-xl border p-4 text-sm"
-                        style={{ borderColor: "var(--lavender-200)" }}
-                      >
-                        <label className="block">
-                          <span className="text-xs font-medium opacity-80">Reason category</span>
-                          <select
-                            className="mt-1 w-full px-3 py-2 rounded-lg border text-sm"
-                            style={{ borderColor: "var(--lavender-200)" }}
-                            value={editReason}
-                            onChange={(e) => setEditReason(e.target.value)}
-                          >
-                            {Object.entries(REASON_LABELS).map(([k, lab]) => (
-                              <option key={k} value={k}>
-                                {lab}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="block">
-                          <span className="text-xs font-medium opacity-80">Details</span>
-                          <textarea
-                            className="mt-1 w-full px-3 py-2 rounded-lg border text-sm min-h-[88px]"
-                            style={{ borderColor: "var(--lavender-200)" }}
-                            value={editDetails}
-                            onChange={(e) => setEditDetails(e.target.value)}
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-xs font-medium opacity-80">Status</span>
-                          <select
-                            className="mt-1 w-full px-3 py-2 rounded-lg border text-sm"
-                            style={{ borderColor: "var(--lavender-200)" }}
-                            value={editStatus}
-                            onChange={(e) => setEditStatus(e.target.value)}
-                          >
-                            {STATUS_OPTIONS.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void saveEdit(r.id)}
-                            className="px-3 py-2 rounded-xl text-sm text-white disabled:opacity-50"
-                            style={{ backgroundColor: "var(--lavender-600)" }}
-                          >
-                            {busy ? <Loader2 className="h-4 w-4 animate-spin inline" /> : null}
-                            Save changes
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={cancelEdit}
-                            className="px-3 py-2 rounded-xl text-sm border"
-                            style={{ borderColor: "var(--lavender-200)" }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
                   </div>
                   <div className="flex flex-col gap-2 shrink-0">
                     <Link
@@ -312,15 +199,6 @@ export function ProviderReportsAdmin() {
                     >
                       Provider detail
                     </Link>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => (isEditing ? cancelEdit() : beginEdit(r))}
-                      className="px-3 py-2 rounded-xl text-sm border disabled:opacity-50"
-                      style={{ borderColor: "var(--lavender-300)", color: "var(--lavender-700)" }}
-                    >
-                      {isEditing ? "Close editor" : "Edit report"}
-                    </button>
                     <button
                       type="button"
                       disabled={busy || r.status === "acknowledged"}
@@ -350,9 +228,7 @@ export function ProviderReportsAdmin() {
                     </button>
                     <button
                       type="button"
-                      disabled={
-                        removeBusy || !r.providerId || listingRemoved
-                      }
+                      disabled={removeBusy || !r.providerId || listingRemoved}
                       onClick={() => void removeProviderListing(r)}
                       className="px-3 py-2 rounded-xl text-sm border disabled:opacity-50"
                       style={{

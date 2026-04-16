@@ -5221,6 +5221,121 @@ exports.adminRemoveProviderListing = onCall(
   },
 );
 
+/**
+ * Create missing provider_identity_claims rows for providers that already have
+ * review-sourced identityTags with verificationStatus pending (e.g. written before
+ * the app started enqueueing claims). Callable — admin dashboard roles only.
+ */
+exports.adminBackfillProviderIdentityClaims = onCall(
+  {cors: true},
+  async (request) => {
+    await assertAdminDashboardUser(request.auth);
+    const uid = request.auth.uid;
+    const rawMax =
+      request.data && request.data.maxProviders != null
+        ? request.data.maxProviders
+        : 150;
+    const maxProviders = Math.min(
+      Math.max(Number.parseInt(String(rawMax), 10) || 150, 1),
+      500,
+    );
+    const startAfterId =
+      request.data && request.data.startAfter != null
+        ? String(request.data.startAfter).trim()
+        : "";
+
+    const db = admin.firestore();
+    let q = db
+      .collection("providers")
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .limit(maxProviders);
+    if (startAfterId) {
+      q = q.startAfter(startAfterId);
+    }
+    const snap = await q.get();
+    if (snap.empty) {
+      return {
+        success: true,
+        created: 0,
+        scanned: 0,
+        done: true,
+        nextStartAfter: null,
+      };
+    }
+
+    let writeBatch = db.batch();
+    let writeCount = 0;
+    let created = 0;
+    let scanned = 0;
+
+    const flush = async () => {
+      if (writeCount === 0) return;
+      await writeBatch.commit();
+      writeBatch = db.batch();
+      writeCount = 0;
+    };
+
+    for (const doc of snap.docs) {
+      scanned++;
+      const data = doc.data() || {};
+      if (data.directoryHidden === true) continue;
+
+      const tags = Array.isArray(data.identityTags) ? data.identityTags : [];
+      const pendingReview = tags.filter(
+        (t) =>
+          t &&
+          typeof t === "object" &&
+          t.source === "review" &&
+          (t.verificationStatus === "pending" || t.verificationStatus == null),
+      );
+      if (!pendingReview.length) continue;
+
+      const cq = await db
+        .collection("provider_identity_claims")
+        .where("providerId", "==", doc.id)
+        .get();
+      const existing = new Set();
+      cq.forEach((c) => {
+        const d = c.data();
+        if (d.tagId != null) existing.add(String(d.tagId));
+      });
+
+      for (const tag of pendingReview) {
+        const tagId = tag.id != null ? String(tag.id) : "";
+        if (!tagId || existing.has(tagId)) continue;
+
+        const cref = db.collection("provider_identity_claims").doc();
+        writeBatch.set(cref, {
+          providerId: doc.id,
+          userId: `backfill:${uid}`,
+          tagId,
+          tagName: tag.name != null ? String(tag.name) : tagId,
+          category: tag.category != null ? String(tag.category) : "identity",
+          status: "pending",
+          sourceType: "review_backfill",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          backfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        existing.add(tagId);
+        created++;
+        writeCount++;
+        if (writeCount >= 400) await flush();
+      }
+    }
+
+    await flush();
+
+    const lastId = snap.docs[snap.docs.length - 1].id;
+    return {
+      success: true,
+      created,
+      scanned,
+      done: snap.size < maxProviders,
+      nextStartAfter: snap.size < maxProviders ? null : lastId,
+    };
+  },
+);
+
 // Admin function to add or update a provider manually (backend only)
 // This allows admins to add providers and mark them as Mama Approved
 exports.addProvider = onCall(async (request) => {

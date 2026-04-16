@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   collection,
   doc,
@@ -9,8 +9,11 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
-import { firestore } from "../../firebase/firebase";
+import { httpsCallable } from "firebase/functions";
+import { firestore, functions } from "../../firebase/firebase";
 import { Check, X, Loader2, Pencil, Trash2 } from "lucide-react";
+
+const backfillClaimsCallable = httpsCallable(functions, "adminBackfillProviderIdentityClaims");
 
 type Row = {
   id: string;
@@ -70,50 +73,92 @@ export function IdentityClaimsAdmin() {
   const [editName, setEditName] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editSource, setEditSource] = useState("");
+  const [backfillBusy, setBackfillBusy] = useState(false);
+  const [backfillSummary, setBackfillSummary] = useState("");
+
+  const fetchClaims = useCallback(async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const snap = await getDocs(collection(firestore, "provider_identity_claims"));
+      const next: Row[] = [];
+      snap.forEach((d) => {
+        const x = d.data() as Record<string, unknown>;
+        next.push({
+          id: d.id,
+          providerId: String(x.providerId ?? ""),
+          userId: String(x.userId ?? ""),
+          tagId: String(x.tagId ?? ""),
+          tagName: x.tagName != null ? String(x.tagName) : undefined,
+          category: x.category != null ? String(x.category) : undefined,
+          sourceReviewId: x.sourceReviewId != null ? String(x.sourceReviewId) : undefined,
+          status: String(x.status ?? "pending"),
+          confidence: x.confidence != null ? String(x.confidence) : undefined,
+          sourceType: x.sourceType != null ? String(x.sourceType) : undefined,
+          sourceUrl: x.sourceUrl != null ? String(x.sourceUrl) : undefined,
+          createdAt: x.createdAt as Timestamp | null | undefined,
+        });
+      });
+      next.sort((a, b) => {
+        const ta = a.createdAt?.toMillis() ?? 0;
+        const tb = b.createdAt?.toMillis() ?? 0;
+        return tb - ta;
+      });
+      setRows(next);
+    } catch (e) {
+      console.error(e);
+      setError(e instanceof Error ? e.message : "Failed to load claims");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const snap = await getDocs(collection(firestore, "provider_identity_claims"));
-        if (cancelled) return;
-        const next: Row[] = [];
-        snap.forEach((d) => {
-          const x = d.data() as Record<string, unknown>;
-          next.push({
-            id: d.id,
-            providerId: String(x.providerId ?? ""),
-            userId: String(x.userId ?? ""),
-            tagId: String(x.tagId ?? ""),
-            tagName: x.tagName != null ? String(x.tagName) : undefined,
-            category: x.category != null ? String(x.category) : undefined,
-            sourceReviewId: x.sourceReviewId != null ? String(x.sourceReviewId) : undefined,
-            status: String(x.status ?? "pending"),
-            confidence: x.confidence != null ? String(x.confidence) : undefined,
-            sourceType: x.sourceType != null ? String(x.sourceType) : undefined,
-            sourceUrl: x.sourceUrl != null ? String(x.sourceUrl) : undefined,
-            createdAt: x.createdAt as Timestamp | null | undefined,
-          });
+    void fetchClaims();
+  }, [fetchClaims]);
+
+  async function runBackfillMissingClaims() {
+    setBackfillBusy(true);
+    setBackfillSummary("");
+    setError("");
+    let totalCreated = 0;
+    let batches = 0;
+    try {
+      let startAfter: string | null = null;
+      while (batches < 80) {
+        batches++;
+        const res = await backfillClaimsCallable({
+          maxProviders: 200,
+          ...(startAfter ? { startAfter } : {}),
         });
-        next.sort((a, b) => {
-          const ta = a.createdAt?.toMillis() ?? 0;
-          const tb = b.createdAt?.toMillis() ?? 0;
-          return tb - ta;
-        });
-        setRows(next);
-        setLoading(false);
-      } catch (e) {
-        if (!cancelled) {
-          console.error(e);
-          setError(e instanceof Error ? e.message : "Failed to load claims");
-          setLoading(false);
+        const data = res.data as {
+          created?: number;
+          scanned?: number;
+          done?: boolean;
+          nextStartAfter?: string | null;
+        };
+        totalCreated += data.created ?? 0;
+        if (data.done || !data.nextStartAfter) {
+          break;
         }
+        startAfter = data.nextStartAfter;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      setBackfillSummary(
+        totalCreated > 0
+          ? `Created ${totalCreated} new claim document(s) from provider identity tags (${batches} batch(es)).`
+          : `No missing claims found in ${batches} provider batch(es). If you still see nothing, confirm Functions are deployed and you are on the correct Firebase project.`,
+      );
+      await fetchClaims();
+      if (batches >= 80) {
+        setError("Backfill reached 80 batches; run sync again if the project has more providers.");
+      }
+    } catch (e) {
+      console.error(e);
+      setError(e instanceof Error ? e.message : "Backfill failed");
+    } finally {
+      setBackfillBusy(false);
+    }
+  }
 
   async function setClaimStatus(id: string, status: string) {
     setBusyId(id);
@@ -236,7 +281,10 @@ export function IdentityClaimsAdmin() {
     setEditingId(row.id);
     setEditName((row.tagName ?? row.tagId).trim());
     setEditCategory(row.category || "identity");
-    setEditSource(row.sourceType === "review" ? "review" : "user_claim");
+    const st = row.sourceType ?? "";
+    setEditSource(
+      st === "review" || st === "review_backfill" ? "review" : "user_claim",
+    );
   }
 
   async function saveTagEdits(row: Row) {
@@ -282,11 +330,31 @@ export function IdentityClaimsAdmin() {
       <h1 className="text-2xl font-semibold mb-2" style={{ color: "var(--warm-600)" }}>
         Provider identity claims
       </h1>
-      <p className="text-sm mb-6" style={{ color: "var(--warm-500)" }}>
+      <p className="text-sm mb-4" style={{ color: "var(--warm-500)" }}>
         Claims from review flow in <code className="text-xs">provider_identity_claims</code>. Verify will also upsert
         the corresponding tag into <code className="text-xs">providers.identityTags</code> so the frontend can render
         the verified checkmark. You can also edit or delete tags on the provider document from here.
       </p>
+      <p className="text-sm mb-4" style={{ color: "var(--warm-500)" }}>
+        Older reviews only updated <code className="text-xs">providers.identityTags</code> and left this queue empty.
+        Use <strong>Sync missing claims</strong> once (or after bulk imports) to create claim rows for pending review
+        tags that do not already have a claim.
+      </p>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={backfillBusy || loading}
+          onClick={() => void runBackfillMissingClaims()}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm text-white disabled:opacity-50"
+          style={{ backgroundColor: "var(--lavender-600)" }}
+        >
+          {backfillBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Sync missing claims from providers
+        </button>
+      </div>
+      {backfillSummary ? (
+        <div className="mb-4 p-4 rounded-xl text-sm bg-emerald-50 text-emerald-900">{backfillSummary}</div>
+      ) : null}
       {error ? (
         <div className="mb-4 p-4 rounded-xl text-sm bg-red-50 text-red-700">{error}</div>
       ) : null}

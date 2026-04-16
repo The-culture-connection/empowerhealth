@@ -134,6 +134,10 @@ export const router = createBrowserRouter([
               </RoleRoute>
             ),
           },
+          {
+            path: "identity_claims",
+            element: <Navigate to="/moderation/identity-claims" replace />,
+          },
         ],
       },
     ],

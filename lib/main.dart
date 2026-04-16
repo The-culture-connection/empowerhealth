@@ -13,7 +13,6 @@ import 'profile/profile_creation_screen.dart';
 import 'privacy/consent_screen.dart';
 import 'services/firebase_service.dart';
 import 'services/push_notification_service.dart';
-import 'services/auth_service.dart';
 import 'services/database_service.dart';
 import 'services/analytics_service.dart';
 import 'providers/profile_creation_provider.dart';
@@ -35,23 +34,53 @@ void main() async {
   if (firebaseReady) {
     // FCM: background isolate — register after Firebase.initializeApp, before runApp.
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    // Do **not** await full FCM + Firestore wiring here: on some iOS / SDK combinations
+    // `getInitialMessage`, `getToken`, or Firestore can block indefinitely before the first
+    // frame, which leaves the user on a white launch screen forever.
+  }
+
+  runApp(AdvocacyApp(firebaseReady: firebaseReady));
+}
+
+class AdvocacyApp extends StatefulWidget {
+  const AdvocacyApp({super.key, required this.firebaseReady});
+
+  final bool firebaseReady;
+
+  @override
+  State<AdvocacyApp> createState() => _AdvocacyAppState();
+}
+
+class _AdvocacyAppState extends State<AdvocacyApp> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.firebaseReady) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_runDeferredPushSetup());
+      });
+    }
+  }
+
+  Future<void> _runDeferredPushSetup() async {
     try {
-      await PushNotificationService.instance.setupAfterFirebaseInitialized();
+      await PushNotificationService.instance
+          .setupAfterFirebaseInitialized()
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              debugPrint(
+                '⚠️ [FCM] setupAfterFirebaseInitialized timed out after 30s — UI already running',
+              );
+            },
+          );
     } catch (e, st) {
       debugPrint('⚠️ Push notification setup failed: $e\n$st');
     }
   }
 
-  runApp(const AdvocacyApp());
-}
-
-class AdvocacyApp extends StatelessWidget {
-  const AdvocacyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
-    final authService = AuthService();
-    
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ProfileCreationProvider()),
@@ -62,28 +91,74 @@ class AdvocacyApp extends StatelessWidget {
         theme: AppTheme.light(),
         themeMode: ThemeMode.light,
         onGenerateRoute: AppRouter.onGenerateRoute,
-        home: StreamBuilder<User?>(
-          stream: authService.authStateChanges,
-          builder: (context, snapshot) {
-            // Show loading while checking auth state
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Scaffold(
-                backgroundColor: AppTheme.backgroundWarm,
-                body: const Center(child: CircularProgressIndicator()),
-              );
-            }
-            
-            // If user is logged in, check if they have a profile
-            if (snapshot.hasData && snapshot.data != null) {
-              return _AuthWrapper(userId: snapshot.data!.uid);
-            }
-            
-            // User is not logged in, show auth screen
-            return const AuthScreen();
-          },
-        ),
+        home: const _InitialAuthGate(),
       ),
     );
+  }
+}
+
+/// Resolves the first auth state without relying on [StreamBuilder]'s initial
+/// `ConnectionState.waiting`, which can persist on some iOS + Firebase Auth combinations
+/// after SDK upgrades and leaves the app on an endless loading surface.
+class _InitialAuthGate extends StatefulWidget {
+  const _InitialAuthGate();
+
+  @override
+  State<_InitialAuthGate> createState() => _InitialAuthGateState();
+}
+
+class _InitialAuthGateState extends State<_InitialAuthGate> {
+  late final StreamSubscription<User?> _authSub;
+  User? _user = FirebaseAuth.instance.currentUser;
+  /// When true, we have either heard from [authStateChanges] or hit the safety timeout.
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_user != null) {
+      _ready = true;
+    }
+    _authSub = FirebaseAuth.instance.authStateChanges().listen(
+      (user) {
+        if (!mounted) return;
+        setState(() {
+          _user = user;
+          _ready = true;
+        });
+      },
+      onError: (Object e) {
+        debugPrint('⚠️ Auth state stream error: $e');
+        if (!mounted) return;
+        setState(() => _ready = true);
+      },
+    );
+    Future<void>.delayed(const Duration(seconds: 8), () {
+      if (!mounted || _ready) return;
+      debugPrint('⚠️ Auth state: proceeding after timeout (stream did not resolve)');
+      setState(() => _ready = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_authSub.cancel());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_ready) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundWarm,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final user = _user;
+    if (user != null) {
+      return _AuthWrapper(userId: user.uid);
+    }
+    return const AuthScreen();
   }
 }
 
@@ -176,7 +251,7 @@ class _AuthWrapperState extends State<_AuthWrapper> with WidgetsBindingObserver 
     }
     
     // Continue with profile check regardless of auth status
-    _checkProfile();
+    await _checkProfile();
   }
 
   Future<void> _trackSessionStart() async {
@@ -194,38 +269,38 @@ class _AuthWrapperState extends State<_AuthWrapper> with WidgetsBindingObserver 
   }
 
   Future<void> _checkProfile() async {
-    final hasProfile = await _databaseService.userProfileExists(widget.userId);
-    
-    if (mounted) {
-      setState(() {
-        _isChecking = false;
-        // Show profile creation first, then consent will be shown after onboarding
-        if (hasProfile) {
-          // Check consent after profile exists
-          _checkConsentAndNavigate();
-        } else {
-          _targetScreen = const ProfileCreationScreen();
-        }
-      });
-    }
-  }
+    Widget resolvedScreen = const MainNavigationScaffold();
 
-  Future<void> _checkConsentAndNavigate() async {
-    final hasConsent = await _checkConsent(widget.userId);
-    
-    if (mounted) {
-      setState(() {
+    try {
+      final hasProfile = await _databaseService
+          .userProfileExists(widget.userId)
+          .timeout(const Duration(seconds: 12));
+
+      if (!hasProfile) {
+        resolvedScreen = const ProfileCreationScreen();
+      } else {
+        final hasConsent = await _checkConsent(
+          widget.userId,
+        ).timeout(const Duration(seconds: 12));
         if (!hasConsent) {
-          // Show consent screen after onboarding
-          _targetScreen = ConsentScreen(
+          resolvedScreen = ConsentScreen(
             isFirstRun: true,
             onConsentAccepted: _onConsentAccepted,
           );
-        } else {
-          _targetScreen = const MainNavigationScaffold();
         }
-      });
+      }
+    } catch (e) {
+      debugPrint(
+        '⚠️ Startup route resolution failed, falling back to main navigation: $e',
+      );
+      resolvedScreen = const MainNavigationScaffold();
     }
+
+    if (!mounted) return;
+    setState(() {
+      _targetScreen = resolvedScreen;
+      _isChecking = false;
+    });
   }
 
   Future<void> _onConsentAccepted() async {

@@ -47,7 +47,10 @@ class PushNotificationService {
 
   bool _notificationsAuthorized = false;
 
-  /// Call after [FirebaseService.initialize] succeeds, before [runApp].
+  /// Foreground / auth FCM listeners (register at most once).
+  bool _fcmListenersRegistered = false;
+
+  /// Call after [FirebaseService.initialize] succeeds. May run after [runApp] (post-frame).
   Future<void> setupAfterFirebaseInitialized() async {
     if (kIsWeb) {
       debugPrint('[FCM] Skipping push setup on web.');
@@ -56,57 +59,82 @@ class PushNotificationService {
 
     // iOS: show banners while app is in foreground (otherwise only system tray / nothing).
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      await _messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+      try {
+        await _messaging
+            .setForegroundNotificationPresentationOptions(
+              alert: true,
+              badge: true,
+              sound: true,
+            )
+            .timeout(const Duration(seconds: 8));
+      } on TimeoutException {
+        debugPrint('[FCM] setForegroundNotificationPresentationOptions timed out');
+      } catch (e) {
+        debugPrint('[FCM] setForegroundNotificationPresentationOptions failed: $e');
+      }
       debugPrint('[FCM] iOS foreground presentation: alert, badge, sound');
     }
 
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-      sound: true,
-    );
-    debugPrint(
-      '[FCM] requestPermission authorizationStatus=${settings.authorizationStatus} '
-      '(alert=${settings.alert}, badge=${settings.badge}, sound=${settings.sound})',
-    );
-
-    _notificationsAuthorized = settings.authorizationStatus == AuthorizationStatus.authorized ||
-        settings.authorizationStatus == AuthorizationStatus.provisional;
-
-    await _messaging.setAutoInitEnabled(true);
-
-    // New community posts are sent to this topic from Cloud Functions (see functions/pushNotifications.js).
+    NotificationSettings? settings;
     try {
-      await _messaging.subscribeToTopic('community_new_posts');
-      debugPrint('[FCM] subscribed to topic community_new_posts');
+      settings = await _messaging
+          .requestPermission(
+            alert: true,
+            announcement: false,
+            badge: true,
+            carPlay: false,
+            criticalAlert: false,
+            provisional: false,
+            sound: true,
+          )
+          .timeout(const Duration(seconds: 60));
+    } on TimeoutException {
+      debugPrint('[FCM] requestPermission timed out — reading settings from native');
+      try {
+        settings = await _messaging
+            .getNotificationSettings()
+            .timeout(const Duration(seconds: 5));
+      } catch (e) {
+        debugPrint('[FCM] getNotificationSettings failed after permission timeout: $e');
+        settings = null;
+      }
     } catch (e) {
-      debugPrint('[FCM] subscribeToTopic community_new_posts failed: $e');
+      debugPrint('[FCM] requestPermission failed: $e');
+      settings = null;
+    }
+    if (settings != null) {
+      debugPrint(
+        '[FCM] requestPermission authorizationStatus=${settings.authorizationStatus} '
+        '(alert=${settings.alert}, badge=${settings.badge}, sound=${settings.sound})',
+      );
+      _notificationsAuthorized =
+          settings.authorizationStatus == AuthorizationStatus.authorized ||
+              settings.authorizationStatus == AuthorizationStatus.provisional;
+    } else {
+      debugPrint('[FCM] No notification settings — push features disabled until next launch');
+      _notificationsAuthorized = false;
     }
 
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint(
-        '[FCM][foreground] messageId=${message.messageId} '
-        'notification=${message.notification?.title} '
-        'data=${message.data}',
-      );
-    });
+    try {
+      await _messaging.setAutoInitEnabled(true).timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      debugPrint('[FCM] setAutoInitEnabled timed out');
+    } catch (e) {
+      debugPrint('[FCM] setAutoInitEnabled failed: $e');
+    }
 
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint(
-        '[FCM][opened from background] messageId=${message.messageId} '
-        'data=${message.data}',
-      );
-    });
+    // Topic subscribe requires an APNS device token on iOS; do not block startup on it.
+    unawaited(_subscribeCommunityTopicWhenApnsReady());
 
-    final initial = await _messaging.getInitialMessage();
+    RemoteMessage? initial;
+    try {
+      initial = await _messaging
+          .getInitialMessage()
+          .timeout(const Duration(seconds: 5));
+    } on TimeoutException {
+      debugPrint('[FCM] getInitialMessage timed out — skipping');
+      initial = null;
+    }
     if (initial != null) {
       debugPrint(
         '[FCM][initial / cold start] messageId=${initial.messageId} data=${initial.data}',
@@ -122,29 +150,81 @@ class PushNotificationService {
       _attachUserTopicListener(_lastUid!);
     }
 
-    _messaging.onTokenRefresh.listen((token) async {
-      debugPrint('[FCM] onTokenRefresh (len=${token.length})');
-      await _saveTokenToFirestore(token: token, reason: 'token_refresh');
-    });
+    if (!_fcmListenersRegistered) {
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint(
+          '[FCM][foreground] messageId=${message.messageId} '
+          'notification=${message.notification?.title} '
+          'data=${message.data}',
+        );
+      });
 
-    await _authSub?.cancel();
-    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
-      final uid = user?.uid;
-      if (_lastUid != null && uid == null) {
-        debugPrint('[FCM] auth signed out (was $_lastUid); removing device token doc');
-        _detachUserTopicListener();
-        await _unsubscribeAllManagedAudienceTopics();
-        _lastAudienceTopicFingerprint = null;
-        await _removeTokenDocForUser(_lastUid!);
-      }
-      _lastUid = uid;
-      if (uid != null) {
-        await _persistTokenForCurrentUser(reason: 'auth_state');
-        if (_notificationsAuthorized) {
-          _attachUserTopicListener(uid);
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint(
+          '[FCM][opened from background] messageId=${message.messageId} '
+          'data=${message.data}',
+        );
+      });
+
+      _messaging.onTokenRefresh.listen((token) async {
+        debugPrint('[FCM] onTokenRefresh (len=${token.length})');
+        await _saveTokenToFirestore(token: token, reason: 'token_refresh');
+      });
+
+      await _authSub?.cancel();
+      _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+        final uid = user?.uid;
+        if (_lastUid != null && uid == null) {
+          debugPrint('[FCM] auth signed out (was $_lastUid); removing device token doc');
+          _detachUserTopicListener();
+          await _unsubscribeAllManagedAudienceTopics();
+          _lastAudienceTopicFingerprint = null;
+          await _removeTokenDocForUser(_lastUid!);
         }
+        _lastUid = uid;
+        if (uid != null) {
+          await _persistTokenForCurrentUser(reason: 'auth_state');
+          if (_notificationsAuthorized) {
+            _attachUserTopicListener(uid);
+          }
+        }
+      });
+      _fcmListenersRegistered = true;
+    }
+  }
+
+  /// `subscribeToTopic` on iOS requires an APNS token; retry in the background so cold start
+  /// is not coupled to token timing (especially after Xcode / iOS SDK upgrades).
+  Future<void> _subscribeCommunityTopicWhenApnsReady() async {
+    const topic = 'community_new_posts';
+    if (kIsWeb) return;
+
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      try {
+        await _messaging.subscribeToTopic(topic);
+        debugPrint('[FCM] subscribed to topic $topic');
+      } catch (e) {
+        debugPrint('[FCM] subscribeToTopic $topic failed: $e');
       }
-    });
+      return;
+    }
+
+    for (var i = 0; i < 30; i++) {
+      final apns = await _messaging.getAPNSToken();
+      if (apns != null) {
+        try {
+          await _messaging.subscribeToTopic(topic);
+          debugPrint('[FCM] subscribed to topic $topic');
+        } catch (e) {
+          debugPrint('[FCM] subscribeToTopic $topic failed: $e');
+        }
+        return;
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    debugPrint(
+      '[FCM] APNS token still unavailable after retries; topic $topic subscribe skipped',
+    );
   }
 
   void _attachUserTopicListener(String uid) {
@@ -272,7 +352,15 @@ class PushNotificationService {
       return;
     }
     try {
-      final token = await _messaging.getToken();
+      final token = await _messaging
+          .getToken()
+          .timeout(
+            const Duration(seconds: 12),
+            onTimeout: () {
+              debugPrint('[FCM] getToken() timed out reason=$reason');
+              return null;
+            },
+          );
       if (token == null || token.isEmpty) {
         debugPrint('[FCM] getToken() empty (simulator or APNs not ready?) reason=$reason');
         return;
@@ -337,7 +425,15 @@ class PushNotificationService {
         .doc(docId);
 
     try {
-      final existing = await ref.get();
+      DocumentSnapshot<Map<String, dynamic>>? existing;
+      try {
+        existing = await ref.get().timeout(const Duration(seconds: 15));
+      } on TimeoutException {
+        debugPrint(
+          '[FCM] Firestore get devices doc timed out — merge write (createdAt only if doc known new)',
+        );
+        existing = null;
+      }
       final data = <String, dynamic>{
         'fcmToken': token,
         'platform': platform,
@@ -345,7 +441,7 @@ class PushNotificationService {
         'updatedAt': FieldValue.serverTimestamp(),
         'lastReason': reason,
       };
-      if (!existing.exists) {
+      if (existing != null && !existing.exists) {
         data['createdAt'] = FieldValue.serverTimestamp();
       }
       await ref.set(data, SetOptions(merge: true));

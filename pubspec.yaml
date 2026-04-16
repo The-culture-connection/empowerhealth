@@ -63,7 +63,8 @@ dependencies:
   syncfusion_flutter_pdf: ^28.1.40
   share_plus: ^7.2.2
   path_provider: ^2.1.2
-  file_picker: ^8.1.6
+  # 10.3.8+ renames iOS FileUtils → FilePickerUtils (avoids Apple OSAnalytics FileUtils clash on newer SDKs).
+  file_picker: ^10.3.8
   
   # Image/PDF processing
   image_picker: ^1.1.2

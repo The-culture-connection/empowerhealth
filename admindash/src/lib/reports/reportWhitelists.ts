@@ -83,6 +83,7 @@ export const WHITELIST: Record<ReportType, readonly string[]> = {
     "provider_review_submitted",
     "provider_listing_report_submitted",
   ],
+  user_recruitment_avenues: [],
 };
 
 export function whitelistSet(type: ReportType): Set<string> {

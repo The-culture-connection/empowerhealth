@@ -78,6 +78,14 @@ const reports = [
     color: "#ec4899",
     bgColor: "#fce7f3",
   },
+  {
+    id: "user_recruitment_avenues" as ReportType,
+    title: "User Recruitment Avenues Report",
+    description: "Breaks down where new users heard about EmpowerHealth Watch",
+    metrics: ["Recruitment source mix", "Research participant count", "Missing source rate"],
+    color: "#0ea5e9",
+    bgColor: "#e0f2fe",
+  },
 ];
 
 export function Reports() {

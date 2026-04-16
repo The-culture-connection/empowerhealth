@@ -58,6 +58,10 @@ The **admin dashboard** (web) uses Firebase email/password sign-in. Dashboard ac
 
 ### How the feature works
 - **Mobile app**: Sign-up, sign-in, password reset, onboarding, and care survey flows behave as before; user profiles live under `users/{uid}`.
+- **Recruitment source in onboarding**: During profile creation (basic info), users now answer **“How did you hear about EmpowerHealth Watch?”** with normalized options (`doula`, `chw`, `home_visitor`, `cbo`, `social_media`, `event`, `other`, `research_participant`). The response is persisted as user-level `recruitmentSource` on the user profile.
+- **Research participant flag**: User profiles now store `isResearchParticipant` (derived when onboarding source is `research_participant`). The `exportUserData` callable also returns `researchParticipation` with `recruitmentSource`, `researchDataSharing`, and computed `isResearchParticipant`.
+- **Terms + privacy links in onboarding**: Consent, privacy center, and Terms/EULA screens now open public documentation pages for Terms and Privacy (`https://empowerhealth-dev.up.railway.app/documentation#terms` and `#privacy`).
+- **Sign-in to sign-up routing**: Login now routes users to the Terms/EULA screen before sign-up (“Review Terms & Sign up”), so users coming from sign-in still see and accept terms prior to account creation.
 - **Admin dashboard sign-in**: `signInWithEmailAndPassword` runs first; `onAuthStateChanged` then sets `loading` to true until Firestore role resolution finishes (`ADMIN` / `RESEARCH_PARTNERS` / `COMMUNITY_MANAGERS` by uid, with email fallback). The login page waits for that resolution before redirecting, so users are not sent to protected routes with `userProfile` still null (fixes the previous “click Sign In twice” behavior).
 - **Route guards**: `RoleRoute` shows a loading state while auth is resolving, and also if a Firebase session exists but the profile object is not yet hydrated.
 - **Default landing**: After sign-in, **`/`** opens the **Analytics** page (the old **Dashboard** home was removed). **`/analytics`** redirects to **`/`** so bookmarks keep working.
@@ -71,6 +75,7 @@ The **admin dashboard** (web) uses Firebase email/password sign-in. Dashboard ac
 - **2026-03-24** - **admindash-lookup-auth** - **Auth-based role onboarding**: Added callable `lookupAuthUserByEmail` and client `findUserForRoleAssignment` so admins can assign roles using Firebase Auth accounts even when no `users/{uid}` document exists yet; fixed duplicate React keys on the Users & Roles table.
 - **2026-03-24** - **admindash-role-list-keys** - **Users & Roles table**: Normalized `getUsersByRole` so `uid` and `role` always come from the document id and collection when legacy role documents omit those fields (fixes `undefined-undefined` React keys).
 - **2026-03-24** - **admindash-home-analytics** - **Home = Analytics**: **`/`** renders **Analytics**; removed **Dashboard** page; sidebar first item is **Analytics**; **`/analytics`** → **`/`**.
+- **2026-04-16** - **mobile-onboarding-recruitment-source-terms-routing** - Added onboarding `recruitmentSource` options + derived `isResearchParticipant` on user profile, included `researchParticipation` block in `exportUserData`, wired public Terms/Privacy links in onboarding/privacy screens, and routed login→signup through Terms/EULA.
 
 ---
 

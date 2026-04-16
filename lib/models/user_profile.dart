@@ -6,6 +6,8 @@ class UserProfile {
   final String username;
   final int age;
   final bool isPregnant;
+  final String? recruitmentSource;
+  final bool isResearchParticipant;
   final DateTime? dueDate;
   final bool isPostpartum;
   final DateTime? deliveryDate;
@@ -57,6 +59,8 @@ class UserProfile {
     required this.username,
     required this.age,
     required this.isPregnant,
+    this.recruitmentSource,
+    this.isResearchParticipant = false,
     this.dueDate,
     required this.isPostpartum,
     this.deliveryDate,
@@ -99,6 +103,8 @@ class UserProfile {
       'username': username,
       'age': age,
       'isPregnant': isPregnant,
+      'recruitmentSource': recruitmentSource,
+      'isResearchParticipant': isResearchParticipant,
       'dueDate': dueDate?.toIso8601String(),
       'isPostpartum': isPostpartum,
       'deliveryDate': deliveryDate?.toIso8601String(),
@@ -164,6 +170,8 @@ class UserProfile {
       username: map['username'] ?? map['name'] ?? '', // Support legacy 'name' field
       age: map['age'] ?? 0,
       isPregnant: map['isPregnant'] ?? false,
+      recruitmentSource: map['recruitmentSource'],
+      isResearchParticipant: map['isResearchParticipant'] ?? false,
       dueDate: UserProfile._parseDate(map['dueDate']),
       isPostpartum: map['isPostpartum'] ?? false,
       deliveryDate: UserProfile._parseDate(map['deliveryDate']),
@@ -205,6 +213,8 @@ class UserProfile {
     String? username,
     int? age,
     bool? isPregnant,
+    String? recruitmentSource,
+    bool? isResearchParticipant,
     DateTime? dueDate,
     bool? isPostpartum,
     int? childAgeMonths,
@@ -240,6 +250,8 @@ class UserProfile {
       username: username ?? this.username,
       age: age ?? this.age,
       isPregnant: isPregnant ?? this.isPregnant,
+      recruitmentSource: recruitmentSource ?? this.recruitmentSource,
+      isResearchParticipant: isResearchParticipant ?? this.isResearchParticipant,
       dueDate: dueDate ?? this.dueDate,
       isPostpartum: isPostpartum ?? this.isPostpartum,
       childAgeMonths: childAgeMonths ?? this.childAgeMonths,

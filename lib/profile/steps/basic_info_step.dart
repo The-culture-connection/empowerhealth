@@ -17,6 +17,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   final _childAgeMonthsController = TextEditingController();
+  final _formRecruitmentKey = GlobalKey<FormFieldState<String>>();
   
   @override
   void initState() {
@@ -49,6 +50,56 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               const Text(
                 'Let\'s start with some basic information about you.',
                 style: TextStyle(fontSize: 16, color: Colors.black87),
+              ),
+              const SizedBox(height: AppTheme.spacingXL),
+
+              // Recruitment source
+              _buildSectionHeader('How did you hear about EmpowerHealth Watch?'),
+              const SizedBox(height: AppTheme.spacingM),
+              DropdownButtonFormField<String>(
+                key: _formRecruitmentKey,
+                value: provider.recruitmentSource,
+                decoration: const InputDecoration(
+                  labelText: 'Select an option',
+                  helperText: 'This helps us understand how people find the app',
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'doula',
+                    child: Text('Doula'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'chw',
+                    child: Text('Community Health Worker (CHW)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'home_visitor',
+                    child: Text('Home Visitor'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'cbo',
+                    child: Text('Community-based organization (CBO)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'social_media',
+                    child: Text('Social Media'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'event',
+                    child: Text('Event'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'research_participant',
+                    child: Text('Research Participant'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'other',
+                    child: Text('Other'),
+                  ),
+                ],
+                onChanged: (value) {
+                  provider.updateBasicInfo(recruitmentSource: value);
+                },
               ),
               const SizedBox(height: AppTheme.spacingXL),
 

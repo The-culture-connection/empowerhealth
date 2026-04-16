@@ -495,10 +495,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        // Sign up link
+                        // Sign up / terms link
                         Center(
                           child: TextButton(
-                            onPressed: () => Navigator.pushReplacementNamed(context, Routes.signup),
+                            onPressed: () => Navigator.pushReplacementNamed(context, Routes.terms),
                             style: TextButton.styleFrom(
                               foregroundColor: AppTheme.textMuted,
                             ),
@@ -511,7 +511,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 children: [
                                   const TextSpan(text: "Don't have an account? "),
                                   TextSpan(
-                                    text: 'Sign up',
+                                    text: 'Review Terms & Sign up',
                                     style: TextStyle(
                                       color: AppTheme.brandPurple,
                                       fontWeight: FontWeight.w500,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_router.dart';
 import '../cors/ui_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TermsAndConditionsScreen extends StatelessWidget {
   const TermsAndConditionsScreen({super.key});
@@ -172,6 +173,26 @@ class TermsAndConditionsScreen extends StatelessWidget {
                   ),
                   
                   const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  Text(
+                    'You can review the full Privacy Policy and additional legal documentation anytime on our website.',
+                    style: const TextStyle(fontSize: 14, height: 1.5),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      TextButton(
+                        onPressed: () => _openDocsSection(context, '#privacy'),
+                        child: const Text('Privacy Policy'),
+                      ),
+                      TextButton(
+                        onPressed: () => _openDocsSection(context, '#terms'),
+                        child: const Text('Web Terms & EULA'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -263,6 +284,15 @@ class TermsAndConditionsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _openDocsSection(BuildContext context, String fragment) async {
+    final uri = Uri.parse('https://empowerhealth-dev.up.railway.app/documentation$fragment');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open documentation')),
+      );
+    }
   }
 }
 

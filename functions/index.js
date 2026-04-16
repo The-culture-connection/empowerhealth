@@ -2378,6 +2378,7 @@ exports.exportUserData = onCall(
         userId,
         exportedAt: new Date().toISOString(),
         profile: null,
+        researchParticipation: null,
         visitSummaries: [],
         notes: [],
         learningTasks: [],
@@ -2392,6 +2393,24 @@ exports.exportUserData = onCall(
         const profileData = profileDoc.data();
         // Remove sensitive fields if needed
         userData.profile = profileData;
+
+        // Derive research participation flag and recruitment source for export consumers
+        const recruitmentSource = profileData.recruitmentSource || null;
+        const privacySettings = profileData.privacySettings || {};
+        const researchDataSharing =
+          Object.prototype.hasOwnProperty.call(privacySettings, 'researchDataSharing')
+            ? !!privacySettings.researchDataSharing
+            : null;
+        const isResearchParticipant =
+          profileData.isResearchParticipant === true ||
+          recruitmentSource === 'research_participant' ||
+          researchDataSharing === true;
+
+        userData.researchParticipation = {
+          recruitmentSource,
+          researchDataSharing,
+          isResearchParticipant,
+        };
       }
       
       // Get visit summaries

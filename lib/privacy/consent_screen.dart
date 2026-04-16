@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../cors/ui_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../cors/main_navigation_scaffold.dart';
 
 class ConsentScreen extends StatefulWidget {
@@ -229,13 +230,13 @@ class _ConsentScreenState extends State<ConsentScreen> {
                     children: [
                       TextButton(
                         onPressed: () {
-                          // TODO: Open Terms of Service URL
+                          _openDocsSection('#terms');
                         },
                         child: const Text('Terms of Service'),
                       ),
                       TextButton(
                         onPressed: () {
-                          // TODO: Open Privacy Policy URL
+                          _openDocsSection('#privacy');
                         },
                         child: const Text('Privacy Policy'),
                       ),
@@ -299,6 +300,15 @@ class _ConsentScreenState extends State<ConsentScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _openDocsSection(String fragment) async {
+    final uri = Uri.parse('https://empowerhealth-dev.up.railway.app/documentation$fragment');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open documentation')),
+      );
+    }
   }
 
   Widget _buildCheckbox({

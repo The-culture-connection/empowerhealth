@@ -13,6 +13,7 @@ import {
   buildEngagementPathwayReport,
   buildHealthUnderstandingReport,
   buildSelfAdvocacyReport,
+  buildUserRecruitmentAvenuesReport,
   payloadToResult,
 } from "./reportBuilders";
 
@@ -49,6 +50,8 @@ function buildPayload(dataset: ReportDataset, params: ReportParams): ReportPaylo
       return buildCarePreparationReport(dataset, params);
     case "community_support":
       return buildCommunitySupportReport(dataset, params);
+    case "user_recruitment_avenues":
+      return buildUserRecruitmentAvenuesReport(dataset, params);
     default: {
       const _: never = params.reportType;
       throw new Error(`Unknown report: ${_}`);

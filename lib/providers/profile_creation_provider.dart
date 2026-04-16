@@ -8,6 +8,7 @@ class ProfileCreationProvider extends ChangeNotifier {
   String username = '';
   int age = 18;
   bool isPregnant = false;
+  String? recruitmentSource;
   DateTime? dueDate;
   bool isPostpartum = false;
   DateTime? deliveryDate;
@@ -80,6 +81,7 @@ class ProfileCreationProvider extends ChangeNotifier {
     String? username,
     int? age,
     bool? isPregnant,
+    String? recruitmentSource,
     DateTime? dueDate,
     bool? isPostpartum,
     DateTime? deliveryDate,
@@ -91,6 +93,7 @@ class ProfileCreationProvider extends ChangeNotifier {
   }) {
     if (username != null) this.username = username;
     if (age != null) this.age = age;
+    if (recruitmentSource != null) this.recruitmentSource = recruitmentSource;
     if (isPregnant != null) {
       this.isPregnant = isPregnant;
       if (isPregnant) {
@@ -215,6 +218,8 @@ class ProfileCreationProvider extends ChangeNotifier {
       username: username,
       age: age,
       isPregnant: isPregnant,
+      recruitmentSource: recruitmentSource,
+      isResearchParticipant: recruitmentSource == 'research_participant',
       dueDate: dueDate,
       isPostpartum: isPostpartum,
       deliveryDate: deliveryDate,

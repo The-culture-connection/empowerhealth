@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../cors/ui_theme.dart';
 import '../services/firebase_functions_service.dart';
 
@@ -307,10 +308,7 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
                         title: 'Privacy Policy',
                         subtitle: 'Read our full privacy policy',
                         onTap: () {
-                          // TODO: Open privacy policy URL
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Privacy Policy link coming soon')),
-                          );
+                          _openDocsSection('#privacy');
                         },
                         color: Colors.blue,
                       ),
@@ -320,10 +318,7 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
                         title: 'Terms of Service',
                         subtitle: 'Read our terms of service',
                         onTap: () {
-                          // TODO: Open terms URL
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Terms of Service link coming soon')),
-                          );
+                          _openDocsSection('#terms');
                         },
                         color: Colors.blue,
                       ),
@@ -416,6 +411,16 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
           : Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
       onTap: isLoading ? null : onTap,
     );
+  }
+
+  Future<void> _openDocsSection(String fragment) async {
+    final uri = Uri.parse('https://empowerhealth-dev.up.railway.app/documentation$fragment');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open documentation')),
+      );
+    }
   }
 
   Widget _buildInfoTile({

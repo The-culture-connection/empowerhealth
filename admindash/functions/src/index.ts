@@ -1912,6 +1912,7 @@ export {
   onCommunityPostCreated,
   scheduledWeeklyTodoReminders,
   scheduledTrimesterTransitionCheck,
+  scheduledBirthHospitalBasicsReminder,
 } from './pushNotifications';
 
 export { sendNotification, getNotificationLogs } from './notificationDashboard';

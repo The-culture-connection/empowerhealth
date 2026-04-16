@@ -1193,6 +1193,24 @@ class AnalyticsService {
     );
   }
 
+  Future<void> logKnowYourRightsViewed({
+    String? source,
+    String? topicId,
+    String? topicTitle,
+    UserProfile? userProfile,
+  }) async {
+    await logEvent(
+      eventName: 'know_your_rights_viewed',
+      feature: 'learning-modules',
+      parameters: {
+        if (source != null) 'source': source,
+        if (topicId != null) 'topic_id': topicId,
+        if (topicTitle != null) 'topic_title': topicTitle,
+      },
+      userProfile: userProfile,
+    );
+  }
+
   Future<void> logLearningModuleStarted({
     required String moduleId,
     String? moduleTopic,

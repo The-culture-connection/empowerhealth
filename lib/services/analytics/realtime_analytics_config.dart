@@ -45,6 +45,7 @@ abstract class InventoryEventNames {
   static const providerSelectedSuccess = 'provider_selected_success';
 
   static const learningModuleViewed = 'learning_module_viewed';
+  static const knowYourRightsViewed = 'know_your_rights_viewed';
   static const learningModuleStarted = 'learning_module_started';
   static const learningModuleCompleted = 'learning_module_completed';
   /// Learning modules use surveys (not quizzes). See `survey_context` on events.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/ai_service.dart';
+import '../../services/analytics_service.dart';
 import '../../cors/ui_theme.dart';
 import 'learning_module_detail_screen.dart';
 import 'rights_static_content.dart';
@@ -77,11 +78,23 @@ class RightsScreen extends StatefulWidget {
 class _RightsScreenState extends State<RightsScreen> {
   RightsStaticTopic? _staticDetail;
   final _ai = AIService();
+  final _analytics = AnalyticsService();
 
   static const _footer =
       'This information is meant to support understanding and communication. It does not replace medical or legal advice.';
 
+  @override
+  void initState() {
+    super.initState();
+    _analytics.logKnowYourRightsViewed(source: 'rights_screen');
+  }
+
   Future<void> _openAiTopic(_AiRightsTopic t) async {
+    _analytics.logKnowYourRightsViewed(
+      source: 'ai_topic',
+      topicId: t.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_'),
+      topicTitle: t.title,
+    );
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -232,7 +245,16 @@ class _RightsScreenState extends State<RightsScreen> {
                         icon: t.icon,
                         iconBgGradient: t.iconBgGradient,
                         iconColor: t.iconColor,
-                        onTap: () => setState(() => _staticDetail = t),
+                        onTap: () {
+                          _analytics.logKnowYourRightsViewed(
+                            source: 'static_topic',
+                            topicId: t.title
+                                .toLowerCase()
+                                .replaceAll(RegExp(r'[^a-z0-9]+'), '_'),
+                            topicTitle: t.title,
+                          );
+                          setState(() => _staticDetail = t);
+                        },
                       ),
                     )),
                 Padding(

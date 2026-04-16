@@ -380,6 +380,16 @@ const SECTIONS: FeatureSection[] = [
         implementationNotes: "Module detail screen.",
       },
       {
+        id: "lm-know_your_rights_viewed",
+        event: "know_your_rights_viewed",
+        feature: "learning-modules",
+        phase: "action",
+        behaviorMeasured: "Know Your Rights screen or topic viewed",
+        status: "tracked",
+        implementationNotes:
+          "Logged on Know Your Rights screen load plus static/AI topic opens (`source`: rights_screen | static_topic | ai_topic).",
+      },
+      {
         id: "lm-learning_module_started",
         event: "learning_module_started",
         feature: "learning-modules",

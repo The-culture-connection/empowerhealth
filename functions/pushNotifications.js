@@ -103,6 +103,17 @@ function mondayWeekKey(d) {
   return mon.toISOString().slice(0, 10);
 }
 
+/** @param {FirebaseFirestore.Timestamp|undefined} due */
+function computeWeeksPregnantFromDueDate(due) {
+  if (!due || typeof due.toDate !== "function") return null;
+  const dueDate = due.toDate();
+  const now = new Date();
+  const daysUntilDue = Math.floor((dueDate.getTime() - now.getTime()) / 86400000);
+  const weeksPregnant = 40 - Math.floor(daysUntilDue / 7);
+  if (!Number.isFinite(weeksPregnant)) return null;
+  return weeksPregnant;
+}
+
 // --- Triggers ---
 
 exports.onLearningModuleCreated = onDocumentCreated(
@@ -309,5 +320,69 @@ exports.scheduledTrimesterTransitionCheck = onSchedule(
       if (snap.size < batchSize) break;
     }
     console.log("[push] trimester check pass complete");
+  },
+);
+
+/**
+ * Weekly educational reminder for users in late pregnancy (32+ weeks).
+ * Users can disable via `users/{uid}.pushNotifications.birthHospitalBasicsReminders = false`.
+ */
+exports.scheduledBirthHospitalBasicsReminder = onSchedule(
+  {
+    schedule: "0 11 * * 1",
+    timeZone: "America/New_York",
+    region: REGION,
+    timeoutSeconds: 300,
+    memory: "512MiB",
+  },
+  async () => {
+    const weekKey = mondayWeekKey(new Date());
+    let lastDoc = null;
+    const batchSize = 200;
+    let scanned = 0;
+    let eligible = 0;
+    let notified = 0;
+
+    for (let batch = 0; batch < 100; batch++) {
+      let q = db.collection("users").orderBy(admin.firestore.FieldPath.documentId()).limit(batchSize);
+      if (lastDoc) q = q.startAfter(lastDoc);
+      const snap = await q.get();
+      if (snap.empty) break;
+
+      for (const doc of snap.docs) {
+        scanned++;
+        const data = doc.data() || {};
+        const due = data.dueDate;
+        const weeksPregnant = computeWeeksPregnantFromDueDate(due);
+        if (weeksPregnant == null || weeksPregnant < 32 || weeksPregnant > 42) continue;
+        eligible++;
+
+        const push = data.pushNotifications || {};
+        if (push.birthHospitalBasicsReminders === false) continue;
+        if (push.lastBirthHospitalBasicsWeek === weekKey) continue;
+
+        await sendToUserDevices(doc.id, {
+          title: "Birth and Hospital Basics",
+          body: "Get ready for the big day by reviewing Birth and Hospital Basics.",
+          data: {
+            type: "birth_hospital_basics_weekly",
+            weeksPregnant: String(weeksPregnant),
+          },
+        });
+        await doc.ref.update({
+          "pushNotifications.lastBirthHospitalBasicsWeek": weekKey,
+          "pushNotifications.lastBirthHospitalBasicsReminderAt": admin.firestore.FieldValue.serverTimestamp(),
+          "pushNotifications.lastBirthHospitalBasicsWeeksPregnant": weeksPregnant,
+        });
+        notified++;
+      }
+
+      lastDoc = snap.docs[snap.docs.length - 1];
+      if (snap.size < batchSize) break;
+    }
+
+    console.log(
+      `[push] birth-hospital-basics week=${weekKey} scanned=${scanned} eligible=${eligible} notified=${notified}`,
+    );
   },
 );

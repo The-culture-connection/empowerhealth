@@ -94,6 +94,10 @@ export const EVENT_DICTIONARY: Record<string, DictionaryEntry> = {
     measures: "Module detail opened",
     status: "tracked",
   },
+  know_your_rights_viewed: {
+    measures: "Know Your Rights surface or topic viewed",
+    status: "tracked",
+  },
   learning_module_started: {
     measures: "User began engaging with module content",
     status: "tracked",

@@ -145,6 +145,7 @@ export function buildHealthUnderstandingReport(dataset: ReportDataset, params: R
 
   const usersMod = M.usersWithAnyOf(ev, ["learning_module_completed"], anonymized);
   const usersAvs = M.usersWithAnyOf(ev, ["visit_summary_created"], anonymized);
+  const rightsViews = M.countByEvent(ev, "know_your_rights_viewed");
   const modUnd = M.avgModuleUnderstanding(modFb);
   const pulse = pulseOutcome(ev);
 
@@ -196,6 +197,7 @@ export function buildHealthUnderstandingReport(dataset: ReportDataset, params: R
       { key: "uniqueUsers", label: "Unique users", value: nUsers },
       { key: "learningModuleCompletedUsers", label: "Users w/ learning_module_completed", value: usersMod.size },
       { key: "visitSummaryCreatedUsers", label: "Users w/ visit_summary_created", value: usersAvs.size },
+      { key: "knowYourRightsViews", label: "know_your_rights_viewed (count)", value: rightsViews },
       { key: "moduleCompletionShare", label: "Share of users completing a module", value: M.pct(completionRate) },
       { key: "avgModuleUnderstanding", label: "Avg ModuleFeedback understanding (1–5)", value: modUnd != null ? modUnd.toFixed(2) : "n/a" },
     ],
@@ -269,6 +271,7 @@ export function buildSelfAdvocacyReport(dataset: ReportDataset, params: ReportPa
   };
 
   const journalUsers = M.usersWithAnyOf(ev, ["journal_entry_created"], anonymized);
+  const rightsViews = M.countByEvent(ev, "know_your_rights_viewed");
   const conclusions: string[] = [];
   if (avgCare != null && avgCare >= 3.5 && care.length > 0) {
     conclusions.push("Care navigation survey responses in this window skew toward better access / clarity on average.");
@@ -302,6 +305,7 @@ export function buildSelfAdvocacyReport(dataset: ReportDataset, params: ReportPa
     metricsKpis: [
       { key: "uniqueUsers", label: "Unique users (whitelisted events)", value: users.size },
       { key: "journalUsers", label: "Users w/ journal_entry_created", value: journalUsers.size },
+      { key: "knowYourRightsViews", label: "know_your_rights_viewed (count)", value: rightsViews },
       { key: "careSurveyN", label: "CareSurvey submissions", value: care.length },
       { key: "avgCareComposite", label: "Avg CareSurvey composite", value: avgCare != null ? avgCare.toFixed(2) : "n/a" },
       ...peer.extraKpis,
@@ -349,6 +353,7 @@ export function buildCareNavigationReport(dataset: ReportDataset, params: Report
   const searches = M.countByEvent(ev, "provider_search_initiated");
   const profiles = M.countByEvent(ev, "provider_profile_viewed");
   const contacts = M.countByEvent(ev, "provider_contact_clicked");
+  const rightsViews = M.countByEvent(ev, "know_your_rights_viewed");
   const posOut = out.filter((o) => o.outcome === "yes" || o.outcome === "partly").length;
   const posShare = out.length > 0 ? M.pct(M.safeRate(posOut, out.length)) : "n/a";
 
@@ -403,6 +408,7 @@ export function buildCareNavigationReport(dataset: ReportDataset, params: Report
     metricsKpis: [
       { key: "uniqueUsers", label: "Unique users", value: users.size },
       { key: "searches", label: "provider_search_initiated", value: searches },
+      { key: "knowYourRightsViews", label: "know_your_rights_viewed (count)", value: rightsViews },
       { key: "contactRate", label: "Contacts / searches", value: M.pct(contactRate) },
       { key: "profileViews", label: "provider_profile_viewed", value: profiles },
     ],
@@ -486,6 +492,7 @@ export function buildEngagementPathwayReport(dataset: ReportDataset, params: Rep
 
   const avgScreen = M.avgSecondsForEventNames(ev, ["screen_time_spent"]);
   const avgFeat = M.avgSecondsForEventNames(ev, ["feature_time_spent"]);
+  const rightsViews = M.countByEvent(ev, "know_your_rights_viewed");
 
   const conclusions: string[] = [];
   if (navRate > selfRate && navUsers.size > 0 && selfUsers.size > 0) {
@@ -516,6 +523,7 @@ export function buildEngagementPathwayReport(dataset: ReportDataset, params: Rep
       { key: "sessions_self", label: "session_started (self_directed)", value: sessionByCohort.self_directed },
       { key: "moduleRate_nav", label: "Module completion rate (navigator users)", value: M.pct(navRate) },
       { key: "moduleRate_self", label: "Module completion rate (self-directed users)", value: M.pct(selfRate) },
+      { key: "knowYourRightsViews", label: "know_your_rights_viewed (count)", value: rightsViews },
       { key: "avgScreenSec", label: "Avg screen_time_spent duration (s)", value: avgScreen != null ? avgScreen.toFixed(0) : "n/a" },
       { key: "avgFeatureSec", label: "Avg feature_time_spent duration (s)", value: avgFeat != null ? avgFeat.toFixed(0) : "n/a" },
       ...peer.extraKpis,
@@ -579,6 +587,7 @@ export function buildCarePreparationReport(dataset: ReportDataset, params: Repor
 
   const birthU = M.usersWithAnyOf(ev, ["birth_plan_completed"], anonymized);
   const learnU = M.usersWithAnyOf(ev, ["learning_module_completed"], anonymized);
+  const rightsViews = M.countByEvent(ev, "know_your_rights_viewed");
   const und = M.avgModuleUnderstanding(modFb);
 
   const conclusions: string[] = [];
@@ -605,6 +614,7 @@ export function buildCarePreparationReport(dataset: ReportDataset, params: Repor
       { key: "uniqueUsers", label: "Unique users", value: users.size },
       { key: "birthPlanUsers", label: "Users w/ birth_plan_completed", value: birthU.size },
       { key: "moduleUsers", label: "Users w/ learning_module_completed", value: learnU.size },
+      { key: "knowYourRightsViews", label: "know_your_rights_viewed (count)", value: rightsViews },
       { key: "avgModuleUnderstanding", label: "Avg ModuleFeedback understanding", value: und != null ? und.toFixed(2) : "n/a" },
     ],
     outcomeSignals: {

@@ -128,6 +128,7 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
       for (var doc in providersQuery.docs) {
         try {
           final data = doc.data() as Map<String, dynamic>;
+          if (data['directoryHidden'] == true) continue;
           final reviewCount = data['reviewCount'] as int? ?? 0;
           
           if (reviewCount > 0) {

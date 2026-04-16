@@ -194,6 +194,9 @@ class ProviderRepository {
         );
       }
 
+      allProviders =
+          await _applyDirectoryHiddenFilterToSearchResults(allProviders);
+
       return allProviders;
     } catch (e, stackTrace) {
       print('❌ [ProviderRepository] Error searching providers: $e');
@@ -1174,6 +1177,111 @@ class ProviderRepository {
     if (p.id != null && p.id!.isNotEmpty) return 'id:${p.id}';
     if (p.npi != null && p.npi!.isNotEmpty) return 'npi:${p.npi}';
     return _getProviderKey(p);
+  }
+
+  /// Removes admin-hidden directory rows from search output. Also drops Medicaid/API
+  /// rows whose NPI matches only [directoryHidden] Firestore docs (so results stay
+  /// correct even if the Cloud Function is not redeployed yet).
+  Future<List<Provider>> _applyDirectoryHiddenFilterToSearchResults(
+    List<Provider> providers,
+  ) async {
+    if (providers.isEmpty) return providers;
+
+    var out = providers.where((p) => !p.directoryHidden).toList();
+    if (out.isEmpty) return out;
+
+    final hiddenDocIds = await _firestoreProviderDocIdsThatAreHidden(
+      out.map((p) => p.id).whereType<String>().toSet(),
+    );
+    if (hiddenDocIds.isNotEmpty) {
+      out = out
+          .where((p) => p.id == null || !hiddenDocIds.contains(p.id))
+          .toList();
+    }
+
+    final npis = out
+        .map((p) => p.npi)
+        .whereType<String>()
+        .where((n) => n.isNotEmpty)
+        .toSet();
+    if (npis.isEmpty) return out;
+
+    final npiHiddenOnly = await _npisWithNoVisibleDirectoryRow(npis);
+    if (npiHiddenOnly.isEmpty) return out;
+    return out.where((p) {
+      final n = p.npi;
+      if (n == null || n.isEmpty) return true;
+      return !npiHiddenOnly.contains(n);
+    }).toList();
+  }
+
+  bool _looksLikeFirestoreProviderDocId(String id) {
+    if (id.isEmpty) return false;
+    if (id.startsWith('api_') ||
+        id.startsWith('name_') ||
+        id.startsWith('npi_')) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<Set<String>> _firestoreProviderDocIdsThatAreHidden(
+    Set<String> ids,
+  ) async {
+    final hidden = <String>{};
+    final list = ids.where(_looksLikeFirestoreProviderDocId).toList();
+    for (var i = 0; i < list.length; i += 10) {
+      final end = (i + 10 > list.length) ? list.length : i + 10;
+      final chunk = list.sublist(i, end);
+      try {
+        final snaps = await Future.wait(
+          chunk.map(
+            (id) => _firestore.collection('providers').doc(id).get(),
+          ),
+        );
+        for (var j = 0; j < chunk.length; j++) {
+          final s = snaps[j];
+          if (s.exists && s.data()?['directoryHidden'] == true) {
+            hidden.add(chunk[j]);
+          }
+        }
+      } catch (e) {
+        print('⚠️ [ProviderRepository] directoryHidden doc batch: $e');
+      }
+    }
+    return hidden;
+  }
+
+  /// NPIs for which every matching `providers` row is [directoryHidden].
+  Future<Set<String>> _npisWithNoVisibleDirectoryRow(Set<String> npis) async {
+    final hiddenOnly = <String>{};
+    final list = npis.toList();
+    for (var i = 0; i < list.length; i += 10) {
+      final end = (i + 10 > list.length) ? list.length : i + 10;
+      final chunk = list.sublist(i, end);
+      try {
+        final snap = await _firestore
+            .collection('providers')
+            .where('npi', whereIn: chunk)
+            .get();
+        final byNpi = <String, List<bool>>{};
+        for (final doc in snap.docs) {
+          final m = doc.data();
+          final n = m['npi']?.toString();
+          if (n == null || n.isEmpty) continue;
+          byNpi.putIfAbsent(n, () => []).add(m['directoryHidden'] == true);
+        }
+        for (final n in chunk) {
+          final statuses = byNpi[n];
+          if (statuses == null || statuses.isEmpty) continue;
+          final anyVisible = statuses.any((h) => !h);
+          if (!anyVisible) hiddenOnly.add(n);
+        }
+      } catch (e) {
+        print('⚠️ [ProviderRepository] directoryHidden NPI batch: $e');
+      }
+    }
+    return hiddenOnly;
   }
 
   /// Firestore `providers` collection — name / practiceName (prefix + limited scan).

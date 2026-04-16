@@ -588,6 +588,11 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && (hasAdminRole() || isAdminAny());
     }
     
+    // Search suppression for listings removed via moderation (Cloud Functions read/write only)
+    match /provider_search_blocks/{blockId} {
+      allow read, write: if false;
+    }
+    
     // User reports about provider listings — admins triage in dashboard
     // Note: createdAt often uses serverTimestamp(); do not require it in keys().hasAll.
     match /provider_reports/{reportId} {

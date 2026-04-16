@@ -3816,8 +3816,16 @@ exports.searchProviders = onCall(async (request) => {
     const bipocCount = enrichedProviders.filter(p => hasBipocTag(p)).length;
     console.log(`[searchProviders] BIPOC providers in results: ${bipocCount}`);
 
+    // 5b. Remove listings that were deleted via report moderation (blocks Firestore + API rows by id/NPI/name key)
+    const visibleProviders = await filterProvidersRemovedFromSearch(enrichedProviders);
+    if (visibleProviders.length !== enrichedProviders.length) {
+      console.log(
+        `[searchProviders] Filtered ${enrichedProviders.length - visibleProviders.length} removed/blocked listings`,
+      );
+    }
+
     // 6. Serialize providers to ensure JSON-compatible format
-    const serializedProviders = enrichedProviders.map(serializeProvider);
+    const serializedProviders = visibleProviders.map(serializeProvider);
     
     // Final summary with comprehensive debugging
     console.log(`\n[searchProviders] ==========================================`);
@@ -4373,6 +4381,114 @@ function deduplicateProviders(providers) {
   }
   
   return deduplicated;
+}
+
+/** Firestore-safe id for provider_search_blocks (doc id cannot contain `/`). */
+function blockDocIdForKey(key) {
+  let s = String(key ?? "");
+  if (s.length > 1400) s = s.slice(0, 1400);
+  return s.replace(/\//g, "__");
+}
+
+/**
+ * Keys that may appear in search results for this listing (matches deduplicateProviders + directory ids).
+ */
+function collectProviderSearchBlockKeys(obj) {
+  const keys = new Set();
+  const id = obj && (obj.id != null ? String(obj.id).trim() : "");
+  if (id) keys.add(id);
+  const npi = obj && obj.npi != null ? String(obj.npi).trim() : "";
+  if (npi) keys.add(`npi_${npi}`);
+  const name = obj && obj.name != null ? String(obj.name) : "";
+  const locs = obj && Array.isArray(obj.locations) ? obj.locations : [];
+  if (name && locs.length > 0 && !npi) {
+    const loc = locs[0] || {};
+    const city = loc.city != null ? String(loc.city) : "";
+    const zip = loc.zip != null ? String(loc.zip) : "";
+    const k = `name_${name}_${city}_${zip}`.toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    keys.add(k);
+  } else if (name && !npi && locs.length === 0) {
+    keys.add(`name_${name}`.toLowerCase().replace(/[^a-z0-9_]/g, "_"));
+  }
+  return [...keys];
+}
+
+async function fetchProviderSearchBlockHits(logicalKeys) {
+  const unique = [...new Set((logicalKeys || []).filter(Boolean))];
+  const blocked = new Set();
+  if (unique.length === 0) return blocked;
+  const db = admin.firestore();
+  const chunkSize = 10;
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const chunk = unique.slice(i, i + chunkSize);
+    const refs = chunk.map((k) =>
+      db.collection("provider_search_blocks").doc(blockDocIdForKey(k)),
+    );
+    const snaps = await db.getAll(...refs);
+    chunk.forEach((k, idx) => {
+      if (snaps[idx] && snaps[idx].exists) blocked.add(k);
+    });
+  }
+  return blocked;
+}
+
+/** Drop providers that were administratively removed from directory search. */
+async function filterProvidersRemovedFromSearch(providers) {
+  if (!providers || providers.length === 0) return providers;
+  const keysToCheck = new Set();
+  for (const p of providers) {
+    collectProviderSearchBlockKeys(p).forEach((k) => keysToCheck.add(k));
+  }
+  const blocked = await fetchProviderSearchBlockHits([...keysToCheck]);
+  return providers.filter((p) => {
+    const keys = collectProviderSearchBlockKeys(p);
+    return !keys.some((k) => blocked.has(k));
+  });
+}
+
+async function deleteStoragePrefix(prefix) {
+  if (!prefix || typeof prefix !== "string") return 0;
+  const trimmed = prefix.endsWith("/") ? prefix : `${prefix}/`;
+  try {
+    const bucket = admin.storage().bucket();
+    const [files] = await bucket.getFiles({prefix: trimmed, maxResults: 500});
+    let n = 0;
+    for (const f of files) {
+      try {
+        await f.delete();
+        n++;
+      } catch (e) {
+        console.warn(`[deleteStoragePrefix] skip delete ${f.name}:`, e.message);
+      }
+    }
+    return n;
+  } catch (e) {
+    console.warn(`[deleteStoragePrefix] list failed for ${trimmed}:`, e.message);
+    return 0;
+  }
+}
+
+async function assertAdminDashboardUser(auth) {
+  if (!auth || !auth.uid) {
+    throw new HttpsError("unauthenticated", "User must be authenticated");
+  }
+  const uid = auth.uid;
+  const email = auth.token && auth.token.email ? String(auth.token.email) : null;
+  const db = admin.firestore();
+  const snaps = await Promise.all([
+    db.doc(`ADMIN/${uid}`).get(),
+    email ? db.doc(`ADMIN/${email}`).get() : Promise.resolve({exists: false}),
+    db.doc(`RESEARCH_PARTNERS/${uid}`).get(),
+    email ? db.doc(`RESEARCH_PARTNERS/${email}`).get() : Promise.resolve({exists: false}),
+    db.doc(`COMMUNITY_MANAGERS/${uid}`).get(),
+    email ? db.doc(`COMMUNITY_MANAGERS/${email}`).get() : Promise.resolve({exists: false}),
+  ]);
+  const hasRole = snaps.some((s) => s && s.exists);
+  const legacyEmail =
+    email && (email === "osrgnoi@gmail.com" || email === "corinntaylor@gmail.com");
+  if (!hasRole && !legacyEmail) {
+    throw new HttpsError("permission-denied", "Admin dashboard access required");
+  }
 }
 
 // Helper function to serialize provider objects to JSON-compatible format
@@ -4998,6 +5114,107 @@ async function enrichProvidersWithFirestore(providers) {
 
   return enriched;
 }
+
+/**
+ * Permanently remove a directory listing after triage: delete `providers/{id}`,
+ * block future search hits (Medicaid/NPI/Firestore merge), delete Storage prefix
+ * `providers/{id}/`, and mark related reports. Callable — admin dashboard roles only.
+ */
+exports.adminRemoveProviderListing = onCall(async (request) => {
+  await assertAdminDashboardUser(request.auth);
+
+  const providerId = request.data && request.data.providerId != null
+    ? String(request.data.providerId).trim()
+    : "";
+  if (!providerId) {
+    throw new HttpsError("invalid-argument", "providerId is required");
+  }
+
+  const uid = request.auth.uid;
+
+  const db = admin.firestore();
+  const pRef = db.collection("providers").doc(providerId);
+  const pSnap = await pRef.get();
+  const pData = pSnap.exists ? pSnap.data() : {};
+
+  const keys = new Set(collectProviderSearchBlockKeys({
+    id: providerId,
+    npi: pData.npi,
+    name: pData.name,
+    locations: pData.locations,
+  }));
+  keys.add(providerId);
+
+  const batch = db.batch();
+  const ts = admin.firestore.FieldValue.serverTimestamp();
+  for (const k of keys) {
+    if (!k) continue;
+    const docId = blockDocIdForKey(k);
+    batch.set(
+      db.collection("provider_search_blocks").doc(docId),
+      {
+        logicalKey: k,
+        providerId,
+        npi: pData.npi != null ? String(pData.npi) : null,
+        removedAt: ts,
+        removedBy: uid,
+        source: "admin_remove_listing",
+      },
+      {merge: true},
+    );
+  }
+  if (pSnap.exists) {
+    batch.delete(pRef);
+  }
+  await batch.commit();
+
+  const storageFilesDeleted = await deleteStoragePrefix(`providers/${providerId}`);
+
+  const upQuery = await db
+    .collection("UserProviders")
+    .where("publishedProviderId", "==", providerId)
+    .limit(25)
+    .get();
+  const upBatch = db.batch();
+  upQuery.docs.forEach((d) => {
+    upBatch.update(d.ref, {
+      status: "removed_from_directory",
+      publishedProviderId: null,
+      mamaApproved: false,
+      updatedAt: ts,
+      moderatedAt: ts,
+      moderationDecision: "removed_from_directory",
+      ...(uid ? {moderatedBy: uid} : {}),
+    });
+  });
+  if (!upQuery.empty) await upBatch.commit();
+
+  const reportUpdate = {
+    status: "listing_removed",
+    listingRemovedAt: ts,
+    ...(uid ? {listingRemovedBy: uid} : {}),
+    updatedAt: ts,
+  };
+  const rq = await db
+    .collection("provider_reports")
+    .where("providerId", "==", providerId)
+    .limit(500)
+    .get();
+  const chunk = 400;
+  for (let i = 0; i < rq.docs.length; i += chunk) {
+    const rb = db.batch();
+    rq.docs.slice(i, i + chunk).forEach((d) => rb.update(d.ref, reportUpdate));
+    await rb.commit();
+  }
+
+  return {
+    success: true,
+    providerId,
+    blocksWritten: keys.size,
+    providerDocExisted: pSnap.exists,
+    storageFilesDeleted,
+  };
+});
 
 // Admin function to add or update a provider manually (backend only)
 // This allows admins to add providers and mark them as Mama Approved

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../constants/legal_docs_urls.dart';
 import '../cors/ui_theme.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../cors/main_navigation_scaffold.dart';
 
 class ConsentScreen extends StatefulWidget {
@@ -230,15 +230,21 @@ class _ConsentScreenState extends State<ConsentScreen> {
                     children: [
                       TextButton(
                         onPressed: () {
-                          _openDocsSection('#terms');
+                          _openDocsSection(LegalDocsFragments.terms);
                         },
                         child: const Text('Terms of Service'),
                       ),
                       TextButton(
                         onPressed: () {
-                          _openDocsSection('#privacy');
+                          _openDocsSection(LegalDocsFragments.privacy);
                         },
                         child: const Text('Privacy Policy'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          _openDocsSection(LegalDocsFragments.eula);
+                        },
+                        child: const Text('EULA'),
                       ),
                     ],
                   ),
@@ -303,8 +309,8 @@ class _ConsentScreenState extends State<ConsentScreen> {
   }
 
   Future<void> _openDocsSection(String fragment) async {
-    final uri = Uri.parse('https://empowerhealth-dev.up.railway.app/public-docs$fragment');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (!await launchLegalDocs(fragment)) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open documentation')),
       );

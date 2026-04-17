@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -1013,72 +1012,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     }
   }
 
-  Future<void> _pickPhotoAsPdf() async {
-    try {
-      final picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-      );
-      if (image == null) return;
-      final Uint8List bytes = await image.readAsBytes();
-      final file = await _imageBytesToTempPdf(bytes, image.name);
-      if (!mounted) return;
-      setState(() {
-        _selectedPDF = file;
-        _pdfFileName = 'visit_camera.pdf';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Photo saved as PDF. Tap below to analyze when ready.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not use camera: $e'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _pickGalleryPhotoAsPdf() async {
-    try {
-      final picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
-      if (image == null) return;
-      final Uint8List bytes = await image.readAsBytes();
-      final file = await _imageBytesToTempPdf(bytes, image.name);
-      if (!mounted) return;
-      setState(() {
-        _selectedPDF = file;
-        _pdfFileName = 'visit_photo.pdf';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Photo added. Tap below to analyze when ready.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not open gallery: $e'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return FeatureSessionScope(
@@ -1361,8 +1294,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                             Expanded(
                               child: _MethodPill(
                                 selected: _inputMethod == 'pdf',
-                                icon: Icons.photo_camera_outlined,
-                                label: 'Take photo',
+                                icon: Icons.upload_file_rounded,
+                                label: 'From file',
                                 useGoldWhenSelected: true,
                                 onTap: () =>
                                     setState(() => _inputMethod = 'pdf'),
@@ -1460,7 +1393,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Photo or file',
+                      'PDF or image file',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 17,
@@ -1471,7 +1404,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Camera, gallery, or PDF / image from Files',
+                      'Choose a PDF or image (JPG, PNG, HEIC, WebP) from Files',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -1481,46 +1414,22 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                       ),
                     ),
                     const SizedBox(height: 22),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _GradientActionButton(
-                            icon: Icons.photo_camera_outlined,
-                            label: 'Take photo',
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFD4A574), Color(0xFFE0B589)],
-                            ),
-                            onPressed: _pickPhotoAsPdf,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _GradientActionButton(
+                          icon: Icons.description_outlined,
+                          label: 'Choose file',
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF663399),
+                              Color(0xFF7744AA),
+                              Color(0xFF8855BB),
+                            ],
                           ),
-                          const SizedBox(width: 10),
-                          _GradientActionButton(
-                            icon: Icons.photo_library_outlined,
-                            label: 'Gallery',
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFFC9A882),
-                                Color(0xFFD4B896),
-                              ],
-                            ),
-                            onPressed: _pickGalleryPhotoAsPdf,
-                          ),
-                          const SizedBox(width: 10),
-                          _GradientActionButton(
-                            icon: Icons.description_outlined,
-                            label: 'Choose file',
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFF663399),
-                                Color(0xFF7744AA),
-                                Color(0xFF8855BB),
-                              ],
-                            ),
-                            onPressed: _pickPDF,
-                          ),
-                        ],
-                      ),
+                          onPressed: _pickPDF,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1528,7 +1437,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 14),
                 child: Text(
-                  'After-visit summaries, discharge paperwork, and provider notes work well. Remove sensitive info you do not want in the photo.',
+                  'After-visit summaries, discharge paperwork, and provider notes work well. Remove sensitive information you do not want analyzed.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,

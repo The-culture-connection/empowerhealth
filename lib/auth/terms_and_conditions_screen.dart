@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_router.dart';
+import '../constants/legal_docs_urls.dart';
 import '../cors/ui_theme.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class TermsAndConditionsScreen extends StatelessWidget {
   const TermsAndConditionsScreen({super.key});
@@ -182,14 +182,22 @@ class TermsAndConditionsScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
+                    runSpacing: 4,
                     children: [
                       TextButton(
-                        onPressed: () => _openDocsSection(context, '#privacy'),
+                        onPressed: () =>
+                            _openDocsSection(context, LegalDocsFragments.privacy),
                         child: const Text('Privacy Policy'),
                       ),
                       TextButton(
-                        onPressed: () => _openDocsSection(context, '#terms'),
-                        child: const Text('Web Terms & EULA'),
+                        onPressed: () =>
+                            _openDocsSection(context, LegalDocsFragments.terms),
+                        child: const Text('Terms of Service'),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            _openDocsSection(context, LegalDocsFragments.eula),
+                        child: const Text('EULA'),
                       ),
                     ],
                   ),
@@ -287,8 +295,8 @@ class TermsAndConditionsScreen extends StatelessWidget {
   }
 
   Future<void> _openDocsSection(BuildContext context, String fragment) async {
-    final uri = Uri.parse('https://empowerhealth-dev.up.railway.app/public-docs$fragment');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (!await launchLegalDocs(fragment)) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open documentation')),
       );

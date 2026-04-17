@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/legal_docs_urls.dart';
 import '../cors/ui_theme.dart';
 
 /// Plain-language privacy explainer for After-Visit Support (uploads & summaries).
@@ -78,6 +79,28 @@ class AfterVisitPrivacyScreen extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                TextButton(
+                  onPressed: () =>
+                      _launchLegalDocForPrivacyScreen(context, LegalDocsFragments.privacy),
+                  child: const Text('Privacy Policy'),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      _launchLegalDocForPrivacyScreen(context, LegalDocsFragments.terms),
+                  child: const Text('Terms of Service'),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      _launchLegalDocForPrivacyScreen(context, LegalDocsFragments.eula),
+                  child: const Text('EULA'),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -141,6 +164,15 @@ class AfterVisitPrivacyScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+Future<void> _launchLegalDocForPrivacyScreen(BuildContext context, String fragment) async {
+  if (!await launchLegalDocs(fragment)) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open documentation')),
     );
   }
 }

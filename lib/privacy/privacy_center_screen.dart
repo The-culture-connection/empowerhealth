@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../constants/legal_docs_urls.dart';
 import '../cors/ui_theme.dart';
 import '../services/firebase_functions_service.dart';
 
@@ -308,7 +308,7 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
                         title: 'Privacy Policy',
                         subtitle: 'Read our full privacy policy',
                         onTap: () {
-                          _openDocsSection('#privacy');
+                          _openDocsSection(LegalDocsFragments.privacy);
                         },
                         color: Colors.blue,
                       ),
@@ -318,7 +318,17 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
                         title: 'Terms of Service',
                         subtitle: 'Read our terms of service',
                         onTap: () {
-                          _openDocsSection('#terms');
+                          _openDocsSection(LegalDocsFragments.terms);
+                        },
+                        color: Colors.blue,
+                      ),
+                      const Divider(),
+                      _buildActionTile(
+                        icon: Icons.article_outlined,
+                        title: 'EULA',
+                        subtitle: 'Read the end-user license agreement',
+                        onTap: () {
+                          _openDocsSection(LegalDocsFragments.eula);
                         },
                         color: Colors.blue,
                       ),
@@ -414,8 +424,7 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
   }
 
   Future<void> _openDocsSection(String fragment) async {
-    final uri = Uri.parse('https://empowerhealth-dev.up.railway.app/public-docs$fragment');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (!await launchLegalDocs(fragment)) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open documentation')),

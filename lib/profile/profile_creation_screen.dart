@@ -8,6 +8,7 @@ import '../services/database_service.dart';
 import '../services/firebase_functions_service.dart';
 import '../privacy/consent_screen.dart';
 import '../cors/ui_theme.dart';
+import 'research/research_onboarding_screen.dart';
 import 'steps/basic_info_step.dart';
 import 'steps/demographics_step.dart';
 import 'steps/health_info_step.dart';
@@ -68,7 +69,19 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       if (mounted) {
         // Start async module generation in background
         _generateModulesAsync(profile);
-        
+
+        if (profile.isResearchParticipant) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute<void>(
+              builder: (context) => ResearchOnboardingScreen(
+                profile: profile,
+                userId: userId,
+              ),
+            ),
+          );
+          return;
+        }
+
         // Check if user has given consent
         final hasConsent = await _databaseService.userHasConsent(userId);
         

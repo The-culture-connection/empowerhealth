@@ -46,6 +46,7 @@ export async function getResearchDashboardSummary(params: {
   specVersion: string;
   dateRange: { start: string; end: string };
   participantCount: number;
+  baselineCount?: number;
   microMeasureCount: number;
   needsChecklistCount: number;
   navigationOutcomeCount: number;
@@ -69,6 +70,7 @@ export async function getResearchDashboardSummary(params: {
     specVersion: string;
     dateRange: { start: string; end: string };
     participantCount: number;
+    baselineCount?: number;
     microMeasureCount: number;
     needsChecklistCount: number;
     navigationOutcomeCount: number;

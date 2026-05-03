@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_profile.dart';
@@ -11,50 +9,7 @@ class ResearchFirestoreService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  String _newStudyId() {
-    final t = DateTime.now().toUtc().millisecondsSinceEpoch;
-    final r = Random().nextInt(1 << 20).toRadixString(16);
-    return 'EH$t$r';
-  }
-
-  int _recruitmentSourceCode(String? source) {
-    switch (source) {
-      case 'research_participant':
-        return 1;
-      case 'clinic_partner':
-      case 'clinic':
-        return 2;
-      case 'community':
-        return 3;
-      case 'social':
-      case 'social_media':
-        return 4;
-      case 'referral':
-        return 5;
-      case 'search':
-        return 6;
-      case 'other':
-        return 6;
-      default:
-        return 7;
-    }
-  }
-
-  int _insuranceTypeCode(String raw) {
-    final s = raw.toLowerCase();
-    if (s.contains('medicaid')) return 1;
-    if (s.contains('medicare')) return 2;
-    if (s.contains('private') || s.contains('employer')) return 3;
-    if (s.isEmpty) return 4;
-    return 4;
-  }
-
-  int _ppStatus(UserProfile p) {
-    if (p.isPostpartum) return 2;
-    return 1;
-  }
-
-  /// Ensures `users/{uid}.studyId` exists for enrolled research participants.
+  /// Returns `users/{uid}.studyId` when Phase 1 research onboarding has completed (server-issued ID).
   Future<String?> ensureStudyId(UserProfile? profile) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || profile == null) return null;
@@ -64,59 +19,16 @@ class ResearchFirestoreService {
     final snap = await ref.get();
     final existing = snap.data()?['studyId'] as String?;
     if (existing != null && existing.isNotEmpty) return existing;
-
-    final studyId = _newStudyId();
-    await ref.set({'studyId': studyId, 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
-    return studyId;
+    return null;
   }
 
+  /// Initial participant + baseline rows are created by Cloud Functions during research onboarding.
+  /// Micro-measures and other instruments still use direct Firestore writes keyed by [studyId].
   Future<void> syncParticipantAndBaseline({
     required String studyId,
     required UserProfile profile,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final recruitmentPathway = profile.hasPrimaryProvider ? 1 : 2;
-    final recruitmentSource = _recruitmentSourceCode(profile.recruitmentSource);
-    final recordedAt = FieldValue.serverTimestamp();
-
-    final participant = {
-      'study_id': studyId,
-      'research_participant': 1,
-      'recruitment_source': recruitmentSource,
-      'recruitment_source_other': null,
-      'recruitment_pathway': recruitmentPathway,
-      'recorded_at': recordedAt,
-    };
-
-    await _db.collection('research_participants').doc(studyId).set(participant, SetOptions(merge: true));
-
-    final baseline = {
-      'study_id': studyId,
-      'recruitment_pathway': recruitmentPathway,
-      'age_years': profile.age,
-      'age_group': _ageGroup(profile.age),
-      'pp_status': _ppStatus(profile),
-      'gest_week': null,
-      'postpartum_month': profile.isPostpartum ? profile.childAgeMonths : null,
-      'insurance_type': _insuranceTypeCode(profile.insuranceType),
-      'insurance_other': null,
-      'support_person_nav': profile.hasSupportPerson ? 1 : 0,
-      'baseline_advocacy_conf': null,
-      'baseline_ts': recordedAt,
-      'recorded_at': recordedAt,
-    };
-
-    await _db.collection('research_baseline').doc(studyId).set(baseline, SetOptions(merge: true));
-  }
-
-  String _ageGroup(int age) {
-    if (age < 18) return 'under_18';
-    if (age <= 24) return '18_24';
-    if (age <= 34) return '25_34';
-    if (age <= 44) return '35_44';
-    return '45_plus';
+    // No-op: avoids client-authored baseline that bypasses server validation and skip logic.
   }
 
   Future<void> recordMicroMeasure({

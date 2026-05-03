@@ -18,6 +18,9 @@ class ProfileCreationProvider extends ChangeNotifier {
   String state = 'OH'; // Default to Ohio
   String insuranceType = '';
 
+  /// Opt-in on Basic Information (step 1); drives `UserProfile.isResearchParticipant`.
+  bool enrollInResearchStudy = false;
+
   // Demographics
   String? raceEthnicity;
   String? languagePreference;
@@ -76,6 +79,11 @@ class ProfileCreationProvider extends ChangeNotifier {
     }
   }
 
+  void updateEnrollInResearchStudy(bool value) {
+    enrollInResearchStudy = value;
+    notifyListeners();
+  }
+
   // Update methods
   void updateBasicInfo({
     String? username,
@@ -106,7 +114,7 @@ class ProfileCreationProvider extends ChangeNotifier {
       this.dueDate = dueDate;
       // Auto-update pregnancy stage when due date changes
       if (isPregnant ?? this.isPregnant) {
-        this.pregnancyStage = _calculateTrimester(dueDate);
+        pregnancyStage = _calculateTrimester(dueDate);
       }
     }
     if (isPostpartum != null) {
@@ -219,7 +227,7 @@ class ProfileCreationProvider extends ChangeNotifier {
       age: age,
       isPregnant: isPregnant,
       recruitmentSource: recruitmentSource,
-      isResearchParticipant: recruitmentSource == 'research_participant',
+      isResearchParticipant: enrollInResearchStudy,
       dueDate: dueDate,
       isPostpartum: isPostpartum,
       deliveryDate: deliveryDate,
@@ -257,6 +265,8 @@ class ProfileCreationProvider extends ChangeNotifier {
     _currentStep = 0;
     username = '';
     age = 18;
+    enrollInResearchStudy = false;
+    recruitmentSource = null;
     isPregnant = false;
     dueDate = null;
     isPostpartum = false;

@@ -53,6 +53,22 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               ),
               const SizedBox(height: AppTheme.spacingXL),
 
+              _buildSectionHeader('Research study (optional)'),
+              const SizedBox(height: AppTheme.spacingM),
+              SwitchListTile.adaptive(
+                value: provider.enrollInResearchStudy,
+                onChanged: provider.updateEnrollInResearchStudy,
+                title: const Text('Join the EmpowerHealth Watch research study'),
+                subtitle: const Text(
+                  'If you turn this on, after saving your profile you will complete a short '
+                  'research enrollment (study ID and baseline survey). Your name and email are '
+                  'not stored in the research dataset.',
+                ),
+                activeThumbColor: AppTheme.brandPurple,
+                contentPadding: EdgeInsets.zero,
+              ),
+              const SizedBox(height: AppTheme.spacingXL),
+
               // Recruitment source
               _buildSectionHeader('How did you hear about EmpowerHealth Watch?'),
               const SizedBox(height: AppTheme.spacingM),
@@ -87,10 +103,6 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                   DropdownMenuItem(
                     value: 'event',
                     child: Text('Event'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'research_participant',
-                    child: Text('Research Participant'),
                   ),
                   DropdownMenuItem(
                     value: 'other',

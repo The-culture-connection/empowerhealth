@@ -12,6 +12,34 @@ export const CODE_YES_NO = { yes: 1, no: 0 } as const;
 /** Pregnancy / postpartum status */
 export const CODE_PP_STATUS = { pregnant: 1, postpartum: 2 } as const;
 
+/** Age group for baseline export (numeric codes; REDCap-aligned). */
+export const CODE_AGE_GROUP = {
+  under_18: 1,
+  age_18_24: 2,
+  age_25_34: 3,
+  age_35_44: 4,
+  age_45_plus: 5,
+} as const;
+
+export function deriveAgeGroupCode(ageYears: number): number {
+  if (!Number.isFinite(ageYears) || ageYears < 0) return 5;
+  if (ageYears < 18) return CODE_AGE_GROUP.under_18;
+  if (ageYears <= 24) return CODE_AGE_GROUP.age_18_24;
+  if (ageYears <= 34) return CODE_AGE_GROUP.age_25_34;
+  if (ageYears <= 44) return CODE_AGE_GROUP.age_35_44;
+  return CODE_AGE_GROUP.age_45_plus;
+}
+
+/** Insurance type for baseline (numeric). */
+export const INSURANCE_TYPE_CODES = {
+  medicaid: 1,
+  medicare: 2,
+  private_commercial: 3,
+  uninsured_self_pay: 4,
+  other: 5,
+  unknown_declined: 6,
+} as const;
+
 /**
  * Recruitment source (1–7). Labels are illustrative until PDF text is synced verbatim.
  */

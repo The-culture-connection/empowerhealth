@@ -1906,6 +1906,13 @@ async function performHealthChecks(): Promise<Record<string, any>> {
 
 export { exportResearchDataset, getResearchDashboardSummary } from './research/researchExport';
 
+export {
+  createResearchParticipant,
+  deriveAgeGroup,
+  submitBaselineResearchData,
+  validateResearchBaseline,
+} from './research/researchIdentity';
+
 export { onAnalyticsEventCreated } from './analyticsAggregation';
 
 export {

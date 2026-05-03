@@ -63,7 +63,9 @@ export function ResearchDashboard() {
       if (res.files) {
         const stamp = new Date().toISOString().slice(0, 10);
         for (const [name, csv] of Object.entries(res.files)) {
-          downloadTextFile(`research_${name}_${stamp}.csv`, csv, "text/csv;charset=utf-8");
+          if (name === "baseline") continue;
+          const fileStem = name === "baseline_export" ? "baseline_export" : `research_${name}`;
+          downloadTextFile(`${fileStem}_${stamp}.csv`, csv, "text/csv;charset=utf-8");
         }
       }
     } catch (e: unknown) {
@@ -85,8 +87,17 @@ export function ResearchDashboard() {
         studyId: studyId.trim() || undefined,
         recruitmentPathway: pathway === "" ? undefined : (Number(pathway) as 1 | 2),
       });
-      const body = JSON.stringify(res.data ?? {}, null, 2);
-      downloadTextFile(`research_export_${new Date().toISOString().slice(0, 10)}.json`, body, "application/json");
+      const stamp = new Date().toISOString().slice(0, 10);
+      const bundle = res.data ?? {};
+      const baselineRows = bundle.baseline_export ?? bundle.baseline;
+      if (Array.isArray(baselineRows)) {
+        downloadTextFile(
+          `baseline_export_${stamp}.json`,
+          JSON.stringify(baselineRows, null, 2),
+          "application/json;charset=utf-8",
+        );
+      }
+      downloadTextFile(`research_export_${stamp}.json`, JSON.stringify(bundle, null, 2), "application/json;charset=utf-8");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Export failed");
     } finally {
@@ -213,6 +224,7 @@ export function ResearchDashboard() {
         ) : summary ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <Kpi label="Participants (rows)" value={summary.participantCount} />
+            <Kpi label="Baseline (rows)" value={summary.baselineCount ?? 0} />
             <Kpi label="Micro-measure rows" value={summary.microMeasureCount} />
             <Kpi label="Needs checklists" value={summary.needsChecklistCount} />
             <Kpi label="Navigation outcomes" value={summary.navigationOutcomeCount} />

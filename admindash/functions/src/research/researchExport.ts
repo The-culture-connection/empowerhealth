@@ -125,6 +125,9 @@ export const exportResearchDataset = functions.https.onCall(
       for (const inst of instruments) {
         data[inst.id] = await queryInstrumentRows(inst.collection, inst.columns, start, end, filters);
       }
+      if (data.baseline) {
+        data.baseline_export = data.baseline;
+      }
       await db.collection('audit_logs').add({
         action: 'research_export',
         format: 'json',
@@ -139,6 +142,9 @@ export const exportResearchDataset = functions.https.onCall(
     for (const inst of instruments) {
       const rows = await queryInstrumentRows(inst.collection, inst.columns, start, end, filters);
       files[inst.id] = buildCsv(inst.columns, rows);
+    }
+    if (files.baseline) {
+      files.baseline_export = files.baseline;
     }
     await db.collection('audit_logs').add({
       action: 'research_export',
@@ -170,6 +176,13 @@ export const getResearchDashboardSummary = functions.https.onCall(
 
     const participantCountSnap = await db
       .collection('research_participants')
+      .where('recorded_at', '>=', start)
+      .where('recorded_at', '<=', end)
+      .count()
+      .get();
+
+    const baselineCountSnap = await db
+      .collection('research_baseline')
       .where('recorded_at', '>=', start)
       .where('recorded_at', '<=', end)
       .count()
@@ -239,6 +252,7 @@ export const getResearchDashboardSummary = functions.https.onCall(
       specVersion: RESEARCH_SPEC_VERSION,
       dateRange: { start: dateRange.start.toISOString(), end: dateRange.end.toISOString() },
       participantCount: participantCountSnap.data().count,
+      baselineCount: baselineCountSnap.data().count,
       microMeasureCount: microCountSnap.data().count,
       needsChecklistCount: needsCountSnap.data().count,
       navigationOutcomeCount: navCountSnap.data().count,

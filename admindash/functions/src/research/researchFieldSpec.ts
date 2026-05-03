@@ -74,6 +74,22 @@ export const NAVIGATION_OUTCOME_CODES = {
   couldnt_access: 6,
 } as const;
 
+/**
+ * Longitudinal milestone window codes (Phase 5). Stored as integer `milestone_type` on
+ * `research_milestone_prompts` (callable-only writes).
+ */
+export const MILESTONE_TYPE_CODES = {
+  late_pregnancy_34_plus: 1,
+  third_trimester_28_33: 2,
+  postpartum_months_0_3: 3,
+  postpartum_months_4_6: 4,
+  postpartum_months_7_plus: 5,
+  general: 9,
+} as const;
+
+/** Allowed `milestone_type` values for `submitMilestoneCheckIn`. */
+export const MILESTONE_TYPE_ALLOWED = new Set<number>(Object.values(MILESTONE_TYPE_CODES));
+
 /** research_participants/{study_id} export (no Firebase UID) */
 export const PARTICIPANT_EXPORT_COLUMNS = [
   'study_id',

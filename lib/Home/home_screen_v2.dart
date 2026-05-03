@@ -13,6 +13,8 @@ import '../utils/pregnancy_utils.dart';
 import 'learning_todo_widget.dart';
 import 'Learning Modules/learning_module_detail_screen.dart';
 import '../widgets/ai_disclaimer_banner.dart';
+import '../models/user_profile.dart';
+import 'widgets/home_milestone_bell.dart';
 
 class HomeScreenV2 extends StatefulWidget {
   const HomeScreenV2({super.key});
@@ -25,7 +27,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
   final DatabaseService _databaseService = DatabaseService();
   final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  dynamic _userProfile;
+  UserProfile? _userProfile;
 
   @override
   void initState() {
@@ -147,73 +149,81 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Greeting (NewUI Home.tsx)
+                  // Greeting (NewUI Home.tsx) + research milestone bell
                   Padding(
                     padding: const EdgeInsets.only(bottom: 32),
-                    child: Column(
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Welcome, Mama 🤍',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w400,
-                            height: 1.3,
-                            letterSpacing: -0.32,
-                            color: Color(0xFF2D2235),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "You're supported every step of the way.",
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w300,
-                            height: 1.5,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        InkWell(
-                          onTap: () {
-                            Navigator.pushNamed(context, Routes.providers);
-                          },
-                          borderRadius: BorderRadius.circular(28),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: AppTheme.surfaceCard,
-                              borderRadius: BorderRadius.circular(28),
-                              border: Border.all(
-                                color: const Color(0xFFE8DFE8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Welcome, Mama 🤍',
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.3,
+                                  letterSpacing: -0.32,
+                                  color: Color(0xFF2D2235),
+                                ),
                               ),
-                              boxShadow: AppTheme.shadowSoft(),
-                            ),
-                            child: TextField(
-                              enabled: false,
-                              style: const TextStyle(
-                                color: Color(0xFF2D2733),
-                                fontWeight: FontWeight.w300,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'Find trusted providers near you',
-                                hintStyle: TextStyle(
-                                  color: const Color(0xFFB5A8C2),
+                              const SizedBox(height: 8),
+                              Text(
+                                "You're supported every step of the way.",
+                                style: TextStyle(
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w300,
-                                ),
-                                prefixIcon: const Icon(
-                                  Icons.search,
-                                  color: Color(0xFF9D8FB5),
-                                  size: 20,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 16,
+                                  height: 1.5,
+                                  color: AppTheme.textMuted,
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 24),
+                              InkWell(
+                                onTap: () {
+                                  Navigator.pushNamed(context, Routes.providers);
+                                },
+                                borderRadius: BorderRadius.circular(28),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.surfaceCard,
+                                    borderRadius: BorderRadius.circular(28),
+                                    border: Border.all(
+                                      color: const Color(0xFFE8DFE8),
+                                    ),
+                                    boxShadow: AppTheme.shadowSoft(),
+                                  ),
+                                  child: TextField(
+                                    enabled: false,
+                                    style: const TextStyle(
+                                      color: Color(0xFF2D2733),
+                                      fontWeight: FontWeight.w300,
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: 'Find trusted providers near you',
+                                      hintStyle: TextStyle(
+                                        color: const Color(0xFFB5A8C2),
+                                        fontWeight: FontWeight.w300,
+                                      ),
+                                      prefixIcon: const Icon(
+                                        Icons.search,
+                                        color: Color(0xFF9D8FB5),
+                                        size: 20,
+                                      ),
+                                      border: InputBorder.none,
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        HomeMilestoneBell(profile: _userProfile),
                       ],
                     ),
                   ),

@@ -1923,6 +1923,13 @@ export {
   validateNavigationOutcome,
 } from './research/researchNavigationOutcome';
 
+export {
+  getMilestoneTrackerSummary,
+  scheduleMilestonePrompt,
+  submitMilestoneCheckIn,
+  validateMilestoneCheckIn,
+} from './research/researchMilestone';
+
 export { onAnalyticsEventCreated } from './analyticsAggregation';
 
 export {

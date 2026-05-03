@@ -20,6 +20,7 @@ import '../models/care_navigation_outcome.dart';
 import '../utils/pregnancy_utils.dart';
 import 'analytics/realtime_analytics_service.dart';
 import 'research/research_firestore_service.dart';
+import 'research/research_milestone_service.dart';
 
 /// Queued analytics event
 class _QueuedEvent {
@@ -1101,6 +1102,7 @@ class AnalyticsService {
   /// Save milestone checkin to specialized collection
   Future<void> saveMilestoneCheckin({
     String? phase,
+    int? milestoneType,
     bool? hadHealthQuestion,
     bool? feltClearOnNextStep,
     bool? appHelpedTakeNextStep,
@@ -1151,14 +1153,18 @@ class AnalyticsService {
       if (userProfile != null && userProfile.isResearchParticipant) {
         final rs = ResearchFirestoreService.instance;
         final sid = await rs.ensureStudyId(userProfile);
-        if (sid != null) {
+        if (sid != null &&
+            hadHealthQuestion != null &&
+            feltClearOnNextStep != null &&
+            appHelpedTakeNextStep != null) {
           await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
-          await rs.recordMilestoneCheckin(
+          final mt = milestoneType ?? ResearchMilestoneService.milestoneTypeFromLegacyPhase(phase);
+          await ResearchMilestoneService.instance.submitMilestoneCheckIn(
             studyId: sid,
-            phase: phase,
-            hadHealthQuestion: hadHealthQuestion,
-            feltClearOnNextStep: feltClearOnNextStep,
-            appHelpedTakeNextStep: appHelpedTakeNextStep,
+            milestoneType: mt,
+            milestoneHealthQuestion: hadHealthQuestion,
+            milestoneClearNextStep: feltClearOnNextStep,
+            milestoneAppHelpedNextStep: appHelpedTakeNextStep,
           );
         }
       }
@@ -1922,6 +1928,7 @@ class AnalyticsService {
 
   Future<void> logMilestoneCheckinSubmitted({
     String? phase,
+    int? milestoneType,
     bool? hadHealthQuestion,
     bool? feltClearOnNextStep,
     bool? appHelpedTakeNextStep,
@@ -1930,6 +1937,7 @@ class AnalyticsService {
     // Save to specialized milestone_checkins collection
     await saveMilestoneCheckin(
       phase: phase,
+      milestoneType: milestoneType,
       hadHealthQuestion: hadHealthQuestion,
       feltClearOnNextStep: feltClearOnNextStep,
       appHelpedTakeNextStep: appHelpedTakeNextStep,

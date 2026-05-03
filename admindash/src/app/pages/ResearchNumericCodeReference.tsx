@@ -7,6 +7,7 @@ import {
   LIKERT_MAX,
   LIKERT_MIN,
   NAVIGATION_OUTCOME_CODES,
+  MILESTONE_TYPE_CODES,
   RECRUITMENT_PATHWAY_CODES,
   RECRUITMENT_SOURCE_CODES,
 } from "@research/researchFieldSpec";
@@ -91,6 +92,13 @@ export function ResearchNumericCodeReference() {
     { code: "0", meaning: "Need not selected on the linked needs checklist (N/A for that column)" },
     ...navRows,
   ];
+
+  const milestoneTypeRows = (
+    Object.entries(MILESTONE_TYPE_CODES) as [keyof typeof MILESTONE_TYPE_CODES, number][]
+  ).map(([key, val]) => ({
+    code: String(val),
+    meaning: key.replace(/_/g, " "),
+  }));
 
   const yesNoRows = [
     { code: String(CODE_YES_NO.yes), meaning: "Yes / endorsed / present" },
@@ -240,10 +248,21 @@ export function ResearchNumericCodeReference() {
 
         <section>
           <h3 className="text-base font-semibold mb-2" style={{ color: "var(--warm-800)" }}>
-            Milestone prompts
+            Milestone prompts — <code className="font-mono text-sm">milestone_type</code> (
+            <code className="font-mono text-sm">research_milestone_prompts</code>)
           </h3>
           <p className="text-sm mb-2" style={{ color: "var(--warm-600)" }}>
-            Yes/no milestone fields use the same yes/no codes:
+            Longitudinal window code (integer). <code className="font-mono text-xs">scheduleMilestonePrompt</code> derives a suggested type from{" "}
+            <code className="font-mono text-xs">research_baseline</code> (gestational week or postpartum month). Rows are written only by{" "}
+            <code className="font-mono text-xs">submitMilestoneCheckIn</code>. <strong>9</strong> = general / legacy mapping when no specific window
+            applies.
+          </p>
+          <CodeTable rows={milestoneTypeRows} />
+          <p className="text-sm mt-4 mb-2" style={{ color: "var(--warm-600)" }}>
+            <code className="font-mono text-sm">milestone_health_question</code>,{" "}
+            <code className="font-mono text-sm">milestone_clear_next_step</code>,{" "}
+            <code className="font-mono text-sm">milestone_app_helped_next_step</code> — required <strong>0</strong> / <strong>1</strong>. Canonical{" "}
+            <code className="font-mono text-xs">milestone_ts</code> / <code className="font-mono text-xs">recorded_at</code> are server timestamps.
           </p>
           <CodeTable rows={yesNoRows} />
         </section>

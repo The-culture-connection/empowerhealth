@@ -52,30 +52,6 @@ class ResearchFirestoreService {
     );
   }
 
-  int? _boolNum(bool? v) {
-    if (v == null) return null;
-    return v ? 1 : 0;
-  }
-
-  Future<void> recordMilestoneCheckin({
-    required String studyId,
-    String? phase,
-    bool? hadHealthQuestion,
-    bool? feltClearOnNextStep,
-    bool? appHelpedTakeNextStep,
-  }) async {
-    final recordedAt = FieldValue.serverTimestamp();
-    await _db.collection('research_milestone_prompts').add({
-      'study_id': studyId,
-      'milestone_health_question': _boolNum(hadHealthQuestion),
-      'milestone_clear_next_step': _boolNum(feltClearOnNextStep),
-      'milestone_app_helped_next_step': _boolNum(appHelpedTakeNextStep),
-      'milestone_type': phase ?? 'checkin',
-      'milestone_ts': recordedAt,
-      'recorded_at': recordedAt,
-    });
-  }
-
   Future<void> recordAppActivity({
     required String studyId,
     required String activityType,

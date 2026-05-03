@@ -1,10 +1,13 @@
 /**
  * Callable wrappers for research export + dashboard summary.
  */
+import type { ResearchInstrumentId } from '@research/researchFieldSpec';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase/firebase';
 
 export type ResearchExportFormat = 'csv' | 'json';
+
+export type { ResearchInstrumentId };
 
 export interface ResearchDateRange {
   start: Date;
@@ -16,6 +19,8 @@ export async function exportResearchDataset(params: {
   dateRange: ResearchDateRange;
   studyId?: string;
   recruitmentPathway?: 1 | 2;
+  /** When set, only these instruments are queried (see `exportResearchDataset` Cloud Function). */
+  instruments?: ResearchInstrumentId[];
 }): Promise<{
   specVersion: string;
   format: ResearchExportFormat;
@@ -31,6 +36,7 @@ export async function exportResearchDataset(params: {
     },
     studyId: params.studyId || undefined,
     recruitmentPathway: params.recruitmentPathway,
+    instruments: params.instruments?.length ? params.instruments : undefined,
   });
   return result.data as {
     specVersion: string;

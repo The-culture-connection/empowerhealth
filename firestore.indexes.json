@@ -47,6 +47,62 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "research_micro_measures",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "study_id", "order": "ASCENDING" },
+        { "fieldPath": "recorded_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "research_needs_checklists",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "study_id", "order": "ASCENDING" },
+        { "fieldPath": "recorded_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "research_navigation_outcomes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "study_id", "order": "ASCENDING" },
+        { "fieldPath": "recorded_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "research_milestone_prompts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "study_id", "order": "ASCENDING" },
+        { "fieldPath": "recorded_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "research_app_activity",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "study_id", "order": "ASCENDING" },
+        { "fieldPath": "recorded_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "research_baseline",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "recruitment_pathway", "order": "ASCENDING" },
+        { "fieldPath": "recorded_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "research_participants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "recruitment_pathway", "order": "ASCENDING" },
+        { "fieldPath": "recorded_at", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

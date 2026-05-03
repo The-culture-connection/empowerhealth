@@ -281,7 +281,7 @@ class UserProfile {
       birthPreference: birthPreference ?? this.birthPreference,
       interestedInBreastfeeding: interestedInBreastfeeding ?? this.interestedInBreastfeeding,
       healthLiteracyGoals: healthLiteracyGoals ?? this.healthLiteracyGoals,
-      createdAt: createdAt,
+      createdAt: this.createdAt,
       updatedAt: DateTime.now(),
     );
   }

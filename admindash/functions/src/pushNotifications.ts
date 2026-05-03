@@ -464,7 +464,7 @@ export const scheduledBirthHospitalBasicsReminder = onSchedule(
           recipientUserIds: [uid],
           deliveredCount: r.sent,
           failureCount: r.failures,
-          metadata: { weekKey, weeksPregnant },
+          metadata: { weekKey, weeksPregnant: String(weeksPregnant) },
         });
         notified++;
       }

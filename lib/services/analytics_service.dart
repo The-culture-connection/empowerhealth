@@ -19,6 +19,7 @@ import '../models/milestone_checkin.dart';
 import '../models/care_navigation_outcome.dart';
 import '../utils/pregnancy_utils.dart';
 import 'analytics/realtime_analytics_service.dart';
+import 'research/research_firestore_service.dart';
 
 /// Queued analytics event
 class _QueuedEvent {
@@ -1000,6 +1001,21 @@ class AnalyticsService {
         userProfile: userProfile,
       );
 
+      if (userProfile != null && userProfile.isResearchParticipant) {
+        final rs = ResearchFirestoreService.instance;
+        final sid = await rs.ensureStudyId(userProfile);
+        if (sid != null) {
+          await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+          await rs.recordMicroMeasure(
+            studyId: sid,
+            understand: understandMeaningScore,
+            nextStep: knowNextStepScore,
+            confidence: confidenceScore,
+            contentId: sourceId,
+          );
+        }
+      }
+
       print('✅ Analytics: Micro measure saved');
     } catch (e) {
       print('⚠️ Analytics: Error saving micro measure: $e');
@@ -1112,6 +1128,21 @@ class AnalyticsService {
         userProfile: userProfile,
       );
 
+      if (userProfile != null && userProfile.isResearchParticipant) {
+        final rs = ResearchFirestoreService.instance;
+        final sid = await rs.ensureStudyId(userProfile);
+        if (sid != null) {
+          await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+          await rs.recordMilestoneCheckin(
+            studyId: sid,
+            phase: phase,
+            hadHealthQuestion: hadHealthQuestion,
+            feltClearOnNextStep: feltClearOnNextStep,
+            appHelpedTakeNextStep: appHelpedTakeNextStep,
+          );
+        }
+      }
+
       print('✅ Analytics: Milestone checkin saved');
     } catch (e) {
       print('⚠️ Analytics: Error saving milestone checkin: $e');
@@ -1168,6 +1199,19 @@ class AnalyticsService {
         },
         userProfile: userProfile,
       );
+
+      if (userProfile != null && userProfile.isResearchParticipant) {
+        final rs = ResearchFirestoreService.instance;
+        final sid = await rs.ensureStudyId(userProfile);
+        if (sid != null) {
+          await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+          await rs.recordNavigationOutcomeRow(
+            studyId: sid,
+            needType: needType,
+            outcome: outcome,
+          );
+        }
+      }
 
       print('✅ Analytics: Care navigation outcome saved');
     } catch (e) {
@@ -1245,6 +1289,19 @@ class AnalyticsService {
       },
       userProfile: userProfile,
     );
+
+    if (userProfile != null && userProfile.isResearchParticipant) {
+      final rs = ResearchFirestoreService.instance;
+      final sid = await rs.ensureStudyId(userProfile);
+      if (sid != null) {
+        await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+        await rs.recordAppActivity(
+          studyId: sid,
+          activityType: 'module_completed',
+          extra: {'module_id': moduleId},
+        );
+      }
+    }
   }
 
   Future<void> logLearningModuleVideoPlayed({
@@ -1312,6 +1369,22 @@ class AnalyticsService {
       },
       userProfile: userProfile,
     );
+
+    if (userProfile != null && userProfile.isResearchParticipant) {
+      final rs = ResearchFirestoreService.instance;
+      final sid = await rs.ensureStudyId(userProfile);
+      if (sid != null) {
+        await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+        await rs.recordAppActivity(
+          studyId: sid,
+          activityType: 'avs_upload',
+          extra: {
+            'summary_id': summaryId,
+            'avs_upload_type': appointmentType ?? 'unknown',
+          },
+        );
+      }
+    }
   }
 
   Future<void> logVisitSummaryViewed({
@@ -1589,6 +1662,22 @@ class AnalyticsService {
       },
       userProfile: userProfile,
     );
+
+    if (userProfile != null && userProfile.isResearchParticipant) {
+      final rs = ResearchFirestoreService.instance;
+      final sid = await rs.ensureStudyId(userProfile);
+      if (sid != null) {
+        await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+        await rs.recordAppActivity(
+          studyId: sid,
+          activityType: 'provider_review_submitted',
+          extra: {
+            'provider_id': providerId,
+            'provider_review_action': 'submitted',
+          },
+        );
+      }
+    }
   }
 
   Future<void> logProviderListingReportSubmitted({

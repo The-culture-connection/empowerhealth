@@ -8,6 +8,7 @@ import { UsersAndRoles } from "./pages/UsersAndRoles";
 import { Analytics } from "./pages/Analytics";
 import { AnalyticsInfo } from "./pages/AnalyticsInfo";
 import { Reports } from "./pages/Reports";
+import { ResearchDashboard } from "./pages/ResearchDashboard";
 import { PublicDocs } from "./pages/PublicDocs";
 import { Notifications } from "./pages/Notifications";
 import { ModerationHub } from "./pages/ModerationHub";
@@ -92,6 +93,14 @@ export const router = createBrowserRouter([
             <Reports />
           </RoleRoute>
         )
+      },
+      {
+        path: "research",
+        element: (
+          <RoleRoute allowedRoles={['admin', 'research_partner']}>
+            <ResearchDashboard />
+          </RoleRoute>
+        ),
       },
       {
         path: "notifications",

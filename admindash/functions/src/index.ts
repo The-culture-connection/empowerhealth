@@ -1904,6 +1904,8 @@ async function performHealthChecks(): Promise<Record<string, any>> {
   return checks;
 }
 
+export { exportResearchDataset, getResearchDashboardSummary } from './research/researchExport';
+
 export { onAnalyticsEventCreated } from './analyticsAggregation';
 
 export {

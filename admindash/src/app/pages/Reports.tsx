@@ -1,5 +1,6 @@
 import { FileText, Download, Loader2, Calendar } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   generateReport,
@@ -143,6 +144,14 @@ export function Reports() {
           </h1>
           <p style={{ color: "var(--warm-400)" }}>
             Generate and export research reports on platform impact and usage
+          </p>
+          <p className="mt-3 text-sm rounded-xl border px-4 py-3" style={{ borderColor: "var(--lavender-200)", color: "var(--warm-600)" }}>
+            For <strong>REDCap-aligned</strong>, fixed-column research datasets keyed by <code>study_id</code>, use the{" "}
+            <Link to="/research" className="underline font-medium" style={{ color: "var(--eh-primary)" }}>
+              Research
+            </Link>{" "}
+            page (structured exports). This Reports area stays for holistic PDF-style narratives built from{" "}
+            <code>analytics_events</code> plus surveys.
           </p>
         </div>
 

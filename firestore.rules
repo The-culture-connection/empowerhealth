@@ -72,6 +72,18 @@ service cloud.firestore {
       return isAdmin() || isAdminByEmail();
     }
     
+    // Research dataset (REDCap-oriented): admins + research partners only (not community managers by role alone)
+    function canReadResearchCollections() {
+      return isAdmin() || isAdminByEmail() || isResearchPartner();
+    }
+    
+    function signedInUserStudyIdMatches(studyId) {
+      return isAuthenticated() &&
+        studyId is string &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studyId == studyId;
+    }
+    
     // ============================================
     // ADMIN DASHBOARD COLLECTIONS
     // ============================================
@@ -329,6 +341,43 @@ service cloud.firestore {
         // No updates or deletes - surveys are append-only
         allow update, delete: if false;
       }
+    }
+    
+    // Research collections (structured exports; study_id keyed; no Firebase UID in exports — see Cloud Functions)
+    match /research_participants/{studyId} {
+      allow read: if canReadResearchCollections();
+      allow create, update: if signedInUserStudyIdMatches(studyId) && request.resource.data.study_id == studyId;
+      allow delete: if false;
+    }
+    match /research_baseline/{studyId} {
+      allow read: if canReadResearchCollections();
+      allow create, update: if signedInUserStudyIdMatches(studyId) && request.resource.data.study_id == studyId;
+      allow delete: if false;
+    }
+    match /research_micro_measures/{docId} {
+      allow read: if canReadResearchCollections();
+      allow create: if signedInUserStudyIdMatches(request.resource.data.study_id);
+      allow update, delete: if false;
+    }
+    match /research_needs_checklists/{docId} {
+      allow read: if canReadResearchCollections();
+      allow create: if signedInUserStudyIdMatches(request.resource.data.study_id);
+      allow update, delete: if false;
+    }
+    match /research_navigation_outcomes/{docId} {
+      allow read: if canReadResearchCollections();
+      allow create: if signedInUserStudyIdMatches(request.resource.data.study_id);
+      allow update, delete: if false;
+    }
+    match /research_milestone_prompts/{docId} {
+      allow read: if canReadResearchCollections();
+      allow create: if signedInUserStudyIdMatches(request.resource.data.study_id);
+      allow update, delete: if false;
+    }
+    match /research_app_activity/{docId} {
+      allow read: if canReadResearchCollections();
+      allow create: if signedInUserStudyIdMatches(request.resource.data.study_id);
+      allow update, delete: if false;
     }
     
     // Audit logs - only admins can read

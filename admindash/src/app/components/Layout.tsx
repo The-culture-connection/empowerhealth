@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Navigate } from "react-router";
-import { FileText, Code2, Users, BarChart3, FileBarChart, Shield, LogOut } from "lucide-react";
+import { FileText, Code2, Users, BarChart3, FileBarChart, Shield, LogOut, ClipboardList } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
 export function Layout() {
@@ -34,6 +34,7 @@ export function Layout() {
     { to: "/technology", label: "Technology Overview", icon: Code2 },
     { to: "/users-roles", label: "Users & Roles", icon: Users },
     { to: "/reports", label: "Reports", icon: FileBarChart },
+    { to: "/research", label: "Research", icon: ClipboardList },
     { to: "/moderation", label: "Moderation and Communication", icon: Shield },
   ];
 
@@ -61,6 +62,8 @@ export function Layout() {
               // Role-based navigation filtering
               if (item.to === '/users-roles' && !isAdmin()) return false;
               if (item.to === '/reports' && !userProfile?.role) return false;
+              if (item.to === '/research' && userProfile?.role !== 'admin' && userProfile?.role !== 'research_partner')
+                return false;
               if (item.to === '/notifications' && !isAdmin() && userProfile?.role !== 'community_manager') return false;
               return true;
             })

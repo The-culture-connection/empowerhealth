@@ -1220,19 +1220,6 @@ class AnalyticsService {
         userProfile: userProfile,
       );
 
-      if (userProfile != null && userProfile.isResearchParticipant) {
-        final rs = ResearchFirestoreService.instance;
-        final sid = await rs.ensureStudyId(userProfile);
-        if (sid != null) {
-          await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
-          await rs.recordNavigationOutcomeRow(
-            studyId: sid,
-            needType: needType,
-            outcome: outcome,
-          );
-        }
-      }
-
       print('✅ Analytics: Care navigation outcome saved');
     } catch (e) {
       print('⚠️ Analytics: Error saving care navigation outcome: $e');

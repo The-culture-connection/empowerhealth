@@ -30,7 +30,8 @@ class ResearchNeedsChecklistService {
   }
 
   /// All nine need_* fields are sent as `0` or `1`. [otherText] required when `other` is in [selectedCareNeedIds].
-  Future<void> submitNeedsChecklist({
+  /// Returns Firestore document id for `research_needs_checklists/{event_id}` when the callable succeeds.
+  Future<String?> submitNeedsChecklist({
     required String studyId,
     required List<String> selectedCareNeedIds,
     String? otherText,
@@ -55,6 +56,8 @@ class ResearchNeedsChecklistService {
     }
 
     final callable = _fn.httpsCallable('submitNeedsChecklist');
-    await callable.call(payload);
+    final res = await callable.call(payload);
+    final data = Map<String, dynamic>.from(res.data as Map);
+    return data['event_id'] as String?;
   }
 }

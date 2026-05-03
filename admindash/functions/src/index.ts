@@ -1917,6 +1917,12 @@ export { submitMicroMeasure, validateMicroMeasure } from './research/researchMic
 
 export { submitNeedsChecklist, validateNeedsChecklist } from './research/researchNeedsChecklist';
 
+export {
+  linkOutcomeToNeedsEvent,
+  submitNavigationOutcome,
+  validateNavigationOutcome,
+} from './research/researchNavigationOutcome';
+
 export { onAnalyticsEventCreated } from './analyticsAggregation';
 
 export {

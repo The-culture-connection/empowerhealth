@@ -87,6 +87,11 @@ export function ResearchNumericCodeReference() {
     meaning: key.replace(/_/g, " "),
   }));
 
+  const navigationOutcomeExportRows = [
+    { code: "0", meaning: "Need not selected on the linked needs checklist (N/A for that column)" },
+    ...navRows,
+  ];
+
   const yesNoRows = [
     { code: String(CODE_YES_NO.yes), meaning: "Yes / endorsed / present" },
     { code: String(CODE_YES_NO.no), meaning: "No / not endorsed / absent" },
@@ -166,8 +171,8 @@ export function ResearchNumericCodeReference() {
             Baseline — <code className="font-mono text-sm">support_person_nav</code>
           </h3>
           <p className="text-sm mb-2" style={{ color: "var(--warm-600)" }}>
-            Same scale as navigation outcome fields in <code className="font-mono">research_navigation_outcomes</code>{" "}
-            exports.
+            Integer <strong>1</strong>–<strong>6</strong> only (same labels as the per-need access codes below, without the export-only{" "}
+            <strong>0</strong> sentinel).
           </p>
           <CodeTable rows={navRows} />
         </section>
@@ -217,6 +222,20 @@ export function ResearchNumericCodeReference() {
             <code className="font-mono text-xs">recorded_at</code> are server timestamps.
           </p>
           <CodeTable rows={yesNoRows} />
+        </section>
+
+        <section>
+          <h3 className="text-base font-semibold mb-2" style={{ color: "var(--warm-800)" }}>
+            Navigation outcomes — <code className="font-mono text-sm">need_*_outcome</code> (
+            <code className="font-mono text-sm">research_navigation_outcomes</code>)
+          </h3>
+          <p className="text-sm mb-2" style={{ color: "var(--warm-600)" }}>
+            One row per completed care access flow, linked by <code className="font-mono text-xs">needs_event_id</code>. Rows are written only by the{" "}
+            <code className="font-mono text-xs">submitNavigationOutcome</code> callable. For each need column: <strong>0</strong> when that need was not
+            selected on the linked checklist; <strong>1</strong>–<strong>6</strong> when it was selected (care access answers). Canonical{" "}
+            <code className="font-mono text-xs">outcome_ts</code> / <code className="font-mono text-xs">recorded_at</code> are server timestamps.
+          </p>
+          <CodeTable rows={navigationOutcomeExportRows} />
         </section>
 
         <section>

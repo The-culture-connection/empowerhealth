@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../cors/ui_theme.dart';
+import '../research/navigation_outcome_prompt.dart';
 import '../research/needs_checklist_screen.dart';
 import '../services/database_service.dart';
 import '../services/research/research_firestore_service.dart';
+import '../services/research/research_navigation_outcome_service.dart';
 import '../services/research/research_needs_checklist_service.dart';
 import '../widgets/feature_session_scope.dart';
 
@@ -22,6 +24,9 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
   Map<String, String> _accessResponseTimestamps = {};
   int _currentNeedIndex = 0;
   String? _gotWhatNeeded;
+  /// Set when a research participant leaves the needs step (Phase 3 row); used for Phase 4 outcome submit.
+  String? _needsChecklistEventId;
+  bool _submittingNeedsChecklist = false;
 
   final DatabaseService _databaseService = DatabaseService();
   final TextEditingController _otherNeedDetailController = TextEditingController();
@@ -115,18 +120,21 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         final profile = await _databaseService.getUserProfile(userId);
         if (profile != null && profile.isResearchParticipant) {
           final sid = await ResearchFirestoreService.instance.ensureStudyId(profile);
-          if (sid != null) {
-            await ResearchNeedsChecklistService.instance.submitNeedsChecklist(
+          final needsId = _needsChecklistEventId;
+          final accessComplete =
+              _selectedNeeds.every((id) => (_accessResponses[id] ?? '').isNotEmpty);
+          if (sid != null && needsId != null && _selectedNeeds.isNotEmpty && accessComplete) {
+            final payload = ResearchNavigationOutcomeService.buildOutcomePayload(
               studyId: sid,
+              needsEventId: needsId,
               selectedCareNeedIds: List<String>.from(_selectedNeeds),
-              otherText: _selectedNeeds.contains('other')
-                  ? _otherNeedDetailController.text.trim()
-                  : null,
+              accessResponsesByCareId: Map<String, String>.from(_accessResponses),
             );
+            await ResearchNavigationOutcomeService.instance.submitNavigationOutcome(payload);
           }
         }
       } catch (e) {
-        print('⚠️ [CareSurvey] Research needs checklist: $e');
+        print('⚠️ [CareSurvey] Research navigation outcome: $e');
       }
 
       print('✅ [CareSurvey] Survey results saved to Firestore');
@@ -143,7 +151,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
     }
   }
 
-  void _handleNeedsContinue() {
+  Future<void> _handleNeedsContinue() async {
     if (_selectedNeeds.contains('other') && _otherNeedDetailController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -154,18 +162,61 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
       return;
     }
     if (_selectedNeeds.isEmpty) {
-      Future<void> go() async {
-        await _saveSurveyResults();
-        if (mounted) setState(() => _step = 'complete');
-      }
+      setState(() => _needsChecklistEventId = null);
+      await _saveSurveyResults();
+      if (mounted) setState(() => _step = 'complete');
+      return;
+    }
 
-      go();
-    } else {
+    setState(() => _submittingNeedsChecklist = true);
+    try {
+      String? eventId;
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final profile = await _databaseService.getUserProfile(userId);
+        if (profile != null && profile.isResearchParticipant) {
+          final sid = await ResearchFirestoreService.instance.ensureStudyId(profile);
+          if (sid != null) {
+            eventId = await ResearchNeedsChecklistService.instance.submitNeedsChecklist(
+              studyId: sid,
+              selectedCareNeedIds: List<String>.from(_selectedNeeds),
+              otherText: _selectedNeeds.contains('other')
+                  ? _otherNeedDetailController.text.trim()
+                  : null,
+            );
+          }
+        }
+      }
+      if (!mounted) return;
       setState(() {
+        _submittingNeedsChecklist = false;
+        _needsChecklistEventId = eventId;
         _step = 'access';
         _currentNeedIndex = 0;
+        _accessResponses = {};
+        _accessResponseTimestamps = {};
       });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _submittingNeedsChecklist = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not continue: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+  }
+
+  void _leaveAccessStepBackToNeeds() {
+    setState(() {
+      _step = 'needs';
+      _needsChecklistEventId = null;
+      _accessResponses.clear();
+      _accessResponseTimestamps.clear();
+      _currentNeedIndex = 0;
+    });
   }
 
   @override
@@ -210,7 +261,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
                         if (_currentNeedIndex > 0) {
                           setState(() => _currentNeedIndex--);
                         } else {
-                          setState(() => _step = 'needs');
+                          _leaveAccessStepBackToNeeds();
                         }
                       } else {
                         Navigator.pop(context);
@@ -244,6 +295,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
                   otherDetailController: _otherNeedDetailController,
                   onBack: () => setState(() => _step = 'intro'),
                   onContinue: _handleNeedsContinue,
+                  isContinueBusy: _submittingNeedsChecklist,
                 ),
 
               // Access Response Step
@@ -421,150 +473,19 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
       orElse: () => {'id': '', 'label': ''},
     )['label'] ?? '';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Step Badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppTheme.borderLight.withOpacity(0.4),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: Color(0xFFD4A574),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Question ${_currentNeedIndex + 1} of ${_selectedNeeds.length}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Title
-        Text(
-          currentNeedLabel,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w400,
-            color: AppTheme.textPrimary,
-            height: 1.3,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Did you get what you needed?',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Progress Bar
-        Container(
-          height: 6,
-          decoration: BoxDecoration(
-            color: AppTheme.borderLight,
-            borderRadius: BorderRadius.circular(3),
-          ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: (_currentNeedIndex + 1) / _selectedNeeds.length,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.brandPurple,
-                    Color(0xFFD4A574),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Access Options
-        Column(
-          children: _accessOptions.map((option) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: InkWell(
-                onTap: () => _handleAccessResponse(option['value']!),
-                borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceCard,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: AppTheme.shadowSoft(opacity: 0.08, blur: 20, y: 5),
-                    border: Border.all(
-                      color: AppTheme.borderLight.withOpacity(0.4),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    option['label']!,
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.45,
-                      fontWeight: FontWeight.w300,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 24),
-
-        // Back Button
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: () {
-              if (_currentNeedIndex > 0) {
-                setState(() => _currentNeedIndex--);
-              } else {
-                setState(() => _step = 'needs');
-              }
-            },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.textMuted,
-              side: BorderSide(color: AppTheme.borderLight.withOpacity(0.4)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-            child: const Text('Back'),
-          ),
-        ),
-      ],
+    return NavigationOutcomePrompt(
+      currentIndex: _currentNeedIndex,
+      totalNeeds: _selectedNeeds.length,
+      needLabel: currentNeedLabel,
+      accessOptions: _accessOptions,
+      onSelectOption: (v) => _handleAccessResponse(v),
+      onBack: () {
+        if (_currentNeedIndex > 0) {
+          setState(() => _currentNeedIndex--);
+        } else {
+          _leaveAccessStepBackToNeeds();
+        }
+      },
     );
   }
 

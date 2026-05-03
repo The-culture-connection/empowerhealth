@@ -133,6 +133,7 @@ export const NEEDS_CHECKLIST_EXPORT_COLUMNS = [
 /** research_navigation_outcomes export */
 export const NAVIGATION_OUTCOMES_EXPORT_COLUMNS = [
   'study_id',
+  'needs_event_id',
   'need_prenatal_postpartum_outcome',
   'need_delivery_prep_outcome',
   'need_med_followup_outcome',
@@ -142,7 +143,7 @@ export const NAVIGATION_OUTCOMES_EXPORT_COLUMNS = [
   'need_benefits_outcome',
   'need_transport_outcome',
   'need_other_outcome',
-  'navigation_ts',
+  'outcome_ts',
   'recorded_at',
 ] as const;
 

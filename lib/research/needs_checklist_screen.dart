@@ -24,13 +24,15 @@ class NeedsChecklistScreen extends StatelessWidget {
     required this.otherDetailController,
     required this.onBack,
     required this.onContinue,
+    this.isContinueBusy = false,
   });
 
   final List<String> selectedNeedIds;
   final void Function(String needId) onToggleNeed;
   final TextEditingController otherDetailController;
   final VoidCallback onBack;
-  final VoidCallback onContinue;
+  final Future<void> Function() onContinue;
+  final bool isContinueBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +205,11 @@ class NeedsChecklistScreen extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
-                onPressed: onContinue,
+                onPressed: isContinueBusy
+                    ? null
+                    : () async {
+                        await onContinue();
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.brandPurple,
                   foregroundColor: AppTheme.brandWhite,
@@ -214,9 +220,18 @@ class NeedsChecklistScreen extends StatelessWidget {
                   ),
                   elevation: 0,
                 ),
-                child: Text(
-                  selectedNeedIds.isEmpty ? 'Skip to finish' : 'Continue',
-                ),
+                child: isContinueBusy
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.brandWhite,
+                        ),
+                      )
+                    : Text(
+                        selectedNeedIds.isEmpty ? 'Skip to finish' : 'Continue',
+                      ),
               ),
             ),
           ],

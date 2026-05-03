@@ -134,6 +134,9 @@ export const exportResearchDataset = functions.https.onCall(
       if (data.needs_checklist) {
         data.needs_checklist_export = data.needs_checklist;
       }
+      if (data.navigation_outcomes) {
+        data.navigation_outcomes_export = data.navigation_outcomes;
+      }
       await db.collection('audit_logs').add({
         action: 'research_export',
         format: 'json',
@@ -157,6 +160,9 @@ export const exportResearchDataset = functions.https.onCall(
     }
     if (files.needs_checklist) {
       files.needs_checklist_export = files.needs_checklist;
+    }
+    if (files.navigation_outcomes) {
+      files.navigation_outcomes_export = files.navigation_outcomes;
     }
     await db.collection('audit_logs').add({
       action: 'research_export',

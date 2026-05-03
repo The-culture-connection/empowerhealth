@@ -366,8 +366,8 @@ service cloud.firestore {
     }
     match /research_navigation_outcomes/{docId} {
       allow read: if canReadResearchCollections();
-      allow create: if signedInUserStudyIdMatches(request.resource.data.study_id);
-      allow update, delete: if false;
+      // Writes only via Cloud Functions (submitNavigationOutcome).
+      allow create, update, delete: if false;
     }
     match /research_milestone_prompts/{docId} {
       allow read: if canReadResearchCollections();

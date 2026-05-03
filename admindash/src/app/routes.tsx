@@ -25,20 +25,24 @@ export const router = createBrowserRouter([
     Component: Login,
   },
   {
+    path: "/public-docs",
+    element: <PublicDocs />,
+  },
+  {
     path: "/",
     Component: Layout,
     children: [
-      { 
-        index: true, 
-        element: (
-          <RoleRoute allowedRoles={['admin', 'research_partner', 'community_manager']}>
-            <Analytics />
-          </RoleRoute>
-        )
+      {
+        index: true,
+        element: <Navigate to="/documentation" replace />,
       },
       {
         path: "analytics",
-        element: <Navigate to="/" replace />,
+        element: (
+          <RoleRoute allowedRoles={["admin", "research_partner", "community_manager"]}>
+            <Analytics />
+          </RoleRoute>
+        ),
       },
       { 
         path: "documentation", 
@@ -47,10 +51,6 @@ export const router = createBrowserRouter([
             <Documentation />
           </RoleRoute>
         )
-      },
-      {
-        path: "public-docs",
-        element: <PublicDocs />,
       },
       {
         path: "technology",

@@ -126,9 +126,9 @@ service cloud.firestore {
       allow read: if isAuthenticated();
     }
     
-    // Admin documents - all authenticated users can read, only admins can write
+    // Admin documents — public read for legal/support docs (PublicDocs page, no auth); only admins can write
     match /admin_documents/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if docId in ['privacy_policy', 'terms_of_service', 'contact_support'] || isAuthenticated();
       allow write: if isAdminAny();
       
       match /history/{historyId} {

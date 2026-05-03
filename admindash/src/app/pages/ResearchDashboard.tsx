@@ -7,6 +7,7 @@ import {
 } from "../../lib/researchApi";
 import { RESEARCH_SPEC_VERSION } from "@research/researchFieldSpec";
 import { ClipboardList, Download, Loader2, RefreshCw } from "lucide-react";
+import { ResearchNumericCodeReference } from "./ResearchNumericCodeReference";
 
 type PathwayFilter = "" | "1" | "2";
 
@@ -128,6 +129,8 @@ export function ResearchDashboard() {
           Refresh
         </button>
       </div>
+
+      <ResearchNumericCodeReference />
 
       <section className="rounded-2xl border p-6 space-y-4" style={{ borderColor: "var(--lavender-200)", backgroundColor: "var(--eh-surface)" }}>
         <h2 className="text-lg font-medium" style={{ color: "var(--warm-700)" }}>

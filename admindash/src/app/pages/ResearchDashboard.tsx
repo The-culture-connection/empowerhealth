@@ -4,11 +4,15 @@ import {
   downloadTextFile,
   exportResearchDataset,
   getResearchDashboardSummary,
+  recomputeResearchSummaries,
   type ResearchInstrumentId,
 } from "../../lib/researchApi";
-import { RESEARCH_INSTRUMENTS, RESEARCH_SPEC_VERSION } from "@research/researchFieldSpec";
-import { ClipboardList, Download, Loader2, RefreshCw } from "lucide-react";
+import { RESEARCH_INSTRUMENTS } from "@research/researchFieldSpec";
+import { Download, Loader2 } from "lucide-react";
 import { ResearchNumericCodeReference } from "./ResearchNumericCodeReference";
+import { CohortComparisonPanel } from "./CohortComparisonPanel";
+import { ResearchDashboardHome } from "./ResearchDashboardHome";
+import { ResearchSummaryCards } from "./ResearchSummaryCards";
 
 type PathwayFilter = "" | "1" | "2";
 
@@ -30,6 +34,7 @@ export function ResearchDashboard() {
   const [error, setError] = useState("");
   /** Which export action is running, e.g. `baseline-csv` or `all-json`. */
   const [exportingKey, setExportingKey] = useState<string | null>(null);
+  const [recomputeBusy, setRecomputeBusy] = useState(false);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -56,6 +61,21 @@ export function ResearchDashboard() {
     studyId: studyId.trim() || undefined,
     recruitmentPathway: pathway === "" ? undefined : (Number(pathway) as 1 | 2),
   });
+
+  async function handleRecomputeSummaries() {
+    setRecomputeBusy(true);
+    setError("");
+    try {
+      const u = auth.currentUser;
+      if (u) await u.getIdToken(true);
+      await recomputeResearchSummaries({ dateRange: range, rebuildGlobal: true });
+      await loadSummary();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Recompute failed");
+    } finally {
+      setRecomputeBusy(false);
+    }
+  }
 
   async function handleExportInstrumentCsv(id: ResearchInstrumentId) {
     const key = `${id}-csv`;
@@ -229,27 +249,7 @@ export function ResearchDashboard() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2" style={{ color: "var(--eh-primary)" }}>
-            <ClipboardList className="w-8 h-8" />
-            Research dataset
-          </h1>
-          <p className="mt-2 text-sm" style={{ color: "var(--warm-600)" }}>
-            Structured exports keyed by <code>study_id</code> (spec {RESEARCH_SPEC_VERSION}). Product analytics remain on
-            the Analytics page.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void loadSummary()}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm"
-          style={{ borderColor: "var(--lavender-200)", color: "var(--warm-600)" }}
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
-      </div>
+      <ResearchDashboardHome onRefresh={() => void loadSummary()} />
 
       <ResearchNumericCodeReference />
 
@@ -426,60 +426,15 @@ export function ResearchDashboard() {
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
       ) : null}
 
-      <section className="rounded-2xl border p-6" style={{ borderColor: "var(--lavender-200)", backgroundColor: "white" }}>
-        <h2 className="text-lg font-medium mb-4" style={{ color: "var(--warm-700)" }}>
-          Summary (same window as exports)
-        </h2>
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm" style={{ color: "var(--warm-500)" }}>
-            <Loader2 className="w-5 h-5 animate-spin" />
-            Loading…
-          </div>
-        ) : summary ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            <Kpi label="Participants (rows)" value={summary.participantCount} />
-            <Kpi label="Baseline (rows)" value={summary.baselineCount ?? 0} />
-            <Kpi label="Micro-measure rows" value={summary.microMeasureCount} />
-            <Kpi label="Needs checklists" value={summary.needsChecklistCount} />
-            <Kpi label="Navigation outcomes" value={summary.navigationOutcomeCount} />
-            <Kpi label="Milestone prompts" value={summary.milestonePromptCount} />
-            <Kpi label="App activity rows" value={summary.appActivityCount} />
-            <div className="col-span-full mt-4 p-4 rounded-xl" style={{ backgroundColor: "var(--lavender-50)" }}>
-              <div className="font-medium mb-2" style={{ color: "var(--warm-700)" }}>
-                Micro averages (sample up to 500)
-              </div>
-              <div className="grid grid-cols-3 gap-2" style={{ color: "var(--warm-600)" }}>
-                <span>Understand: {fmt(summary.microAverages.micro_understand)}</span>
-                <span>Next step: {fmt(summary.microAverages.micro_next_step)}</span>
-                <span>Confidence: {fmt(summary.microAverages.micro_confidence)}</span>
-              </div>
-              <div className="text-xs mt-1" style={{ color: "var(--warm-500)" }}>
-                n = {summary.microAverages.sampleSize}
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </section>
+      <ResearchSummaryCards
+        summary={summary}
+        loading={loading}
+        onRecompute={() => void handleRecomputeSummaries()}
+        recomputeBusy={recomputeBusy}
+      />
+      <CohortComparisonPanel cohort={summary?.cohortComparison} />
     </div>
   );
-}
-
-function Kpi({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border p-4" style={{ borderColor: "var(--lavender-100)" }}>
-      <div className="text-xs uppercase tracking-wide" style={{ color: "var(--warm-500)" }}>
-        {label}
-      </div>
-      <div className="text-2xl font-semibold mt-1" style={{ color: "var(--eh-primary)" }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function fmt(v: number | null): string {
-  if (v == null || Number.isNaN(v)) return "—";
-  return v.toFixed(2);
 }
 
 const INSTRUMENT_LABELS: Record<ResearchInstrumentId, string> = {

@@ -1937,6 +1937,17 @@ export {
   recordProviderReviewActivity,
 } from './research/researchAppActivity';
 
+export { recomputeResearchSummaries } from './research/researchSummaryRecompute';
+
+export {
+  onResearchActivityCreated,
+  onResearchMicroMeasureCreated,
+  onResearchNeedsChecklistCreated,
+  onResearchOutcomeCreated,
+  onResearchMilestonePromptCreated,
+  onResearchParticipantCreated,
+} from './research/researchSummaryTriggers';
+
 export { onAnalyticsEventCreated } from './analyticsAggregation';
 
 export {

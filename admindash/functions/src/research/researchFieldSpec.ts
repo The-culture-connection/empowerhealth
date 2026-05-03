@@ -4,7 +4,7 @@
  * and Admindashboardrenovation/Todos.md. Update when the PDF changes.
  */
 
-export const RESEARCH_SPEC_VERSION = '1.1.0';
+export const RESEARCH_SPEC_VERSION = '1.2.0';
 
 /** Yes/No for binary fields in research exports */
 export const CODE_YES_NO = { yes: 1, no: 0 } as const;

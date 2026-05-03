@@ -370,6 +370,23 @@ service cloud.firestore {
       // Writes only via Cloud Functions (recordModuleCompletion, recordProviderReviewActivity, etc.).
       allow create, update, delete: if false;
     }
+
+    match /research_summary_global/{docId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_summary_by_study/{studyId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_summary_by_day/{dayKey} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_summary_by_pathway/{pathwayId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
     
     // Audit logs - only admins can read
     match /audit_logs/{logId} {

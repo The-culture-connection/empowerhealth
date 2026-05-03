@@ -9,6 +9,13 @@ import {
   rowToCsvLine,
   type ResearchInstrumentId,
 } from './researchFieldSpec';
+import {
+  aggregateResearchSummaryFromDays,
+  averagesFromSummaryData,
+  milestoneResponseRate,
+  moduleCompletionRate,
+  navigationSuccessRate,
+} from './researchSummaryCore';
 
 const db = admin.firestore();
 
@@ -21,7 +28,7 @@ function parseDateRange(raw: unknown): { start: Date; end: Date } | undefined {
   return { start, end };
 }
 
-async function canExportResearch(uid: string): Promise<boolean> {
+export async function canExportResearch(uid: string): Promise<boolean> {
   const adminDoc = await db.collection('ADMIN').doc(uid).get();
   if (adminDoc.exists) return true;
   const rp = await db.collection('RESEARCH_PARTNERS').doc(uid).get();
@@ -204,15 +211,76 @@ export const getResearchDashboardSummary = functions.https.onCall(
     }
     const { start, end } = tsRange(dateRange);
 
-    const participantCountSnap = await db
-      .collection('research_participants')
+    const baselineCountSnap = await db
+      .collection('research_baseline')
       .where('recorded_at', '>=', start)
       .where('recorded_at', '<=', end)
       .count()
       .get();
 
-    const baselineCountSnap = await db
-      .collection('research_baseline')
+    const [aggregated, pw1, pw2] = await Promise.all([
+      aggregateResearchSummaryFromDays(start, end),
+      db.collection('research_summary_by_pathway').doc('1').get(),
+      db.collection('research_summary_by_pathway').doc('2').get(),
+    ]);
+
+    const pathwaySlice = (data?: Record<string, unknown> | undefined) => {
+      if (!data) return null;
+      const av = averagesFromSummaryData(data);
+      return {
+        participant_count: Number(data.participant_count) || 0,
+        micro_measure_count: Number(data.micro_measure_count) || 0,
+        average_micro_understand: av.average_micro_understand,
+        average_micro_next_step: av.average_micro_next_step,
+        average_micro_confidence: av.average_micro_confidence,
+        navigation_success_rate: navigationSuccessRate(data),
+        module_completion_rate: moduleCompletionRate(data),
+        milestone_response_rate: milestoneResponseRate(data),
+        provider_review_count: Number(data.provider_review_count) || 0,
+        avs_upload_count: Number(data.avs_upload_count) || 0,
+        needs_frequency_by_category: (data.needs_frequency as Record<string, number>) || {},
+      };
+    };
+
+    const cohortComparison = {
+      navigator_supported: pathwaySlice(pw1.data() as Record<string, unknown> | undefined),
+      self_directed: pathwaySlice(pw2.data() as Record<string, unknown> | undefined),
+    };
+
+    const merged = aggregated.merged as Record<string, unknown>;
+    if (aggregated.daysWithData > 0) {
+      const av = averagesFromSummaryData(merged);
+      const microN = Number(merged.micro_measure_count) || 0;
+      return {
+        specVersion: RESEARCH_SPEC_VERSION,
+        dateRange: { start: dateRange.start.toISOString(), end: dateRange.end.toISOString() },
+        summarySource: 'layer' as const,
+        summaryDaysWithData: aggregated.daysWithData,
+        participantCount: Number(merged.participant_count) || 0,
+        baselineCount: baselineCountSnap.data().count,
+        microMeasureCount: Number(merged.micro_measure_count) || 0,
+        needsChecklistCount: Number(merged.needs_checklist_count) || 0,
+        navigationOutcomeCount: Number(merged.navigation_outcome_count) || 0,
+        milestonePromptCount: Number(merged.milestone_prompt_count) || 0,
+        appActivityCount: Number(merged.app_activity_count) || 0,
+        microAverages: {
+          micro_understand: av.average_micro_understand,
+          micro_next_step: av.average_micro_next_step,
+          micro_confidence: av.average_micro_confidence,
+          sampleSize: microN,
+        },
+        navigationSuccessRate: navigationSuccessRate(merged),
+        moduleCompletionRate: moduleCompletionRate(merged),
+        milestoneResponseRate: milestoneResponseRate(merged),
+        needsFrequencyByCategory: (merged.needs_frequency as Record<string, number>) || {},
+        providerReviewCount: Number(merged.provider_review_count) || 0,
+        avsUploadCount: Number(merged.avs_upload_count) || 0,
+        cohortComparison,
+      };
+    }
+
+    const participantCountSnap = await db
+      .collection('research_participants')
       .where('recorded_at', '>=', start)
       .where('recorded_at', '<=', end)
       .count()
@@ -281,6 +349,8 @@ export const getResearchDashboardSummary = functions.https.onCall(
     return {
       specVersion: RESEARCH_SPEC_VERSION,
       dateRange: { start: dateRange.start.toISOString(), end: dateRange.end.toISOString() },
+      summarySource: 'live' as const,
+      summaryDaysWithData: 0,
       participantCount: participantCountSnap.data().count,
       baselineCount: baselineCountSnap.data().count,
       microMeasureCount: microCountSnap.data().count,
@@ -294,6 +364,13 @@ export const getResearchDashboardSummary = functions.https.onCall(
         micro_confidence: n ? sumC / cnt : null,
         sampleSize: microSample.size,
       },
+      navigationSuccessRate: null,
+      moduleCompletionRate: null,
+      milestoneResponseRate: null,
+      needsFrequencyByCategory: {},
+      providerReviewCount: 0,
+      avsUploadCount: 0,
+      cohortComparison,
     };
   },
 );

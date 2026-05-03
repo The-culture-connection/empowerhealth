@@ -144,8 +144,8 @@ service firebase.storage {
     
     // Admin documents (Privacy Policy, Terms, etc.)
     match /admin_documents/{docType}/{allPaths=**} {
-      // All authenticated users can read admin documents (for display in app)
-      allow read: if isAuthenticated();
+      // Public read for hosted legal/support paths (PublicDocs / mobile in-app browser); admins still upload
+      allow read: if docType in ['privacy_policy', 'terms_of_service', 'contact_support'] || isAuthenticated();
       // Only admins can upload/update admin documents
       allow write: if isAdminAny();
     }

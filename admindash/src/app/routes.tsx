@@ -28,8 +28,8 @@ export const router = createBrowserRouter([
     path: "/public-docs",
     element: <PublicDocs />,
   },
+  // Pathless shell so `/public-docs` never shares the `/` layout branch (Safari + older bundles were a risk).
   {
-    path: "/",
     Component: Layout,
     children: [
       {

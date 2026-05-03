@@ -206,10 +206,25 @@ export function ResearchNumericCodeReference() {
 
         <section>
           <h3 className="text-base font-semibold mb-2" style={{ color: "var(--warm-800)" }}>
-            {"Needs checklist & milestone prompts"}
+            Needs checklist — <code className="font-mono text-sm">need_prenatal_postpartum</code> …{" "}
+            <code className="font-mono text-sm">need_other</code>
           </h3>
           <p className="text-sm mb-2" style={{ color: "var(--warm-600)" }}>
-            Binary need flags and milestone yes/no fields use the same yes/no codes:
+            Each need flag is coded <strong>0</strong> = not selected, <strong>1</strong> = selected. Rows are written only by the{" "}
+            <code className="font-mono text-xs">submitNeedsChecklist</code> callable. <code className="font-mono text-xs">need_other_text</code>{" "}
+            is required when <code className="font-mono text-xs">need_other</code> is <strong>1</strong> and must be absent or empty when{" "}
+            <code className="font-mono text-xs">need_other</code> is <strong>0</strong>. Canonical <code className="font-mono text-xs">needs_ts</code> /{" "}
+            <code className="font-mono text-xs">recorded_at</code> are server timestamps.
+          </p>
+          <CodeTable rows={yesNoRows} />
+        </section>
+
+        <section>
+          <h3 className="text-base font-semibold mb-2" style={{ color: "var(--warm-800)" }}>
+            Milestone prompts
+          </h3>
+          <p className="text-sm mb-2" style={{ color: "var(--warm-600)" }}>
+            Yes/no milestone fields use the same yes/no codes:
           </p>
           <CodeTable rows={yesNoRows} />
         </section>

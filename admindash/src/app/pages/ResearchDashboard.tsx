@@ -126,13 +126,15 @@ export function ResearchDashboard() {
       if (res.files) {
         const stamp = new Date().toISOString().slice(0, 10);
         for (const [name, csv] of Object.entries(res.files)) {
-          if (name === "baseline" || name === "micro_measures") continue;
+          if (name === "baseline" || name === "micro_measures" || name === "needs_checklist") continue;
           const fileStem =
             name === "baseline_export"
               ? "baseline_export"
               : name === "micro_measures_export"
                 ? "micro_measures_export"
-                : `research_${name}`;
+                : name === "needs_checklist_export"
+                  ? "needs_checklist_export"
+                  : `research_${name}`;
           downloadTextFile(`${fileStem}_${stamp}.csv`, csv, "text/csv;charset=utf-8");
         }
       }
@@ -168,6 +170,14 @@ export function ResearchDashboard() {
         downloadTextFile(
           `micro_measures_export_${stamp}.json`,
           JSON.stringify(microRows, null, 2),
+          "application/json;charset=utf-8",
+        );
+      }
+      const needsRows = bundle.needs_checklist_export ?? bundle.needs_checklist;
+      if (Array.isArray(needsRows)) {
+        downloadTextFile(
+          `needs_checklist_export_${stamp}.json`,
+          JSON.stringify(needsRows, null, 2),
           "application/json;charset=utf-8",
         );
       }
@@ -274,7 +284,11 @@ export function ResearchDashboard() {
             <code className="text-xs rounded px-1" style={{ backgroundColor: "var(--lavender-50)" }}>
               micro_measures_export
             </code>{" "}
-            file names. Other instruments use the <code className="text-xs">research_*</code> prefix on the file name.
+            file names. Needs checklist uses{" "}
+            <code className="text-xs rounded px-1" style={{ backgroundColor: "var(--lavender-50)" }}>
+              needs_checklist_export
+            </code>
+            . Other instruments use the <code className="text-xs">research_*</code> prefix on the file name.
           </p>
           <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--lavender-200)" }}>
             <table className="w-full text-sm">
@@ -436,6 +450,7 @@ function instrumentLabel(id: ResearchInstrumentId): string {
 function downloadStem(id: ResearchInstrumentId): string {
   if (id === "baseline") return "baseline_export";
   if (id === "micro_measures") return "micro_measures_export";
+  if (id === "needs_checklist") return "needs_checklist_export";
   return `research_${id}`;
 }
 
@@ -443,6 +458,7 @@ function csvForInstrument(id: ResearchInstrumentId, files?: Record<string, strin
   if (!files) return undefined;
   if (id === "baseline") return files.baseline_export ?? files.baseline;
   if (id === "micro_measures") return files.micro_measures_export ?? files.micro_measures;
+  if (id === "needs_checklist") return files.needs_checklist_export ?? files.needs_checklist;
   return files[id];
 }
 
@@ -453,6 +469,7 @@ function jsonRowsForInstrument(
   if (!data) return undefined;
   if (id === "baseline") return data.baseline_export ?? data.baseline;
   if (id === "micro_measures") return data.micro_measures_export ?? data.micro_measures;
+  if (id === "needs_checklist") return data.needs_checklist_export ?? data.needs_checklist;
   return data[id];
 }
 

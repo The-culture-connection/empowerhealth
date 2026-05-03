@@ -1915,6 +1915,8 @@ export {
 
 export { submitMicroMeasure, validateMicroMeasure } from './research/researchMicroMeasure';
 
+export { submitNeedsChecklist, validateNeedsChecklist } from './research/researchNeedsChecklist';
+
 export { onAnalyticsEventCreated } from './analyticsAggregation';
 
 export {

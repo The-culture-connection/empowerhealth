@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../cors/ui_theme.dart';
+import '../research/needs_checklist_screen.dart';
+import '../services/database_service.dart';
+import '../services/research/research_firestore_service.dart';
+import '../services/research/research_needs_checklist_service.dart';
 import '../widgets/feature_session_scope.dart';
 
 class CareNavigationSurveyScreen extends StatefulWidget {
@@ -19,17 +23,8 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
   int _currentNeedIndex = 0;
   String? _gotWhatNeeded;
 
-  final List<Map<String, String>> _careNeeds = [
-    {'id': 'prenatal-postpartum', 'label': 'Prenatal or postpartum medical care'},
-    {'id': 'labor-delivery', 'label': 'Labor & delivery preparation'},
-    {'id': 'blood-pressure', 'label': 'Blood pressure or medical condition follow-up'},
-    {'id': 'mental-health', 'label': 'Mental health support'},
-    {'id': 'lactation', 'label': 'Lactation/feeding support'},
-    {'id': 'infant-pediatric', 'label': 'Infant/pediatric care'},
-    {'id': 'benefits', 'label': 'Benefits/resources (WIC, Medicaid, crib, car seat)'},
-    {'id': 'transportation', 'label': 'Transportation/logistics'},
-    {'id': 'other', 'label': 'Other'},
-  ];
+  final DatabaseService _databaseService = DatabaseService();
+  final TextEditingController _otherNeedDetailController = TextEditingController();
 
   final List<Map<String, String>> _accessOptions = [
     {'value': 'yes', 'label': 'Yes'},
@@ -99,6 +94,8 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
       final surveyData = {
         'userId': userId,
         'selectedNeeds': _selectedNeeds,
+        if (_selectedNeeds.contains('other') && _otherNeedDetailController.text.trim().isNotEmpty)
+          'otherNeedDetail': _otherNeedDetailController.text.trim(),
         'accessResponses': _accessResponses,
         'accessResponseTimestamps': _accessResponseTimestamps,
         'gotWhatNeeded': _gotWhatNeeded,
@@ -114,6 +111,24 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
           .collection('CareSurvey')
           .add(surveyData);
 
+      try {
+        final profile = await _databaseService.getUserProfile(userId);
+        if (profile != null && profile.isResearchParticipant) {
+          final sid = await ResearchFirestoreService.instance.ensureStudyId(profile);
+          if (sid != null) {
+            await ResearchNeedsChecklistService.instance.submitNeedsChecklist(
+              studyId: sid,
+              selectedCareNeedIds: List<String>.from(_selectedNeeds),
+              otherText: _selectedNeeds.contains('other')
+                  ? _otherNeedDetailController.text.trim()
+                  : null,
+            );
+          }
+        }
+      } catch (e) {
+        print('⚠️ [CareSurvey] Research needs checklist: $e');
+      }
+
       print('✅ [CareSurvey] Survey results saved to Firestore');
     } catch (e) {
       print('❌ [CareSurvey] Error saving survey results: $e');
@@ -126,6 +141,37 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         );
       }
     }
+  }
+
+  void _handleNeedsContinue() {
+    if (_selectedNeeds.contains('other') && _otherNeedDetailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add a few words for “Other” or deselect it.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    if (_selectedNeeds.isEmpty) {
+      Future<void> go() async {
+        await _saveSurveyResults();
+        if (mounted) setState(() => _step = 'complete');
+      }
+
+      go();
+    } else {
+      setState(() {
+        _step = 'access';
+        _currentNeedIndex = 0;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _otherNeedDetailController.dispose();
+    super.dispose();
   }
 
   @override
@@ -191,7 +237,14 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
               if (_step == 'intro') _buildIntroStep(),
 
               // Needs Selection Step
-              if (_step == 'needs') _buildNeedsStep(),
+              if (_step == 'needs')
+                NeedsChecklistScreen(
+                  selectedNeedIds: _selectedNeeds,
+                  onToggleNeed: _toggleNeed,
+                  otherDetailController: _otherNeedDetailController,
+                  onBack: () => setState(() => _step = 'intro'),
+                  onContinue: _handleNeedsContinue,
+                ),
 
               // Access Response Step
               if (_step == 'access') _buildAccessStep(),
@@ -361,213 +414,9 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
     );
   }
 
-  Widget _buildNeedsStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Step Badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppTheme.borderLight.withOpacity(0.4),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: Color(0xFFD4A574),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Step 1 of 2',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Title
-        Text(
-          'What support have you needed recently?',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w400,
-            color: AppTheme.textPrimary,
-            height: 1.3,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Select any that apply — it’s okay if you don’t need any of these',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Needs List
-        Container(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: AppTheme.shadowSoft(opacity: 0.1, blur: 24, y: 8),
-            border: Border.all(
-              color: AppTheme.borderLight.withOpacity(0.4),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            children: _careNeeds.map((need) {
-              final isSelected = _selectedNeeds.contains(need['id']);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: InkWell(
-                  onTap: () => _toggleNeed(need['id']!),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: isSelected
-                          ? LinearGradient(
-                              colors: [
-                                AppTheme.brandPurple,
-                                Color(0xFF7744AA),
-                              ],
-                            )
-                          : null,
-                      color: isSelected ? null : AppTheme.backgroundWarm,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: AppTheme.brandPurple.withOpacity(0.2),
-                                blurRadius: 24,
-                                offset: const Offset(0, 8),
-                              ),
-                            ]
-                          : [
-                              BoxShadow(
-                                color: AppTheme.brandPurple.withOpacity(0.08),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: isSelected ? Color(0xFFD4A574) : Colors.transparent,
-                            border: isSelected
-                                ? null
-                                : Border.all(
-                                    color: AppTheme.textMuted,
-                                    width: 2,
-                                  ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: isSelected
-                              ? Icon(Icons.check, color: AppTheme.brandWhite, size: 16)
-                              : null,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            need['label']!,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w300,
-                              color: isSelected ? AppTheme.brandWhite : AppTheme.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Navigation Buttons
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () {
-                  setState(() => _step = 'intro');
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.textMuted,
-                  side: BorderSide(color: AppTheme.borderLight.withOpacity(0.4)),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                ),
-                child: const Text('Back'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () async {
-                  if (_selectedNeeds.isEmpty) {
-                    await _saveSurveyResults();
-                    if (mounted) setState(() => _step = 'complete');
-                  } else {
-                    setState(() {
-                      _step = 'access';
-                      _currentNeedIndex = 0;
-                    });
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: AppTheme.brandWhite,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  minimumSize: const Size(double.infinity, 52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  elevation: 0,
-                ),
-                child: Text(
-                  _selectedNeeds.isEmpty ? 'Skip to finish' : 'Continue',
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   Widget _buildAccessStep() {
     final currentNeed = _selectedNeeds[_currentNeedIndex];
-    final currentNeedLabel = _careNeeds.firstWhere(
+    final currentNeedLabel = kCareNeedsChecklistItems.firstWhere(
       (n) => n['id'] == currentNeed,
       orElse: () => {'id': '', 'label': ''},
     )['label'] ?? '';

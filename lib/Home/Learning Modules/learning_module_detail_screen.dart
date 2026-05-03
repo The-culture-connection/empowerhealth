@@ -524,6 +524,8 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
         if (userId != null) {
           final userProfile = await _databaseService.getUserProfile(userId);
           await _analytics.logConfidenceSignalSubmitted(
+            sourceId: widget.taskId,
+            researchContentType: 'learning_module',
             understandMeaningScore: _understandingRating,
             knowNextStepScore: _nextStepsRating,
             confidenceScore: _confidenceRating,

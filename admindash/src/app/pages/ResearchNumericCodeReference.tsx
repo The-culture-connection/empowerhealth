@@ -194,7 +194,13 @@ export function ResearchNumericCodeReference() {
             <code className="font-mono text-sm">micro_next_step</code>, <code className="font-mono text-sm">micro_confidence</code>
           </h3>
           <p className="text-sm" style={{ color: "var(--warm-600)" }}>
-            Typically Likert <strong>{LIKERT_MIN}</strong>–<strong>{LIKERT_MAX}</strong> when populated.
+            Likert <strong>{LIKERT_MIN}</strong>–<strong>{LIKERT_MAX}</strong> (required). Rows are created only by the{" "}
+            <code className="font-mono text-xs">submitMicroMeasure</code> callable. <code className="font-mono text-xs">content_type</code>{" "}
+            is one of: <code className="font-mono text-xs">learning_module</code>, <code className="font-mono text-xs">visit_summary_avs</code>,{" "}
+            <code className="font-mono text-xs">visit_summary_notes</code>, <code className="font-mono text-xs">micro_measure</code>,{" "}
+            <code className="font-mono text-xs">user_feedback</code>. Optional validated <code className="font-mono text-xs">micro_ts_client</code>{" "}
+            (ISO-8601) is stored when the client sends it; canonical <code className="font-mono text-xs">micro_ts</code> /{" "}
+            <code className="font-mono text-xs">recorded_at</code> are server timestamps.
           </p>
         </section>
 

@@ -128,6 +128,9 @@ export const exportResearchDataset = functions.https.onCall(
       if (data.baseline) {
         data.baseline_export = data.baseline;
       }
+      if (data.micro_measures) {
+        data.micro_measures_export = data.micro_measures;
+      }
       await db.collection('audit_logs').add({
         action: 'research_export',
         format: 'json',
@@ -145,6 +148,9 @@ export const exportResearchDataset = functions.https.onCall(
     }
     if (files.baseline) {
       files.baseline_export = files.baseline;
+    }
+    if (files.micro_measures) {
+      files.micro_measures_export = files.micro_measures;
     }
     await db.collection('audit_logs').add({
       action: 'research_export',

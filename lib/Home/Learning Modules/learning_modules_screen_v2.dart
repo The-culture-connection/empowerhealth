@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../app_router.dart';
+import '../../models/user_profile.dart';
+import '../../research/post_module_rating_modal.dart';
 import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
+import '../../services/research/research_firestore_service.dart';
 import '../../cors/ui_theme.dart';
 import '../../utils/pregnancy_utils.dart';
 import 'learning_module_detail_screen.dart';
@@ -66,6 +69,29 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
         // Swallow analytics-only failures to avoid blocking UX.
       }
     }
+  }
+
+  /// When the archive path did not open [ModuleSurveyDialog], research participants still get a Likert prompt.
+  Future<void> _maybePromptPostModuleMicroMeasure({
+    required BuildContext context,
+    required String? taskId,
+    required String moduleTitle,
+  }) async {
+    if (taskId == null || taskId.isEmpty) return;
+    final p = _userProfile;
+    if (p is! UserProfile || !p.isResearchParticipant) return;
+    final sid = await ResearchFirestoreService.instance.ensureStudyId(p);
+    if (!mounted || sid == null) return;
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => PostModuleRatingModal(
+        studyId: sid,
+        contentId: taskId,
+        moduleTitle: moduleTitle,
+      ),
+    );
   }
 
   // Helper to get icon for module
@@ -699,6 +725,11 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                               moduleId: taskId,
                                               moduleTitle: title,
                                             );
+                                            await _maybePromptPostModuleMicroMeasure(
+                                              context: context,
+                                              taskId: taskId,
+                                              moduleTitle: title,
+                                            );
                                           }
                                         } else {
                                           // When unchecked, unmark as completed and unarchive
@@ -846,6 +877,11 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                                         moduleId: taskId,
                                                         moduleTitle: title,
                                                       );
+                                                      await _maybePromptPostModuleMicroMeasure(
+                                                        context: context,
+                                                        taskId: taskId,
+                                                        moduleTitle: title,
+                                                      );
                                                     }
                                                   },
                                                   style: TextButton.styleFrom(
@@ -912,6 +948,11 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                                     if (!isTodo) {
                                                       await _logLearningModuleCompleted(
                                                         moduleId: taskId,
+                                                        moduleTitle: title,
+                                                      );
+                                                      await _maybePromptPostModuleMicroMeasure(
+                                                        context: context,
+                                                        taskId: taskId,
                                                         moduleTitle: title,
                                                       );
                                                     }

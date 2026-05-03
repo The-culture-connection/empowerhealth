@@ -14,7 +14,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
 import '../services/analytics_service.dart';
+import '../services/research/research_firestore_service.dart';
 import '../models/user_profile.dart';
+import '../research/post_visit_summary_rating_modal.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/ai_disclaimer_banner.dart';
 import '../widgets/feature_session_scope.dart';
@@ -370,6 +372,23 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   void dispose() {
     _manualTextController.dispose();
     super.dispose();
+  }
+
+  Future<void> _maybePromptVisitSummaryMicroMeasure(String contentId, String contentType) async {
+    final p = _userProfile;
+    if (p == null || !p.isResearchParticipant || !mounted) return;
+    final sid = await ResearchFirestoreService.instance.ensureStudyId(p);
+    if (!mounted || sid == null) return;
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => PostVisitSummaryRatingModal(
+        studyId: sid,
+        contentId: contentId,
+        contentType: contentType,
+      ),
+    );
   }
 
   Future<void> _loadUserProfile() async {
@@ -870,6 +889,11 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         );
       }
 
+      final avsSummaryId = analysisResult['summaryId'] as String?;
+      if (avsSummaryId != null && avsSummaryId.isNotEmpty) {
+        await _maybePromptVisitSummaryMicroMeasure(avsSummaryId, 'visit_summary_avs');
+      }
+
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -994,6 +1018,11 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
             backgroundColor: Colors.green,
           ),
         );
+      }
+
+      final textSummaryId = analysisResult['summaryId'] as String?;
+      if (textSummaryId != null && textSummaryId.isNotEmpty) {
+        await _maybePromptVisitSummaryMicroMeasure(textSummaryId, 'visit_summary_avs');
       }
     } catch (e) {
       setState(() {

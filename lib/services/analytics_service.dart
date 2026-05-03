@@ -958,6 +958,7 @@ class AnalyticsService {
     int? knowNextStepScore,
     int? confidenceScore,
     UserProfile? userProfile,
+    String? researchContentType,
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -1004,14 +1005,33 @@ class AnalyticsService {
       if (userProfile != null && userProfile.isResearchParticipant) {
         final rs = ResearchFirestoreService.instance;
         final sid = await rs.ensureStudyId(userProfile);
-        if (sid != null) {
+        final u = understandMeaningScore;
+        final n = knowNextStepScore;
+        final c = confidenceScore;
+        if (sid != null &&
+            u != null &&
+            n != null &&
+            c != null &&
+            u >= 1 &&
+            u <= 5 &&
+            n >= 1 &&
+            n <= 5 &&
+            c >= 1 &&
+            c <= 5) {
           await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+          final cid = (sourceId != null && sourceId.trim().isNotEmpty)
+              ? sourceId.trim()
+              : 'analytics_${feature}_unspecified';
+          final ctype = researchContentType ??
+              (feature == 'user-feedback' ? 'user_feedback' : 'micro_measure');
           await rs.recordMicroMeasure(
             studyId: sid,
-            understand: understandMeaningScore,
-            nextStep: knowNextStepScore,
-            confidence: confidenceScore,
-            contentId: sourceId,
+            understand: u,
+            nextStep: n,
+            confidence: c,
+            contentId: cid,
+            contentType: ctype,
+            microTsClientIso: DateTime.now().toUtc().toIso8601String(),
           );
         }
       }
@@ -1883,6 +1903,7 @@ class AnalyticsService {
     int? knowNextStepScore,
     int? confidenceScore,
     UserProfile? userProfile,
+    String? researchContentType,
   }) async {
     // Save to specialized micro_measures collection
     await saveMicroMeasure(
@@ -1892,6 +1913,7 @@ class AnalyticsService {
       knowNextStepScore: knowNextStepScore,
       confidenceScore: confidenceScore,
       userProfile: userProfile,
+      researchContentType: researchContentType,
     );
   }
 

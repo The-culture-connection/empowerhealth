@@ -1913,6 +1913,8 @@ export {
   validateResearchBaseline,
 } from './research/researchIdentity';
 
+export { submitMicroMeasure, validateMicroMeasure } from './research/researchMicroMeasure';
+
 export { onAnalyticsEventCreated } from './analyticsAggregation';
 
 export {

@@ -356,8 +356,8 @@ service cloud.firestore {
     }
     match /research_micro_measures/{docId} {
       allow read: if canReadResearchCollections();
-      allow create: if signedInUserStudyIdMatches(request.resource.data.study_id);
-      allow update, delete: if false;
+      // Writes only via Cloud Functions (submitMicroMeasure).
+      allow create, update, delete: if false;
     }
     match /research_needs_checklists/{docId} {
       allow read: if canReadResearchCollections();

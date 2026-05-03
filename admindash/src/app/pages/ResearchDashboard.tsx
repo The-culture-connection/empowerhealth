@@ -64,8 +64,13 @@ export function ResearchDashboard() {
       if (res.files) {
         const stamp = new Date().toISOString().slice(0, 10);
         for (const [name, csv] of Object.entries(res.files)) {
-          if (name === "baseline") continue;
-          const fileStem = name === "baseline_export" ? "baseline_export" : `research_${name}`;
+          if (name === "baseline" || name === "micro_measures") continue;
+          const fileStem =
+            name === "baseline_export"
+              ? "baseline_export"
+              : name === "micro_measures_export"
+                ? "micro_measures_export"
+                : `research_${name}`;
           downloadTextFile(`${fileStem}_${stamp}.csv`, csv, "text/csv;charset=utf-8");
         }
       }
@@ -95,6 +100,14 @@ export function ResearchDashboard() {
         downloadTextFile(
           `baseline_export_${stamp}.json`,
           JSON.stringify(baselineRows, null, 2),
+          "application/json;charset=utf-8",
+        );
+      }
+      const microRows = bundle.micro_measures_export ?? bundle.micro_measures;
+      if (Array.isArray(microRows)) {
+        downloadTextFile(
+          `micro_measures_export_${stamp}.json`,
+          JSON.stringify(microRows, null, 2),
           "application/json;charset=utf-8",
         );
       }

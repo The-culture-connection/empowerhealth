@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_profile.dart';
+import 'research_micro_measure_service.dart';
 
 /// Structured research rows keyed by [studyId] (see admin `research_*` collections).
 class ResearchFirestoreService {
@@ -23,7 +24,7 @@ class ResearchFirestoreService {
   }
 
   /// Initial participant + baseline rows are created by Cloud Functions during research onboarding.
-  /// Micro-measures and other instruments still use direct Firestore writes keyed by [studyId].
+  /// Micro-measures are written only via [submitMicroMeasure] (see `researchMicroMeasure.ts`).
   Future<void> syncParticipantAndBaseline({
     required String studyId,
     required UserProfile profile,
@@ -33,24 +34,22 @@ class ResearchFirestoreService {
 
   Future<void> recordMicroMeasure({
     required String studyId,
-    required int? understand,
-    required int? nextStep,
-    required int? confidence,
-    String? contentId,
+    required int understand,
+    required int nextStep,
+    required int confidence,
+    required String contentId,
     String contentType = 'micro_measure',
+    String? microTsClientIso,
   }) async {
-    final recordedAt = FieldValue.serverTimestamp();
-    final microTs = recordedAt;
-    await _db.collection('research_micro_measures').add({
-      'study_id': studyId,
-      'micro_understand': understand,
-      'micro_next_step': nextStep,
-      'micro_confidence': confidence,
-      'content_id': contentId ?? '',
-      'content_type': contentType,
-      'micro_ts': microTs,
-      'recorded_at': recordedAt,
-    });
+    await ResearchMicroMeasureService.instance.submitMicroMeasure(
+      studyId: studyId,
+      microUnderstand: understand,
+      microNextStep: nextStep,
+      microConfidence: confidence,
+      contentId: contentId,
+      contentType: contentType,
+      microTsClientIso: microTsClientIso,
+    );
   }
 
   int? _boolNum(bool? v) {

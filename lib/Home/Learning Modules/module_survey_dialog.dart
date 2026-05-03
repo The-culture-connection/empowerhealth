@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../cors/ui_theme.dart';
 import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
+import '../../services/research/research_firestore_service.dart';
+import '../../services/research/research_micro_measure_service.dart';
 
 class ModuleSurveyDialog extends StatefulWidget {
   final String moduleTitle;
@@ -96,6 +98,20 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
           averageRating: avg,
           userProfile: profile,
         );
+        if (profile != null && profile.isResearchParticipant) {
+          final sid = await ResearchFirestoreService.instance.ensureStudyId(profile);
+          if (sid != null) {
+            await ResearchMicroMeasureService.instance.submitMicroMeasure(
+              studyId: sid,
+              microUnderstand: _understandingRating,
+              microNextStep: _nextStepsRating,
+              microConfidence: _confidenceRating,
+              contentId: widget.taskId,
+              contentType: 'learning_module',
+              microTsClientIso: DateTime.now().toUtc().toIso8601String(),
+            );
+          }
+        }
       } catch (_) {}
 
       if (mounted) {

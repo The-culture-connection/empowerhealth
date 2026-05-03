@@ -7,7 +7,9 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'dart:io';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
+import '../services/research/research_firestore_service.dart';
 import '../models/user_profile.dart';
+import '../research/post_visit_summary_rating_modal.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/ai_disclaimer_banner.dart';
 import '../widgets/trust_cue_banner.dart';
@@ -45,6 +47,24 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
     super.initState();
     _loadUserProfile();
     _checkConsentAndShowPrivacyScreen();
+  }
+
+  Future<void> _maybePromptVisitSummaryMicroMeasure(String contentId, String contentType) async {
+    final p = _userProfile;
+    if (p == null || !p.isResearchParticipant || !mounted) return;
+    final sid = await ResearchFirestoreService.instance.ensureStudyId(p);
+    if (!mounted || sid == null) return;
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => PostVisitSummaryRatingModal(
+        studyId: sid,
+        contentId: contentId,
+        contentType: contentType,
+        headline: 'After your visit summary',
+      ),
+    );
   }
 
   Future<void> _checkConsentAndShowPrivacyScreen() async {
@@ -201,7 +221,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
         );
       }
       
-      await FirebaseFirestore.instance
+      final summaryDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('visit_summaries')
@@ -230,6 +250,8 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
         _generatedSummary = result['summary'];
         _isLoading = false;
       });
+
+      await _maybePromptVisitSummaryMicroMeasure(summaryDoc.id, 'visit_summary_notes');
     } catch (e) {
       setState(() {
         _isLoading = false;

@@ -223,7 +223,12 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                             ],
                           ),
                         ),
-                        HomeMilestoneBell(profile: _userProfile),
+                        HomeMilestoneBell(
+                          key: ValueKey<String>(
+                            '${_userProfile?.userId ?? 'none'}_${_userProfile?.isResearchParticipant ?? false}',
+                          ),
+                          profile: _userProfile,
+                        ),
                       ],
                     ),
                   ),

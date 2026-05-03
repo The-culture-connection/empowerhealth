@@ -19,6 +19,8 @@ import '../models/milestone_checkin.dart';
 import '../models/care_navigation_outcome.dart';
 import '../utils/pregnancy_utils.dart';
 import 'analytics/realtime_analytics_service.dart';
+import 'database_service.dart';
+import 'research/research_app_activity_service.dart';
 import 'research/research_firestore_service.dart';
 import 'research/research_milestone_service.dart';
 
@@ -40,6 +42,19 @@ class _QueuedEvent {
     this.userProfile,
   }) : queuedAt = DateTime.now(),
        retryCount = 0;
+}
+
+/// Server-validated slug for `health_made_simple_access` (max 64 chars, alphanumeric + `:` `_`).
+String _healthMadeSimpleAccessSlug({String? source, String? topicId}) {
+  final s0 = (source ?? 'unknown').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+  final tid = topicId?.trim();
+  final parts = <String>[s0];
+  if (tid != null && tid.isNotEmpty) {
+    parts.add(tid.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_'));
+  }
+  var s = parts.join(':');
+  if (s.length > 64) s = s.substring(0, 64);
+  return s.isEmpty ? 'unknown' : s;
 }
 
 class AnalyticsService {
@@ -1266,6 +1281,26 @@ class AnalyticsService {
       },
       userProfile: userProfile,
     );
+
+    UserProfile? p = userProfile;
+    if (p == null) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        p = await DatabaseService().getUserProfile(uid);
+      }
+    }
+    if (p != null && p.isResearchParticipant) {
+      final rs = ResearchFirestoreService.instance;
+      final sid = await rs.ensureStudyId(p);
+      if (sid != null) {
+        await rs.syncParticipantAndBaseline(studyId: sid, profile: p);
+        final slug = _healthMadeSimpleAccessSlug(source: source, topicId: topicId);
+        await ResearchAppActivityService.instance.recordHealthMadeSimpleAccess(
+          studyId: sid,
+          healthMadeSimpleAccess: slug,
+        );
+      }
+    }
   }
 
   Future<void> logLearningModuleStarted({
@@ -1308,10 +1343,10 @@ class AnalyticsService {
       final sid = await rs.ensureStudyId(userProfile);
       if (sid != null) {
         await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
-        await rs.recordAppActivity(
+        await ResearchAppActivityService.instance.recordModuleCompletion(
           studyId: sid,
-          activityType: 'module_completed',
-          extra: {'module_id': moduleId},
+          moduleId: moduleId,
+          moduleCompletion: 1,
         );
       }
     }
@@ -1367,6 +1402,7 @@ class AnalyticsService {
   Future<void> logVisitSummaryCreated({
     required String summaryId,
     String? appointmentType,
+    String? avsUploadType,
     String? providerType,
     int? timeToComplete,
     UserProfile? userProfile,
@@ -1377,6 +1413,7 @@ class AnalyticsService {
       parameters: {
         'summary_id': summaryId,
         if (appointmentType != null) 'appointment_type': appointmentType,
+        if (avsUploadType != null) 'avs_upload_type': avsUploadType,
         if (providerType != null) 'provider_type': providerType,
         if (timeToComplete != null) 'time_to_complete': timeToComplete,
       },
@@ -1388,13 +1425,10 @@ class AnalyticsService {
       final sid = await rs.ensureStudyId(userProfile);
       if (sid != null) {
         await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
-        await rs.recordAppActivity(
+        final slug = avsUploadType ?? 'unknown';
+        await ResearchAppActivityService.instance.recordAvsUploadActivity(
           studyId: sid,
-          activityType: 'avs_upload',
-          extra: {
-            'summary_id': summaryId,
-            'avs_upload_type': appointmentType ?? 'unknown',
-          },
+          avsUploadType: slug,
         );
       }
     }
@@ -1681,13 +1715,9 @@ class AnalyticsService {
       final sid = await rs.ensureStudyId(userProfile);
       if (sid != null) {
         await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
-        await rs.recordAppActivity(
+        await ResearchAppActivityService.instance.recordProviderReviewActivity(
           studyId: sid,
-          activityType: 'provider_review_submitted',
-          extra: {
-            'provider_id': providerId,
-            'provider_review_action': 'submitted',
-          },
+          providerReviewActivity: 1,
         );
       }
     }
@@ -1712,6 +1742,18 @@ class AnalyticsService {
       },
       userProfile: userProfile,
     );
+
+    if (userProfile != null && userProfile.isResearchParticipant) {
+      final rs = ResearchFirestoreService.instance;
+      final sid = await rs.ensureStudyId(userProfile);
+      if (sid != null) {
+        await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+        await ResearchAppActivityService.instance.recordProviderReviewActivity(
+          studyId: sid,
+          providerReviewActivity: 2,
+        );
+      }
+    }
   }
 
   Future<void> logProviderSelectedSuccess({

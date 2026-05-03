@@ -4,7 +4,7 @@
  * and Admindashboardrenovation/Todos.md. Update when the PDF changes.
  */
 
-export const RESEARCH_SPEC_VERSION = '1.0.0';
+export const RESEARCH_SPEC_VERSION = '1.1.0';
 
 /** Yes/No for binary fields in research exports */
 export const CODE_YES_NO = { yes: 1, no: 0 } as const;
@@ -174,15 +174,29 @@ export const MILESTONE_EXPORT_COLUMNS = [
   'recorded_at',
 ] as const;
 
-/** research_app_activity export (summary-friendly activity signals) */
+/** Slugs for `avs_upload_type` (Phase 6 callable `recordAvsUploadActivity`). */
+export const AVS_UPLOAD_TYPE_SLUGS = ['pdf', 'image_gallery', 'image_camera', 'notes_typed', 'unknown'] as const;
+
+/** Integer codes for `provider_review_activity` (Phase 6). */
+export const PROVIDER_REVIEW_ACTIVITY_CODES = [1, 2] as const;
+/** 1 = structured review submitted; 2 = listing report submitted. */
+export const PROVIDER_REVIEW_ACTIVITY_LABELS: Record<number, string> = {
+  1: 'provider_review_submitted',
+  2: 'provider_listing_report_submitted',
+};
+
+export const MAX_MODULE_ID_LEN = 128;
+export const MAX_HEALTH_MADE_SIMPLE_ACCESS_LEN = 64;
+
+/** research_app_activity export — structured fields only (no raw metadata blobs). */
 export const APP_ACTIVITY_EXPORT_COLUMNS = [
   'study_id',
   'activity_type',
   'module_id',
+  'module_completion',
+  'provider_review_activity',
   'avs_upload_type',
-  'library_section',
-  'provider_review_action',
-  'extra',
+  'health_made_simple_access',
   'activity_ts',
   'recorded_at',
 ] as const;

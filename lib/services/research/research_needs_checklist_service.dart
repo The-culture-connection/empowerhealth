@@ -6,7 +6,7 @@ class ResearchNeedsChecklistService {
   ResearchNeedsChecklistService._();
   static final ResearchNeedsChecklistService instance = ResearchNeedsChecklistService._();
 
-  final FirebaseFunctions _fn = FirebaseFunctions.instance;
+  final FirebaseFunctions _fn = FirebaseFunctions.instanceFor(region: 'us-central1');
 
   /// Care survey chip ids from [CareNavigationSurveyScreen] → research binary columns.
   static const Map<String, String> _careIdToField = {

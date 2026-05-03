@@ -6,7 +6,8 @@ class ResearchMilestoneService {
   ResearchMilestoneService._();
   static final ResearchMilestoneService instance = ResearchMilestoneService._();
 
-  final FirebaseFunctions _fn = FirebaseFunctions.instance;
+  /// Match [AnalyticsService] and deployed Gen-2 callables (us-central1).
+  final FirebaseFunctions _fn = FirebaseFunctions.instanceFor(region: 'us-central1');
 
   /// Maps legacy string `phase` labels (e.g. from [MilestoneCheckin]) to server milestone_type codes.
   static int milestoneTypeFromLegacyPhase(String? phase) {

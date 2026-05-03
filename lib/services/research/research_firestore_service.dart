@@ -51,23 +51,4 @@ class ResearchFirestoreService {
       microTsClientIso: microTsClientIso,
     );
   }
-
-  Future<void> recordAppActivity({
-    required String studyId,
-    required String activityType,
-    Map<String, dynamic>? extra,
-  }) async {
-    final recordedAt = FieldValue.serverTimestamp();
-    await _db.collection('research_app_activity').add({
-      'study_id': studyId,
-      'activity_type': activityType,
-      'module_id': extra?['module_id'],
-      'avs_upload_type': extra?['avs_upload_type'],
-      'library_section': extra?['library_section'],
-      'provider_review_action': extra?['provider_review_action'],
-      'extra': extra,
-      'activity_ts': recordedAt,
-      'recorded_at': recordedAt,
-    });
-  }
 }

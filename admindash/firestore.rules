@@ -367,8 +367,8 @@ service cloud.firestore {
     }
     match /research_app_activity/{docId} {
       allow read: if canReadResearchCollections();
-      allow create: if signedInUserStudyIdMatches(request.resource.data.study_id);
-      allow update, delete: if false;
+      // Writes only via Cloud Functions (recordModuleCompletion, recordProviderReviewActivity, etc.).
+      allow create, update, delete: if false;
     }
     
     // Audit logs - only admins can read

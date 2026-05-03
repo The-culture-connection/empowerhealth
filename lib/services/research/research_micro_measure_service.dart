@@ -6,7 +6,7 @@ class ResearchMicroMeasureService {
   ResearchMicroMeasureService._();
   static final ResearchMicroMeasureService instance = ResearchMicroMeasureService._();
 
-  final FirebaseFunctions _fn = FirebaseFunctions.instance;
+  final FirebaseFunctions _fn = FirebaseFunctions.instanceFor(region: 'us-central1');
 
   Future<Map<String, dynamic>> validateMicroMeasure(Map<String, dynamic> fields) async {
     final user = FirebaseAuth.instance.currentUser;

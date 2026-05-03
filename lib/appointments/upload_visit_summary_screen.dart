@@ -46,6 +46,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   String? _currentStep; // Track current processing step
   double _uploadProgress = 0.0; // Track upload progress
   String _inputMethod = 'pdf'; // 'pdf' or 'text'
+  /// Research `avs_upload_type` slug for the next successful AVS analysis (PDF vs gallery image).
+  String _avsUploadResearchSlug = 'unknown';
   final TextEditingController _manualTextController = TextEditingController();
   bool _saveOriginalText = false; // Default: don't save raw text
 
@@ -614,6 +616,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         setState(() {
           _selectedPDF = finalFile;
           _pdfFileName = displayName;
+          _avsUploadResearchSlug = isImage ? 'image_gallery' : 'pdf';
         });
 
         print('📄 State updated with PDF file: $_pdfFileName');
@@ -864,9 +867,9 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         if (summaryId != null) {
           await analytics.logVisitSummaryCreated(
             summaryId: summaryId,
-            appointmentType: 'prenatal',
             timeToComplete: DateTime.now().difference(_selectedDate ?? DateTime.now()).inSeconds,
             userProfile: _userProfile,
+            avsUploadType: _avsUploadResearchSlug,
           );
         }
       } catch (e) {
@@ -1022,6 +1025,15 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
       final textSummaryId = analysisResult['summaryId'] as String?;
       if (textSummaryId != null && textSummaryId.isNotEmpty) {
+        try {
+          await AnalyticsService().logVisitSummaryCreated(
+            summaryId: textSummaryId,
+            userProfile: _userProfile,
+            avsUploadType: 'notes_typed',
+          );
+        } catch (e) {
+          print('Error tracking visit summary creation (text): $e');
+        }
         await _maybePromptVisitSummaryMicroMeasure(textSummaryId, 'visit_summary_avs');
       }
     } catch (e) {
@@ -1515,6 +1527,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                         setState(() {
                           _selectedPDF = null;
                           _pdfFileName = null;
+                          _avsUploadResearchSlug = 'unknown';
                         });
                       },
                     ),
@@ -1866,6 +1879,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     _selectedPDF = null;
                     _pdfFileName = null;
                     _selectedDate = null;
+                    _avsUploadResearchSlug = 'unknown';
                   });
                 },
                 icon: const Icon(Icons.add_photo_alternate_outlined),

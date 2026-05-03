@@ -1930,6 +1930,13 @@ export {
   validateMilestoneCheckIn,
 } from './research/researchMilestone';
 
+export {
+  recordAvsUploadActivity,
+  recordHealthMadeSimpleAccess,
+  recordModuleCompletion,
+  recordProviderReviewActivity,
+} from './research/researchAppActivity';
+
 export { onAnalyticsEventCreated } from './analyticsAggregation';
 
 export {

@@ -140,6 +140,9 @@ export const exportResearchDataset = functions.https.onCall(
       if (data.milestone_prompts) {
         data.milestones_export = data.milestone_prompts;
       }
+      if (data.app_activity) {
+        data.activity_export = data.app_activity;
+      }
       await db.collection('audit_logs').add({
         action: 'research_export',
         format: 'json',
@@ -169,6 +172,9 @@ export const exportResearchDataset = functions.https.onCall(
     }
     if (files.milestone_prompts) {
       files.milestones_export = files.milestone_prompts;
+    }
+    if (files.app_activity) {
+      files.activity_export = files.app_activity;
     }
     await db.collection('audit_logs').add({
       action: 'research_export',

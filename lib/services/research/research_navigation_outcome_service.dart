@@ -6,7 +6,7 @@ class ResearchNavigationOutcomeService {
   ResearchNavigationOutcomeService._();
   static final ResearchNavigationOutcomeService instance = ResearchNavigationOutcomeService._();
 
-  final FirebaseFunctions _fn = FirebaseFunctions.instance;
+  final FirebaseFunctions _fn = FirebaseFunctions.instanceFor(region: 'us-central1');
 
   /// Maps care access step string values to research codes 1–6 (0 reserved for N/A on server).
   static int careAccessToOutcomeCode(String raw) {

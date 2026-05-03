@@ -131,7 +131,8 @@ export function ResearchDashboard() {
             name === "micro_measures" ||
             name === "needs_checklist" ||
             name === "navigation_outcomes" ||
-            name === "milestone_prompts"
+            name === "milestone_prompts" ||
+            name === "app_activity"
           )
             continue;
           const fileStem =
@@ -145,7 +146,9 @@ export function ResearchDashboard() {
                     ? "navigation_outcomes_export"
                     : name === "milestones_export"
                       ? "milestones_export"
-                      : `research_${name}`;
+                      : name === "activity_export"
+                        ? "activity_export"
+                        : `research_${name}`;
           downloadTextFile(`${fileStem}_${stamp}.csv`, csv, "text/csv;charset=utf-8");
         }
       }
@@ -205,6 +208,14 @@ export function ResearchDashboard() {
         downloadTextFile(
           `milestones_export_${stamp}.json`,
           JSON.stringify(milestoneRows, null, 2),
+          "application/json;charset=utf-8",
+        );
+      }
+      const activityRows = bundle.activity_export ?? bundle.app_activity;
+      if (Array.isArray(activityRows)) {
+        downloadTextFile(
+          `activity_export_${stamp}.json`,
+          JSON.stringify(activityRows, null, 2),
           "application/json;charset=utf-8",
         );
       }
@@ -322,6 +333,10 @@ export function ResearchDashboard() {
             . Milestone prompts use{" "}
             <code className="text-xs rounded px-1" style={{ backgroundColor: "var(--lavender-50)" }}>
               milestones_export
+            </code>
+            . App activity uses{" "}
+            <code className="text-xs rounded px-1" style={{ backgroundColor: "var(--lavender-50)" }}>
+              activity_export
             </code>
             . Other instruments use the <code className="text-xs">research_*</code> prefix on the file name.
           </p>
@@ -488,6 +503,7 @@ function downloadStem(id: ResearchInstrumentId): string {
   if (id === "needs_checklist") return "needs_checklist_export";
   if (id === "navigation_outcomes") return "navigation_outcomes_export";
   if (id === "milestone_prompts") return "milestones_export";
+  if (id === "app_activity") return "activity_export";
   return `research_${id}`;
 }
 
@@ -498,6 +514,7 @@ function csvForInstrument(id: ResearchInstrumentId, files?: Record<string, strin
   if (id === "needs_checklist") return files.needs_checklist_export ?? files.needs_checklist;
   if (id === "navigation_outcomes") return files.navigation_outcomes_export ?? files.navigation_outcomes;
   if (id === "milestone_prompts") return files.milestones_export ?? files.milestone_prompts;
+  if (id === "app_activity") return files.activity_export ?? files.app_activity;
   return files[id];
 }
 
@@ -511,6 +528,7 @@ function jsonRowsForInstrument(
   if (id === "needs_checklist") return data.needs_checklist_export ?? data.needs_checklist;
   if (id === "navigation_outcomes") return data.navigation_outcomes_export ?? data.navigation_outcomes;
   if (id === "milestone_prompts") return data.milestones_export ?? data.milestone_prompts;
+  if (id === "app_activity") return data.activity_export ?? data.app_activity;
   return data[id];
 }
 

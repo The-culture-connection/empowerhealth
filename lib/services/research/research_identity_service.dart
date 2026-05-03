@@ -6,7 +6,7 @@ class ResearchIdentityService {
   ResearchIdentityService._();
   static final ResearchIdentityService instance = ResearchIdentityService._();
 
-  final FirebaseFunctions _fn = FirebaseFunctions.instance;
+  final FirebaseFunctions _fn = FirebaseFunctions.instanceFor(region: 'us-central1');
 
   Future<Map<String, dynamic>> createResearchParticipant({
     required int recruitmentSource,

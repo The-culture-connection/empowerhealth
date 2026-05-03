@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import {
+  AVS_UPLOAD_TYPE_SLUGS,
   CODE_AGE_GROUP,
   CODE_PP_STATUS,
   CODE_YES_NO,
@@ -8,6 +9,7 @@ import {
   LIKERT_MIN,
   NAVIGATION_OUTCOME_CODES,
   MILESTONE_TYPE_CODES,
+  PROVIDER_REVIEW_ACTIVITY_LABELS,
   RECRUITMENT_PATHWAY_CODES,
   RECRUITMENT_SOURCE_CODES,
 } from "@research/researchFieldSpec";
@@ -98,6 +100,25 @@ export function ResearchNumericCodeReference() {
   ).map(([key, val]) => ({
     code: String(val),
     meaning: key.replace(/_/g, " "),
+  }));
+
+  const providerReviewActivityRows = Object.entries(PROVIDER_REVIEW_ACTIVITY_LABELS).map(([code, meaning]) => ({
+    code,
+    meaning,
+  }));
+
+  const avsUploadTypeRows = AVS_UPLOAD_TYPE_SLUGS.map((slug) => ({
+    code: slug,
+    meaning:
+      slug === "pdf"
+        ? "After-visit summary uploaded as PDF"
+        : slug === "image_gallery"
+          ? "Photo or scan chosen from files (converted to PDF for analysis)"
+          : slug === "image_camera"
+            ? "Photo captured in-app with camera (when supported)"
+            : slug === "notes_typed"
+              ? "Visit notes typed and analyzed as text"
+              : "Unknown or unspecified channel",
   }));
 
   const yesNoRows = [
@@ -265,6 +286,33 @@ export function ResearchNumericCodeReference() {
             <code className="font-mono text-xs">milestone_ts</code> / <code className="font-mono text-xs">recorded_at</code> are server timestamps.
           </p>
           <CodeTable rows={yesNoRows} />
+        </section>
+
+        <section>
+          <h3 className="text-base font-semibold mb-2" style={{ color: "var(--warm-800)" }}>
+            App activity — <code className="font-mono text-sm">research_app_activity</code> (Phase 6)
+          </h3>
+          <p className="text-sm mb-2" style={{ color: "var(--warm-600)" }}>
+            Rows are written only by <code className="font-mono text-xs">recordModuleCompletion</code>,{" "}
+            <code className="font-mono text-xs">recordProviderReviewActivity</code>, <code className="font-mono text-xs">recordAvsUploadActivity</code>, or{" "}
+            <code className="font-mono text-xs">recordHealthMadeSimpleAccess</code>. <code className="font-mono text-xs">activity_type</code> is one of:{" "}
+            <code className="font-mono text-xs">module_completed</code>, <code className="font-mono text-xs">provider_review</code>,{" "}
+            <code className="font-mono text-xs">avs_upload</code>, <code className="font-mono text-xs">health_made_simple_access</code>. Exports use the{" "}
+            <code className="font-mono text-xs">activity_export</code> file stem (alias of <code className="font-mono text-xs">app_activity</code>).
+          </p>
+          <p className="text-sm font-medium mb-1" style={{ color: "var(--warm-700)" }}>
+            <code className="font-mono text-sm">provider_review_activity</code>
+          </p>
+          <CodeTable rows={providerReviewActivityRows} />
+          <p className="text-sm font-medium mt-4 mb-1" style={{ color: "var(--warm-700)" }}>
+            <code className="font-mono text-sm">avs_upload_type</code>
+          </p>
+          <CodeTable rows={avsUploadTypeRows} />
+          <p className="text-sm mt-4" style={{ color: "var(--warm-600)" }}>
+            <code className="font-mono text-sm">module_completion</code> is <strong>0</strong> or <strong>1</strong>.{" "}
+            <code className="font-mono text-sm">health_made_simple_access</code> is a short lowercase slug (source and optional topic), max 64 characters,
+            no PHI.
+          </p>
         </section>
       </div>
     </details>

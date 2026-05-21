@@ -387,6 +387,11 @@ service cloud.firestore {
       allow read: if canReadResearchCollections();
       allow create, update, delete: if false;
     }
+
+    match /research_config/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
     
     // Audit logs - only admins can read
     match /audit_logs/{logId} {

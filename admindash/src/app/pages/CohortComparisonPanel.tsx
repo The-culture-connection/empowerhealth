@@ -67,10 +67,10 @@ type CohortComparisonPanelProps = {
 };
 
 /**
- * Navigator-supported (pathway 1) vs self-directed (pathway 2) from `research_summary_by_pathway`.
+ * Per-pathway slices from `research_summary_by_pathway/{code}` (configured + legacy codes with data).
  */
 export function CohortComparisonPanel({ cohort }: CohortComparisonPanelProps) {
-  if (!cohort) {
+  if (!cohort?.pathways?.length) {
     return (
       <section className="rounded-2xl border p-6 text-sm" style={{ borderColor: "var(--lavender-200)", backgroundColor: "var(--eh-surface)", color: "var(--warm-500)" }}>
         Cohort pathway summaries will appear after Phase 7 triggers populate <code className="text-xs">research_summary_by_pathway</code>.
@@ -84,11 +84,22 @@ export function CohortComparisonPanel({ cohort }: CohortComparisonPanelProps) {
       </h2>
       <p className="text-xs leading-relaxed" style={{ color: "var(--warm-500)" }}>
         Incremental updates come from research write triggers; run <strong>Recompute summaries</strong> after deploy or
-        bulk imports so pathway docs align with raw rows.
+        bulk imports so pathway docs align with raw rows. Columns match configured recruitment pathways (and any legacy
+        pathway codes that still have summary data).
       </p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <CohortColumn title="1 — Navigator-supported" slice={cohort.navigator_supported} />
-        <CohortColumn title="2 — Self-directed" slice={cohort.self_directed} />
+      <div
+        className="grid gap-4"
+        style={{
+          gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, 280px), 1fr))`,
+        }}
+      >
+        {cohort.pathways.map((pw) => (
+          <CohortColumn
+            key={pw.code}
+            title={`${pw.code} — ${pw.label}`}
+            slice={pw.slice}
+          />
+        ))}
       </div>
     </section>
   );

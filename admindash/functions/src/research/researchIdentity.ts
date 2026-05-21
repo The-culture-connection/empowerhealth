@@ -11,6 +11,7 @@ import {
   LIKERT_MAX,
   LIKERT_MIN,
 } from './researchFieldSpec';
+import { isValidRecruitmentPathwayCode } from './researchPathways';
 
 const db = admin.firestore();
 
@@ -90,7 +91,7 @@ export function validateResearchBaselinePayload(data: Record<string, unknown>): 
   const ageYears = asInt(data.age_years, 13, 100);
   if (ageYears == null) errors.push('age_years_invalid');
 
-  const pathway = asInt(data.recruitment_pathway, 1, 2);
+  const pathway = asInt(data.recruitment_pathway, 1, 99);
   if (pathway == null) errors.push('recruitment_pathway_invalid');
 
   const insuranceType = asInt(data.insurance_type, 1, 6);
@@ -145,12 +146,21 @@ export const deriveAgeGroup = functions.https.onCall({ enforceAppCheck: false },
   return { age_group: deriveAgeGroupCode(ageYears) };
 });
 
+export async function validateResearchBaselinePayloadFull(data: Record<string, unknown>): Promise<string[]> {
+  const errors = validateResearchBaselinePayload(data);
+  const pathway = asInt(data.recruitment_pathway, 1, 99);
+  if (pathway != null && !(await isValidRecruitmentPathwayCode(pathway))) {
+    errors.push('recruitment_pathway_not_configured');
+  }
+  return errors;
+}
+
 export const validateResearchBaseline = functions.https.onCall({ enforceAppCheck: false }, async (request) => {
   if (!request.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
   const data = (request.data ?? {}) as Record<string, unknown>;
-  const errors = validateResearchBaselinePayload(data);
+  const errors = await validateResearchBaselinePayloadFull(data);
   return { ok: errors.length === 0, errors };
 });
 
@@ -170,9 +180,12 @@ export const createResearchParticipant = functions.https.onCall({ enforceAppChec
     throw new functions.https.HttpsError('invalid-argument', 'recruitment_source is required (1–7 or known string)');
   }
 
-  const recruitment_pathway = asInt(data.recruitment_pathway, 1, 2);
+  const recruitment_pathway = asInt(data.recruitment_pathway, 1, 99);
   if (recruitment_pathway == null) {
-    throw new functions.https.HttpsError('invalid-argument', 'recruitment_pathway must be 1 or 2');
+    throw new functions.https.HttpsError('invalid-argument', 'recruitment_pathway is required (configured code 1–99)');
+  }
+  if (!(await isValidRecruitmentPathwayCode(recruitment_pathway))) {
+    throw new functions.https.HttpsError('invalid-argument', 'recruitment_pathway is not a configured pathway');
   }
 
   let recruitment_source_other: string | null = null;
@@ -260,14 +273,14 @@ export const submitBaselineResearchData = functions.https.onCall({ enforceAppChe
     );
   }
 
-  const errors = validateResearchBaselinePayload(data);
+  const errors = await validateResearchBaselinePayloadFull(data);
   if (errors.length) {
     throw new functions.https.HttpsError('invalid-argument', errors.join('; '));
   }
 
   const pp = asInt(data.pp_status, 1, 2)!;
   const ageYears = asInt(data.age_years, 13, 100)!;
-  const pathway = asInt(data.recruitment_pathway, 1, 2)!;
+  const pathway = asInt(data.recruitment_pathway, 1, 99)!;
   const insuranceType = asInt(data.insurance_type, 1, 6)!;
   const nav = asInt(data.support_person_nav, 1, 6)!;
   const advocacy = asInt(data.baseline_advocacy_conf, LIKERT_MIN, LIKERT_MAX)!;

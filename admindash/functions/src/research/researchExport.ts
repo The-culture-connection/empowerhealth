@@ -16,6 +16,7 @@ import {
   moduleCompletionRate,
   navigationSuccessRate,
 } from './researchSummaryCore';
+import { getRecruitmentPathways, isValidRecruitmentPathwayCode } from './researchPathways';
 
 const db = admin.firestore();
 
@@ -116,8 +117,11 @@ export const exportResearchDataset = functions.https.onCall(
 
     const format = request.data?.format === 'json' ? 'json' : 'csv';
     const studyId = typeof request.data?.studyId === 'string' ? request.data.studyId : undefined;
-    const recruitmentPathway =
+    let recruitmentPathway =
       typeof request.data?.recruitmentPathway === 'number' ? request.data.recruitmentPathway : undefined;
+    if (recruitmentPathway != null && !(await isValidRecruitmentPathwayCode(recruitmentPathway))) {
+      throw new functions.https.HttpsError('invalid-argument', 'recruitmentPathway is not configured');
+    }
 
     const instrumentFilter = request.data?.instruments as ResearchInstrumentId[] | undefined;
     const instruments = RESEARCH_INSTRUMENTS.filter(
@@ -218,11 +222,18 @@ export const getResearchDashboardSummary = functions.https.onCall(
       .count()
       .get();
 
-    const [aggregated, pw1, pw2] = await Promise.all([
-      aggregateResearchSummaryFromDays(start, end),
-      db.collection('research_summary_by_pathway').doc('1').get(),
-      db.collection('research_summary_by_pathway').doc('2').get(),
-    ]);
+    const configuredPathways = await getRecruitmentPathways();
+    const pathwayDocIds = new Set(configuredPathways.map((p) => String(p.code)));
+    const legacySnap = await db.collection('research_summary_by_pathway').get();
+    legacySnap.docs.forEach((d) => pathwayDocIds.add(d.id));
+
+    const pathwaySnaps = await Promise.all(
+      [...pathwayDocIds].sort((a, b) => Number(a) - Number(b)).map((id) =>
+        db.collection('research_summary_by_pathway').doc(id).get(),
+      ),
+    );
+
+    const aggregated = await aggregateResearchSummaryFromDays(start, end);
 
     const pathwaySlice = (data?: Record<string, unknown> | undefined) => {
       if (!data) return null;
@@ -242,9 +253,16 @@ export const getResearchDashboardSummary = functions.https.onCall(
       };
     };
 
+    const labelByCode = new Map(configuredPathways.map((p) => [p.code, p.label]));
     const cohortComparison = {
-      navigator_supported: pathwaySlice(pw1.data() as Record<string, unknown> | undefined),
-      self_directed: pathwaySlice(pw2.data() as Record<string, unknown> | undefined),
+      pathways: pathwaySnaps.map((snap) => {
+        const code = parseInt(snap.id, 10);
+        return {
+          code,
+          label: labelByCode.get(code) ?? `Pathway ${code}`,
+          slice: pathwaySlice(snap.data() as Record<string, unknown> | undefined),
+        };
+      }),
     };
 
     const merged = aggregated.merged as Record<string, unknown>;

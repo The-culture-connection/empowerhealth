@@ -1916,6 +1916,12 @@ export {
   validateResearchBaseline,
 } from './research/researchIdentity';
 
+export {
+  addRecruitmentPathway,
+  deleteRecruitmentPathway,
+  listRecruitmentPathways,
+} from './research/researchPathwayCallables';
+
 export { submitMicroMeasure, validateMicroMeasure } from './research/researchMicroMeasure';
 
 export { submitNeedsChecklist, validateNeedsChecklist } from './research/researchNeedsChecklist';

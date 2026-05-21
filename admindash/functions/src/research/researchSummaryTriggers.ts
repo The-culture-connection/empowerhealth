@@ -8,7 +8,7 @@ import {
   recruitmentPathwayForStudy,
 } from './researchSummaryCore';
 
-async function pathwayForStudy(studyId: string): Promise<1 | 2 | null> {
+async function pathwayForStudy(studyId: string): Promise<number | null> {
   return recruitmentPathwayForStudy(studyId);
 }
 
@@ -145,7 +145,7 @@ export const onResearchParticipantCreated = onDocumentCreated(
     if (!studyId) return;
     try {
       const pw = Number(data.recruitment_pathway);
-      const pathway = pw === 1 || pw === 2 ? (pw as 1 | 2) : await pathwayForStudy(studyId);
+      const pathway = Number.isFinite(pw) && pw >= 1 ? pw : await pathwayForStudy(studyId);
       const recordedAt = data.recorded_at as admin.firestore.Timestamp | undefined;
       await applyResearchSummaryDelta({
         studyId,

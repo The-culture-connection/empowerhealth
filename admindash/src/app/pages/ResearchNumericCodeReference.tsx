@@ -10,9 +10,9 @@ import {
   NAVIGATION_OUTCOME_CODES,
   MILESTONE_TYPE_CODES,
   PROVIDER_REVIEW_ACTIVITY_LABELS,
-  RECRUITMENT_PATHWAY_CODES,
   RECRUITMENT_SOURCE_CODES,
 } from "@research/researchFieldSpec";
+import { RecruitmentPathwayEditor } from "../components/RecruitmentPathwayEditor";
 
 const AGE_GROUP_LABELS: Record<keyof typeof CODE_AGE_GROUP, string> = {
   under_18: "Under 18 years",
@@ -77,11 +77,6 @@ export function ResearchNumericCodeReference() {
     code,
     meaning: slug.replace(/_/g, " "),
   }));
-
-  const pathwayRows = [
-    { code: String(RECRUITMENT_PATHWAY_CODES.navigator_supported), meaning: "Navigator-supported cohort" },
-    { code: String(RECRUITMENT_PATHWAY_CODES.self_directed), meaning: "Self-directed cohort" },
-  ];
 
   const navRows = (
     Object.entries(NAVIGATION_OUTCOME_CODES) as [keyof typeof NAVIGATION_OUTCOME_CODES, number][]
@@ -184,16 +179,7 @@ export function ResearchNumericCodeReference() {
           <CodeTable rows={recruitmentRows} />
         </section>
 
-        <section>
-          <h3 className="text-base font-semibold mb-2" style={{ color: "var(--warm-800)" }}>
-            {"Participants & baseline — "}
-            <code className="font-mono text-sm">recruitment_pathway</code>
-          </h3>
-          <p className="text-sm mb-2" style={{ color: "var(--warm-600)" }}>
-            Matches export filter options on this page.
-          </p>
-          <CodeTable rows={pathwayRows} />
-        </section>
+        <RecruitmentPathwayEditor />
 
         <section>
           <h3 className="text-base font-semibold mb-2" style={{ color: "var(--warm-800)" }}>

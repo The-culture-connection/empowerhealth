@@ -14,11 +14,13 @@ export interface ResearchDateRange {
   end: Date;
 }
 
+export type RecruitmentPathwayEntry = { code: number; label: string };
+
 export async function exportResearchDataset(params: {
   format: ResearchExportFormat;
   dateRange: ResearchDateRange;
   studyId?: string;
-  recruitmentPathway?: 1 | 2;
+  recruitmentPathway?: number;
   /** When set, only these instruments are queried (see `exportResearchDataset` Cloud Function). */
   instruments?: ResearchInstrumentId[];
 }): Promise<{
@@ -87,10 +89,34 @@ export type ResearchDashboardSummary = {
   providerReviewCount?: number;
   avsUploadCount?: number;
   cohortComparison?: {
-    navigator_supported: PathwaySummarySlice;
-    self_directed: PathwaySummarySlice;
+    pathways: Array<{
+      code: number;
+      label: string;
+      slice: PathwaySummarySlice;
+    }>;
   };
 };
+
+export async function listRecruitmentPathways(): Promise<RecruitmentPathwayEntry[]> {
+  const fn = httpsCallable(functions, 'listRecruitmentPathways');
+  const result = await fn({});
+  const data = result.data as { pathways?: RecruitmentPathwayEntry[] };
+  return Array.isArray(data.pathways) ? data.pathways : [];
+}
+
+export async function addRecruitmentPathway(code: number, label: string): Promise<RecruitmentPathwayEntry[]> {
+  const fn = httpsCallable(functions, 'addRecruitmentPathway');
+  const result = await fn({ code, label });
+  const data = result.data as { pathways?: RecruitmentPathwayEntry[] };
+  return Array.isArray(data.pathways) ? data.pathways : [];
+}
+
+export async function deleteRecruitmentPathway(code: number): Promise<RecruitmentPathwayEntry[]> {
+  const fn = httpsCallable(functions, 'deleteRecruitmentPathway');
+  const result = await fn({ code });
+  const data = result.data as { pathways?: RecruitmentPathwayEntry[] };
+  return Array.isArray(data.pathways) ? data.pathways : [];
+}
 
 export async function getResearchDashboardSummary(params: {
   dateRange: ResearchDateRange;

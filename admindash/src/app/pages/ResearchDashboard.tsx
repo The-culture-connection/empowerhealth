@@ -4,7 +4,9 @@ import {
   downloadTextFile,
   exportResearchDataset,
   getResearchDashboardSummary,
+  listRecruitmentPathways,
   recomputeResearchSummaries,
+  type RecruitmentPathwayEntry,
   type ResearchInstrumentId,
 } from "../../lib/researchApi";
 import { RESEARCH_INSTRUMENTS } from "@research/researchFieldSpec";
@@ -14,7 +16,7 @@ import { CohortComparisonPanel } from "./CohortComparisonPanel";
 import { ResearchDashboardHome } from "./ResearchDashboardHome";
 import { ResearchSummaryCards } from "./ResearchSummaryCards";
 
-type PathwayFilter = "" | "1" | "2";
+type PathwayFilter = "";
 
 function defaultRange(): { start: Date; end: Date } {
   const end = new Date();
@@ -28,7 +30,8 @@ function defaultRange(): { start: Date; end: Date } {
 export function ResearchDashboard() {
   const [range, setRange] = useState(defaultRange);
   const [studyId, setStudyId] = useState("");
-  const [pathway, setPathway] = useState<PathwayFilter>("");
+  const [pathway, setPathway] = useState<PathwayFilter | string>("");
+  const [pathwayOptions, setPathwayOptions] = useState<RecruitmentPathwayEntry[]>([]);
   const [summary, setSummary] = useState<Awaited<ReturnType<typeof getResearchDashboardSummary>> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -56,10 +59,23 @@ export function ResearchDashboard() {
     void loadSummary();
   }, [loadSummary]);
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const u = auth.currentUser;
+        if (u) await u.getIdToken(true);
+        const list = await listRecruitmentPathways();
+        setPathwayOptions(list);
+      } catch {
+        setPathwayOptions([]);
+      }
+    })();
+  }, []);
+
   const commonExportArgs = () => ({
     dateRange: range,
     studyId: studyId.trim() || undefined,
-    recruitmentPathway: pathway === "" ? undefined : (Number(pathway) as 1 | 2),
+    recruitmentPathway: pathway === "" ? undefined : Number(pathway),
   });
 
   async function handleRecomputeSummaries() {
@@ -304,8 +320,11 @@ export function ResearchDashboard() {
               onChange={(e) => setPathway(e.target.value as PathwayFilter)}
             >
               <option value="">All</option>
-              <option value="1">1 — Navigator-supported</option>
-              <option value="2">2 — Self-directed</option>
+              {pathwayOptions.map((p) => (
+                <option key={p.code} value={String(p.code)}>
+                  {p.code} — {p.label}
+                </option>
+              ))}
             </select>
           </label>
         </div>

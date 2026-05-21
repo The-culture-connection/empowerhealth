@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../cors/ui_theme.dart';
 import '../../models/user_profile.dart';
-import '../../research/research_codes.dart';
+import '../../research/research_codes.dart' show recruitmentSourceCode;
 import '../../services/database_service.dart';
 import '../../services/research/research_identity_service.dart';
 import '../../privacy/consent_screen.dart';
 import 'baseline_research_form.dart';
+import 'recruitment_pathway_question.dart';
 import 'recruitment_source_question.dart';
 
 /// Phase 1: server-issued [study_id], [research_participants], then baseline callable.
@@ -31,13 +32,34 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
   int _step = 0;
   bool _busy = false;
   String? _error;
+  bool _pathwaysLoading = true;
+  List<MapEntry<int, String>> _pathwayOptions = [];
 
   late int? _recruitmentSource;
+  int? _recruitmentPathway;
 
   @override
   void initState() {
     super.initState();
     _recruitmentSource = recruitmentSourceCode(widget.profile.recruitmentSource);
+    _loadPathways();
+  }
+
+  Future<void> _loadPathways() async {
+    try {
+      final list = await _identity.listRecruitmentPathways();
+      if (!mounted) return;
+      setState(() {
+        _pathwayOptions = list;
+        _pathwaysLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _pathwaysLoading = false;
+        _error = e.toString();
+      });
+    }
   }
 
   @override
@@ -46,15 +68,24 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
     super.dispose();
   }
 
-  int get _pathway => recruitmentPathwayCode(hasPrimaryProvider: widget.profile.hasPrimaryProvider);
-
-  Future<void> _createParticipant() async {
+  Future<void> _advanceFromSource() async {
     if (_recruitmentSource == null) {
       setState(() => _error = 'Select how you heard about the study');
       return;
     }
     if (_recruitmentSource == 6 && _recruitOther.text.trim().isEmpty) {
       setState(() => _error = 'Please describe "Other" recruitment source');
+      return;
+    }
+    setState(() {
+      _error = null;
+      _step = 1;
+    });
+  }
+
+  Future<void> _createParticipant() async {
+    if (_recruitmentPathway == null) {
+      setState(() => _error = 'Select your recruitment pathway');
       return;
     }
     setState(() {
@@ -66,12 +97,12 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
         recruitmentSource: _recruitmentSource!,
         recruitmentSourceOtherText:
             _recruitmentSource == 6 ? _recruitOther.text.trim() : null,
-        recruitmentPathway: _pathway,
+        recruitmentPathway: _recruitmentPathway!,
       );
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _step = 1;
+        _step = 2;
       });
     } catch (e) {
       if (!mounted) return;
@@ -116,6 +147,17 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
     }
   }
 
+  String get _stepLabel {
+    switch (_step) {
+      case 0:
+        return 'Step 1 of 3';
+      case 1:
+        return 'Step 2 of 3';
+      default:
+        return 'Step 3 of 3';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,7 +175,7 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                _step == 0 ? 'Step 1 of 2' : 'Step 2 of 2',
+                _stepLabel,
                 style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.brandPurple),
               ),
               const SizedBox(height: 12),
@@ -159,7 +201,31 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
                     child: Text(_error!, style: const TextStyle(color: Colors.red)),
                   ),
                 FilledButton(
-                  onPressed: _busy ? null : _createParticipant,
+                  onPressed: _busy ? null : _advanceFromSource,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: AppTheme.brandPurple,
+                  ),
+                  child: const Text('Continue'),
+                ),
+              ] else if (_step == 1) ...[
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: RecruitmentPathwayQuestion(
+                      value: _recruitmentPathway,
+                      onChanged: (v) => setState(() => _recruitmentPathway = v),
+                      pathways: _pathwayOptions,
+                      loading: _pathwaysLoading,
+                    ),
+                  ),
+                ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                  ),
+                FilledButton(
+                  onPressed: _busy || _pathwaysLoading ? null : _createParticipant,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: AppTheme.brandPurple,
@@ -176,7 +242,7 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
                 Expanded(
                   child: BaselineResearchForm(
                     profile: widget.profile,
-                    recruitmentPathway: _pathway,
+                    recruitmentPathway: _recruitmentPathway!,
                     isSubmitting: _busy,
                     onSubmit: _submitBaseline,
                   ),

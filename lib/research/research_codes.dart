@@ -19,10 +19,6 @@ int recruitmentSourceCode(String? source) {
   }
 }
 
-int recruitmentPathwayCode({required bool hasPrimaryProvider}) {
-  return hasPrimaryProvider ? 1 : 2;
-}
-
 int insuranceTypeCodeFromProfileLabel(String raw) {
   final s = raw.trim().toLowerCase();
   if (s.contains('medicaid')) return 1;

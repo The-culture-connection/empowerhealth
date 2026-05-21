@@ -62,13 +62,14 @@ export function iterateDayKeys(start: admin.firestore.Timestamp, end: admin.fire
   return keys;
 }
 
-export async function recruitmentPathwayForStudy(studyId: string): Promise<1 | 2 | null> {
+/** Stored participant/baseline code (includes legacy codes removed from admin config). */
+export async function recruitmentPathwayForStudy(studyId: string): Promise<number | null> {
   const pSnap = await db.collection('research_participants').doc(studyId).get();
   const p = Number(pSnap.data()?.recruitment_pathway);
-  if (p === 1 || p === 2) return p as 1 | 2;
+  if (Number.isFinite(p) && p >= 1) return p;
   const bSnap = await db.collection('research_baseline').doc(studyId).get();
   const b = Number(bSnap.data()?.recruitment_pathway);
-  if (b === 1 || b === 2) return b as 1 | 2;
+  if (Number.isFinite(b) && b >= 1) return b;
   return null;
 }
 
@@ -175,7 +176,7 @@ export type SummaryDeltaKind =
 export async function applyResearchSummaryDelta(params: {
   studyId: string;
   recordedAt: admin.firestore.Timestamp | undefined;
-  pathway: 1 | 2 | null;
+  pathway: number | null;
   kind: SummaryDeltaKind;
   /** Raw created document data (snake_case). */
   data: Record<string, unknown>;
@@ -214,7 +215,7 @@ export async function applyResearchSummaryDelta(params: {
   mergeTouch(batch, dayRef, patch);
   mergeTouch(batch, studyRef, patch);
 
-  if (pathway === 1 || pathway === 2) {
+  if (pathway != null && Number.isFinite(pathway)) {
     const pathwayRef = db.collection(COLL_BY_PATHWAY).doc(String(pathway));
     mergeTouch(batch, pathwayRef, patch);
   }

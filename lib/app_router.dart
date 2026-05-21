@@ -21,6 +21,7 @@ import 'providers/provider_search_entry_screen.dart';
 import 'providers/add_provider_screen.dart';
 import 'care_survey/care_navigation_survey_screen.dart';
 import 'Home/pregnancy_journey_screen.dart';
+import 'Home/Learning Modules/rights_screen.dart';
 
 class Routes {
   static const auth = '/auth';
@@ -50,6 +51,7 @@ class Routes {
   static const addProvider = '/providers/add';
   static const careSurvey = '/care-survey';
   static const pregnancyJourney = '/pregnancy-journey';
+  static const rights = '/rights';
 }
 
 class AppRouter {
@@ -78,7 +80,10 @@ class AppRouter {
       case Routes.community:
         return _page(const CommunityScreen());
       case Routes.assistant:
-        return _page(const AssistantScreen());
+        final initialPrompt = settings.arguments is String
+            ? settings.arguments as String
+            : null;
+        return _page(AssistantScreen(initialPrompt: initialPrompt));
       case Routes.editProfile:
         return _page(const EditProfileScreen());
       case Routes.privacyCenter:
@@ -103,6 +108,8 @@ class AppRouter {
         return _page(const CareNavigationSurveyScreen());
       case Routes.pregnancyJourney:
         return _page(const PregnancyJourneyScreen());
+      case Routes.rights:
+        return _page(const RightsScreen());
       default:
         return _page(const AuthScreen());
     }

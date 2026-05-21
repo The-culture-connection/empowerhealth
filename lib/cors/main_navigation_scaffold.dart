@@ -309,31 +309,6 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
           ),
         ),
       ),
-      // Floating AI Assistant Button (matching NewUI)
-      floatingActionButton: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: AppTheme.primaryActionGradient,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: AppTheme.shadowMedium(opacity: 0.18, blur: 20, y: 6),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(28),
-            onTap: () {
-              Navigator.pushNamed(context, '/assistant');
-            },
-            child: const Icon(
-              Icons.support_agent,
-              color: AppTheme.brandWhite,
-              size: 24,
-            ),
-          ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }

@@ -59,7 +59,10 @@ List<_ChatListEntry> _flattenMessages(
 }
 
 class AssistantScreen extends StatefulWidget {
-  const AssistantScreen({super.key});
+  const AssistantScreen({super.key, this.initialPrompt});
+
+  /// Optional starter text (e.g. from home “Understand Your Care” cards).
+  final String? initialPrompt;
 
   @override
   State<AssistantScreen> createState() => _AssistantScreenState();
@@ -81,6 +84,10 @@ class _AssistantScreenState extends State<AssistantScreen>
   @override
   void initState() {
     super.initState();
+    final seed = widget.initialPrompt?.trim();
+    if (seed != null && seed.isNotEmpty) {
+      _messageController.text = seed;
+    }
     _dotController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -263,7 +270,7 @@ class _AssistantScreenState extends State<AssistantScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Ask me anything about your pregnancy, care, or rights',
+                            'Ask me anything about your care or what to do next',
                             style: TextStyle(
                               fontSize: 14,
                               color: AppTheme.textSecondary,

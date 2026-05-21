@@ -15,6 +15,13 @@ import 'Learning Modules/learning_module_detail_screen.dart';
 import '../widgets/ai_disclaimer_banner.dart';
 import '../models/user_profile.dart';
 import 'widgets/home_milestone_bell.dart';
+import '../assistant/assistant_screen.dart';
+
+/// Starter prompts when opening the assistant from Understand Your Care cards.
+const String _kAssistantPromptTestMeaning =
+    "I have a test or result I don't understand. Can you explain it in simple terms?";
+const String _kAssistantPromptIsThisNormal =
+    "I'm wondering if something I'm feeling is normal. Can you help me understand?";
 
 class HomeScreenV2 extends StatefulWidget {
   const HomeScreenV2({super.key});
@@ -171,7 +178,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                "You're supported every step of the way.",
+                                "You're supported — with clear answers and tools to speak up.",
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w300,
@@ -182,7 +189,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                               const SizedBox(height: 24),
                               InkWell(
                                 onTap: () {
-                                  Navigator.pushNamed(context, Routes.providers);
+                                  Navigator.pushNamed(context, Routes.assistant);
                                 },
                                 borderRadius: BorderRadius.circular(28),
                                 child: Container(
@@ -201,13 +208,15 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                       fontWeight: FontWeight.w300,
                                     ),
                                     decoration: InputDecoration(
-                                      hintText: 'Find trusted providers near you',
+                                      hintText:
+                                          'Search symptoms, tests, or what to ask your doctor',
                                       hintStyle: TextStyle(
                                         color: const Color(0xFFB5A8C2),
                                         fontWeight: FontWeight.w300,
+                                        fontSize: 14,
                                       ),
                                       prefixIcon: const Icon(
-                                        Icons.search,
+                                        Icons.auto_awesome_rounded,
                                         color: Color(0xFF9D8FB5),
                                         size: 20,
                                       ),
@@ -351,14 +360,13 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                         ),
                                       ),
                                       const SizedBox(height: 12),
-                                      Text(
-                                        PregnancyUtils.trimesterSupportMessage(
-                                            trimester),
+                                      const Text(
+                                        "Here's what's happening — and what to ask at your next visit.",
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w300,
                                           height: 1.5,
-                                          color: const Color(0xFFE8DFF0),
+                                          color: Color(0xFFE8DFF0),
                                         ),
                                       ),
                                       const SizedBox(height: 32),
@@ -418,20 +426,25 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                     ),
                   ],
 
-                  // Today's Support (NewUI: primary hero + My visits widget)
+                  // Today's Guidance (primary hero + visit summary widget)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 40),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "💜 TODAY'S SUPPORT",
+                          "💜 TODAY'S GUIDANCE",
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                             letterSpacing: 1.2,
                             color: AppTheme.brandPurple,
                           ),
+                        ),
+                        const SizedBox(height: 16),
+                        _ProviderSearchEntry(
+                          onTap: () =>
+                              Navigator.pushNamed(context, Routes.providers),
                         ),
                         const SizedBox(height: 16),
                         Material(
@@ -527,7 +540,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    'Prepare questions for your next visit',
+                                                    'Care Check In',
                                                     style: TextStyle(
                                                       fontSize: 17,
                                                       fontWeight: FontWeight.w400,
@@ -605,11 +618,12 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                             if (!snapshot.hasData ||
                                 snapshot.data!.docs.isEmpty) {
                               return _AppointmentCard(
-                                overline: 'My Visits',
-                                title: 'Your visits',
+                                overline: null,
+                                title: 'Know what to ask at your next visit',
                                 subtitle:
-                                    'Upload your first after-visit summary when you’re ready.',
+                                    "We'll help you understand your care and speak up with confidence.",
                                 description: '',
+                                durationLabel: '2 minutes',
                                 onTap: () {
                                   Navigator.push(
                                     context,
@@ -691,6 +705,99 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                     ),
                   ),
 
+                  // Understand Your Care — quick paths to explanation features
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 40),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'UNDERSTAND YOUR CARE',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 1.2,
+                            color: AppTheme.brandPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _CareToolCard(
+                                icon: Icons.science_outlined,
+                                iconGradient: const [
+                                  Color(0xFFE8E0F0),
+                                  Color(0xFFD8CFE5),
+                                ],
+                                iconColor: AppTheme.brandPurple,
+                                title: 'What does this test mean?',
+                                subtitle:
+                                    'Labs and visit notes—plain language',
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const AssistantScreen(
+                                      initialPrompt: _kAssistantPromptTestMeaning,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _CareToolCard(
+                                icon: Icons.help_outline_rounded,
+                                iconGradient: const [
+                                  Color(0xFFF5EEE0),
+                                  Color(0xFFEBE0D6),
+                                ],
+                                iconColor: const Color(0xFFD4A574),
+                                title: 'Is this normal?',
+                                subtitle:
+                                    "What's typical—and when to reach out",
+                                onTap: () {
+                                  final due = _userProfile?.dueDate;
+                                  final weeks =
+                                      PregnancyUtils.calculateWeeksPregnant(due);
+                                  if (due != null && weeks > 0) {
+                                    Navigator.pushNamed(
+                                      context,
+                                      Routes.pregnancyJourney,
+                                    );
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => const AssistantScreen(
+                                          initialPrompt: _kAssistantPromptIsThisNormal,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _CareToolCard(
+                          icon: Icons.shield_outlined,
+                          iconGradient: const [
+                            Color(0xFFE8E0F0),
+                            Color(0xFFEDE7F3),
+                          ],
+                          iconColor: const Color(0xFF8B7AA8),
+                          title: 'Know your rights in care',
+                          subtitle:
+                              'Questions, consent, and respectful care',
+                          onTap: () =>
+                              Navigator.pushNamed(context, Routes.rights),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   // Your space — Visits, Journal, Birth preferences, Next steps (NewUI order)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -715,7 +822,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                 Color(0xFFD8CFE5),
                               ],
                               iconColor: AppTheme.brandPurple,
-                              title: 'My Visits',
+                              title: 'My Visits & What It Means',
                               subtitle: 'Summaries & notes',
                               onTap: () {
                                 Navigator.push(
@@ -756,7 +863,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                 Color(0xFFD8CFE5),
                               ],
                               iconColor: AppTheme.brandPurple,
-                              title: 'My Birth Preferences',
+                              title: 'My Birth Choices',
                               subtitle: "What's right for you",
                               onTap: () {
                                 Navigator.push(
@@ -778,7 +885,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                 Color(0xFFD8CFE5),
                               ],
                               iconColor: AppTheme.brandPurple,
-                              title: 'My Next Steps',
+                              title: 'My Care Plan',
                               subtitle: 'Your personalized path',
                               onTap: () => Navigator.pushNamed(
                                   context, Routes.learning),
@@ -1030,6 +1137,88 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
   }
 }
 
+/// Today's Guidance entry for provider directory search.
+class _ProviderSearchEntry extends StatelessWidget {
+  const _ProviderSearchEntry({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceCard,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFFE8E0F0).withOpacity(0.5),
+            ),
+            boxShadow: AppTheme.shadowSoft(opacity: 0.08, blur: 18, y: 4),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE8E0F0), Color(0xFFD8CFE5)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.search_rounded,
+                    color: AppTheme.brandPurple,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Find trusted providers near you',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Search by ZIP, city, and type of care',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w300,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppTheme.textMuted.withOpacity(0.85),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SupportCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
@@ -1226,6 +1415,7 @@ class _AppointmentCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final String description;
+  final String? durationLabel;
   final VoidCallback onTap;
 
   const _AppointmentCard({
@@ -1233,6 +1423,7 @@ class _AppointmentCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.description,
+    this.durationLabel,
     required this.onTap,
   });
 
@@ -1333,17 +1524,40 @@ class _AppointmentCard extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (durationLabel != null &&
+                          durationLabel!.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Text(
+                              durationLabel!,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w300,
+                                color: AppTheme.textMuted.withOpacity(0.85),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.chevron_right,
+                              size: 18,
+                              color: AppTheme.textMuted.withOpacity(0.85),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(
-                    Icons.chevron_right,
-                    color: AppTheme.textMuted.withOpacity(0.7),
-                    size: 22,
+                if (durationLabel == null || durationLabel!.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Icon(
+                      Icons.chevron_right,
+                      color: AppTheme.textMuted.withOpacity(0.7),
+                      size: 22,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

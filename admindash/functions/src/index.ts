@@ -3,9 +3,9 @@
  */
 
 import * as functions from 'firebase-functions';
-import * as functionsV1 from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import { defineString, defineSecret } from 'firebase-functions/params';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 
 admin.initializeApp();
 
@@ -1675,25 +1675,28 @@ export const publishRelease = functions.https.onRequest({
  * Poll System Health
  * Scheduled function that checks system health every 5 minutes
  */
-export const pollSystemHealth = functionsV1.pubsub.schedule('every 5 minutes').onRun(async (context: any) => {
-  const checks = await performHealthChecks();
-  
-  // Write results to system_health collection
-  for (const [serviceKey, health] of Object.entries(checks)) {
-    await db.collection('system_health').doc(serviceKey).set({
-      name: health.name,
-      status: health.status,
-      lastCheckedAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastHealthyAt: health.status === 'operational' 
-        ? admin.firestore.FieldValue.serverTimestamp()
-        : admin.firestore.FieldValue.serverTimestamp(), // Keep existing if not operational
-      details: health.details,
-      metrics: health.metrics || {},
-    }, { merge: true });
-  }
+export const pollSystemHealth = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    region: 'us-central1',
+  },
+  async () => {
+    const checks = await performHealthChecks();
 
-  return null;
-});
+    for (const [serviceKey, health] of Object.entries(checks)) {
+      await db.collection('system_health').doc(serviceKey).set({
+        name: health.name,
+        status: health.status,
+        lastCheckedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastHealthyAt: health.status === 'operational'
+          ? admin.firestore.FieldValue.serverTimestamp()
+          : admin.firestore.FieldValue.serverTimestamp(),
+        details: health.details,
+        metrics: health.metrics || {},
+      }, { merge: true });
+    }
+  },
+);
 
 /**
  * Run Health Check Now

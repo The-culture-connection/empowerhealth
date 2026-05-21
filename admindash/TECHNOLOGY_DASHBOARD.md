@@ -30,7 +30,7 @@ The Technology Dashboard is a dynamic, auto-updating system that tracks releases
    - Upserts release document
    - Logs audit event
 
-2. **`pollSystemHealth`** (Scheduled - every 5 minutes)
+2. **`pollSystemHealth`** (Gen 2 scheduled — every 5 minutes, `us-central1`, Node.js 22)
    - Checks Railway API health
    - Checks Firebase read/write
    - Checks analytics job freshness

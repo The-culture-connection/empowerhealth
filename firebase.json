@@ -10,6 +10,19 @@
         "firebase-debug.*.log"
       ],
       "predeploy": []
+    },
+    {
+      "source": "admindash/functions",
+      "codebase": "admindashboard",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
     }
   ],
   "firestore": {
@@ -18,6 +31,28 @@
   },
   "storage": {
     "rules": "storage.rules"
+  },
+  "emulators": {
+    "functions": {
+      "port": 5001
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "pubsub": {
+      "port": 8085
+    },
+    "auth": {
+      "port": 9099
+    },
+    "hub": {
+      "port": 4400
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
   }
 }
 

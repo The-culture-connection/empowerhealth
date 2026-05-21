@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../cors/ui_theme.dart';
 import '../../models/user_profile.dart';
-import '../../research/research_codes.dart' show recruitmentSourceCode;
+import '../../research/research_codes.dart';
 import '../../services/database_service.dart';
 import '../../services/research/research_identity_service.dart';
 import '../../privacy/consent_screen.dart';
@@ -46,6 +46,7 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
   }
 
   Future<void> _loadPathways() async {
+    setState(() => _pathwaysLoading = true);
     try {
       final list = await _identity.listRecruitmentPathways();
       if (!mounted) return;
@@ -56,8 +57,9 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
+        _pathwayOptions = List<MapEntry<int, String>>.from(kDefaultRecruitmentPathways);
         _pathwaysLoading = false;
-        _error = e.toString();
+        _error = null;
       });
     }
   }
@@ -68,7 +70,7 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
     super.dispose();
   }
 
-  Future<void> _advanceFromSource() async {
+  Future<void> _completeEnrollmentStep() async {
     if (_recruitmentSource == null) {
       setState(() => _error = 'Select how you heard about the study');
       return;
@@ -77,13 +79,6 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
       setState(() => _error = 'Please describe "Other" recruitment source');
       return;
     }
-    setState(() {
-      _error = null;
-      _step = 1;
-    });
-  }
-
-  Future<void> _createParticipant() async {
     if (_recruitmentPathway == null) {
       setState(() => _error = 'Select your recruitment pathway');
       return;
@@ -102,7 +97,7 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _step = 2;
+        _step = 1;
       });
     } catch (e) {
       if (!mounted) return;
@@ -147,17 +142,6 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
     }
   }
 
-  String get _stepLabel {
-    switch (_step) {
-      case 0:
-        return 'Step 1 of 3';
-      case 1:
-        return 'Step 2 of 3';
-      default:
-        return 'Step 3 of 3';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -175,7 +159,7 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                _stepLabel,
+                _step == 0 ? 'Step 1 of 2 — About you' : 'Step 2 of 2 — Baseline survey',
                 style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.brandPurple),
               ),
               const SizedBox(height: 12),
@@ -188,10 +172,24 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
                 const SizedBox(height: 24),
                 Expanded(
                   child: SingleChildScrollView(
-                    child: RecruitmentSourceQuestion(
-                      value: _recruitmentSource,
-                      onChanged: (v) => setState(() => _recruitmentSource = v),
-                      otherController: _recruitOther,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        RecruitmentSourceQuestion(
+                          value: _recruitmentSource,
+                          onChanged: (v) => setState(() => _recruitmentSource = v),
+                          otherController: _recruitOther,
+                        ),
+                        const SizedBox(height: 32),
+                        const Divider(),
+                        const SizedBox(height: 24),
+                        RecruitmentPathwayQuestion(
+                          value: _recruitmentPathway,
+                          onChanged: (v) => setState(() => _recruitmentPathway = v),
+                          pathways: _pathwayOptions,
+                          loading: _pathwaysLoading,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -201,31 +199,7 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
                     child: Text(_error!, style: const TextStyle(color: Colors.red)),
                   ),
                 FilledButton(
-                  onPressed: _busy ? null : _advanceFromSource,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: AppTheme.brandPurple,
-                  ),
-                  child: const Text('Continue'),
-                ),
-              ] else if (_step == 1) ...[
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: RecruitmentPathwayQuestion(
-                      value: _recruitmentPathway,
-                      onChanged: (v) => setState(() => _recruitmentPathway = v),
-                      pathways: _pathwayOptions,
-                      loading: _pathwaysLoading,
-                    ),
-                  ),
-                ),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(_error!, style: const TextStyle(color: Colors.red)),
-                  ),
-                FilledButton(
-                  onPressed: _busy || _pathwaysLoading ? null : _createParticipant,
+                  onPressed: _busy || _pathwaysLoading ? null : _completeEnrollmentStep,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: AppTheme.brandPurple,
@@ -236,7 +210,7 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
                           width: 22,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Continue'),
+                      : const Text('Continue to baseline'),
                 ),
               ] else ...[
                 Expanded(

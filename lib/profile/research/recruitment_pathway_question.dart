@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../cors/ui_theme.dart';
+import '../../research/research_codes.dart';
 
 /// Research recruitment pathway (admin-configured numeric codes).
 class RecruitmentPathwayQuestion extends StatelessWidget {
@@ -21,14 +22,9 @@ class RecruitmentPathwayQuestion extends StatelessWidget {
     if (loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (pathways.isEmpty) {
-      return const Text(
-        'Recruitment pathways are not available right now. Please try again later.',
-        style: TextStyle(color: Colors.red),
-      );
-    }
+    final options = pathways.isNotEmpty ? pathways : kDefaultRecruitmentPathways;
 
-    final items = pathways
+    final items = options
         .map(
           (e) => DropdownMenuItem<int>(
             value: e.key,
@@ -38,7 +34,7 @@ class RecruitmentPathwayQuestion extends StatelessWidget {
         .toList();
 
     String compactLabel(int code) {
-      for (final e in pathways) {
+      for (final e in options) {
         if (e.key == code) return e.value;
       }
       return 'Select';

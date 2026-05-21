@@ -1,5 +1,11 @@
 // Numeric codes aligned with admindash/functions/src/research/researchFieldSpec.ts
 
+/// Default pathways when `listRecruitmentPathways` is unavailable (matches server seed).
+const List<MapEntry<int, String>> kDefaultRecruitmentPathways = [
+  MapEntry(1, 'Navigator-supported cohort'),
+  MapEntry(2, 'Self-directed cohort'),
+];
+
 int recruitmentSourceCode(String? source) {
   switch (source) {
     case 'doula':

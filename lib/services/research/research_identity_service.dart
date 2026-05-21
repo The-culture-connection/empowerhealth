@@ -1,5 +1,6 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../research/research_codes.dart';
 
 /// Callables for Phase 1 research identity + baseline (see `researchIdentity.ts`).
 class ResearchIdentityService {
@@ -42,19 +43,32 @@ class ResearchIdentityService {
   }
 
   Future<List<MapEntry<int, String>>> listRecruitmentPathways() async {
-    final callable = _fn.httpsCallable('listRecruitmentPathways');
-    final res = await callable.call();
-    final data = res.data as Map<dynamic, dynamic>;
+    try {
+      final callable = _fn.httpsCallable('listRecruitmentPathways');
+      final res = await callable.call();
+      final parsed = _parsePathwayList(res.data);
+      if (parsed.isNotEmpty) return parsed;
+    } catch (_) {
+      // Fall back to bundled defaults so onboarding always shows options.
+    }
+    return List<MapEntry<int, String>>.from(kDefaultRecruitmentPathways);
+  }
+
+  List<MapEntry<int, String>> _parsePathwayList(dynamic data) {
+    if (data is! Map) return [];
     final raw = data['pathways'];
     if (raw is! List) return [];
     final out = <MapEntry<int, String>>[];
     for (final item in raw) {
       if (item is! Map) continue;
-      final code = item['code'];
+      final codeRaw = item['code'];
       final label = item['label'];
-      if (code is num && label is String && label.trim().isNotEmpty) {
-        out.add(MapEntry(code.toInt(), label.trim()));
-      }
+      final code = codeRaw is num
+          ? codeRaw.toInt()
+          : int.tryParse(codeRaw?.toString() ?? '');
+      if (code == null || code < 1) continue;
+      if (label is! String || label.trim().isEmpty) continue;
+      out.add(MapEntry(code, label.trim()));
     }
     out.sort((a, b) => a.key.compareTo(b.key));
     return out;

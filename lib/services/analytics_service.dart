@@ -57,6 +57,12 @@ String _healthMadeSimpleAccessSlug({String? source, String? topicId}) {
   return s.isEmpty ? 'unknown' : s;
 }
 
+/// Firebase Analytics custom params must be [String] or [num], not [bool].
+String _firebaseAnalyticsBoolString(dynamic value) {
+  if (value is bool) return value ? 'true' : 'false';
+  return value.toString().toLowerCase() == 'true' ? 'true' : 'false';
+}
+
 class AnalyticsService {
   static final AnalyticsService _instance = AnalyticsService._internal();
   factory AnalyticsService() => _instance;
@@ -694,7 +700,9 @@ class AnalyticsService {
             analyticsParams[key] = value.length > 100
                 ? value.substring(0, 100)
                 : value;
-          } else if (value is num || value is bool) {
+          } else if (value is bool) {
+            analyticsParams[key] = value ? 'true' : 'false';
+          } else if (value is num) {
             analyticsParams[key] = value;
           } else if (value != null) {
             // Convert other types to string
@@ -731,14 +739,19 @@ class AnalyticsService {
               : int.tryParse(metadata['pregnancy_week'].toString()) ?? 0;
         }
         if (metadata['navigator'] != null) {
-          analyticsParams['navigator'] = metadata['navigator'] is bool
-              ? metadata['navigator']
-              : metadata['navigator'].toString().toLowerCase() == 'true';
+          analyticsParams['navigator'] = _firebaseAnalyticsBoolString(
+            metadata['navigator'],
+          );
         }
         if (metadata['self_directed'] != null) {
-          analyticsParams['self_directed'] = metadata['self_directed'] is bool
-              ? metadata['self_directed']
-              : metadata['self_directed'].toString().toLowerCase() == 'true';
+          analyticsParams['self_directed'] = _firebaseAnalyticsBoolString(
+            metadata['self_directed'],
+          );
+        }
+        if (metadata['provider_selected'] != null) {
+          analyticsParams['provider_selected'] = _firebaseAnalyticsBoolString(
+            metadata['provider_selected'],
+          );
         }
       }
 

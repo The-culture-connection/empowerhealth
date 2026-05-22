@@ -9,9 +9,13 @@ import '../Community/community_screen.dart';
 import '../editprofile/edit_profile_screen.dart';
 import '../Home/Learning Modules/learning_modules_screen_v2.dart';
 import '../models/user_profile.dart';
+import '../pregnancy_loss/pregnancy_loss_learning_screen.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
+import '../support_stage/support_stage.dart';
+import '../support_stage/support_stage_scope.dart';
 import '../widgets/ambient_background.dart';
+import 'main_navigation_scope.dart';
 import 'ui_theme.dart';
 
 class MainNavigationScaffold extends StatefulWidget {
@@ -28,13 +32,22 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
   DateTime _tabEnteredAt = DateTime.now();
   DateTime? _featureSessionStartedAt;
 
-  final _pages = const [
-    HomeScreenV2(),
-    LearningModulesScreenV2(), // Learn tab
-    JournalScreen(),
-    CommunityScreen(),
-    EditProfileScreen(),
-  ];
+  List<Widget> _buildPages(UserProfile? profile) {
+    final loss = profile?.isInPregnancyLossMode ?? false;
+    return [
+      const HomeScreenV2(key: ValueKey('main_tab_home')),
+      loss
+          ? const PregnancyLossLearningScreen(key: ValueKey('main_tab_learn_loss'))
+          : const LearningModulesScreenV2(key: ValueKey('main_tab_learn_standard')),
+      const JournalScreen(key: ValueKey('main_tab_journal')),
+      CommunityScreen(
+        key: ValueKey('main_tab_community_${loss ? 'loss' : 'standard'}'),
+        communityStageFilter:
+            loss ? CommunityStage.pregnancyLoss : null,
+      ),
+      const EditProfileScreen(key: ValueKey('main_tab_profile')),
+    ];
+  }
 
   @override
   void initState() {
@@ -229,7 +242,14 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return SupportStageScopeHost(
+      child: Builder(
+        builder: (context) {
+          final pages = _buildPages(SupportStageScope.profileOf(context));
+
+          return MainNavigationScope(
+      selectTab: _onTabChanged,
+      child: Scaffold(
       extendBody: true,
       backgroundColor: AppTheme.backgroundWarm,
       body: Stack(
@@ -238,11 +258,24 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
           AmbientBackground(showRadialWashes: _index != 1),
           SafeArea(
             bottom: false,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 672),
-                child: IndexedStack(index: _index, children: _pages),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: 672,
+                      minHeight: constraints.maxHeight,
+                      maxHeight: constraints.maxHeight,
+                    ),
+                    child: IndexedStack(
+                      index: _index,
+                      sizing: StackFit.expand,
+                      children: pages,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -308,6 +341,10 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
             ),
           ),
         ),
+      ),
+      ),
+          );
+        },
       ),
     );
   }

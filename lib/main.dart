@@ -122,8 +122,10 @@ class _InitialAuthGateState extends State<_InitialAuthGate> {
     _authSub = FirebaseAuth.instance.authStateChanges().listen(
       (user) {
         if (!mounted) return;
+        // Ignore transient null during token refresh (e.g. analytics getIdToken(true)).
+        final resolved = user ?? FirebaseAuth.instance.currentUser;
         setState(() {
-          _user = user;
+          _user = resolved;
           _ready = true;
         });
       },

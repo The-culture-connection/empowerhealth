@@ -12,14 +12,16 @@ import 'assistant/assistant_screen.dart';
 import 'editprofile/edit_profile_screen.dart';
 import 'privacy/privacy_center_screen.dart';
 import 'privacy/consent_screen.dart';
-import 'Home/Appointments/appointments_screen.dart';
-import 'Home/Learning Modules/learning_modules_screen_v2.dart';
+import 'appointments/appointments_list_screen.dart';
+import 'learning/learning_route_gate.dart';
 import 'Home/Messages/Messages_screen.dart';
 import 'profile/profile_creation_screen.dart';
 import 'providers/provider_search_screen.dart';
 import 'providers/provider_search_entry_screen.dart';
 import 'providers/add_provider_screen.dart';
 import 'care_survey/care_navigation_survey_screen.dart';
+import 'emotional_support/emotional_support_checkin_screen.dart';
+import 'resources/app_resources_screen.dart';
 import 'Home/pregnancy_journey_screen.dart';
 import 'Home/Learning Modules/rights_screen.dart';
 
@@ -50,6 +52,8 @@ class Routes {
   static const providerProfile = '/providers/profile';
   static const addProvider = '/providers/add';
   static const careSurvey = '/care-survey';
+  static const emotionalSupportCheckin = '/emotional-support-checkin';
+  static const resources = '/resources';
   static const pregnancyJourney = '/pregnancy-journey';
   static const rights = '/rights';
 }
@@ -93,9 +97,9 @@ class AppRouter {
 
       // Home subroutes
       case Routes.appointments:
-        return _page(const AppointmentsScreen());
+        return _page(const AppointmentsListScreen());
       case Routes.learning:
-        return _page(const LearningModulesScreenV2());
+        return _page(const LearningRouteGate());
       case Routes.messages:
         return _page(const MessagesScreen());
       case Routes.providers:
@@ -106,6 +110,20 @@ class AppRouter {
         return _page(const AddProviderScreen());
       case Routes.careSurvey:
         return _page(const CareNavigationSurveyScreen());
+      case Routes.emotionalSupportCheckin:
+        return _page(const EmotionalSupportCheckInScreen());
+      case Routes.resources:
+        final args = settings.arguments;
+        String? highlightId;
+        String? category;
+        if (args is Map<String, dynamic>) {
+          highlightId = args['highlightResourceId'] as String?;
+          category = args['categoryFilter'] as String?;
+        }
+        return _page(AppResourcesScreen(
+          highlightResourceId: highlightId,
+          categoryFilter: category,
+        ));
       case Routes.pregnancyJourney:
         return _page(const PregnancyJourneyScreen());
       case Routes.rights:

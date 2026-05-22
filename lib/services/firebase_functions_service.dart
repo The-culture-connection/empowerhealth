@@ -7,9 +7,9 @@ import 'dart:convert';
 import 'dart:async';
 
 class FirebaseFunctionsService {
-  // Use default instance - functions will auto-detect their region
-  // This matches how the working birth plan function is called
-  final FirebaseFunctions _functions = FirebaseFunctions.instance;
+  /// Gen-2 callables are deployed to us-central1 (see functions/index.js).
+  final FirebaseFunctions _functions =
+      FirebaseFunctions.instanceFor(region: 'us-central1');
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
   // Verify project ID matches
@@ -23,6 +23,37 @@ class FirebaseFunctionsService {
 
   // Check if user is authenticated
   bool get isAuthenticated => _auth.currentUser != null;
+
+  /// Server-side pregnancy-loss mode + emotional check-in persistence (Admin SDK).
+  Future<Map<String, dynamic>> enterPregnancyLossSupportMode({
+    required List<String> selectedOptions,
+    String? somethingElseText,
+  }) async {
+    if (!isAuthenticated) {
+      throw Exception('Please sign in to continue.');
+    }
+    try {
+      final callable = _functions.httpsCallable(
+        'enterPregnancyLossSupportMode',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 30),
+        ),
+      );
+      final result = await callable.call({
+        'selectedOptions': selectedOptions,
+        if (somethingElseText != null && somethingElseText.trim().isNotEmpty)
+          'somethingElseText': somethingElseText.trim(),
+      });
+      final data = result.data;
+      if (data is Map<String, dynamic>) return data;
+      if (data is Map) return Map<String, dynamic>.from(data);
+      return <String, dynamic>{'success': true};
+    } on FirebaseFunctionsException {
+      rethrow;
+    } catch (e) {
+      throw Exception('We could not save your support settings. Please try again.');
+    }
+  }
 
   // Generate AI-powered learning module content
   Future<Map<String, dynamic>> generateLearningContent({

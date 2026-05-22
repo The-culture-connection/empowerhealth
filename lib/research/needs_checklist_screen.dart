@@ -2,17 +2,29 @@ import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
 import 'need_other_text_field.dart';
 
-/// Labels aligned with [CareNavigationSurveyScreen] care need ids (Today’s Support → care check-in).
+/// Labels aligned with [CareNavigationSurveyScreen] care need ids (research `need_*` fields).
 const List<Map<String, String>> kCareNeedsChecklistItems = [
-  {'id': 'prenatal-postpartum', 'label': 'Prenatal or postpartum medical care'},
-  {'id': 'labor-delivery', 'label': 'Labor & delivery preparation'},
-  {'id': 'blood-pressure', 'label': 'Blood pressure or medical condition follow-up'},
-  {'id': 'mental-health', 'label': 'Mental health support'},
-  {'id': 'lactation', 'label': 'Lactation/feeding support'},
-  {'id': 'infant-pediatric', 'label': 'Infant/pediatric care'},
-  {'id': 'benefits', 'label': 'Benefits/resources (WIC, Medicaid, crib, car seat)'},
-  {'id': 'transportation', 'label': 'Transportation/logistics'},
-  {'id': 'other', 'label': 'Other'},
+  {'id': 'prenatal-postpartum', 'label': 'Doctor or midwife care for me'},
+  {'id': 'labor-delivery', 'label': 'Getting ready for labor and birth'},
+  {
+    'id': 'blood-pressure',
+    'label': 'Follow-up for a health concern (e.g., blood pressure, diabetes)',
+  },
+  {'id': 'mental-health', 'label': 'Emotional or mental health support'},
+  {
+    'id': 'lactation',
+    'label': 'Help with feeding my baby (breastfeeding, pumping, or formula)',
+  },
+  {'id': 'infant-pediatric', 'label': 'Doctor visits or care for my baby'},
+  {
+    'id': 'benefits',
+    'label': 'Help with benefits or essentials (WIC, Medicaid, diapers, crib, car seat)',
+  },
+  {
+    'id': 'transportation',
+    'label': 'Getting to appointments (rides, transportation, scheduling)',
+  },
+  {'id': 'other', 'label': 'Something else I need help with'},
 ];
 
 /// Step 1 UI for the care navigation flow — need toggles + optional other text.
@@ -62,7 +74,7 @@ class NeedsChecklistScreen extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'Step 1 of 2',
+                'Care check-in',
                 style: TextStyle(
                   fontSize: 12,
                   color: AppTheme.textMuted,
@@ -74,7 +86,7 @@ class NeedsChecklistScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'What support have you needed recently?',
+          'Did you get the care and support you needed?',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w400,
@@ -84,11 +96,12 @@ class NeedsChecklistScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Select any that apply — it’s okay if you don’t need any of these',
+          'Let’s check if your care needs were met. Select anything you needed help with — even if you didn’t receive it.',
           style: TextStyle(
             fontSize: 14,
             color: AppTheme.textMuted,
             fontWeight: FontWeight.w300,
+            height: 1.45,
           ),
         ),
         const SizedBox(height: 24),
@@ -229,9 +242,7 @@ class NeedsChecklistScreen extends StatelessWidget {
                           color: AppTheme.brandWhite,
                         ),
                       )
-                    : Text(
-                        selectedNeedIds.isEmpty ? 'Skip to finish' : 'Continue',
-                      ),
+                    : const Text('Continue'),
               ),
             ),
           ],

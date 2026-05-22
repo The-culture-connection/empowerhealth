@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
+import '../widgets/ambient_background.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import 'create_post_screen.dart';
@@ -10,9 +12,17 @@ import 'post_detail_screen.dart';
 import 'seed_mock_posts.dart';
 import '../widgets/community_survey_banner.dart';
 import '../widgets/trust_cue_banner.dart';
+import '../support_stage/support_stage.dart';
+import '../pregnancy_loss/pregnancy_loss_constants.dart';
 
 class CommunityScreen extends StatefulWidget {
-  const CommunityScreen({super.key});
+  const CommunityScreen({
+    super.key,
+    this.communityStageFilter,
+  });
+
+  /// When set to [CommunityStage.pregnancyLoss], only loss-space posts are shown.
+  final String? communityStageFilter;
 
   @override
   State<CommunityScreen> createState() => _CommunityScreenState();
@@ -67,6 +77,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
   }
 
+  bool get _isPregnancyLossSpace =>
+      widget.communityStageFilter == CommunityStage.pregnancyLoss;
+
+  List<String> get _categories => _isPregnancyLossSpace
+      ? kPregnancyLossCommunityCategories
+      : const ['All', 'Questions', 'Birth Stories', 'Support', 'Resources'];
+
   List<Widget> _headerSlivers(BuildContext context) {
     return [
       SliverPadding(
@@ -80,7 +97,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Community',
+                      _isPregnancyLossSpace
+                          ? 'Pregnancy Loss Support Space'
+                          : 'Community',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w400,
@@ -89,11 +108,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'EmpowerHealth Watch',
+                      _isPregnancyLossSpace
+                          ? 'A gentle space for support, reflection, and connection at your own pace.'
+                          : 'EmpowerHealth Watch',
                       style: TextStyle(
                         fontSize: 15,
                         color: AppTheme.textMuted,
                         fontWeight: FontWeight.w300,
+                        height: 1.45,
                       ),
                     ),
                   ],
@@ -104,7 +126,19 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const CreatePostScreen(),
+                      builder: (context) => CreatePostScreen(
+                        communityStage: _isPregnancyLossSpace
+                            ? CommunityStage.pregnancyLoss
+                            : CommunityStage.general,
+                        categories: _isPregnancyLossSpace
+                            ? kPregnancyLossCommunityCategories
+                                .where((c) => c != 'All')
+                                .toList()
+                            : null,
+                        contentPlaceholder: _isPregnancyLossSpace
+                            ? 'Share only what feels comfortable…'
+                            : null,
+                      ),
                     ),
                   );
                 },
@@ -192,7 +226,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'You\'re among friends',
+                            _isPregnancyLossSpace
+                                ? 'Share only what feels comfortable'
+                                : 'You\'re among friends',
                             style: TextStyle(
                               color: AppTheme.textSecondary,
                               fontSize: 18,
@@ -201,7 +237,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Share stories, ask questions, and support each other.',
+                            _isPregnancyLossSpace
+                                ? 'This is a supportive space. Please avoid giving medical advice or making assumptions about someone\'s experience.'
+                                : 'Share stories, ask questions, and support each other.',
                             style: TextStyle(
                               color: AppTheme.textMuted,
                               fontSize: 14,
@@ -240,46 +278,50 @@ class _CommunityScreenState extends State<CommunityScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _CategoryChip(
-                  label: 'All',
-                  isSelected: _selectedCategory == 'All',
-                  onTap: () => setState(() => _selectedCategory = 'All'),
-                ),
-                const SizedBox(width: 8),
-                _CategoryChip(
-                  label: 'Questions',
-                  isSelected: _selectedCategory == 'Questions',
-                  onTap: () =>
-                      setState(() => _selectedCategory = 'Questions'),
-                ),
-                const SizedBox(width: 8),
-                _CategoryChip(
-                  label: 'Birth Stories',
-                  isSelected: _selectedCategory == 'Birth Stories',
-                  onTap: () =>
-                      setState(() => _selectedCategory = 'Birth Stories'),
-                ),
-                const SizedBox(width: 8),
-                _CategoryChip(
-                  label: 'Support',
-                  isSelected: _selectedCategory == 'Support',
-                  onTap: () => setState(() => _selectedCategory = 'Support'),
-                ),
-                const SizedBox(width: 8),
-                _CategoryChip(
-                  label: 'Resources',
-                  isSelected: _selectedCategory == 'Resources',
-                  onTap: () =>
-                      setState(() => _selectedCategory = 'Resources'),
-                ),
+                for (var i = 0; i < _categories.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  _CategoryChip(
+                    label: _categories[i],
+                    isSelected: _selectedCategory == _categories[i],
+                    onTap: () =>
+                        setState(() => _selectedCategory = _categories[i]),
+                  ),
+                ],
               ],
             ),
           ),
         ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: 8)),
-      const SliverToBoxAdapter(child: CommunitySurveyBanner()),
-      const SliverToBoxAdapter(child: SizedBox(height: 8)),
+      if (!_isPregnancyLossSpace) ...[
+        const SliverToBoxAdapter(child: CommunitySurveyBanner()),
+        const SliverToBoxAdapter(child: SizedBox(height: 8)),
+      ] else ...[
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+            child: TextButton(
+              onPressed: () {
+                Navigator.push<void>(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CommunityScreen(
+                      communityStageFilter: CommunityStage.general,
+                    ),
+                  ),
+                );
+              },
+              child: Text(
+                'Browse general community (optional)',
+                style: TextStyle(
+                  color: AppTheme.textMuted,
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     ];
   }
 
@@ -590,8 +632,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
 
     final posts = snapshot.data!.docs.where((doc) {
-      if (_selectedCategory == 'All') return true;
       final data = doc.data() as Map<String, dynamic>;
+      final stage = data['communityStage'] as String?;
+      if (_isPregnancyLossSpace) {
+        if (stage != CommunityStage.pregnancyLoss) return false;
+      } else if (stage == CommunityStage.pregnancyLoss) {
+        return false;
+      }
+      if (_selectedCategory == 'All') return true;
       return data['category'] == _selectedCategory;
     }).toList();
 
@@ -628,24 +676,37 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final embeddedInMainNav = MainNavigationScope.maybeOf(context) != null;
+
+    final feed = SafeArea(
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('community_posts')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          return CustomScrollView(
+            slivers: [
+              ..._headerSlivers(context),
+              ..._feedSlivers(snapshot),
+            ],
+          );
+        },
+      ),
+    );
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('community_posts')
-                .orderBy('createdAt', descending: true)
-                .snapshots(),
-            builder: (context, snapshot) {
-              return CustomScrollView(
-                slivers: [
-                  ..._headerSlivers(context),
-                  ..._feedSlivers(snapshot),
-                ],
-              );
-            },
-          ),
-        ),
+      backgroundColor:
+          embeddedInMainNav ? Colors.transparent : AppTheme.backgroundWarm,
+      body: embeddedInMainNav
+          ? feed
+          : Stack(
+              fit: StackFit.expand,
+              children: [
+                const AmbientBackground(),
+                feed,
+              ],
+            ),
       floatingActionButton: Container(
         width: 56,
         height: 56,
@@ -668,7 +729,19 @@ class _CommunityScreenState extends State<CommunityScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const CreatePostScreen(),
+                  builder: (context) => CreatePostScreen(
+                    communityStage: _isPregnancyLossSpace
+                        ? CommunityStage.pregnancyLoss
+                        : CommunityStage.general,
+                    categories: _isPregnancyLossSpace
+                        ? kPregnancyLossCommunityCategories
+                            .where((c) => c != 'All')
+                            .toList()
+                        : null,
+                    contentPlaceholder: _isPregnancyLossSpace
+                        ? 'Share only what feels comfortable…'
+                        : null,
+                  ),
                 ),
               );
             },

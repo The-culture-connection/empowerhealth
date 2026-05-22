@@ -9,6 +9,7 @@ import '../cors/ui_theme.dart';
 import '../app_router.dart';
 import '../utils/pregnancy_utils.dart';
 import '../widgets/trust_cue_banner.dart';
+import '../pregnancy_loss/widgets/support_stage_settings_tile.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -784,6 +785,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 }),
               ]),
               
+              if (_userProfile != null)
+                _buildSection('Your support experience', [
+                  SupportStageSettingsTile(profile: _userProfile!),
+                ]),
               // Support Network Section
               _buildSection('Support Network', [
                 CheckboxListTile(

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
+import '../widgets/ambient_background.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 
@@ -756,10 +758,9 @@ class _JournalScreenState extends State<JournalScreen> {
   @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
+    final embeddedInMainNav = MainNavigationScope.maybeOf(context) != null;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
+    final content = SafeArea(
           child: Column(
             children: [
               // Header (matching NewUI)
@@ -923,7 +924,20 @@ class _JournalScreenState extends State<JournalScreen> {
               ),
             ],
           ),
-        ),
+        );
+
+    return Scaffold(
+      backgroundColor:
+          embeddedInMainNav ? Colors.transparent : AppTheme.backgroundWarm,
+      body: embeddedInMainNav
+          ? content
+          : Stack(
+              fit: StackFit.expand,
+              children: [
+                const AmbientBackground(),
+                content,
+              ],
+            ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

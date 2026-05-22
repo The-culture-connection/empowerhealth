@@ -1,9 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../app_router.dart';
+import '../birthplan/birth_plans_list_screen.dart';
+import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
 import '../research/navigation_outcome_prompt.dart';
 import '../research/needs_checklist_screen.dart';
+import '../resources/app_external_resources.dart';
+import '../resources/open_app_resource.dart';
+import 'care_checkin_learning_module.dart';
+import 'care_checkin_navigation.dart';
+import 'care_checkin_support_config.dart';
+import 'care_checkin_support_screen.dart';
 import '../services/database_service.dart';
 import '../services/research/research_firestore_service.dart';
 import '../services/research/research_navigation_outcome_service.dart';
@@ -18,7 +29,7 @@ class CareNavigationSurveyScreen extends StatefulWidget {
 }
 
 class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen> {
-  String _step = 'intro'; // 'intro', 'needs', 'access', 'outcome', 'complete'
+  String _step = 'needs'; // 'needs', 'support', 'access', 'outcome', 'complete'
   List<String> _selectedNeeds = [];
   Map<String, String> _accessResponses = {};
   Map<String, String> _accessResponseTimestamps = {};
@@ -27,6 +38,8 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
   /// Set when a research participant leaves the needs step (Phase 3 row); used for Phase 4 outcome submit.
   String? _needsChecklistEventId;
   bool _submittingNeedsChecklist = false;
+  bool _requiresResearchAccessStep = false;
+  final List<String> _openedSupportActionIds = [];
 
   final DatabaseService _databaseService = DatabaseService();
   final TextEditingController _otherNeedDetailController = TextEditingController();
@@ -110,6 +123,8 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         'completedAt': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'completed',
+        if (_openedSupportActionIds.isNotEmpty)
+          'openedSupportActionIds': List<String>.from(_openedSupportActionIds),
       };
 
       await FirebaseFirestore.instance
@@ -151,30 +166,148 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
     }
   }
 
+  void _openSupportAction(CareSupportAction action) {
+    if (!_openedSupportActionIds.contains(action.id)) {
+      _openedSupportActionIds.add(action.id);
+    }
+    final prompt = action.assistantPrompt;
+    switch (action.destination) {
+      case CareSupportDestination.providers:
+        Navigator.pushNamed(context, Routes.providers);
+        break;
+      case CareSupportDestination.visitSummaries:
+        if (action.preferLatestVisitSummary) {
+          unawaited(openActiveVisitSummaryForPrepare(context));
+        } else {
+          unawaited(openVisitSummariesList(context));
+        }
+        break;
+      case CareSupportDestination.assistant:
+        Navigator.pushNamed(context, Routes.assistant, arguments: prompt);
+        break;
+      case CareSupportDestination.pregnancyJourney:
+        Navigator.pushNamed(context, Routes.pregnancyJourney);
+        break;
+      case CareSupportDestination.birthPlans:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BirthPlansListScreen()),
+        );
+        break;
+      case CareSupportDestination.learnTab:
+        if (!MainNavigationScope.goToTab(
+          context,
+          MainNavigationScope.tabLearn,
+        )) {
+          Navigator.pushNamed(context, Routes.learning);
+        }
+        break;
+      case CareSupportDestination.rights:
+        Navigator.pushNamed(context, Routes.rights);
+        break;
+      case CareSupportDestination.externalUrl:
+        final url = action.externalUrl;
+        if (url != null && url.isNotEmpty) {
+          unawaited(launchAppExternalUrl(context, url));
+        }
+        break;
+      case CareSupportDestination.resources:
+        unawaited(
+          openAppResourcesScreen(
+            context,
+            highlightResourceId: action.resourceId,
+            categoryFilter:
+                appResourceCategoryForResourceId(action.resourceId),
+          ),
+        );
+        break;
+      case CareSupportDestination.birthLaborTopic:
+        openBirthLaborTopicById(
+          context,
+          action.birthLaborTopicId ?? 'labor-basics',
+        );
+        break;
+      case CareSupportDestination.generateLearningModule:
+        final topic = action.learningModuleTopic ?? action.label;
+        final description =
+            action.learningModuleDescription ?? 'Created from your care check-in.';
+        unawaited(
+          generateAndOpenCareCheckinLearningModule(
+            context,
+            topic: topic,
+            description: description,
+            sourceActionId: action.id,
+          ),
+        );
+        break;
+      case CareSupportDestination.journal:
+        if (!MainNavigationScope.goToTab(
+          context,
+          MainNavigationScope.tabJournal,
+        )) {
+          Navigator.pushNamed(context, Routes.journal);
+        }
+        break;
+      case CareSupportDestination.community:
+        if (!MainNavigationScope.goToTab(
+          context,
+          MainNavigationScope.tabCommunity,
+        )) {
+          Navigator.pushNamed(context, Routes.community);
+        }
+        break;
+    }
+  }
+
+  Future<void> _handleSupportContinue() async {
+    if (_selectedNeeds.isEmpty) {
+      await _saveSurveyResults();
+      if (mounted) setState(() => _step = 'complete');
+      return;
+    }
+    if (_requiresResearchAccessStep && _needsChecklistEventId != null) {
+      setState(() {
+        _step = 'access';
+        _currentNeedIndex = 0;
+        _accessResponses = {};
+        _accessResponseTimestamps = {};
+      });
+      return;
+    }
+    setState(() => _step = 'outcome');
+  }
+
   Future<void> _handleNeedsContinue() async {
     if (_selectedNeeds.contains('other') && _otherNeedDetailController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please add a few words for “Other” or deselect it.'),
+          content: Text(
+            'Please add a few words for “Something else” or deselect it.',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
       return;
     }
+
     if (_selectedNeeds.isEmpty) {
-      setState(() => _needsChecklistEventId = null);
-      await _saveSurveyResults();
-      if (mounted) setState(() => _step = 'complete');
+      setState(() {
+        _needsChecklistEventId = null;
+        _requiresResearchAccessStep = false;
+        _step = 'support';
+      });
       return;
     }
 
     setState(() => _submittingNeedsChecklist = true);
     try {
       String? eventId;
+      var researchAccess = false;
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId != null) {
         final profile = await _databaseService.getUserProfile(userId);
         if (profile != null && profile.isResearchParticipant) {
+          researchAccess = true;
           final sid = await ResearchFirestoreService.instance.ensureStudyId(profile);
           if (sid != null) {
             eventId = await ResearchNeedsChecklistService.instance.submitNeedsChecklist(
@@ -191,10 +324,8 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
       setState(() {
         _submittingNeedsChecklist = false;
         _needsChecklistEventId = eventId;
-        _step = 'access';
-        _currentNeedIndex = 0;
-        _accessResponses = {};
-        _accessResponseTimestamps = {};
+        _requiresResearchAccessStep = researchAccess && eventId != null;
+        _step = 'support';
       });
     } catch (e) {
       if (mounted) {
@@ -209,10 +340,9 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
     }
   }
 
-  void _leaveAccessStepBackToNeeds() {
+  void _leaveAccessStepBackToSupport() {
     setState(() {
-      _step = 'needs';
-      _needsChecklistEventId = null;
+      _step = 'support';
       _accessResponses.clear();
       _accessResponseTimestamps.clear();
       _currentNeedIndex = 0;
@@ -244,24 +374,29 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
                   padding: const EdgeInsets.only(bottom: 24),
                   child: InkWell(
                     onTap: () {
-                      if (_step == 'needs') {
-                        setState(() => _step = 'intro');
+                      if (_step == 'support') {
+                        setState(() => _step = 'needs');
                       } else if (_step == 'outcome') {
-                        setState(() {
-                          _step = 'access';
-                          if (_selectedNeeds.isNotEmpty) {
-                            final last =
-                                _selectedNeeds[_selectedNeeds.length - 1];
-                            _accessResponses.remove(last);
-                            _accessResponseTimestamps.remove(last);
-                            _currentNeedIndex = _selectedNeeds.length - 1;
-                          }
-                        });
+                        if (_requiresResearchAccessStep &&
+                            _selectedNeeds.isNotEmpty) {
+                          setState(() {
+                            _step = 'access';
+                            if (_selectedNeeds.isNotEmpty) {
+                              final last =
+                                  _selectedNeeds[_selectedNeeds.length - 1];
+                              _accessResponses.remove(last);
+                              _accessResponseTimestamps.remove(last);
+                              _currentNeedIndex = _selectedNeeds.length - 1;
+                            }
+                          });
+                        } else {
+                          setState(() => _step = 'support');
+                        }
                       } else if (_step == 'access') {
                         if (_currentNeedIndex > 0) {
                           setState(() => _currentNeedIndex--);
                         } else {
-                          _leaveAccessStepBackToNeeds();
+                          _leaveAccessStepBackToSupport();
                         }
                       } else {
                         Navigator.pop(context);
@@ -272,7 +407,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
                         Icon(Icons.chevron_left, color: AppTheme.textMuted, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          _step == 'intro' ? 'Home' : 'Back',
+                          _step == 'needs' ? 'Home' : 'Back',
                           style: TextStyle(
                             fontSize: 14,
                             color: AppTheme.textMuted,
@@ -284,21 +419,25 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
                   ),
                 ),
 
-              // Intro Step
-              if (_step == 'intro') _buildIntroStep(),
-
-              // Needs Selection Step
               if (_step == 'needs')
                 NeedsChecklistScreen(
                   selectedNeedIds: _selectedNeeds,
                   onToggleNeed: _toggleNeed,
                   otherDetailController: _otherNeedDetailController,
-                  onBack: () => setState(() => _step = 'intro'),
+                  onBack: () => Navigator.pop(context),
                   onContinue: _handleNeedsContinue,
                   isContinueBusy: _submittingNeedsChecklist,
                 ),
 
-              // Access Response Step
+              if (_step == 'support')
+                CareCheckinSupportScreen(
+                  selectedNeedIds: _selectedNeeds,
+                  otherDetailController: _otherNeedDetailController,
+                  onOpenAction: _openSupportAction,
+                  onBack: () => setState(() => _step = 'needs'),
+                  onContinue: () => _handleSupportContinue(),
+                ),
+
               if (_step == 'access') _buildAccessStep(),
 
               if (_step == 'outcome') _buildOutcomeStep(),
@@ -311,159 +450,6 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
       ),
     ),
   );
-  }
-
-  Widget _buildIntroStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color(0xFFF5EEE0),
-                Color(0xFFEBE0D6),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppTheme.borderLight.withOpacity(0.4),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.auto_awesome, size: 14, color: Color(0xFFD4A574)),
-              const SizedBox(width: 8),
-              Text(
-                'Care check-in',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Title
-        Text(
-          'Let’s check in on your care',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w400,
-            color: AppTheme.textPrimary,
-            height: 1.3,
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Description
-        Text(
-          'Sharing what you need helps us understand how to better support you. This takes about 2 minutes and is completely private.',
-          style: TextStyle(
-            fontSize: 15,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-            height: 1.5,
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Privacy Card
-        Container(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: AppTheme.shadowSoft(opacity: 0.1, blur: 24, y: 8),
-            border: Border.all(
-              color: AppTheme.borderLight.withOpacity(0.4),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFFF5EEE0),
-                      Color(0xFFEBE0D6),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(Icons.favorite, color: Color(0xFFD4A574), size: 20),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'This is just for you',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.brandPurple,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Your answers are private and help us understand what support you might need. You can skip any question at any time.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Start Button
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              setState(() => _step = 'needs');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.brandPurple,
-              foregroundColor: AppTheme.brandWhite,
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              minimumSize: const Size(double.infinity, 52),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-              elevation: 0,
-              shadowColor: Colors.transparent,
-            ),
-            child: Text(
-              'Start check-in',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _buildAccessStep() {
@@ -483,7 +469,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         if (_currentNeedIndex > 0) {
           setState(() => _currentNeedIndex--);
         } else {
-          _leaveAccessStepBackToNeeds();
+          _leaveAccessStepBackToSupport();
         }
       },
     );
@@ -528,7 +514,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         ),
         const SizedBox(height: 16),
         Text(
-          'Overall, did you get what you needed?',
+          'Overall, did you get the care and support you needed?',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w400,
@@ -538,7 +524,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          'This is a big-picture check-in after the areas you picked.',
+          'A quick big-picture check-in after the areas you picked.',
           style: TextStyle(
             fontSize: 14,
             color: AppTheme.textMuted,

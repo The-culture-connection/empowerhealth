@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -16,6 +18,11 @@ import '../widgets/ai_disclaimer_banner.dart';
 import '../models/user_profile.dart';
 import 'widgets/home_milestone_bell.dart';
 import '../assistant/assistant_screen.dart';
+import '../emotional_support/widgets/home_emotional_support_card.dart';
+import '../support_stage/support_stage.dart';
+import '../support_stage/support_stage_scope.dart';
+import '../pregnancy_loss/widgets/pregnancy_loss_home_learning_hero_card.dart';
+import '../widgets/home_provider_search_entry.dart';
 
 /// Starter prompts when opening the assistant from Understand Your Care cards.
 const String _kAssistantPromptTestMeaning =
@@ -35,11 +42,53 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
   final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   UserProfile? _userProfile;
+  StreamSubscription<UserProfile?>? _profileSubscription;
+  String? _visitStreamUserId;
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _latestVisitStream;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _listenToProfile();
+    _ensureLatestVisitStream();
+  }
+
+  /// One stream per signed-in user so profile rebuilds do not reset to "Loading…".
+  void _ensureLatestVisitStream() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      _visitStreamUserId = null;
+      _latestVisitStream = null;
+      return;
+    }
+    if (_visitStreamUserId == uid && _latestVisitStream != null) return;
+    _visitStreamUserId = uid;
+    _latestVisitStream = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('visit_summaries')
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .snapshots();
+  }
+
+  void _listenToProfile() {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return;
+    _profileSubscription?.cancel();
+    _profileSubscription =
+        _databaseService.streamUserProfile(userId).listen((profile) {
+      if (mounted) {
+        setState(() => _userProfile = profile);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _profileSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -52,6 +101,11 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
         });
       }
     }
+  }
+
+  Future<void> _openEmotionalSupportCheckIn() async {
+    await Navigator.pushNamed(context, Routes.emotionalSupportCheckin);
+    await _loadUserData();
   }
 
   Future<void> _showGenerateModulesDialog(BuildContext context) async {
@@ -140,12 +194,129 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
     return previewLineFromVisitSummary(data);
   }
 
+  String _visitDateLabel(Map<String, dynamic> data) {
+    final appointmentDate = data['appointmentDate'];
+    if (appointmentDate == null) return 'Recent visit';
+    if (appointmentDate is Timestamp) {
+      return DateFormat('MMM d, yyyy').format(appointmentDate.toDate());
+    }
+    if (appointmentDate is String) {
+      try {
+        return DateFormat('MMM d, yyyy').format(DateTime.parse(appointmentDate));
+      } catch (_) {
+        return 'Recent visit';
+      }
+    }
+    return 'Recent visit';
+  }
+
+  String _visitDescriptionFromData(Map<String, dynamic> data) {
+    final preview = _previewLineFromVisitData(data);
+    if (preview != null && preview.isNotEmpty) return preview;
+
+    final providerName = data['providerName'] as String?;
+    final practiceName = data['practiceName'] as String?;
+    final provider = data['provider'] as String?;
+
+    if (providerName != null && providerName.isNotEmpty) {
+      if (practiceName != null && practiceName.isNotEmpty) {
+        return '$providerName • $practiceName';
+      }
+      return providerName;
+    }
+    if (provider != null && provider.isNotEmpty) return provider;
+    if (practiceName != null && practiceName.isNotEmpty) return practiceName;
+    return '';
+  }
+
+  void _openAppointmentsList() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AppointmentsListScreen(),
+      ),
+    );
+  }
+
+  Widget _buildLatestVisitCard(Map<String, dynamic> data) {
+    return _AppointmentCard(
+      overline: 'My Visits',
+      title: _visitDateLabel(data),
+      subtitle: 'Latest summarized visit',
+      description: _visitDescriptionFromData(data),
+      compact: true,
+      onTap: _openAppointmentsList,
+    );
+  }
+
+  Widget _buildLatestVisitSection() {
+    _ensureLatestVisitStream();
+    final stream = _latestVisitStream;
+    if (stream == null) {
+      return _AppointmentCard(
+        overline: null,
+        title: 'Know what to ask at your next visit',
+        subtitle:
+            "We'll help you understand your care and speak up with confidence.",
+        description: '',
+        durationLabel: '2 minutes',
+        compact: true,
+        onTap: _openAppointmentsList,
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final waitingWithoutData = snapshot.connectionState ==
+                ConnectionState.waiting &&
+            !snapshot.hasData;
+        if (waitingWithoutData) {
+          return _AppointmentCard(
+            overline: 'My Visits',
+            title: 'Loading...',
+            subtitle: 'One moment',
+            description: '',
+            onTap: () {},
+            compact: true,
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return _AppointmentCard(
+            overline: null,
+            title: 'Know what to ask at your next visit',
+            subtitle:
+                "We'll help you understand your care and speak up with confidence.",
+            description: '',
+            durationLabel: '2 minutes',
+            compact: true,
+            onTap: _openAppointmentsList,
+          );
+        }
+
+        final data = snapshot.data!.docs.first.data();
+        return _buildLatestVisitCard(data);
+      },
+    );
+  }
+
+  UserProfile? get _effectiveProfile =>
+      SupportStageScope.profileOf(context) ?? _userProfile;
+
   @override
   Widget build(BuildContext context) {
-    final dueDate = _userProfile?.dueDate;
+    final profile = _effectiveProfile;
+    final inLossMode = profile?.isInPregnancyLossMode == true;
+    final dueDate = profile?.dueDate;
     final weeksPregnant = PregnancyUtils.calculateWeeksPregnant(dueDate);
+    final displayWeek = weeksPregnant > 0 ? weeksPregnant : 1;
     final trimester = PregnancyUtils.calculateTrimester(dueDate);
-    final progress = weeksPregnant > 0 ? (weeksPregnant / 40) : 0.0;
+    final progress = (weeksPregnant > 0 ? weeksPregnant : 1) / 40.0;
+    final showWeekJourneyCard = !inLossMode &&
+        dueDate != null &&
+        !(profile?.hidePregnancyMilestones ?? false);
+    final showLossLearningHero = inLossMode;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -166,9 +337,11 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Welcome, Mama 🤍',
-                                style: TextStyle(
+                              Text(
+                                inLossMode
+                                    ? 'We\'re here for you 🤍'
+                                    : 'Welcome, Mama 🤍',
+                                style: const TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.w400,
                                   height: 1.3,
@@ -178,7 +351,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                "You're supported — with clear answers and tools to speak up.",
+                                inLossMode
+                                    ? 'Clear guides, journal space, and community support — at your pace.'
+                                    : "You're supported — with clear answers and tools to speak up.",
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w300,
@@ -234,16 +409,24 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                         ),
                         HomeMilestoneBell(
                           key: ValueKey<String>(
-                            '${_userProfile?.userId ?? 'none'}_${_userProfile?.isResearchParticipant ?? false}',
+                            '${profile?.userId ?? 'none'}_${profile?.isResearchParticipant ?? false}',
                           ),
-                          profile: _userProfile,
+                          profile: profile,
                         ),
                       ],
                     ),
                   ),
 
-                  // Trimester journey banner (NewUI main journey card)
-                  if (dueDate != null && weeksPregnant > 0) ...[
+                  // Loss mode: same hero card layout → “What to expect” learning guide
+                  if (showLossLearningHero) ...[
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 40),
+                      child: PregnancyLossHomeLearningHeroCard(),
+                    ),
+                  ],
+
+                  // Week / trimester journey card → Learn tab (trimester modules)
+                  if (showWeekJourneyCard) ...[
                     Padding(
                       padding: const EdgeInsets.only(bottom: 40),
                       child: Material(
@@ -251,7 +434,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                         child: InkWell(
                           onTap: () => Navigator.pushNamed(
                             context,
-                            Routes.pregnancyJourney,
+                            Routes.learning,
                           ),
                           borderRadius: BorderRadius.circular(24),
                           child: Ink(
@@ -336,7 +519,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              'Week $weeksPregnant',
+                                              'Week $displayWeek',
                                               style: TextStyle(
                                                 color: const Color(0xFFF5F0F7),
                                                 fontSize: 12,
@@ -406,7 +589,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                       ),
                                       const SizedBox(height: 12),
                                       Text(
-                                        '$weeksPregnant of 40 weeks',
+                                        '$displayWeek of 40 weeks',
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w300,
@@ -441,19 +624,20 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                             color: AppTheme.brandPurple,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        _ProviderSearchEntry(
-                          onTap: () =>
-                              Navigator.pushNamed(context, Routes.providers),
+                        const SizedBox(height: 12),
+                        HomeEmotionalSupportCard(
+                          onCheckIn: _openEmotionalSupportCheckIn,
+                          compact: true,
                         ),
-                        const SizedBox(height: 16),
+                        if (!inLossMode) ...[
+                        const SizedBox(height: 12),
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () {
                               Navigator.pushNamed(context, Routes.careSurvey);
                             },
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(20),
                             child: Ink(
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
@@ -465,16 +649,16 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                borderRadius: BorderRadius.circular(24),
+                                borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                   color: const Color(0xFFE8E0F0)
                                       .withOpacity(0.4),
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppTheme.brandPurple.withOpacity(0.15),
-                                    blurRadius: 32,
-                                    offset: const Offset(0, 12),
+                                    color: AppTheme.brandPurple.withOpacity(0.12),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 8),
                                   ),
                                 ],
                               ),
@@ -484,8 +668,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                     top: 0,
                                     right: 0,
                                     child: Container(
-                                      width: 120,
-                                      height: 120,
+                                      width: 80,
+                                      height: 80,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         color: const Color(0xFFD4A574)
@@ -494,7 +678,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                     ),
                                   ),
                                   Padding(
-                                    padding: const EdgeInsets.all(32),
+                                    padding: const EdgeInsets.all(20),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -504,8 +688,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Container(
-                                              width: 56,
-                                              height: 56,
+                                              width: 44,
+                                              height: 44,
                                               decoration: BoxDecoration(
                                                 gradient:
                                                     const LinearGradient(
@@ -530,10 +714,10 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                               child: const Icon(
                                                 Icons.auto_awesome_rounded,
                                                 color: Color(0xFFD4A574),
-                                                size: 26,
+                                                size: 22,
                                               ),
                                             ),
-                                            const SizedBox(width: 20),
+                                            const SizedBox(width: 14),
                                             Expanded(
                                               child: Column(
                                                 crossAxisAlignment:
@@ -542,19 +726,19 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                                   Text(
                                                     'Care Check In',
                                                     style: TextStyle(
-                                                      fontSize: 17,
+                                                      fontSize: 15,
                                                       fontWeight: FontWeight.w400,
                                                       letterSpacing: -0.085,
                                                       color: AppTheme.textPrimary,
                                                     ),
                                                   ),
-                                                  const SizedBox(height: 8),
+                                                  const SizedBox(height: 6),
                                                   Text(
-                                                    'Take a moment to share what support you need. This helps us understand how to better assist you.',
+                                                    'Share what support you need — about 2 minutes.',
                                                     style: TextStyle(
-                                                      fontSize: 15,
+                                                      fontSize: 13,
                                                       fontWeight: FontWeight.w300,
-                                                      height: 1.5,
+                                                      height: 1.45,
                                                       color: AppTheme.textMuted,
                                                     ),
                                                   ),
@@ -563,13 +747,13 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 20),
+                                        const SizedBox(height: 12),
                                         Row(
                                           children: [
                                             Text(
                                               '2 minutes',
                                               style: TextStyle(
-                                                fontSize: 14,
+                                                fontSize: 13,
                                                 fontWeight: FontWeight.w300,
                                                 color: AppTheme.textMuted
                                                     .withOpacity(0.85),
@@ -592,115 +776,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        StreamBuilder<QuerySnapshot>(
-                          stream: _auth.currentUser != null
-                              ? FirebaseFirestore.instance
-                                  .collection('users')
-                                  .doc(_auth.currentUser!.uid)
-                                  .collection('visit_summaries')
-                                  .orderBy('createdAt', descending: true)
-                                  .limit(1)
-                                  .snapshots()
-                              : null,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return _AppointmentCard(
-                                overline: 'My Visits',
-                                title: 'Loading...',
-                                subtitle: 'One moment',
-                                description: '',
-                                onTap: () {},
-                              );
-                            }
-
-                            if (!snapshot.hasData ||
-                                snapshot.data!.docs.isEmpty) {
-                              return _AppointmentCard(
-                                overline: null,
-                                title: 'Know what to ask at your next visit',
-                                subtitle:
-                                    "We'll help you understand your care and speak up with confidence.",
-                                description: '',
-                                durationLabel: '2 minutes',
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const AppointmentsListScreen(),
-                                    ),
-                                  );
-                                },
-                              );
-                            }
-
-                            final doc = snapshot.data!.docs.first;
-                            final data = doc.data() as Map<String, dynamic>;
-                            final appointmentDate = data['appointmentDate'];
-
-                            String dateText = 'Recent visit';
-                            if (appointmentDate != null) {
-                              if (appointmentDate is Timestamp) {
-                                dateText = DateFormat('MMM d, yyyy')
-                                    .format(appointmentDate.toDate());
-                              } else if (appointmentDate is String) {
-                                try {
-                                  final dt = DateTime.parse(appointmentDate);
-                                  dateText =
-                                      DateFormat('MMM d, yyyy').format(dt);
-                                } catch (e) {
-                                  dateText = 'Recent visit';
-                                }
-                              }
-                            }
-
-                            final preview =
-                                _previewLineFromVisitData(data);
-                            String description = preview ?? '';
-                            if (description.isEmpty) {
-                              final providerName =
-                                  data['providerName'] as String?;
-                              final practiceName =
-                                  data['practiceName'] as String?;
-                              final provider = data['provider'] as String?;
-
-                              if (providerName != null &&
-                                  providerName.isNotEmpty) {
-                                if (practiceName != null &&
-                                    practiceName.isNotEmpty) {
-                                  description =
-                                      '$providerName • $practiceName';
-                                } else {
-                                  description = providerName;
-                                }
-                              } else if (provider != null &&
-                                  provider.isNotEmpty) {
-                                description = provider;
-                              } else if (practiceName != null &&
-                                  practiceName.isNotEmpty) {
-                                description = practiceName;
-                              }
-                            }
-
-                            return _AppointmentCard(
-                              overline: 'My Visits',
-                              title: dateText,
-                              subtitle: 'Latest summarized visit',
-                              description: description,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const AppointmentsListScreen(),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
+                        ],
+                        const SizedBox(height: 12),
+                        _buildLatestVisitSection(),
                       ],
                     ),
                   ),
@@ -720,7 +798,14 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                             color: AppTheme.brandPurple,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
+                        HomeProviderSearchEntry(
+                          title: 'Find your care team',
+                          subtitle: 'Search providers by ZIP, city, and type of care',
+                          onTap: () =>
+                              Navigator.pushNamed(context, Routes.providers),
+                        ),
+                        const SizedBox(height: 12),
                         Row(
                           children: [
                             Expanded(
@@ -757,7 +842,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                 subtitle:
                                     "What's typical—and when to reach out",
                                 onTap: () {
-                                  final due = _userProfile?.dueDate;
+                                  final due = profile?.dueDate;
                                   final weeks =
                                       PregnancyUtils.calculateWeeksPregnant(due);
                                   if (due != null && weeks > 0) {
@@ -853,46 +938,64 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _CareToolCard(
-                              icon: Icons.description_outlined,
-                              iconGradient: const [
-                                Color(0xFFE8E0F0),
-                                Color(0xFFD8CFE5),
-                              ],
-                              iconColor: AppTheme.brandPurple,
-                              title: 'My Birth Choices',
-                              subtitle: "What's right for you",
-                              onTap: () {
-                                Navigator.push(
+                      if (inLossMode)
+                        _CareToolCard(
+                          icon: Icons.menu_book_outlined,
+                          iconGradient: const [
+                            Color(0xFFE8E0F0),
+                            Color(0xFFD8CFE5),
+                          ],
+                          iconColor: AppTheme.brandPurple,
+                          title: 'Learning guides',
+                          subtitle: 'Recovery, visits, and follow-up care',
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            Routes.learning,
+                          ),
+                        )
+                      else
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _CareToolCard(
+                                icon: Icons.description_outlined,
+                                iconGradient: const [
+                                  Color(0xFFE8E0F0),
+                                  Color(0xFFD8CFE5),
+                                ],
+                                iconColor: AppTheme.brandPurple,
+                                title: 'My Birth Choices',
+                                subtitle: "What's right for you",
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const BirthPlansListScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _CareToolCard(
+                                icon: Icons.menu_book_outlined,
+                                iconGradient: const [
+                                  Color(0xFFE8E0F0),
+                                  Color(0xFFD8CFE5),
+                                ],
+                                iconColor: AppTheme.brandPurple,
+                                title: 'My Care Plan',
+                                subtitle: 'Your personalized path',
+                                onTap: () => Navigator.pushNamed(
                                   context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const BirthPlansListScreen(),
-                                  ),
-                                );
-                              },
+                                  Routes.learning,
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _CareToolCard(
-                              icon: Icons.menu_book_outlined,
-                              iconGradient: const [
-                                Color(0xFFE8E0F0),
-                                Color(0xFFD8CFE5),
-                              ],
-                              iconColor: AppTheme.brandPurple,
-                              title: 'My Care Plan',
-                              subtitle: 'Your personalized path',
-                              onTap: () => Navigator.pushNamed(
-                                  context, Routes.learning),
-                            ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                     ],
                   ),
                   const SizedBox(height: 40),
@@ -1137,88 +1240,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
   }
 }
 
-/// Today's Guidance entry for provider directory search.
-class _ProviderSearchEntry extends StatelessWidget {
-  const _ProviderSearchEntry({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: const Color(0xFFE8E0F0).withOpacity(0.5),
-            ),
-            boxShadow: AppTheme.shadowSoft(opacity: 0.08, blur: 18, y: 4),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFE8E0F0), Color(0xFFD8CFE5)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.search_rounded,
-                    color: AppTheme.brandPurple,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Find trusted providers near you',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Search by ZIP, city, and type of care',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w300,
-                          color: AppTheme.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: AppTheme.textMuted.withOpacity(0.85),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SupportCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
@@ -1416,6 +1437,7 @@ class _AppointmentCard extends StatelessWidget {
   final String subtitle;
   final String description;
   final String? durationLabel;
+  final bool compact;
   final VoidCallback onTap;
 
   const _AppointmentCard({
@@ -1424,6 +1446,7 @@ class _AppointmentCard extends StatelessWidget {
     required this.subtitle,
     required this.description,
     this.durationLabel,
+    this.compact = false,
     required this.onTap,
   });
 
@@ -1433,24 +1456,28 @@ class _AppointmentCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(compact ? 16 : 20),
         child: Ink(
           decoration: BoxDecoration(
             color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(compact ? 16 : 20),
             border: Border.all(
               color: const Color(0xFFE8E0F0).withOpacity(0.4),
             ),
-            boxShadow: AppTheme.shadowSoft(opacity: 0.1, blur: 22, y: 6),
+            boxShadow: AppTheme.shadowSoft(
+              opacity: compact ? 0.08 : 0.1,
+              blur: compact ? 14 : 22,
+              y: compact ? 4 : 6,
+            ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(compact ? 16 : 24),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: compact ? 40 : 48,
+                  height: compact ? 40 : 48,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [
@@ -1472,10 +1499,10 @@ class _AppointmentCard extends StatelessWidget {
                   child: Icon(
                     Icons.article_outlined,
                     color: AppTheme.brandPurple,
-                    size: 20,
+                    size: compact ? 18 : 20,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: compact ? 12 : 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1484,7 +1511,7 @@ class _AppointmentCard extends StatelessWidget {
                         Text(
                           overline!,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: compact ? 11 : 12,
                             fontWeight: FontWeight.w300,
                             letterSpacing: 0.5,
                             color: AppTheme.textMuted.withOpacity(0.9),
@@ -1494,11 +1521,11 @@ class _AppointmentCard extends StatelessWidget {
                       ],
                       Text(
                         title,
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style: TextStyle(
+                          fontSize: compact ? 14 : 16,
                           fontWeight: FontWeight.w500,
                           letterSpacing: -0.12,
-                          color: Color(0xFF2D2235),
+                          color: const Color(0xFF2D2235),
                         ),
                       ),
                       if (subtitle.isNotEmpty) ...[
@@ -1506,7 +1533,7 @@ class _AppointmentCard extends StatelessWidget {
                         Text(
                           subtitle,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: compact ? 12 : 14,
                             fontWeight: FontWeight.w300,
                             height: 1.45,
                             color: AppTheme.textMuted,
@@ -1514,11 +1541,11 @@ class _AppointmentCard extends StatelessWidget {
                         ),
                       ],
                       if (description.isNotEmpty) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Text(
                           description,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: compact ? 12 : 14,
                             fontWeight: FontWeight.w300,
                             color: AppTheme.textMuted.withOpacity(0.85),
                           ),

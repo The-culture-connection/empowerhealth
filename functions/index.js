@@ -7,6 +7,11 @@ const axios = require("axios");
 const XLSX = require("xlsx");
 const path = require("path");
 const fs = require("fs");
+const {
+  PREGNANCY_LOSS_LEARNING_SYSTEM,
+  pregnancyLossLearningUserMessage,
+  isPregnancyLossLearningRequest,
+} = require("./pregnancyLossLearningPrompt");
 // Import BIPOC provider import function (lazy load to avoid initialization issues)
 let importBipocProviders = null;
 function getImportBipocProviders() {
@@ -184,11 +189,22 @@ exports.generateLearningContent = onCall(
     }
   }
 
+  const usePregnancyLossPrompt = isPregnancyLossLearningRequest(data);
+
   try {
     const openai = getOpenAIClient(openaiApiKey.value());
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
+
+    let messages;
+    if (usePregnancyLossPrompt) {
+      messages = [
+        {role: "system", content: PREGNANCY_LOSS_LEARNING_SYSTEM},
+        {
+          role: "user",
+          content: pregnancyLossLearningUserMessage(topic, personalContext),
+        },
+      ];
+    } else {
+      messages = [
         {
           role: "system",
           content: `You are a culturally affirming, trauma-informed maternal health educator creating personalized content for EmpowerHealth Watch. Create detailed, comprehensive learning modules that are warm, supportive, and empowering. Use plain language at a ${readingLevel} reading level. Emphasize: Your rights, Your choices, Your voice. Brand voice: "Your Health. Your Voice. Your Empowerment."`,
@@ -233,8 +249,13 @@ TONE & VOICE REQUIREMENTS:
 
 Keep everything at ${readingLevel} reading level. Make it personally relevant based on the user's profile.`,
         },
-      ],
-      temperature: 0.8,
+      ];
+    }
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages,
+      temperature: usePregnancyLossPrompt ? 0.5 : 0.8,
       max_tokens: 1500,
     });
 
@@ -5828,3 +5849,6 @@ exports.importBipocProviders = onCall(async (request) => {
 
 // FCM push notifications (learning modules, weekly todos, trimester, community)
 Object.assign(exports, require("./pushNotifications"));
+
+// Pregnancy-loss support mode (emotional check-in → home)
+Object.assign(exports, require("./enterPregnancyLossSupportMode"));

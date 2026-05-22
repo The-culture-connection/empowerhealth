@@ -54,6 +54,16 @@ class UserProfile {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Set when user completes pregnancy-loss pathway in emotional support check-in.
+  final bool emotionalSupportPregnancyLoss;
+
+  /// Active support experience: `pregnancy_loss`, `pregnant`, `postpartum`, etc.
+  final String? currentSupportStage;
+  final DateTime? pregnancyLossFlowStartedAt;
+  final List<String> pregnancyLossSupportPreferences;
+  final String? pregnancyLossSomethingElseText;
+  final bool hidePregnancyMilestones;
+
   UserProfile({
     required this.userId,
     required this.username,
@@ -91,6 +101,12 @@ class UserProfile {
     this.birthPreference,
     this.interestedInBreastfeeding = false,
     this.healthLiteracyGoals = const [],
+    this.emotionalSupportPregnancyLoss = false,
+    this.currentSupportStage,
+    this.pregnancyLossFlowStartedAt,
+    this.pregnancyLossSupportPreferences = const [],
+    this.pregnancyLossSomethingElseText,
+    this.hidePregnancyMilestones = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
@@ -135,6 +151,13 @@ class UserProfile {
       'birthPreference': birthPreference,
       'interestedInBreastfeeding': interestedInBreastfeeding,
       'healthLiteracyGoals': healthLiteracyGoals,
+      'emotionalSupportPregnancyLoss': emotionalSupportPregnancyLoss,
+      'currentSupportStage': currentSupportStage,
+      'pregnancyLossFlowStartedAt':
+          pregnancyLossFlowStartedAt?.toIso8601String(),
+      'pregnancyLossSupportPreferences': pregnancyLossSupportPreferences,
+      'pregnancyLossSomethingElseText': pregnancyLossSomethingElseText,
+      'hidePregnancyMilestones': hidePregnancyMilestones,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -202,6 +225,17 @@ class UserProfile {
       birthPreference: map['birthPreference'],
       interestedInBreastfeeding: map['interestedInBreastfeeding'] ?? false,
       healthLiteracyGoals: List<String>.from(map['healthLiteracyGoals'] ?? []),
+      emotionalSupportPregnancyLoss:
+          map['emotionalSupportPregnancyLoss'] == true,
+      currentSupportStage: map['currentSupportStage'] as String?,
+      pregnancyLossFlowStartedAt:
+          UserProfile._parseDate(map['pregnancyLossFlowStartedAt']),
+      pregnancyLossSupportPreferences: List<String>.from(
+        map['pregnancyLossSupportPreferences'] ?? [],
+      ),
+      pregnancyLossSomethingElseText:
+          map['pregnancyLossSomethingElseText'] as String?,
+      hidePregnancyMilestones: map['hidePregnancyMilestones'] == true,
       createdAt: UserProfile._parseDate(map['createdAt']) ?? DateTime.now(),
       updatedAt: UserProfile._parseDate(map['updatedAt']) ?? DateTime.now(),
     );
@@ -244,6 +278,12 @@ class UserProfile {
     String? birthPreference,
     bool? interestedInBreastfeeding,
     List<String>? healthLiteracyGoals,
+    bool? emotionalSupportPregnancyLoss,
+    String? currentSupportStage,
+    DateTime? pregnancyLossFlowStartedAt,
+    List<String>? pregnancyLossSupportPreferences,
+    String? pregnancyLossSomethingElseText,
+    bool? hidePregnancyMilestones,
   }) {
     return UserProfile(
       userId: userId ?? this.userId,
@@ -281,6 +321,17 @@ class UserProfile {
       birthPreference: birthPreference ?? this.birthPreference,
       interestedInBreastfeeding: interestedInBreastfeeding ?? this.interestedInBreastfeeding,
       healthLiteracyGoals: healthLiteracyGoals ?? this.healthLiteracyGoals,
+      emotionalSupportPregnancyLoss: emotionalSupportPregnancyLoss ??
+          this.emotionalSupportPregnancyLoss,
+      currentSupportStage: currentSupportStage ?? this.currentSupportStage,
+      pregnancyLossFlowStartedAt:
+          pregnancyLossFlowStartedAt ?? this.pregnancyLossFlowStartedAt,
+      pregnancyLossSupportPreferences: pregnancyLossSupportPreferences ??
+          this.pregnancyLossSupportPreferences,
+      pregnancyLossSomethingElseText: pregnancyLossSomethingElseText ??
+          this.pregnancyLossSomethingElseText,
+      hidePregnancyMilestones:
+          hidePregnancyMilestones ?? this.hidePregnancyMilestones,
       createdAt: this.createdAt,
       updatedAt: DateTime.now(),
     );

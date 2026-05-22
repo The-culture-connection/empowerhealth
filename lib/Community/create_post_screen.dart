@@ -7,7 +7,16 @@ import '../cors/ui_theme.dart';
 import '../widgets/trust_cue_banner.dart';
 
 class CreatePostScreen extends StatefulWidget {
-  const CreatePostScreen({super.key});
+  const CreatePostScreen({
+    super.key,
+    this.communityStage,
+    this.categories,
+    this.contentPlaceholder,
+  });
+
+  final String? communityStage;
+  final List<String>? categories;
+  final String? contentPlaceholder;
 
   @override
   State<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -16,15 +25,18 @@ class CreatePostScreen extends StatefulWidget {
 class _CreatePostScreenState extends State<CreatePostScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
-  String _selectedCategory = 'Questions';
+  late String _selectedCategory;
   bool _isSubmitting = false;
 
-  final List<String> _categories = [
-    'Questions',
-    'Birth Stories',
-    'Support',
-    'Resources',
-  ];
+  List<String> get _categories =>
+      widget.categories ??
+      const ['Questions', 'Birth Stories', 'Support', 'Resources'];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategory = _categories.first;
+  }
 
   @override
   void dispose() {
@@ -70,7 +82,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final userData = userDoc.data();
       final authorName = userData?['username'] ?? 'Anonymous';
 
-      final postRef = await FirebaseFirestore.instance.collection('community_posts').add({
+      final postData = <String, dynamic>{
         'userId': userId,
         'authorName': authorName,
         'title': _titleController.text.trim(),
@@ -80,7 +92,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         'replies': [],
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      if (widget.communityStage != null) {
+        postData['communityStage'] = widget.communityStage;
+      }
+      await FirebaseFirestore.instance.collection('community_posts').add(postData);
 
       // Track community post creation
       try {
@@ -266,7 +282,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   controller: _contentController,
                   maxLines: 10,
                   decoration: InputDecoration(
-                    hintText: 'Share your thoughts, questions, or experiences...',
+                    hintText: widget.contentPlaceholder ??
+                        'Share your thoughts, questions, or experiences...',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide(color: Colors.grey.shade200),

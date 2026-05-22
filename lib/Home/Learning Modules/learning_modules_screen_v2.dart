@@ -13,6 +13,8 @@ import 'learning_module_detail_screen.dart';
 import 'module_survey_dialog.dart';
 import 'rights_screen.dart';
 import 'birth_labor_education_topics.dart';
+import '../../pregnancy_loss/pregnancy_loss_learning_screen.dart';
+import '../../support_stage/support_stage.dart';
 
 class LearningModulesScreenV2 extends StatefulWidget {
   const LearningModulesScreenV2({super.key});
@@ -172,6 +174,11 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
   /// Pushed from Home uses an opaque page without main-shell ambient — avoid transparent → black.
   Color get _scaffoldFill =>
       Navigator.canPop(context) ? AppTheme.backgroundWarm : Colors.transparent;
+
+  bool get _inPregnancyLossMode {
+    final p = _userProfile;
+    return p is UserProfile && p.isInPregnancyLossMode;
+  }
 
   List<Widget> _learningScrollHeaderSlivers() {
     // Long two-line titles + subtitle need room; scale with system text size.
@@ -442,6 +449,10 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
 
   @override
   Widget build(BuildContext context) {
+    if (_inPregnancyLossMode) {
+      return const PregnancyLossLearningScreen();
+    }
+
     final userId = _auth.currentUser?.uid;
 
     return Scaffold(

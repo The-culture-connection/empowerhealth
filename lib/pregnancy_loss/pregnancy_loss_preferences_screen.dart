@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
-// Deprecated: gateway removed; check-in uses enterPregnancyLossAndShowHome.
-
 import '../cors/ui_theme.dart';
 import '../widgets/feature_session_scope.dart';
 import 'pregnancy_loss_constants.dart';
 import 'pregnancy_loss_service.dart';
+import 'pregnancy_loss_theme.dart';
 
 class PregnancyLossPreferencesScreen extends StatefulWidget {
   const PregnancyLossPreferencesScreen({super.key});
@@ -55,7 +54,7 @@ class _PregnancyLossPreferencesScreenState
       feature: 'pregnancy-loss',
       entrySource: 'preferences',
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F4FA),
+        backgroundColor: PregnancyLossTheme.background,
         body: SafeArea(
           child: Column(
             children: [
@@ -195,7 +194,7 @@ class _PregnancyLossPreferencesScreenState
                     TextButton(
                       onPressed: _busy ? null : () => _saveAndFinish(skipped: true),
                       child: Text(
-                        'Skip — take me to support',
+                        'Skip for now',
                         style: TextStyle(
                           color: AppTheme.textMuted,
                           fontWeight: FontWeight.w300,

@@ -76,7 +76,7 @@ class _EmotionalSupportCheckInScreenState
 
       if (_selected.contains(EmotionalSupportOptionId.pregnancyLoss)) {
         if (!mounted) return;
-        final entered = await enterPregnancyLossAndShowHome(
+        final entered = await startPregnancyLossFlowFromCheckIn(
           context,
           selectedOptionIds: selectedIds,
           somethingElseText: somethingElse,

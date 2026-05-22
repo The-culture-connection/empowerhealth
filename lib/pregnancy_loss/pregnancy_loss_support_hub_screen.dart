@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../cors/ui_theme.dart';
 import '../models/user_profile.dart';
-import 'pregnancy_loss_constants.dart';
 import 'pregnancy_loss_home_content.dart';
 
 /// Full list of support paths from the primary home card.
@@ -46,18 +45,8 @@ class PregnancyLossSupportHubScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               PregnancyLossHomeContent(
-                profile: profile.copyWith(
-                  pregnancyLossSupportPreferences: const [
-                    PregnancyLossPreferenceId.emotionalGrief,
-                    PregnancyLossPreferenceId.understanding,
-                    PregnancyLossPreferenceId.bodyCare,
-                    PregnancyLossPreferenceId.providerTalk,
-                    PregnancyLossPreferenceId.futureReady,
-                    PregnancyLossPreferenceId.practical,
-                  ],
-                ),
+                profile: profile,
                 showWelcome: false,
-                showPrimaryCard: false,
               ),
             ],
           ),

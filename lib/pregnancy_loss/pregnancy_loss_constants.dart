@@ -56,7 +56,7 @@ const List<String> kPregnancyLossCommunityCategories = [
   'Follow-up care questions',
   'Talking to providers',
   'Remembering and reflecting',
-  'Support for the future',
+  'Support for the future, if or when ready',
 ];
 
 const List<String> kPregnancyLossProviderPrompts = [

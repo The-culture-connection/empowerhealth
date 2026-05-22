@@ -209,7 +209,6 @@ class PregnancyLossService {
     }
   }
 
-  @Deprecated('Gateway removed; preferences no longer collected at entry.')
   Future<void> saveSupportPreferences({
     required List<String> preferenceIds,
     String? somethingElseText,

@@ -55,6 +55,24 @@ class PregnancyLossCrisisResourcesCard extends StatelessWidget {
               await launchCrisis988(context: context, action: 'call');
             },
           ),
+          const SizedBox(height: 10),
+          _CrisisButton(
+            label: 'Text 988',
+            icon: Icons.sms_outlined,
+            onTap: () async {
+              await PregnancyLossService.instance.log988Tapped('text');
+              await launchCrisis988(context: context, action: 'text');
+            },
+          ),
+          const SizedBox(height: 10),
+          _CrisisButton(
+            label: 'Chat with 988',
+            icon: Icons.chat_bubble_outline,
+            onTap: () async {
+              await PregnancyLossService.instance.log988Tapped('chat');
+              await launchCrisis988(context: context, action: 'chat');
+            },
+          ),
           const SizedBox(height: 14),
           TextButton(
             onPressed: () async {

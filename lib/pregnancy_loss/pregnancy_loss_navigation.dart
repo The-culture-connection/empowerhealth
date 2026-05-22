@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../app_router.dart';
 import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
+import '../navigation/overlay_navigation.dart';
 import '../providers/provider_search_entry_screen.dart';
 import '../resources/app_external_resources.dart';
 import '../resources/open_app_resource.dart';
@@ -16,12 +17,11 @@ import 'pregnancy_loss_entry_exception.dart';
 import 'pregnancy_loss_learning_screen.dart';
 import 'pregnancy_loss_provider_questions_screen.dart';
 import 'pregnancy_loss_service.dart';
+import 'pregnancy_loss_transition_screen.dart';
 
-/// Persists pregnancy-loss mode, then closes the check-in route.
-/// The main app shell stays the same; home, learn, and community tabs
-/// adapt from the updated profile.
-/// Returns true when profile was saved and check-in should close.
-Future<bool> enterPregnancyLossAndShowHome(
+/// Persists pregnancy-loss mode, closes check-in, then shows transition flow.
+/// Returns true when profile was saved and onboarding was started.
+Future<bool> startPregnancyLossFlowFromCheckIn(
   BuildContext context, {
   required List<String> selectedOptionIds,
   String? somethingElseText,
@@ -57,12 +57,39 @@ Future<bool> enterPregnancyLossAndShowHome(
 
   if (!context.mounted) return true;
 
-  final navigator = Navigator.of(context);
-  if (navigator.canPop()) {
-    navigator.pop(true);
+  final rootNav = Navigator.of(context, rootNavigator: true);
+  if (Navigator.of(context).canPop()) {
+    Navigator.of(context).pop(true);
   }
+
+  if (!context.mounted) return true;
+
+  await rootNav.push<void>(
+    MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (_) => const PregnancyLossTransitionScreen(),
+    ),
+  );
   return true;
 }
+
+/// Closes onboarding overlays and lands on the pregnancy-loss home tab.
+void finishPregnancyLossOnboarding(BuildContext context) {
+  popAllOverlayRoutes(context);
+  MainNavigationScope.goToTab(context, MainNavigationScope.tabHome);
+}
+
+/// @deprecated Use [startPregnancyLossFlowFromCheckIn].
+Future<bool> enterPregnancyLossAndShowHome(
+  BuildContext context, {
+  required List<String> selectedOptionIds,
+  String? somethingElseText,
+}) =>
+    startPregnancyLossFlowFromCheckIn(
+      context,
+      selectedOptionIds: selectedOptionIds,
+      somethingElseText: somethingElseText,
+    );
 
 /// Main app destinations from pregnancy-loss home.
 abstract final class PregnancyLossNavId {

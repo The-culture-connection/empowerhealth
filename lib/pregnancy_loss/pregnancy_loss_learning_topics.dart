@@ -23,7 +23,7 @@ const List<PregnancyLossLearningTopic> kPregnancyLossLearningTopics = [
     id: 'understanding_loss',
     title: 'Understanding pregnancy loss',
     subtitle:
-        'Medical terms, what testing may involve, and what information providers may or may not have.',
+        'Gentle, plain-language information about what may happen and what questions you can ask.',
     listIcon: Icons.psychology_alt_outlined,
     markdownBody: '''
 This guide focuses on **what happened in medical terms** and what your team may know or still be figuring out.
@@ -63,7 +63,7 @@ If you had surgery or medication, follow the specific warning signs on your disc
     id: 'body_after_loss',
     title: 'Caring for your body after loss',
     subtitle:
-        'Physical recovery, follow-up visits, warning signs, and what to track before your next appointment.',
+        'Learn what follow-up care may involve and when to reach out for help.',
     listIcon: Icons.healing_outlined,
     markdownBody: '''
 This guide is about **physical recovery** — bleeding, pain, hormones, and what to track before your next visit.
@@ -104,9 +104,9 @@ Seek care promptly for soaking through more than one pad per hour, passing large
   ),
   PregnancyLossLearningTopic(
     id: 'grief_support',
-    title: 'Common emotional responses after loss',
+    title: 'Grief and emotional support',
     subtitle:
-        'How stress, sleep, and mood can show up — and when professional or peer support may be useful.',
+        'Support for the emotional side of loss, at your own pace.',
     listIcon: Icons.favorite_outline,
     markdownBody: '''
 This guide is about **emotional responses** — not a checklist you have to match, and not a timeline you must follow.
@@ -151,7 +151,7 @@ For 24/7 support in the U.S., you can call or text **988** or use the maternal m
     id: 'talking_provider',
     title: 'Talking to your provider',
     subtitle:
-        'How to prepare for visits, request plain language, and document questions before and after appointments.',
+        'Prepare words and questions for your next visit.',
     listIcon: Icons.record_voice_over_outlined,
     markdownBody: '''
 This guide helps you **prepare for conversations** with your care team — before, during, and between visits.
@@ -194,9 +194,9 @@ Use the contact method your team gave you (nurse line, portal, on-call number) f
   ),
   PregnancyLossLearningTopic(
     id: 'future_when_ready',
-    title: 'Future care discussions, if or when you’re ready',
+    title: 'Support for the future, if or when you\'re ready',
     subtitle:
-        'How timing, testing, and preconception visits work — without pressure to plan a next pregnancy.',
+        'There is no timeline you have to follow.',
     listIcon: Icons.calendar_month_outlined,
     markdownBody: '''
 This guide is only for when **you** want to talk about future care — there is no required timeline.

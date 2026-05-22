@@ -21,7 +21,8 @@ import '../assistant/assistant_screen.dart';
 import '../emotional_support/widgets/home_emotional_support_card.dart';
 import '../support_stage/support_stage.dart';
 import '../support_stage/support_stage_scope.dart';
-import '../pregnancy_loss/widgets/pregnancy_loss_home_learning_hero_card.dart';
+import '../pregnancy_loss/pregnancy_loss_theme.dart';
+import '../pregnancy_loss/widgets/pregnancy_loss_home_variant.dart';
 import '../widgets/home_provider_search_entry.dart';
 
 /// Starter prompts when opening the assistant from Understand Your Care cards.
@@ -316,20 +317,19 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
     final showWeekJourneyCard = !inLossMode &&
         dueDate != null &&
         !(profile?.hidePregnancyMilestones ?? false);
-    final showLossLearningHero = inLossMode;
-
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor:
+          inLossMode ? PregnancyLossTheme.background : Colors.transparent,
       body: SafeArea(
         child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(24, 48, 24, 120),
+              padding: EdgeInsets.fromLTRB(24, 48, 24, inLossMode ? 80 : 120),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Greeting (NewUI Home.tsx) + research milestone bell
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 32),
+                    padding: EdgeInsets.only(bottom: inLossMode ? 28 : 32),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -339,7 +339,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                             children: [
                               Text(
                                 inLossMode
-                                    ? 'We\'re here for you 🤍'
+                                    ? 'We\'re here with you 💜'
                                     : 'Welcome, Mama 🤍',
                                 style: const TextStyle(
                                   fontSize: 32,
@@ -352,7 +352,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                               const SizedBox(height: 8),
                               Text(
                                 inLossMode
-                                    ? 'Clear guides, journal space, and community support — at your pace.'
+                                    ? 'Support is here when you\'re ready.'
                                     : "You're supported — with clear answers and tools to speak up.",
                                 style: TextStyle(
                                   fontSize: 15,
@@ -361,70 +361,70 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                   color: AppTheme.textMuted,
                                 ),
                               ),
-                              const SizedBox(height: 24),
-                              InkWell(
-                                onTap: () {
-                                  Navigator.pushNamed(context, Routes.assistant);
-                                },
-                                borderRadius: BorderRadius.circular(28),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.surfaceCard,
-                                    borderRadius: BorderRadius.circular(28),
-                                    border: Border.all(
-                                      color: const Color(0xFFE8DFE8),
+                              if (!inLossMode) ...[
+                                const SizedBox(height: 24),
+                                InkWell(
+                                  onTap: () {
+                                    Navigator.pushNamed(context, Routes.assistant);
+                                  },
+                                  borderRadius: BorderRadius.circular(28),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.surfaceCard,
+                                      borderRadius: BorderRadius.circular(28),
+                                      border: Border.all(
+                                        color: const Color(0xFFE8DFE8),
+                                      ),
+                                      boxShadow: AppTheme.shadowSoft(),
                                     ),
-                                    boxShadow: AppTheme.shadowSoft(),
-                                  ),
-                                  child: TextField(
-                                    enabled: false,
-                                    style: const TextStyle(
-                                      color: Color(0xFF2D2733),
-                                      fontWeight: FontWeight.w300,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText:
-                                          'Search symptoms, tests, or what to ask your doctor',
-                                      hintStyle: TextStyle(
-                                        color: const Color(0xFFB5A8C2),
+                                    child: TextField(
+                                      enabled: false,
+                                      style: const TextStyle(
+                                        color: Color(0xFF2D2733),
                                         fontWeight: FontWeight.w300,
-                                        fontSize: 14,
                                       ),
-                                      prefixIcon: const Icon(
-                                        Icons.auto_awesome_rounded,
-                                        color: Color(0xFF9D8FB5),
-                                        size: 20,
-                                      ),
-                                      border: InputBorder.none,
-                                      contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                        vertical: 16,
+                                      decoration: InputDecoration(
+                                        hintText:
+                                            'Search symptoms, tests, or what to ask your doctor',
+                                        hintStyle: TextStyle(
+                                          color: const Color(0xFFB5A8C2),
+                                          fontWeight: FontWeight.w300,
+                                          fontSize: 14,
+                                        ),
+                                        prefixIcon: const Icon(
+                                          Icons.auto_awesome_rounded,
+                                          color: Color(0xFF9D8FB5),
+                                          size: 20,
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 16,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                         ),
-                        HomeMilestoneBell(
-                          key: ValueKey<String>(
-                            '${profile?.userId ?? 'none'}_${profile?.isResearchParticipant ?? false}',
+                        if (!inLossMode)
+                          HomeMilestoneBell(
+                            key: ValueKey<String>(
+                              '${profile?.userId ?? 'none'}_${profile?.isResearchParticipant ?? false}',
+                            ),
+                            profile: profile,
                           ),
-                          profile: profile,
-                        ),
                       ],
                     ),
                   ),
 
-                  // Loss mode: same hero card layout → “What to expect” learning guide
-                  if (showLossLearningHero) ...[
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 40),
-                      child: PregnancyLossHomeLearningHeroCard(),
-                    ),
+                  if (inLossMode && profile != null) ...[
+                    PregnancyLossHomeVariant(profile: profile),
                   ],
 
+                  if (!inLossMode) ...[
                   // Week / trimester journey card → Learn tab (trimester modules)
                   if (showWeekJourneyCard) ...[
                     Padding(
@@ -608,7 +608,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                       ),
                     ),
                   ],
+                  ],
 
+                  if (!inLossMode)
                   // Today's Guidance (primary hero + visit summary widget)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 40),
@@ -783,6 +785,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                     ),
                   ),
 
+                  if (!inLossMode)
                   // Understand Your Care — quick paths to explanation features
                   Padding(
                     padding: const EdgeInsets.only(bottom: 40),
@@ -883,6 +886,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                     ),
                   ),
 
+                  if (!inLossMode)
                   // Your space — Visits, Journal, Birth preferences, Next steps (NewUI order)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -998,6 +1002,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                         ),
                     ],
                   ),
+                  if (!inLossMode) ...[
                   const SizedBox(height: 40),
                   // Community (NewUI: conversational header + belonging copy)
                   Text(
@@ -1151,6 +1156,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                       ),
                     ),
                   ),
+                  ],
                 ],
               ),
             ),

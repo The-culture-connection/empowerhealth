@@ -7,6 +7,42 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:725364003316:android:24aff84afed37dca8229a1",
+        "android_client_info": {
+          "package_name": "com.empowerhealthwatch"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "725364003316-van2egmf2u2hkfmkatr7meb9qoa71t96.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2arGVVaRoFBJ8Bhpq6oPuvIbM8d5gzhM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "725364003316-van2egmf2u2hkfmkatr7meb9qoa71t96.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "725364003316-ahiu005nk1ou1bmj50acorm0cf97rnjf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.empowerhealth"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:725364003316:android:1411a89c67dc93338229a1",
         "android_client_info": {
           "package_name": "com.example.empowerhealth"

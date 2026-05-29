@@ -1,4 +1,4 @@
-package com.example.empowerhealth
+package com.empowerhealthwatch
 
 import io.flutter.embedding.android.FlutterActivity
 

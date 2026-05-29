@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.empowerhealth">
+    package="com.empowerhealthwatch">
 
     <!-- Required for Firebase and network access -->
     <uses-permission android:name="android.permission.INTERNET" />

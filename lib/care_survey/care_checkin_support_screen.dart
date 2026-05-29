@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
 import '../research/need_other_text_field.dart';
+import '../immediate_support/widgets/immediate_support_home_card.dart';
 import 'care_checkin_support_config.dart';
 
 /// Step 2 — personalized support options grouped by selected care needs.
@@ -156,6 +157,11 @@ class CareCheckinSupportScreen extends StatelessWidget {
               ),
             );
           }),
+        const SizedBox(height: 16),
+        const ImmediateSupportHomeCard(
+          entrySource: 'care_checkin',
+          compact: true,
+        ),
         const SizedBox(height: 8),
         Row(
           children: [

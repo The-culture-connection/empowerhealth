@@ -1,17 +1,11 @@
-import 'dart:convert';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user_profile.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 
-const String _kPrefsKey = 'emotional_support_last_selections';
-
-/// Persists check-in selections and logs analytics (`feature: emotional-support`).
+/// @deprecated Legacy emotional-support analytics. Prefer [ImmediateSupportService].
 class EmotionalSupportService {
   EmotionalSupportService._();
   static final EmotionalSupportService instance = EmotionalSupportService._();
@@ -96,37 +90,8 @@ class EmotionalSupportService {
     required List<String> selectedOptionIds,
     String? somethingElseText,
   }) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    final payload = <String, dynamic>{
-      'selectedOptions': selectedOptionIds,
-      'somethingElseText': somethingElseText?.trim() ?? '',
-      'completedAt': FieldValue.serverTimestamp(),
-    };
-
-    try {
-      await _db.updateUserProfile(uid, {
-        'emotionalSupportCheckIn': payload,
-        'emotionalSupportLastCheckInAt': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      debugPrint('⚠️ emotionalSupport save profile: $e');
-    }
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _kPrefsKey,
-        jsonEncode({
-          'selectedOptions': selectedOptionIds,
-          'somethingElseText': somethingElseText?.trim() ?? '',
-          'savedAt': DateTime.now().toUtc().toIso8601String(),
-        }),
-      );
-    } catch (e) {
-      debugPrint('⚠️ emotionalSupport prefs: $e');
-    }
+    // Universal immediate support no longer persists selections to Firestore.
+    // Legacy callers should migrate to [ImmediateSupportService].
   }
 
   @Deprecated('Use PregnancyLossService.enterPregnancyLossMode')

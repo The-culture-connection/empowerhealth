@@ -7,6 +7,7 @@ import 'upload_visit_summary_screen.dart';
 import 'visit_detail_screen.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
+import '../immediate_support/widgets/immediate_support_home_card.dart';
 import 'visit_summary_preview.dart';
 
 class AppointmentsListScreen extends StatelessWidget {
@@ -104,6 +105,13 @@ class AppointmentsListScreen extends StatelessWidget {
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                            child: ImmediateSupportHomeCard(
+                              entrySource: 'after_visit',
+                              compact: true,
                             ),
                           ),
                           Padding(

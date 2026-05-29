@@ -19,6 +19,44 @@ import 'pregnancy_loss_provider_questions_screen.dart';
 import 'pregnancy_loss_service.dart';
 import 'pregnancy_loss_transition_screen.dart';
 
+/// Enters pregnancy-loss mode from profile settings, then shows transition flow.
+Future<void> startPregnancyLossFlowFromProfile(BuildContext context) async {
+  try {
+    await PregnancyLossService.instance.enterPregnancyLossMode();
+  } on PregnancyLossEntryException catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: AppTheme.brandPurple,
+        ),
+      );
+    }
+    return;
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Something went wrong saving your settings. Please try again.',
+          ),
+          backgroundColor: AppTheme.brandPurple,
+        ),
+      );
+    }
+    return;
+  }
+
+  if (!context.mounted) return;
+
+  await Navigator.of(context, rootNavigator: true).push<void>(
+    MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (_) => const PregnancyLossTransitionScreen(),
+    ),
+  );
+}
+
 /// Persists pregnancy-loss mode, closes check-in, then shows transition flow.
 /// Returns true when profile was saved and onboarding was started.
 Future<bool> startPregnancyLossFlowFromCheckIn(

@@ -18,7 +18,8 @@ import '../widgets/ai_disclaimer_banner.dart';
 import '../models/user_profile.dart';
 import 'widgets/home_milestone_bell.dart';
 import '../assistant/assistant_screen.dart';
-import '../emotional_support/widgets/home_emotional_support_card.dart';
+import '../immediate_support/immediate_support_navigation.dart';
+import '../immediate_support/widgets/immediate_support_home_card.dart';
 import '../support_stage/support_stage.dart';
 import '../support_stage/support_stage_scope.dart';
 import '../pregnancy_loss/pregnancy_loss_theme.dart';
@@ -104,9 +105,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
     }
   }
 
-  Future<void> _openEmotionalSupportCheckIn() async {
-    await Navigator.pushNamed(context, Routes.emotionalSupportCheckin);
-    await _loadUserData();
+  Future<void> _openImmediateSupport() async {
+    await openImmediateSupport(context, entrySource: 'home');
   }
 
   Future<void> _showGenerateModulesDialog(BuildContext context) async {
@@ -422,6 +422,11 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
 
                   if (inLossMode && profile != null) ...[
                     PregnancyLossHomeVariant(profile: profile),
+                    const SizedBox(height: 24),
+                    ImmediateSupportHomeCard(
+                      entrySource: 'home_loss_mode',
+                      compact: true,
+                    ),
                   ],
 
                   if (!inLossMode) ...[
@@ -627,8 +632,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        HomeEmotionalSupportCard(
-                          onCheckIn: _openEmotionalSupportCheckIn,
+                        ImmediateSupportHomeCard(
+                          entrySource: 'home',
                           compact: true,
                         ),
                         if (!inLossMode) ...[

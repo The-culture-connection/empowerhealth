@@ -8,6 +8,7 @@ import '../services/analytics_service.dart';
 import '../cors/ui_theme.dart';
 import '../app_router.dart';
 import '../utils/pregnancy_utils.dart';
+import '../immediate_support/widgets/immediate_support_home_card.dart';
 import '../widgets/trust_cue_banner.dart';
 import '../pregnancy_loss/widgets/support_stage_settings_tile.dart';
 
@@ -787,6 +788,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               
               if (_userProfile != null)
                 _buildSection('Your support experience', [
+                  const ImmediateSupportHomeCard(
+                    entrySource: 'profile',
+                    compact: true,
+                  ),
+                  const SizedBox(height: 8),
                   SupportStageSettingsTile(profile: _userProfile!),
                 ]),
               // Support Network Section

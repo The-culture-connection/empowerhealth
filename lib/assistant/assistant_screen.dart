@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../cors/ui_theme.dart';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
+import '../immediate_support/immediate_support_navigation.dart';
 import '../widgets/ai_disclaimer_banner.dart';
 
 /// Firestore: `users/{uid}/assistant_messages`
@@ -286,6 +287,17 @@ class _AssistantScreenState extends State<AssistantScreen>
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.volunteer_activism_outlined,
+                        color: AppTheme.brandPurple,
+                      ),
+                      tooltip: 'I need support right now',
+                      onPressed: () => openImmediateSupport(
+                        context,
+                        entrySource: 'assistant',
                       ),
                     ),
                     IconButton(

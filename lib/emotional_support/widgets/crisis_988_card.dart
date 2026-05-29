@@ -5,9 +5,19 @@ import '../emotional_support_navigation.dart';
 
 /// Gentle 988 crisis support — external resources only.
 class Crisis988Card extends StatelessWidget {
-  const Crisis988Card({super.key, this.compact = false});
+  const Crisis988Card({
+    super.key,
+    this.compact = false,
+    this.on988Action,
+  });
 
   final bool compact;
+  final void Function(String action)? on988Action;
+
+  Future<void> _launch(BuildContext context, String action) async {
+    on988Action?.call(action);
+    await launchCrisis988(context: context, action: action);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,76 +42,44 @@ class Crisis988Card extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppTheme.brandPurple.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.favorite_rounded,
-                  color: AppTheme.brandPurple,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      compact
-                          ? 'You deserve immediate support right now 💜'
-                          : 'You deserve immediate support right now 💜',
-                      style: TextStyle(
-                        fontSize: compact ? 16 : 18,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'You can talk to a trained counselor anytime for free and confidential support. These are external resources — not counselors inside this app.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
           Text(
-            '988 Suicide & Crisis Lifeline',
+            'Talk to someone now',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: compact ? 16 : 18,
               fontWeight: FontWeight.w500,
-              color: AppTheme.brandPurple,
+              color: AppTheme.textPrimary,
+              height: 1.35,
             ),
           ),
-          const SizedBox(height: 12),
-          _CrisisButton(
-            label: 'Call 988',
-            icon: Icons.phone_rounded,
-            onTap: () => launchCrisis988(context: context, action: 'call'),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
-            'Postpartum Support International: postpartum.net',
+            'You can connect with a trained counselor for free and confidential support. This is the 988 Suicide & Crisis Lifeline — not EmpowerHealth Watch.',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 14,
               color: AppTheme.textMuted,
               fontWeight: FontWeight.w300,
+              height: 1.45,
             ),
+          ),
+          const SizedBox(height: 16),
+          _CrisisButton(
+            label: 'Call 988',
+            icon: Icons.phone_in_talk_outlined,
+            onTap: () => _launch(context, 'call'),
+          ),
+          const SizedBox(height: 10),
+          _CrisisButton(
+            label: 'Text 988',
+            icon: Icons.sms_outlined,
+            outlined: true,
+            onTap: () => _launch(context, 'text'),
+          ),
+          const SizedBox(height: 10),
+          _CrisisButton(
+            label: 'Chat with 988',
+            icon: Icons.chat_bubble_outline,
+            outlined: true,
+            onTap: () => _launch(context, 'chat'),
           ),
         ],
       ),
@@ -114,33 +92,45 @@ class _CrisisButton extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onTap,
+    this.outlined = false,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+  final bool outlined;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.brandPurple,
-      borderRadius: BorderRadius.circular(16),
+      color: outlined ? const Color(0xFFF5F0F8) : AppTheme.brandPurple,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
             children: [
-              Icon(icon, color: AppTheme.brandWhite, size: 20),
-              const SizedBox(height: 4),
+              Icon(
+                icon,
+                size: 20,
+                color: outlined ? AppTheme.brandPurple : AppTheme.brandWhite,
+              ),
+              const SizedBox(width: 12),
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.brandWhite,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: outlined ? AppTheme.textPrimary : AppTheme.brandWhite,
                 ),
+              ),
+              const Spacer(),
+              Icon(
+                Icons.open_in_new_rounded,
+                size: 16,
+                color: outlined ? AppTheme.textMuted : AppTheme.brandWhite,
               ),
             ],
           ),

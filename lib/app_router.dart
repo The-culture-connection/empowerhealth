@@ -20,7 +20,7 @@ import 'providers/provider_search_screen.dart';
 import 'providers/provider_search_entry_screen.dart';
 import 'providers/add_provider_screen.dart';
 import 'care_survey/care_navigation_survey_screen.dart';
-import 'emotional_support/emotional_support_checkin_screen.dart';
+import 'immediate_support/immediate_support_checkin_screen.dart';
 import 'resources/app_resources_screen.dart';
 import 'Home/pregnancy_journey_screen.dart';
 import 'Home/Learning Modules/rights_screen.dart';
@@ -52,7 +52,8 @@ class Routes {
   static const providerProfile = '/providers/profile';
   static const addProvider = '/providers/add';
   static const careSurvey = '/care-survey';
-  static const emotionalSupportCheckin = '/emotional-support-checkin';
+  static const immediateSupport = '/immediate-support';
+  static const emotionalSupportCheckin = '/immediate-support';
   static const resources = '/resources';
   static const pregnancyJourney = '/pregnancy-journey';
   static const rights = '/rights';
@@ -110,8 +111,12 @@ class AppRouter {
         return _page(const AddProviderScreen());
       case Routes.careSurvey:
         return _page(const CareNavigationSurveyScreen());
+      case Routes.immediateSupport:
       case Routes.emotionalSupportCheckin:
-        return _page(const EmotionalSupportCheckInScreen());
+        final entrySource = settings.arguments is String
+            ? settings.arguments as String
+            : 'route';
+        return _page(ImmediateSupportCheckInScreen(entrySource: entrySource));
       case Routes.resources:
         final args = settings.arguments;
         String? highlightId;

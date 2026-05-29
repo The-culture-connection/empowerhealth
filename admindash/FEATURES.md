@@ -549,23 +549,32 @@ The **Home** tab presents a single scrollable column with a supportive header (*
 - **2026-04-02** - **mobile-pregnancy-journey-route** - Home **journey** card opens **`PregnancyJourneyScreen`** (trimester body + baby content) instead of the Learning tab.
 - **2026-05-21** - **mobile-home-assistant-provider-entry** - Moved **provider search** into **Today's Support** (`_ProviderSearchEntry`); header field opens **AI Assistant** with copy **Search symptoms, tests, or what to ask your doctor**; removed floating assistant FAB from **`MainNavigationScaffold`**.
 - **2026-05-21** - **mobile-home-understand-your-care** - Added **Understand Your Care** section with three **`_CareToolCard`** entries; **`Routes.rights`** + **`AssistantScreen.initialPrompt`** for guided test/normal questions.
-- **2026-05-21** - **mobile-emotional-support-checkin** - **Today's Guidance** **`HomeEmotionalSupportCard`** (*I'm not doing okay* / **Check in**) → **`EmotionalSupportCheckInScreen`**; multi-select pills; personalized **`EmotionalSupportHubScreen`** pathways (PPD, health, adjustment); pregnancy-loss placeholder; 988 crisis card when needed; analytics via **`EmotionalSupportService`**; profile **`emotionalSupportCheckIn`** + **`emotionalSupportPregnancyLoss`** (stored for future personalization; does not hide the home week card).
+- **2026-05-21** - **mobile-immediate-support-home-card** - **`ImmediateSupportHomeCard`** replaces *I'm not doing okay* card; spec copy *Need support right now?* / *See support options*; shown in standard home and pregnancy-loss home.
 - **2026-05-21** - **mobile-home-week-card-restore** - Restored home **week / trimester journey** card after emotional-support work: no longer gated on **`emotionalSupportPregnancyLoss`** or **`weeksPregnant > 0`** alone; profile stream keeps card in sync; tap opens **`Routes.learning`**.
 
 ---
 
-## 17. Emotional support check-in (mobile)
+## 17. Immediate support pathway (mobile)
 
 ### How the feature works
-- **Entry**: **`HomeEmotionalSupportCard`** in **`HomeScreenV2`** Today's Guidance → **`Routes.emotionalSupportCheckin`** → **`EmotionalSupportCheckInScreen`** (`lib/emotional_support/`).
-- **Selection**: Seven trauma-informed pill options (multi-select, skip, optional **Something else** text). Saves to **`users/{uid}.emotionalSupportCheckIn`**, **`SharedPreferences`**, and analytics (`support_checkin_opened`, `support_checkin_completed`, `support_option_selected`, `support_resource_opened`, `crisis_resource_opened`, `ppd_support_opened`, `pregnancy_loss_flow_started`; feature **`emotional-support`**).
-- **Pregnancy loss**: Selecting *I experienced a pregnancy loss* → **`enterPregnancyLossAndShowHome`** (profile + home tab, no gateway screens) → **`currentSupportStage: pregnancy_loss`** (see §20). Standard hub is not shown for this path alone.
-- **Hub**: **`EmotionalSupportHubScreen`** — validation copy first; **988** card top only for *need someone to talk to* / *scary thoughts* (or compact 988 on PPD path); modular sections for PPD (providers prefill, learning module, journal, community), health (rights, visit prep, WIC/211, assistant), adjustment (learning module, journal, community, journey).
-- **Crisis**: **`Crisis988Card`** — external **Call 988** only (not in-app counseling).
+- **Purpose**: Universal trauma-informed support without requiring disclosure of sensitive reproductive events. Selections are **not** written to Firestore.
+- **Entry** (`openImmediateSupport`, feature **`immediate-support`**): **`ImmediateSupportHomeCard`** on home (standard + pregnancy-loss mode), **`Routes.immediateSupport`** / legacy **`Routes.emotionalSupportCheckin`**, profile **Your support experience**, **My Visits**, care check-in support step, assistant header support icon.
+- **Check-in**: **`ImmediateSupportCheckInScreen`** — *We're here with you 💜*; neutral multi-select (emotional, understand next, follow-up care, provider talk, resources, transportation, something else); skip allowed.
+- **Hub**: **`ImmediateSupportHubScreen`** — modular sections from **`immediate_support_content.dart`** (curated 988, PSI, SAMHSA, CDC Hear Her, 211, WIC, journal, assistant prompts); **`Crisis988Card`** Call/Text/Chat with external disclaimers; safety guidance footer.
+- **Analytics** (`ImmediateSupportService`): `immediate_support_opened`, `immediate_support_completed` (count only), `immediate_support_hub_viewed`, `immediate_support_resource_opened`, `immediate_support_988_*_tapped` — no stored option ids on profile.
+- **Pregnancy loss**: **Not** part of this pathway. Loss mode entered only via **`SupportStageSettingsTile`** → **`startPregnancyLossFlowFromProfile`** (see §20).
 
 ### Change History
-- **2026-05-21** - **mobile-emotional-support-checkin** - Initial emotional support check-in, home card, hub pathways, pregnancy-loss placeholder, analytics, profile persistence.
-- **2026-05-21** - **mobile-app-resources-screen** - **`AppResourcesScreen`** (`Routes.resources`) catalogs WIC, Medicaid, 211, 988, PSI, CDC links; wired from care check-in and emotional support hub; home layout moves provider search to **Understand Your Care**; compact Today's Guidance cards; PPD provider search autofill + loading.
+- **2026-05-21** - **mobile-immediate-support-pathway** - Replaced disclosure-heavy emotional check-in with universal immediate support; modular hub; app-wide entry points; no Firestore persistence of support selections; decoupled pregnancy loss trigger.
+
+---
+
+## 17 (legacy). Emotional support check-in — superseded
+
+See §17 Immediate support pathway. Legacy **`EmotionalSupportHubScreen`** / **`EmotionalSupportEmergencyHubScreen`** remain in repo but are not on the active universal path.
+
+### Change History
+- **2026-05-21** - **mobile-emotional-support-checkin** - Initial emotional support check-in (superseded by immediate support).
 
 ---
 
@@ -585,7 +594,7 @@ The **Home** tab presents a single scrollable column with a supportive header (*
 ## 20. Pregnancy loss support mode (mobile)
 
 ### How the feature works
-- **Trigger**: Emotional support check-in option *I experienced a pregnancy loss* → callable **`enterPregnancyLossSupportMode`** (`functions/enterPregnancyLossSupportMode.js`) → **`startPregnancyLossFlowFromCheckIn`** (pops check-in, pushes **`PregnancyLossTransitionScreen`**).
+- **Trigger**: **`SupportStageSettingsTile`** on **`EditProfileScreen`** → *I experienced a pregnancy loss* → **`startPregnancyLossFlowFromProfile`** → callable **`enterPregnancyLossSupportMode`** → **`PregnancyLossTransitionScreen`**. Not available from the universal immediate support check-in (§17).
 - **Onboarding**: **Transition** (*Support after pregnancy loss* — *Show me support* → **`PregnancyLossPreferencesScreen`**; *Skip for now* → home). **Preferences** multi-select saved to **`pregnancyLossSupportPreferences`** (skippable). **`finishPregnancyLossOnboarding`** clears overlays and selects home tab.
 - **App shell**: Same **`MainNavigationScaffold`**. **`SupportStageScopeHost`** streams profile; Learn and Community tabs swap when **`isInPregnancyLossMode`**.
 - **Profile**: **`currentSupportStage`** = `pregnancy_loss`, **`hidePregnancyMilestones`** = true, **`pregnancyLossFlowStartedAt`**, **`pregnancyLossSupportPreferences`**, **`pregnancyLossSomethingElseText`**, legacy **`emotionalSupportPregnancyLoss`**.
@@ -612,7 +621,7 @@ The **Home** tab presents a single scrollable column with a supportive header (*
 - **2026-05-21** - **mobile-pregnancy-loss-signout-fix** - Auth gate ignores transient null during token refresh; analytics deferred until after check-in closes; Functions client uses **us-central1**; callable **region** set; client **merge** fallback if function not deployed.
 - **2026-05-21** - **mobile-pregnancy-loss-dedicated-shell** - (superseded) Brief dual-shell experiment; reverted to single main nav with profile-based tab swaps.
 - **2026-05-21** - **mobile-pregnancy-loss-same-ui-adaptations** - Same home shell; loss hero card → *What to expect* module; hide care check-in & birth choices; emergency hub after emotional check-in; loss learn/community tabs.
-- **2026-05-21** - **mobile-pregnancy-loss-learning-distinct-modules** - Five static guides use unique section headings and intros (not repeated *What to expect* template); `LearningRouteGate` and learn-tab routing avoid standard AI modules in loss mode; detail screen uses per-topic `moduleId`/`ValueKey`.
+- **2026-05-21** - **mobile-immediate-support-decouple-loss** - Pregnancy loss entry moved to profile support stage only; universal immediate support has no reproductive-event options or Firestore check-in payload.
 
 ---
 

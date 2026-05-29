@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../cors/ui_theme.dart';
 import '../../models/user_profile.dart';
 import '../../support_stage/support_stage.dart';
+import '../pregnancy_loss_navigation.dart';
 import '../pregnancy_loss_service.dart';
 
 /// Profile setting to change [UserProfile.currentSupportStage].
@@ -66,6 +67,12 @@ class SupportStageSettingsTile extends StatelessWidget {
 
     if (choice == null || !context.mounted) return;
     if (choice == profile.currentSupportStage) return;
+
+    if (choice == SupportStage.pregnancyLoss &&
+        profile.currentSupportStage != SupportStage.pregnancyLoss) {
+      await startPregnancyLossFlowFromProfile(context);
+      return;
+    }
 
     if (profile.isInPregnancyLossMode &&
         choice != SupportStage.pregnancyLoss) {

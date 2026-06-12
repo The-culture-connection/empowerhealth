@@ -30,7 +30,7 @@ class ImmediateSupportHomeCard extends StatelessWidget {
             ),
             boxShadow: AppTheme.shadowSoft(opacity: 0.08, blur: 20, y: 6),
           ),
-          padding: EdgeInsets.all(compact ? 18 : 22),
+          padding: EdgeInsets.all(compact ? 16 : 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -45,7 +45,7 @@ class ImmediateSupportHomeCard extends StatelessWidget {
               ),
               SizedBox(height: compact ? 6 : 8),
               Text(
-                'Support is available whenever you need it.',
+                'Emotional support, guidance, and help with next steps — whenever you need it.',
                 style: TextStyle(
                   fontSize: compact ? 13 : 14,
                   fontWeight: FontWeight.w300,
@@ -53,26 +53,7 @@ class ImmediateSupportHomeCard extends StatelessWidget {
                   color: AppTheme.textMuted,
                 ),
               ),
-              SizedBox(height: compact ? 14 : 18),
-              Text(
-                'Need support right now?',
-                style: TextStyle(
-                  fontSize: compact ? 15 : 16,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Get emotional support, plain-language guidance, and help preparing questions or next steps.',
-                style: TextStyle(
-                  fontSize: compact ? 13 : 14,
-                  fontWeight: FontWeight.w300,
-                  height: 1.45,
-                  color: AppTheme.textMuted,
-                ),
-              ),
-              SizedBox(height: compact ? 14 : 16),
+              SizedBox(height: compact ? 12 : 14),
               Row(
                 children: [
                   Text(

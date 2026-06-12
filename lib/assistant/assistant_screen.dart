@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/medical_sources.dart';
 import '../cors/ui_theme.dart';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
@@ -82,6 +84,10 @@ class _AssistantScreenState extends State<AssistantScreen>
   bool _isLoading = false;
   String _pendingAckLine = _kAcknowledgementLines[0];
 
+  /// Once dismissed, the AI Assistant intro stays hidden for future sessions.
+  static const _introPrefsKey = 'assistant_intro_dismissed_v1';
+  bool _introDismissed = false;
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +99,29 @@ class _AssistantScreenState extends State<AssistantScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat();
+    _loadIntroDismissed();
+  }
+
+  Future<void> _loadIntroDismissed() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dismissed = prefs.getBool(_introPrefsKey) ?? false;
+      if (mounted && dismissed) {
+        setState(() => _introDismissed = true);
+      }
+    } catch (_) {
+      // Non-fatal: default to showing the intro.
+    }
+  }
+
+  Future<void> _dismissIntro() async {
+    setState(() => _introDismissed = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_introPrefsKey, true);
+    } catch (_) {
+      // Non-fatal: it'll simply show again next session.
+    }
   }
 
   void _scheduleScrollToBottom() {
@@ -269,35 +298,72 @@ class _AssistantScreenState extends State<AssistantScreen>
                               color: AppTheme.textPrimary,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Ask me anything about your care or what to do next',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.textSecondary,
+                          if (!_introDismissed) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Ask me anything about your care or what to do next',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Your chat is saved to your account',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textMuted,
-                              fontWeight: FontWeight.w300,
+                            const SizedBox(height: 6),
+                            Text(
+                              'Your chat is saved to your account',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textMuted,
+                                fontWeight: FontWeight.w300,
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.volunteer_activism_outlined,
-                        color: AppTheme.brandPurple,
+                    if (!_introDismissed)
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        tooltip: 'Dismiss intro',
+                        color: AppTheme.textMuted,
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _dismissIntro,
                       ),
-                      tooltip: 'I need support right now',
-                      onPressed: () => openImmediateSupport(
-                        context,
-                        entrySource: 'assistant',
+                    Tooltip(
+                      message: 'I need support right now',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => openImmediateSupport(
+                            context,
+                            entrySource: 'assistant',
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.volunteer_activism_outlined,
+                                  color: AppTheme.brandPurple,
+                                  size: 22,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Support',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.brandPurple,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     IconButton(
@@ -315,6 +381,11 @@ class _AssistantScreenState extends State<AssistantScreen>
                   customSubMessage: 'It does not replace your provider.',
                 ),
               ),
+              if (!_introDismissed)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: _AssistantSourcesBar(),
+                ),
               const SizedBox(height: 8),
 
               Expanded(
@@ -657,6 +728,127 @@ class _MessageBubble extends StatelessWidget {
           fontSize: 15,
           height: 1.35,
         ),
+      ),
+    );
+  }
+}
+
+/// Collapsible "Sources & References" bar shown under the AI disclaimer so the
+/// assistant's health information is backed by easy-to-find citations to
+/// trusted organizations (App Store Guideline 1.4.1).
+class _AssistantSourcesBar extends StatefulWidget {
+  const _AssistantSourcesBar();
+
+  @override
+  State<_AssistantSourcesBar> createState() => _AssistantSourcesBarState();
+}
+
+class _AssistantSourcesBarState extends State<_AssistantSourcesBar> {
+  bool _expanded = false;
+
+  Future<void> _open(MedicalSource source) async {
+    final ok = await launchMedicalSource(source);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open ${source.url}'),
+          backgroundColor: AppTheme.brandPurple,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sources = MedicalSources.defaults;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: AppTheme.borderLight, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.menu_book_outlined,
+                      size: 18, color: AppTheme.brandPurple),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Sources & References',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: AppTheme.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'AI answers are educational and based on guidance from these '
+                    'trusted organizations. Always confirm with your provider.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: AppTheme.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...sources.map(
+                    (s) => InkWell(
+                      onTap: () => _open(s),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.open_in_new,
+                                size: 14,
+                                color: AppTheme.brandPurple.withOpacity(0.8)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                s.organization,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.brandPurple,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor:
+                                      AppTheme.brandPurple.withOpacity(0.5),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

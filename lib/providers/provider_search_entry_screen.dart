@@ -334,10 +334,12 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
   }
 
   bool get _canSearch {
+    // Provider type is an optional filter, not a search requirement — the
+    // search functions as a universal search and returns matching results
+    // regardless of provider type.
     return _zipController.text.length == 5 &&
         _cityController.text.isNotEmpty &&
-        _healthPlan.isNotEmpty &&
-        _selectedProviderTypes.isNotEmpty;
+        _healthPlan.isNotEmpty;
   }
 
   void _toggleItem(String item, List<String> list, Function(List<String>) setter) {
@@ -365,13 +367,13 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
       }
     }
 
+    // Universal search: when no provider type is selected (or none mapped to a
+    // valid ID), fall back to the core set of provider types so the search
+    // still returns matching results regardless of type. The backend requires
+    // at least one provider type, so we never send an empty list.
     if (providerTypeIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one valid provider type'),
-        ),
-      );
-      return;
+      providerTypeIds.addAll(ProviderTypes.mvpTypes);
+      print('🔍 [SearchEntry] No type selected — universal search using mvpTypes: $providerTypeIds');
     }
 
     print('🔍 [SearchEntry] Final provider type IDs: $providerTypeIds');
@@ -740,6 +742,56 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                         ),
 
                         const SizedBox(height: 16),
+
+                        // Prominent Mama Approved™ filter (community trust)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFF6ECFA), Color(0xFFFBF6FF)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppTheme.brandPurple.withOpacity(0.2),
+                            ),
+                          ),
+                          child: SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            activeColor: AppTheme.brandPurple,
+                            value: _mamaApprovedOnly,
+                            onChanged: (v) =>
+                                setState(() => _mamaApprovedOnly = v),
+                            title: Row(
+                              children: [
+                                Icon(Icons.favorite,
+                                    size: 18, color: AppTheme.brandPurple),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    'Mama Approved™ only',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            subtitle: Text(
+                              'Providers other mothers rated highly and felt '
+                              'heard, respected, and clearly informed by.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w300,
+                                color: AppTheme.textMuted,
+                              ),
+                            ),
+                          ),
+                        ),
 
                         // Advanced Filters
                         _buildAdvancedFilters(),
@@ -1498,38 +1550,6 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                     setState(() {
                       _acceptsNewborns = value;
                     });
-                  },
-                ),
-                const Divider(),
-                _buildToggleRow(
-                  title: 'Mama Approved™ only',
-                  subtitle:
-                      'At least 3 parent reviews with a 4★+ average — from the community, not insurers.',
-                  value: _mamaApprovedOnly,
-                  onChanged: (value) {
-                    setState(() {
-                      _mamaApprovedOnly = value;
-                    });
-                  },
-                  showInfo: true,
-                  onInfoTap: () {
-                    showDialog<void>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Mama Approved™'),
-                        content: const Text(
-                          'We show this when a provider has at least three reviews from parents in the app '
-                          'and the average rating is 4 stars or higher. It reflects what families shared — '
-                          'not an endorsement from a hospital, insurer, or medical board.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Got it'),
-                          ),
-                        ],
-                      ),
-                    );
                   },
                 ),
               ],

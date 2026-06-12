@@ -479,13 +479,23 @@ class ProviderRepository {
         if (reviews.isNotEmpty) {
           final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
           final averageRating = totalRating / reviews.length;
-          print('✅ [ProviderRepository] Found ${reviews.length} reviews for ${provider.name}, rating: $averageRating');
-          
+          final count = reviews.length;
+          final feltHeardRate =
+              reviews.where((r) => r.feltHeard).length / count;
+          final feltRespectedRate =
+              reviews.where((r) => r.feltRespected).length / count;
+          final explainedClearlyRate =
+              reviews.where((r) => r.explainedClearly).length / count;
+          print('✅ [ProviderRepository] Found $count reviews for ${provider.name}, rating: $averageRating');
+
           // Update provider with Firestore ID if we found it, and add reviews/rating
           return provider.copyWith(
             id: firestoreProvider?.id ?? provider.id,
             rating: averageRating,
-            reviewCount: reviews.length,
+            reviewCount: count,
+            feltHeardRate: feltHeardRate,
+            feltRespectedRate: feltRespectedRate,
+            explainedClearlyRate: explainedClearlyRate,
           );
         } else {
           print('ℹ️ [ProviderRepository] No reviews found for ${provider.name}');
@@ -1087,17 +1097,31 @@ class ProviderRepository {
         );
         averageRating = totalRating / reviewCount;
       }
-      
+
       // Update provider with review count and rating
       final updateData = <String, dynamic>{
         'reviewCount': reviewCount,
         'updatedAt': FieldValue.serverTimestamp(),
       };
-      
+
       if (averageRating != null) {
         updateData['rating'] = averageRating;
       }
-      
+
+      // Experience-question affirm rates feed the Mama Approved™ trust score.
+      if (publishedOnly.isNotEmpty) {
+        bool truthy(dynamic v) => v == true;
+        updateData['feltHeardRate'] =
+            publishedOnly.where((r) => truthy(r['feltHeard'])).length /
+                reviewCount;
+        updateData['feltRespectedRate'] =
+            publishedOnly.where((r) => truthy(r['feltRespected'])).length /
+                reviewCount;
+        updateData['explainedClearlyRate'] =
+            publishedOnly.where((r) => truthy(r['explainedClearly'])).length /
+                reviewCount;
+      }
+
       await _firestore.collection('providers').doc(firestoreProviderId).update(updateData);
       print('✅ [ProviderRepository] Updated provider $firestoreProviderId: reviewCount=$reviewCount, rating=$averageRating');
     } catch (e, stackTrace) {
@@ -1397,6 +1421,14 @@ class ProviderRepository {
 
     return out;
   }
+
+  /// Public name search used by the "Share Provider Experience" flow so a
+  /// mother can find a provider she has seen and leave a review.
+  Future<List<Provider>> searchProvidersByName(
+    String nameQuery, {
+    String zip = '',
+  }) =>
+      _fetchFirestoreDirectoryProvidersByName(nameQuery, zip: zip);
 
   /// Directory providers that qualify for the community Mama Approved™ badge
   /// (same rules as [Provider.showsMamaApprovedBadge]).

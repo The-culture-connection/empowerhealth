@@ -18,6 +18,11 @@ class Provider {
   final bool? telehealth;
   final double? rating;
   final int? reviewCount;
+  /// Share of reviews (0.0–1.0) affirming each experience question; null when
+  /// no review data is available yet. These feed the Mama Approved™ score.
+  final double? feltHeardRate;
+  final double? feltRespectedRate;
+  final double? explainedClearlyRate;
   final bool mamaApproved;
   final int mamaApprovedCount;
   final List<IdentityTag> identityTags;
@@ -49,6 +54,9 @@ class Provider {
     this.telehealth,
     this.rating,
     this.reviewCount,
+    this.feltHeardRate,
+    this.feltRespectedRate,
+    this.explainedClearlyRate,
     this.mamaApproved = false,
     this.mamaApprovedCount = 0,
     this.identityTags = const [],
@@ -95,12 +103,33 @@ class Provider {
   static const int mamaApprovedMinReviewCount = 3;
   static const double mamaApprovedMinAverageRating = 4.0;
 
-  /// Mama Approved™ in the app: earned from **community reviews** only
-  /// (3+ reviews and average ≥ 4★). Not the legacy Firestore `mamaApproved` flag.
+  /// Minimum average affirm-rate across the experience questions
+  /// (felt heard / felt respected / explained clearly) to earn the badge.
+  static const double mamaApprovedMinExperienceRate = 0.6;
+
+  /// Average affirm-rate across the three experience questions, or null when
+  /// none of them have review data yet.
+  double? get experienceTrustRate {
+    final rates = [feltHeardRate, feltRespectedRate, explainedClearlyRate]
+        .whereType<double>()
+        .toList();
+    if (rates.isEmpty) return null;
+    return rates.reduce((a, b) => a + b) / rates.length;
+  }
+
+  /// Mama Approved™ in the app: earned from **community reviews** only —
+  /// 3+ reviews, average ≥ 4★, and (when review data exists) a majority of
+  /// reviewers affirming they felt heard, felt respected, and that things were
+  /// explained clearly. Not the legacy Firestore `mamaApproved` flag.
   bool get showsMamaApprovedBadge {
     final r = rating;
     if (r == null || r < mamaApprovedMinAverageRating) return false;
-    return (reviewCount ?? 0) >= mamaApprovedMinReviewCount;
+    if ((reviewCount ?? 0) < mamaApprovedMinReviewCount) return false;
+    // Experience questions must show majority-positive sentiment when we have
+    // the data; providers without it fall back to the rating + count rule.
+    final exp = experienceTrustRate;
+    if (exp != null && exp < mamaApprovedMinExperienceRate) return false;
+    return true;
   }
 
   factory Provider.fromMap(Map<String, dynamic> map, {String? id}) {
@@ -144,6 +173,9 @@ class Provider {
       telehealth: map['telehealth'] as bool?,
       rating: map['rating']?.toDouble(),
       reviewCount: map['reviewCount'] as int?,
+      feltHeardRate: (map['feltHeardRate'] as num?)?.toDouble(),
+      feltRespectedRate: (map['feltRespectedRate'] as num?)?.toDouble(),
+      explainedClearlyRate: (map['explainedClearlyRate'] as num?)?.toDouble(),
       mamaApproved: map['mamaApproved'] ?? false,
       mamaApprovedCount: map['mamaApprovedCount'] ?? 0,
       identityTags: (map['identityTags'] as List<dynamic>?)
@@ -194,6 +226,9 @@ class Provider {
       'telehealth': telehealth,
       'rating': rating,
       'reviewCount': reviewCount,
+      'feltHeardRate': feltHeardRate,
+      'feltRespectedRate': feltRespectedRate,
+      'explainedClearlyRate': explainedClearlyRate,
       'mamaApproved': mamaApproved,
       'mamaApprovedCount': mamaApprovedCount,
       'identityTags': identityTags.map((t) => t.toMap()).toList(),
@@ -224,6 +259,9 @@ class Provider {
     bool? telehealth,
     double? rating,
     int? reviewCount,
+    double? feltHeardRate,
+    double? feltRespectedRate,
+    double? explainedClearlyRate,
     bool? mamaApproved,
     int? mamaApprovedCount,
     List<IdentityTag>? identityTags,
@@ -252,6 +290,9 @@ class Provider {
       telehealth: telehealth ?? this.telehealth,
       rating: rating ?? this.rating,
       reviewCount: reviewCount ?? this.reviewCount,
+      feltHeardRate: feltHeardRate ?? this.feltHeardRate,
+      feltRespectedRate: feltRespectedRate ?? this.feltRespectedRate,
+      explainedClearlyRate: explainedClearlyRate ?? this.explainedClearlyRate,
       mamaApproved: mamaApproved ?? this.mamaApproved,
       mamaApprovedCount: mamaApprovedCount ?? this.mamaApprovedCount,
       identityTags: identityTags ?? this.identityTags,

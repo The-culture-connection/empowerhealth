@@ -269,35 +269,23 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: stream,
       builder: (context, snapshot) {
-        final waitingWithoutData = snapshot.connectionState ==
-                ConnectionState.waiting &&
-            !snapshot.hasData;
-        if (waitingWithoutData) {
-          return _AppointmentCard(
-            overline: 'My Visits',
-            title: 'Loading...',
-            subtitle: 'One moment',
-            description: '',
-            onTap: () {},
-            compact: true,
-          );
+        // Only show a real visit once data has actually arrived. While the
+        // stream is still connecting, errored, or empty, fall back to the
+        // helpful default card instead of a card that's stuck on "Loading...".
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          return _buildLatestVisitCard(snapshot.data!.docs.first.data());
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return _AppointmentCard(
-            overline: null,
-            title: 'Know what to ask at your next visit',
-            subtitle:
-                "We'll help you understand your care and speak up with confidence.",
-            description: '',
-            durationLabel: '2 minutes',
-            compact: true,
-            onTap: _openAppointmentsList,
-          );
-        }
-
-        final data = snapshot.data!.docs.first.data();
-        return _buildLatestVisitCard(data);
+        return _AppointmentCard(
+          overline: null,
+          title: 'Know what to ask at your next visit',
+          subtitle:
+              "We'll help you understand your care and speak up with confidence.",
+          description: '',
+          durationLabel: '2 minutes',
+          compact: true,
+          onTap: _openAppointmentsList,
+        );
       },
     );
   }
@@ -313,7 +301,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
     final weeksPregnant = PregnancyUtils.calculateWeeksPregnant(dueDate);
     final displayWeek = weeksPregnant > 0 ? weeksPregnant : 1;
     final trimester = PregnancyUtils.calculateTrimester(dueDate);
-    final progress = (weeksPregnant > 0 ? weeksPregnant : 1) / 40.0;
     final showWeekJourneyCard = !inLossMode &&
         dueDate != null &&
         !(profile?.hidePregnancyMilestones ?? false);
@@ -428,468 +415,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                       compact: true,
                     ),
                   ],
-
-                  if (!inLossMode) ...[
-                  // Week / trimester journey card → Learn tab (trimester modules)
-                  if (showWeekJourneyCard) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 40),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => Navigator.pushNamed(
-                            context,
-                            Routes.learning,
-                          ),
-                          borderRadius: BorderRadius.circular(24),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF663399),
-                                  Color(0xFF7744AA),
-                                  Color(0xFF8855BB),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(24),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF663399).withOpacity(0.25),
-                                  blurRadius: 40,
-                                  offset: const Offset(0, 16),
-                                ),
-                              ],
-                            ),
-                            child: Stack(
-                              clipBehavior: Clip.antiAlias,
-                              children: [
-                                Positioned(
-                                  top: -20,
-                                  left: MediaQuery.sizeOf(context).width * 0.2,
-                                  child: Container(
-                                    width: 180,
-                                    height: 180,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: const Color(0xFFD4A574)
-                                          .withOpacity(0.2),
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: -40,
-                                  right: 20,
-                                  child: Container(
-                                    width: 200,
-                                    height: 200,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: const Color(0xFFB899D4)
-                                          .withOpacity(0.18),
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(32),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.brandWhite.withOpacity(0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(999),
-                                          border: Border.all(
-                                            color:
-                                                AppTheme.brandWhite.withOpacity(0.2),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Container(
-                                              width: 6,
-                                              height: 6,
-                                              decoration: const BoxDecoration(
-                                                color: Color(0xFFD4A574),
-                                                shape: BoxShape.circle,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              'Week $displayWeek',
-                                              style: TextStyle(
-                                                color: const Color(0xFFF5F0F7),
-                                                fontSize: 12,
-                                                letterSpacing: 0.36,
-                                                fontWeight: FontWeight.w300,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 24),
-                                      Text(
-                                        PregnancyUtils.trimesterDisplayTitle(
-                                            trimester),
-                                        style: const TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.w400,
-                                          height: 1.35,
-                                          letterSpacing: -0.28,
-                                          color: Color(0xFFF5F0F7),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      const Text(
-                                        "Here's what's happening — and what to ask at your next visit.",
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w300,
-                                          height: 1.5,
-                                          color: Color(0xFFE8DFF0),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 32),
-                                      Container(
-                                        height: 3,
-                                        decoration: BoxDecoration(
-                                          color:
-                                              AppTheme.brandWhite.withOpacity(0.2),
-                                          borderRadius:
-                                              BorderRadius.circular(999),
-                                        ),
-                                        child: FractionallySizedBox(
-                                          alignment: Alignment.centerLeft,
-                                          widthFactor:
-                                              progress.clamp(0.0, 1.0),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              gradient: const LinearGradient(
-                                                colors: [
-                                                  Color(0xFFD4A574),
-                                                  Color(0xFFE0B589),
-                                                  Color(0xFFEDC799),
-                                                ],
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(999),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: const Color(0xFFD4A574)
-                                                      .withOpacity(0.5),
-                                                  blurRadius: 12,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        '$displayWeek of 40 weeks',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w300,
-                                          letterSpacing: 0.5,
-                                          color: const Color(0xFFE8DFF0)
-                                              .withOpacity(0.95),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                  ],
-
-                  if (!inLossMode)
-                  // Today's Guidance (primary hero + visit summary widget)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 40),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "💜 TODAY'S GUIDANCE",
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 1.2,
-                            color: AppTheme.brandPurple,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ImmediateSupportHomeCard(
-                          entrySource: 'home',
-                          compact: true,
-                        ),
-                        if (!inLossMode) ...[
-                        const SizedBox(height: 12),
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              Navigator.pushNamed(context, Routes.careSurvey);
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: Ink(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFF5EEE0),
-                                    Color(0xFFFAF8F4),
-                                    Color(0xFFEBE0D6),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: const Color(0xFFE8E0F0)
-                                      .withOpacity(0.4),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.brandPurple.withOpacity(0.12),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: Stack(
-                                children: [
-                                  Positioned(
-                                    top: 0,
-                                    right: 0,
-                                    child: Container(
-                                      width: 80,
-                                      height: 80,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: const Color(0xFFD4A574)
-                                            .withOpacity(0.08),
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(20),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Container(
-                                              width: 44,
-                                              height: 44,
-                                              decoration: BoxDecoration(
-                                                gradient:
-                                                    const LinearGradient(
-                                                  colors: [
-                                                    Color(0xFFF5EEE0),
-                                                    Color(0xFFEBE0D6),
-                                                  ],
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(18),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black
-                                                        .withOpacity(0.08),
-                                                    blurRadius: 10,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: const Icon(
-                                                Icons.auto_awesome_rounded,
-                                                color: Color(0xFFD4A574),
-                                                size: 22,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 14),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'Care Check In',
-                                                    style: TextStyle(
-                                                      fontSize: 15,
-                                                      fontWeight: FontWeight.w400,
-                                                      letterSpacing: -0.085,
-                                                      color: AppTheme.textPrimary,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  Text(
-                                                    'Share what support you need — about 2 minutes.',
-                                                    style: TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight: FontWeight.w300,
-                                                      height: 1.45,
-                                                      color: AppTheme.textMuted,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              '2 minutes',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w300,
-                                                color: AppTheme.textMuted
-                                                    .withOpacity(0.85),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Icon(
-                                              Icons.chevron_right,
-                                              size: 18,
-                                              color: AppTheme.textMuted
-                                                  .withOpacity(0.85),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        ],
-                        const SizedBox(height: 12),
-                        _buildLatestVisitSection(),
-                      ],
-                    ),
-                  ),
-
-                  if (!inLossMode)
-                  // Understand Your Care — quick paths to explanation features
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 40),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'UNDERSTAND YOUR CARE',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 1.2,
-                            color: AppTheme.brandPurple,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        HomeProviderSearchEntry(
-                          title: 'Find your care team',
-                          subtitle: 'Search providers by ZIP, city, and type of care',
-                          onTap: () =>
-                              Navigator.pushNamed(context, Routes.providers),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _CareToolCard(
-                                icon: Icons.science_outlined,
-                                iconGradient: const [
-                                  Color(0xFFE8E0F0),
-                                  Color(0xFFD8CFE5),
-                                ],
-                                iconColor: AppTheme.brandPurple,
-                                title: 'What does this test mean?',
-                                subtitle:
-                                    'Labs and visit notes—plain language',
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const AssistantScreen(
-                                      initialPrompt: _kAssistantPromptTestMeaning,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _CareToolCard(
-                                icon: Icons.help_outline_rounded,
-                                iconGradient: const [
-                                  Color(0xFFF5EEE0),
-                                  Color(0xFFEBE0D6),
-                                ],
-                                iconColor: const Color(0xFFD4A574),
-                                title: 'Is this normal?',
-                                subtitle:
-                                    "What's typical—and when to reach out",
-                                onTap: () {
-                                  final due = profile?.dueDate;
-                                  final weeks =
-                                      PregnancyUtils.calculateWeeksPregnant(due);
-                                  if (due != null && weeks > 0) {
-                                    Navigator.pushNamed(
-                                      context,
-                                      Routes.pregnancyJourney,
-                                    );
-                                  } else {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => const AssistantScreen(
-                                          initialPrompt: _kAssistantPromptIsThisNormal,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _CareToolCard(
-                          icon: Icons.shield_outlined,
-                          iconGradient: const [
-                            Color(0xFFE8E0F0),
-                            Color(0xFFEDE7F3),
-                          ],
-                          iconColor: const Color(0xFF8B7AA8),
-                          title: 'Know your rights in care',
-                          subtitle:
-                              'Questions, consent, and respectful care',
-                          onTap: () =>
-                              Navigator.pushNamed(context, Routes.rights),
-                        ),
-                      ],
-                    ),
-                  ),
 
                   if (!inLossMode)
                   // Your space — Visits, Journal, Birth preferences, Next steps (NewUI order)
@@ -1007,6 +532,394 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                         ),
                     ],
                   ),
+                  if (!inLossMode) const SizedBox(height: 40),
+
+                  if (!inLossMode)
+                  // Today's Guidance (primary hero + visit summary widget)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 40),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "💜 TODAY'S GUIDANCE",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 1.2,
+                            color: AppTheme.brandPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ImmediateSupportHomeCard(
+                          entrySource: 'home',
+                          compact: true,
+                        ),
+                        if (!inLossMode) ...[
+                        const SizedBox(height: 12),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.pushNamed(context, Routes.careSurvey);
+                            },
+                            borderRadius: BorderRadius.circular(20),
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFF5EEE0),
+                                    Color(0xFFFAF8F4),
+                                    Color(0xFFEBE0D6),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFFE8E0F0)
+                                      .withOpacity(0.4),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.brandPurple.withOpacity(0.12),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Stack(
+                                children: [
+                                  Positioned(
+                                    top: 0,
+                                    right: 0,
+                                    child: Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: const Color(0xFFD4A574)
+                                            .withOpacity(0.08),
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Container(
+                                              width: 44,
+                                              height: 44,
+                                              decoration: BoxDecoration(
+                                                gradient:
+                                                    const LinearGradient(
+                                                  colors: [
+                                                    Color(0xFFF5EEE0),
+                                                    Color(0xFFEBE0D6),
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(18),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withOpacity(0.08),
+                                                    blurRadius: 10,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Icon(
+                                                Icons.auto_awesome_rounded,
+                                                color: Color(0xFFD4A574),
+                                                size: 22,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 14),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Care Check-In',
+                                                    style: TextStyle(
+                                                      fontSize: 15,
+                                                      fontWeight: FontWeight.w400,
+                                                      letterSpacing: -0.085,
+                                                      color: AppTheme.textPrimary,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(
+                                                    'Tell us what you needed help with and whether you got it.',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w300,
+                                                      height: 1.45,
+                                                      color: AppTheme.textMuted,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Start check-in',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w400,
+                                                color: AppTheme.brandPurple,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              Icons.chevron_right,
+                                              size: 18,
+                                              color: AppTheme.brandPurple,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        ],
+                        const SizedBox(height: 12),
+                        _buildLatestVisitSection(),
+                      ],
+                    ),
+                  ),
+
+                  if (!inLossMode)
+                  // Understand Your Care — quick paths to explanation features
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 40),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'UNDERSTAND YOUR CARE',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 1.2,
+                            color: AppTheme.brandPurple,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        HomeProviderSearchEntry(
+                          title: 'Find your care team',
+                          subtitle: 'Search providers by ZIP, city, and type of care',
+                          onTap: () =>
+                              Navigator.pushNamed(context, Routes.providers),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _CareToolCard(
+                                icon: Icons.science_outlined,
+                                iconGradient: const [
+                                  Color(0xFFE8E0F0),
+                                  Color(0xFFD8CFE5),
+                                ],
+                                iconColor: AppTheme.brandPurple,
+                                title: 'What does this test mean?',
+                                subtitle:
+                                    'Labs and visit notes—plain language',
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const AssistantScreen(
+                                      initialPrompt: _kAssistantPromptTestMeaning,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _CareToolCard(
+                                icon: Icons.help_outline_rounded,
+                                iconGradient: const [
+                                  Color(0xFFF5EEE0),
+                                  Color(0xFFEBE0D6),
+                                ],
+                                iconColor: const Color(0xFFD4A574),
+                                title: 'Is this normal?',
+                                subtitle:
+                                    "What's typical—and when to reach out",
+                                onTap: () {
+                                  final due = profile?.dueDate;
+                                  final weeks =
+                                      PregnancyUtils.calculateWeeksPregnant(due);
+                                  if (due != null && weeks > 0) {
+                                    Navigator.pushNamed(
+                                      context,
+                                      Routes.pregnancyJourney,
+                                    );
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => const AssistantScreen(
+                                          initialPrompt: _kAssistantPromptIsThisNormal,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _CareToolCard(
+                          icon: Icons.shield_outlined,
+                          iconGradient: const [
+                            Color(0xFFE8E0F0),
+                            Color(0xFFEDE7F3),
+                          ],
+                          iconColor: const Color(0xFF8B7AA8),
+                          title: 'Know your rights',
+                          subtitle:
+                              'Understand your options and feel confident speaking up.',
+                          onTap: () =>
+                              Navigator.pushNamed(context, Routes.rights),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  if (!inLossMode) ...[
+                  // Week / trimester journey card → Learn tab (trimester modules)
+                  if (showWeekJourneyCard) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 40),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            Routes.learning,
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFF663399),
+                                  Color(0xFF7744AA),
+                                  Color(0xFF8855BB),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF663399).withOpacity(0.25),
+                                  blurRadius: 40,
+                                  offset: const Offset(0, 16),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          AppTheme.brandWhite.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: AppTheme.brandWhite
+                                            .withOpacity(0.2),
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.menu_book_rounded,
+                                      color: Color(0xFFF5F0F7),
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Week $displayWeek • ${PregnancyUtils.trimesterDisplayTitle(trimester)}',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            letterSpacing: -0.1,
+                                            color: Color(0xFFF5F0F7),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        const Text(
+                                          'What to expect this week, what to ask, and when to call your provider.',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w300,
+                                            height: 1.45,
+                                            color: Color(0xFFE8DFF0),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: const [
+                                            Text(
+                                              'Open Learning Center',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                                color: Color(0xFFF5F0F7),
+                                              ),
+                                            ),
+                                            SizedBox(width: 4),
+                                            Icon(
+                                              Icons.arrow_forward,
+                                              size: 18,
+                                              color: Color(0xFFF5F0F7),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  ],
                   if (!inLossMode) ...[
                   const SizedBox(height: 40),
                   // Community (NewUI: conversational header + belonging copy)

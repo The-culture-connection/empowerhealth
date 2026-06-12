@@ -515,7 +515,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'This label appears when at least three parents rated this provider and the average is 4 stars or higher. It comes from community reviews only — not from a hospital, insurer, or medical board.',
+                    'This label appears when at least three parents rated this provider 4 stars or higher on average AND most reviewers said they felt heard, felt respected, and that things were explained clearly. It comes from community reviews only — not from a hospital, insurer, or medical board.',
                     style: TextStyle(
                       fontSize: 14,
                       height: 1.4,
@@ -1075,6 +1075,73 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     );
   }
 
+  /// Community trust indicators from the experience questions — the same
+  /// signals that feed the Mama Approved™ score.
+  Widget _buildExperienceTrustSummary() {
+    final reviews = _publishedReviews;
+    if (reviews.isEmpty) return const SizedBox.shrink();
+    final count = reviews.length;
+    int pct(bool Function(ProviderReview) test) =>
+        ((reviews.where(test).length / count) * 100).round();
+    final feltHeard = pct((r) => r.feltHeard);
+    final feltRespected = pct((r) => r.feltRespected);
+    final explained = pct((r) => r.explainedClearly);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF6ECFA), Color(0xFFFBF6FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.brandPurple.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'WHAT MOTHERS SAID',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.6,
+              color: AppTheme.brandPurple,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _trustRow(Icons.hearing_rounded, '$feltHeard% felt heard'),
+          const SizedBox(height: 8),
+          _trustRow(Icons.volunteer_activism_rounded,
+              '$feltRespected% felt respected'),
+          const SizedBox(height: 8),
+          _trustRow(Icons.chat_bubble_outline_rounded,
+              '$explained% said things were explained clearly'),
+        ],
+      ),
+    );
+  }
+
+  Widget _trustRow(IconData icon, String label) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppTheme.brandPurple),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildReviews() {
     // Use actual review count from loaded reviews
     final reviewCount = _publishedReviews.length;
@@ -1083,6 +1150,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_publishedReviews.isNotEmpty) _buildExperienceTrustSummary(),
           if (_publishedReviews.isNotEmpty) ...[
             ..._publishedReviews.take(3).map((review) {
               return Container(

@@ -419,7 +419,7 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
-                                                  'Tap to see all Mama Approved™ providers. Badges appear when other parents left at least 3 reviews and the average is 4★ or higher — real experiences, not a medical seal.',
+                                                  'Tap to see all Mama Approved™ providers. Badges appear when other parents left at least 3 reviews, the average is 4★ or higher, and most reviewers felt heard, respected, and clearly informed — real experiences, not a medical seal.',
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     color: AppTheme.textMuted,

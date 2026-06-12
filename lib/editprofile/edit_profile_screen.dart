@@ -25,6 +25,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final DatabaseService _databaseService = DatabaseService();
   final AuthService _authService = AuthService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Scroll + anchor so the "Edit" button on the Pregnancy Details card can
+  // jump the user straight to the editable pregnancy fields.
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _pregnancyEditKey = GlobalKey();
+
+  void _scrollToPregnancyEdit() {
+    final ctx = _pregnancyEditKey.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      alignment: 0.1,
+    );
+  }
   
   UserProfile? _userProfile;
   bool _isLoading = false;
@@ -140,6 +156,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _allergyController.dispose();
     _medicalConditionController.dispose();
     _medicationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -360,6 +377,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
+              controller: _scrollController,
               padding: const EdgeInsets.all(24), // p-6
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -498,13 +516,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                   // Pregnancy Details Section
                   if (dueDate != null && weeksPregnant > 0) ...[
-                    const Text(
-                      'Pregnancy Details',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Pregnancy Details',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _scrollToPregnancyEdit,
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('Edit'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.brandPurple,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     Container(
@@ -598,6 +629,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 CheckboxListTile(
+                  key: _pregnancyEditKey,
                   title: const Text('I am currently pregnant'),
                   value: _isPregnant,
                   onChanged: (v) {

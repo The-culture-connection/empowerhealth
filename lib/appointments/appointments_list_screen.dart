@@ -254,11 +254,14 @@ class _VisitSummariesList extends StatelessWidget {
                       .orderBy('createdAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    if (snapshot.hasError ||
+                        !snapshot.hasData ||
+                        snapshot.data!.docs.isEmpty) {
                       return Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24.0),

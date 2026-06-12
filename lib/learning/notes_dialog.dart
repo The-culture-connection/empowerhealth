@@ -8,12 +8,58 @@ class NotesDialog extends StatefulWidget {
   final String? moduleTitle;
   final String? moduleId;
 
+  /// Pre-selected journal category. When the note is saved from a known
+  /// section (Know Your Rights, Questions to Ask, etc.) the category is set
+  /// automatically so the user doesn't have to organize it manually.
+  final String? initialTag;
+
   const NotesDialog({
     super.key,
     this.preFilledText, // This will be the highlighted text
     this.moduleTitle,
     this.moduleId,
+    this.initialTag,
   });
+
+  /// Journal categories. The richer set lets saved content be auto-organized
+  /// by the section it came from (see [categoryForSection]).
+  static const List<String> journalCategories = [
+    'Questions for My Provider',
+    'Birth Preferences',
+    'Labor & Delivery Questions',
+    'Rights & Self-Advocacy',
+    'Health Information I Want to Remember',
+    'Emotional Reflection',
+    'Track a symptom',
+  ];
+
+  /// Maps the section a note was saved from to its default journal category.
+  /// Returns null when the section is unknown (user picks manually).
+  static String? categoryForSection(String? section) {
+    switch (section) {
+      case 'know_your_rights':
+      case 'rights':
+        return 'Rights & Self-Advocacy';
+      case 'questions_to_ask':
+      case 'questions':
+        return 'Questions for My Provider';
+      case 'birth_preferences':
+      case 'birth_plan':
+        return 'Birth Preferences';
+      case 'labor_delivery':
+      case 'labor_and_delivery':
+        return 'Labor & Delivery Questions';
+      case 'health_made_simple':
+      case 'learning':
+      case 'learning_module':
+        return 'Health Information I Want to Remember';
+      case 'emotional_support':
+      case 'emotional':
+        return 'Emotional Reflection';
+      default:
+        return null;
+    }
+  }
 
   @override
   State<NotesDialog> createState() => _NotesDialogState();
@@ -24,16 +70,16 @@ class _NotesDialogState extends State<NotesDialog> {
   String? _selectedTag;
   bool _isSaving = false;
 
-  final List<String> _tags = [
-    'Question for provider',
-    'Update birth plan',
-    'Track a symptom',
-    'Emotional reflection',
-  ];
+  List<String> get _tags => NotesDialog.journalCategories;
 
   @override
   void initState() {
     super.initState();
+    // Auto-categorize when opened from a known section.
+    if (widget.initialTag != null &&
+        NotesDialog.journalCategories.contains(widget.initialTag)) {
+      _selectedTag = widget.initialTag;
+    }
     // Don't pre-fill notes with highlighted text - show it separately
   }
 

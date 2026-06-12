@@ -16,50 +16,41 @@ Active home screen: `lib/Home/home_screen_v2.dart`
 
 ### 🎨 Frontend / UI changes (copy, layout, components)
 
-- [ ] **Today's Guidance card** — simplify the card copy and reduce card height.
-  New copy: *"Today's Guidance / Understand your care, prepare questions, and find support. / See options →"*
-  (Card currently lives in `lib/emotional_support/widgets/home_emotional_support_card.dart`. This supersedes the V3 Today's Guidance copy.)
-- [ ] **Care Check-In card** — update copy so it no longer overlaps with Today's Guidance:
-  *"Care Check-In / Tell us what you needed help with and whether you got it. / Start check-in →"*
-- [ ] **Trimester / Learning Center card** — convert the large purple trimester card into a shorter learning card:
-  *"Week 38 • Third Trimester / What to expect this week, what to ask, and when to call your provider. / Open Learning Center →"*
-- [ ] **Home screen layout reorder** — current order is Welcome → Search → Trimester → Today's Guidance → Understand Your Care → Your Space → Community.
-  Requested order: **Welcome/Search → Your Space → Today's Guidance → Care Check-In → Trimester Learning Card → Community**
-- [ ] **"Know your rights" entry copy** — *"Know your rights / Understand your options and feel confident speaking up."*
-- [ ] **Remove AI banner** — delete the *"Extra topics below use personalized explanations (AI) — unique to this app"* banner from the Know Your Rights page.
-- [ ] **Learning module feedback widget** — add a post-completion feedback prompt placed immediately after module completion (not low on the page):
-  - After learning modules: *"Did this help?"* → 💜 I understand it better now / 🙂 It helped a little / 😕 I still have questions
-  - After care planning / birth planning / checklists: *"How do you feel now?"* → 💪 I feel more prepared / 🙂 A little more prepared / 😕 Still unsure
-- [ ] **Community section copy** — replace *"Help another mama"* with *"Help Another Mama Choose Care"*;
-  description: *"Share your experience with a provider, hospital, doula, or birth team. Your feedback helps other mothers find care where they feel heard, respected, and supported."*;
-  CTA: *💜 Share Provider Experience*
-- [ ] **Support icon discoverability** — the Support feature (💜🤲 icon) needs a label ("Support" / "Get Support"), a first-time tooltip, or a dedicated support card so its purpose is clear.
-- [ ] **Mama Approved™ presentation** — surface it as a core trust feature throughout provider search/profiles (clarify purpose and value), not an isolated badge.
+- [x] **Today's Guidance card** — slimmed the "We're here with you 💜" card (`immediate_support_home_card.dart`): collapsed four text blocks to a headline + one line + "See support options →", reduced padding. (Per client direction, kept this card rather than replacing it with new copy.)
+- [x] **Care Check-In card** — updated to *"Care Check-In / Tell us what you needed help with and whether you got it. / Start check-in →"* (`home_screen_v2.dart`).
+- [x] **Trimester / Learning Center card** — converted the large purple trimester card into a compact learning card: *"Week 38 • Third Trimester / What to expect this week, what to ask, and when to call your provider. / Open Learning Center →"* (removed decorative circles + progress bar).
+- [x] **Home screen layout reorder** — new order: **Welcome/Search → Your Space → Today's Guidance (incl. Care Check-In) → Understand Your Care → Trimester → Community**. (Understand Your Care kept per client direction.)
+- [x] **"Know your rights" entry copy** — updated to *"Know your rights / Understand your options and feel confident speaking up."* (`home_screen_v2.dart`).
+- [x] **Remove AI banner** — removed the *"Extra topics below use personalized explanations (AI) — unique to this app"* banner from the Know Your Rights page (`rights_screen.dart`).
+- [x] **Learning module feedback widget** — added `ModuleQuickFeedback` (`lib/widgets/module_quick_feedback.dart`), shown immediately after module content in the detail screen. Two variants: `didThisHelp` (💜/🙂/😕) and `howDoYouFeel` (💪/🙂/😕). Stores via the existing `QualitativeSurveyService`.
+- [x] **Community section copy** — updated to *"Help Another Mama Choose Care"* + new description + CTA *"💜 Share Provider Experience"* (`community_survey_banner.dart`).
+- [x] **Support icon discoverability** — converted the icon-only Support button on the AI Assistant screen into a labeled "Support" button (icon + label + tooltip) (`assistant_screen.dart`).
+- [x] **Mama Approved™ presentation** — added "What mothers said" trust indicators on the profile, updated badge explainers (profile + search) to mention the experience questions, and made the **Mama Approved™ only** filter a prominent toggle above the advanced filters in search.
 
 ### ⚙️ Functionality changes (logic, data, workflows)
 
-- [ ] **"My Visits" stuck on loading** — fix the data load under *My Visits* (currently shows "loading").
-- [ ] **Provider search → universal search** — return matching results regardless of provider type; make specialty filters optional, not required before searching.
-- [ ] **Know Your Rights — Save to Journal** — review the Copy functionality and replace/supplement it with Save to Journal using the existing note workflow.
-- [ ] **Learning Module actions** — review the Add Note / Save / Copy / Share workflow; replace Copy with Save to Journal; leverage the existing journal tagging system.
-- [ ] **Journal auto-categorization** — auto-tag saved entries based on their source section:
-  - Know Your Rights → Rights & Self-Advocacy
-  - Questions to Ask → Questions for My Provider
-  - Birth Preferences → Birth Preferences
-  - Labor & Delivery Education → Labor & Delivery Questions
-  - Health Made Simple → Health Information I Want to Remember
-  - Emotional Support → Emotional Reflection
-  - *Goal: users should not have to manually organize every saved item — the app already knows the content source.*
-- [ ] **AI Assistant intro card — dismissible** — add an X to close it; once dismissed it stays hidden in future sessions (requires persistence) unless reset. Primary focus of the screen should be the user's questions and the assistant's responses.
-- [ ] **Community → Reviews → Mama Approved™ flow** — build explicit navigation linking the three (Community Experience → Share Provider Experience → Provider Review Submission → Provider Trust Score → Mama Approved™ Badge). Make provider review submissions the primary source of Mama Approved™ qualification.
-- [ ] **Provider trust score** — feed review responses (*"I felt heard," "I felt respected," "Things were explained clearly"*) into trust indicators and Mama Approved™ scoring.
-- [ ] **Fix provider profile rendering** — resolve rendering issues that hide Mama Approved™ badges on provider profiles.
-- [ ] **Community feedback survey** — evaluate/replace current participation-focused items (*"I feel supported by this community," "I feel heard when I share something here"*) with mission-aligned alternatives:
-  - This app helped me understand my care.
-  - This app helped me prepare for an appointment.
-  - I found information that was useful to me.
-  - I would recommend this app to another mother.
-- [ ] **Pregnancy Details edit workflow** — verify users can edit Due date, Current pregnancy status, Pregnancy stage/week (recalculated from due date), and other pregnancy profile info. If it exists, make the entry point more visible; if not, add the edit workflow (this data drives personalized content throughout the app).
+- [x] **"My Visits" stuck on loading** — home visit card no longer shows a stuck "Loading..."; it shows the helpful default card until a real visit loads (`home_screen_v2.dart`). Added `hasError` handling to the visits list (`appointments_list_screen.dart`).
+- [x] **Provider search → universal search** — provider type is no longer required to search; when none is selected the search defaults to the core provider-type set (`ProviderTypes.mvpTypes`) so results return regardless of type (`provider_search_entry_screen.dart`). Backend requires ≥1 type, so an empty list is never sent.
+- [x] **Know Your Rights — Save to Journal** — replaced the two Copy buttons in the rights detail view with **Save to Journal** (auto-categorized) (`rights_screen.dart`).
+- [x] **Learning Module actions** — replaced **Copy** with **Save to Journal** in the module detail screen, opening the existing note workflow with the category pre-filled (`learning_module_detail_screen.dart`).
+- [x] **Journal auto-categorization** — `NotesDialog` now accepts an `initialTag` and auto-selects the category from the source section via `NotesDialog.categoryForSection(...)`; expanded the category list to match the doc (`lib/learning/notes_dialog.dart`).
+- [x] **AI Assistant intro card — dismissible** — added an X that dismisses the intro (subtitle + sources bar); persisted via SharedPreferences (`assistant_intro_dismissed_v1`) so it stays hidden across sessions. Compliance disclaimer kept always-visible (`assistant_screen.dart`).
+- [x] **Community → Reviews → Mama Approved™ flow** — built a dedicated **Share Provider Experience** screen (`share_provider_experience_screen.dart`): search a provider by name → leave a review. Wired the Community banner's "💜 Share Provider Experience" CTA to it (`community_survey_banner.dart`); added a public `searchProvidersByName` to the repository.
+- [x] **Provider trust score** — the three experience questions (`feltHeard`/`feltRespected`/`explainedClearly`) are now aggregated into per-provider rates (`provider.dart`, computed in `enrichProviderWithReviews` + persisted in the post-submit aggregation). Mama Approved™ now requires 3+ reviews AND ≥4★ AND a ≥60% average affirm-rate across the three questions (`mamaApprovedMinExperienceRate`), with graceful fallback when no experience data exists.
+- [~] **Provider profile rendering / badge bug** — **deferred per your call ("seems fine now").** Badge logic is intentional; revisit with live repro if badges go missing in search results (suspected silent enrichment failure).
+- [x] **Community feedback survey** — replaced participation items with the mission-aligned set (understand care / prepare for appointment / useful info / would recommend) (`community_survey_banner.dart`).
+- [x] **Pregnancy Details edit workflow** — editing already existed (due date, pregnancy status) but was hard to find; added a visible **Edit** button on the Pregnancy Details card that scrolls to the editable fields (`edit_profile_screen.dart`).
+
+### Mama Approved™ — implemented (decisions from 2026-06-12)
+
+Per the product decisions taken, the suite is now built:
+
+- **Trust score from review questions** ✅ — `feltHeardRate` / `feltRespectedRate` / `explainedClearlyRate` added to `Provider`, computed in `enrichProviderWithReviews` and persisted on review submission. `showsMamaApprovedBadge` now requires 3+ reviews, ≥4★, AND ≥60% average affirm-rate across the three questions (`mamaApprovedMinExperienceRate = 0.6`), falling back to the rating+count rule when no experience data is present.
+- **Community → Share Provider Experience → Review flow** ✅ — new `ShareProviderExperienceScreen` (search-by-name → review), reachable from the Community banner CTA. `ProviderRepository.searchProvidersByName` added.
+- **Presentation (explainer + filter)** ✅ — "What mothers said" trust indicators on the profile; badge explainers (profile + search) updated to mention the experience questions; prominent **Mama Approved™ only** filter toggle above advanced filters in search.
+- **Badge rendering bug** — deferred ("seems fine now"); revisit only with a live repro.
+
+Decisions recorded: trust = *contribute to score*; flow = *dedicated share screen*; presentation = *explainer + filter*; badge bug = *skip*.
 
 ---
 

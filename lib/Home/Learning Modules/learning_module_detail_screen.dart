@@ -8,6 +8,7 @@ import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
 import '../../widgets/learning_module_formatted_content.dart';
 import '../../widgets/medical_citations_section.dart';
+import '../../widgets/module_quick_feedback.dart';
 import '../../widgets/qualitative_survey_dialog.dart';
 
 class LearningModuleDetailScreen extends StatefulWidget {
@@ -241,6 +242,15 @@ class _LearningModuleDetailScreenState
                         ),
                       ),
 
+                      const SizedBox(height: 20),
+
+                      // Quick "Did this help?" feedback — placed right after the
+                      // module content so it isn't overlooked at the bottom.
+                      ModuleQuickFeedback.didThisHelp(
+                        feature: 'learning-modules',
+                        sourceId: widget.moduleId ?? widget.taskId,
+                      ),
+
                       const SizedBox(height: 24),
 
                       // Action buttons
@@ -275,17 +285,21 @@ class _LearningModuleDetailScreenState
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () {
-                                Clipboard.setData(
-                                  ClipboardData(text: widget.content),
-                                );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Copied to clipboard!'),
+                                showDialog<void>(
+                                  context: context,
+                                  builder: (context) => NotesDialog(
+                                    moduleTitle: widget.title,
+                                    moduleId:
+                                        widget.moduleId ?? widget.taskId,
+                                    preFilledText: widget.content,
+                                    initialTag: NotesDialog.categoryForSection(
+                                      'learning_module',
+                                    ),
                                   ),
                                 );
                               },
-                              icon: const Icon(Icons.copy),
-                              label: const Text('Copy'),
+                              icon: const Icon(Icons.bookmark_add_outlined),
+                              label: const Text('Save to Journal'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF663399),
                                 foregroundColor: AppTheme.brandWhite,

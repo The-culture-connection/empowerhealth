@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../services/ai_service.dart';
 import '../../services/analytics_service.dart';
 import '../../cors/ui_theme.dart';
+import '../../learning/notes_dialog.dart';
 import '../../widgets/medical_citations_section.dart';
 import 'learning_module_detail_screen.dart';
 import 'rights_static_content.dart';
@@ -209,35 +209,7 @@ class _RightsScreenState extends State<RightsScreen> {
                     fontWeight: FontWeight.w300,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5EEE0).withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.borderLight.withOpacity(0.45)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.auto_awesome, size: 18, color: AppTheme.brandPurple.withOpacity(0.8)),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Extra topics below use personalized explanations (AI) — unique to this app.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.4,
-                            color: AppTheme.textMuted,
-                            fontWeight: FontWeight.w300,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 ...rightsStaticTopicsNewUi.map((t) => Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: _RightsTile(
@@ -516,15 +488,18 @@ class _StaticDetailView extends StatelessWidget {
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: 'Copy',
-                                  icon: Icon(Icons.copy_rounded,
+                                  tooltip: 'Save to Journal',
+                                  icon: Icon(Icons.bookmark_add_outlined,
                                       size: 20, color: AppTheme.textLight),
                                   onPressed: () {
-                                    Clipboard.setData(ClipboardData(text: s));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Copied to clipboard'),
-                                        behavior: SnackBarBehavior.floating,
+                                    showDialog<void>(
+                                      context: context,
+                                      builder: (context) => NotesDialog(
+                                        moduleTitle: topic.title,
+                                        preFilledText: s,
+                                        initialTag:
+                                            NotesDialog.categoryForSection(
+                                                'know_your_rights'),
                                       ),
                                     );
                                   },
@@ -563,15 +538,18 @@ class _StaticDetailView extends StatelessWidget {
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: 'Copy',
-                                  icon: Icon(Icons.copy_rounded,
+                                  tooltip: 'Save to Journal',
+                                  icon: Icon(Icons.bookmark_add_outlined,
                                       size: 20, color: AppTheme.textLight),
                                   onPressed: () {
-                                    Clipboard.setData(ClipboardData(text: s));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Copied to clipboard'),
-                                        behavior: SnackBarBehavior.floating,
+                                    showDialog<void>(
+                                      context: context,
+                                      builder: (context) => NotesDialog(
+                                        moduleTitle: topic.title,
+                                        preFilledText: s,
+                                        initialTag:
+                                            NotesDialog.categoryForSection(
+                                                'questions_to_ask'),
                                       ),
                                     );
                                   },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../cors/ui_theme.dart';
 import '../widgets/feature_session_scope.dart';
+import '../widgets/medical_citations_section.dart';
 import 'emotional_support_constants.dart';
 import 'emotional_support_navigation.dart';
 import 'widgets/crisis_988_card.dart';
@@ -251,6 +252,10 @@ class EmotionalSupportHubScreen extends StatelessWidget {
                           ],
                         ),
                       ],
+                      const SizedBox(height: 28),
+                      const MedicalCitationsSection(
+                        topic: 'emotional mental health support',
+                      ),
                       const SizedBox(height: 24),
                       Center(
                         child: TextButton(

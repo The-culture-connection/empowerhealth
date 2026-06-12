@@ -71,6 +71,13 @@ service cloud.firestore {
     function isAdminAny() {
       return isAdmin() || isAdminByEmail();
     }
+
+    // True if the signed-in user has been banned by a moderator (Guideline 1.2).
+    // Banned users cannot create or modify community content.
+    function isBanned() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/banned_users/$(request.auth.uid));
+    }
     
     // Research dataset (REDCap-oriented): admins + research partners only (not community managers by role alone)
     function canReadResearchCollections() {
@@ -554,19 +561,19 @@ service cloud.firestore {
       // Anyone authenticated can read posts
       allow read: if isAuthenticated();
       
-      // Anyone authenticated can create posts (must include their userId)
-      allow create: if isAuthenticated() && 
+      // Anyone authenticated (and not banned) can create posts (must include their userId)
+      allow create: if isAuthenticated() && !isBanned() &&
                     request.resource.data.userId == request.auth.uid &&
                     // Validate required fields
                     request.resource.data.keys().hasAll(['userId', 'content', 'createdAt']) &&
                     // Limit content length
                     request.resource.data.content is string &&
                     request.resource.data.content.size() <= 5000;
-      
+
       // Post owners can update/delete their posts
-      // Any authenticated user can update posts to add replies or toggle likes
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || 
+      // Any authenticated (non-banned) user can update posts to add replies or toggle likes
+      allow update: if isAuthenticated() && !isBanned() && (
+        resource.data.userId == request.auth.uid ||
         // Allow updates for adding replies or toggling likes
         true
       );
@@ -584,13 +591,52 @@ service cloud.firestore {
       // Users can read their own reports, admins can read all
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
-        isAdminAny()
+        hasAdminRole() || isAdminAny()
       );
-      
-      // No updates or deletes allowed
-      allow update, delete: if false;
+
+      // Moderators can triage (set status); no deletes.
+      allow update: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow delete: if false;
     }
-    
+
+    // Reply reports - users can flag objectionable replies (Guideline 1.2)
+    match /reply_reports/{reportId} {
+      allow create: if isAuthenticated() &&
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['postId', 'userId', 'reason', 'status']);
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        hasAdminRole() || isAdminAny()
+      );
+      allow update: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow delete: if false;
+    }
+
+    // Banned users - moderators ban abusive users here (Guideline 1.2). The
+    // isBanned() helper reads this to block banned users from posting.
+    match /banned_users/{bannedUid} {
+      // Users may read their own ban status; admins read all.
+      allow read: if isAuthenticated() && (
+        request.auth.uid == bannedUid || hasAdminRole() || isAdminAny()
+      );
+      // Only moderators/admins can ban or unban.
+      allow write: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+    }
+
+    // Moderation reports - generated when a user blocks an abusive user (Guideline 1.2).
+    // Notifies the developer/moderators of objectionable content for review.
+    match /moderation_reports/{reportId} {
+      allow create: if isAuthenticated() &&
+                    request.resource.data.reportedByUid == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['type', 'reportedByUid', 'status']);
+      allow read: if isAuthenticated() && (
+        resource.data.reportedByUid == request.auth.uid ||
+        hasAdminRole() || isAdminAny()
+      );
+      allow update: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow delete: if false;
+    }
+
     // Community comments (legacy - keeping for backwards compatibility)
     match /community/{postId}/comments/{commentId} {
       allow read: if isAuthenticated();
@@ -654,7 +700,7 @@ service cloud.firestore {
     // Provider reviews - users can read all, create their own, update/delete their own
     match /reviews/{reviewId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() && !isBanned() &&
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.keys().hasAll(['providerId', 'userId', 'rating', 'createdAt']);
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;

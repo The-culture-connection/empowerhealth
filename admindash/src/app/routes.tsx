@@ -14,6 +14,7 @@ import { Notifications } from "./pages/Notifications";
 import { ModerationHub } from "./pages/ModerationHub";
 import { ProviderModeration } from "./pages/ProviderModeration";
 import { ProviderReportsAdmin } from "./pages/ProviderReportsAdmin";
+import { UserModerationAdmin } from "./pages/UserModerationAdmin";
 import { IdentityClaimsAdmin } from "./pages/IdentityClaimsAdmin";
 import { ProviderReportProviderDetail } from "./pages/ProviderReportProviderDetail";
 import { Login } from "./pages/Login";
@@ -137,6 +138,14 @@ export const router = createBrowserRouter([
             element: (
               <RoleRoute allowedRoles={["admin"]}>
                 <ProviderReportsAdmin />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: "users",
+            element: (
+              <RoleRoute allowedRoles={["admin", "community_manager"]}>
+                <UserModerationAdmin />
               </RoleRoute>
             ),
           },

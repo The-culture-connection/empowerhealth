@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../auth/guest_guard.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../services/firebase_functions_service.dart';
+import '../services/block_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
+import '../utils/content_filter.dart';
 import '../widgets/trust_cue_banner.dart';
 
 class PostDetailScreen extends StatefulWidget {
@@ -23,20 +28,27 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   final AnalyticsService _analytics = AnalyticsService();
   final DatabaseService _databaseService = DatabaseService();
   final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
+  final BlockService _blockService = BlockService();
   bool _isSubmittingReply = false;
   bool _isDeletingReply = false;
   DateTime? _openedAt;
+  Set<String> _blockedUids = <String>{};
+  StreamSubscription<Set<String>>? _blockedSub;
 
   @override
   void initState() {
     super.initState();
     _openedAt = DateTime.now();
     _trackPostView();
+    _blockedSub = _blockService.blockedUidsStream().listen((blocked) {
+      if (mounted) setState(() => _blockedUids = blocked);
+    });
   }
 
   @override
   void dispose() {
     _trackPostExit();
+    _blockedSub?.cancel();
     _replyController.dispose();
     super.dispose();
   }
@@ -79,6 +91,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Future<void> _toggleLike(String postId, List<dynamic> currentLikes) async {
+    if (!await requireAccount(context, action: 'like posts')) return;
+    if (!mounted) return;
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
@@ -125,11 +139,26 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Future<void> _submitReply(String postId) async {
+    if (!await requireAccount(context, action: 'reply in the community')) return;
+    if (!mounted) return;
+
     if (_replyController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter a reply'),
           backgroundColor: AppTheme.brandGold,
+        ),
+      );
+      return;
+    }
+
+    // Objectionable-content filter (Guideline 1.2)
+    final filterError = ContentFilter.check(_replyController.text);
+    if (filterError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(filterError),
+          backgroundColor: AppTheme.brandPurple,
         ),
       );
       return;
@@ -211,7 +240,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
-  Future<void> _reportPost(String postId, String postTitle) async {
+  Future<void> _reportPost(
+    String postId,
+    String postTitle, {
+    String? reportedUserId,
+    String? reportedUserName,
+  }) async {
     final reasonController = TextEditingController();
     final selectedReason = ValueNotifier<String>('');
 
@@ -276,9 +310,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     .add({
                       'postId': postId,
                       'postTitle': postTitle,
+                      'reportedUserId': reportedUserId,
+                      'reportedUserName': reportedUserName,
                       'userId': userId,
                       'reason': selectedReason.value,
                       'details': reasonController.text.trim(),
+                      'status': 'open',
                       'createdAt': FieldValue.serverTimestamp(),
                     });
 
@@ -314,6 +351,194 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _reportReply(Map<String, dynamic> reply) async {
+    final selectedReason = ValueNotifier<String>('');
+    final detailsController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report Reply'),
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Why are you reporting this reply?'),
+              const SizedBox(height: 12),
+              ...['Inappropriate content', 'Spam', 'Harassment', 'Other'].map(
+                (reason) => RadioListTile<String>(
+                  title: Text(reason),
+                  value: reason,
+                  groupValue: selectedReason.value,
+                  onChanged: (value) =>
+                      setState(() => selectedReason.value = value!),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: detailsController,
+                decoration: const InputDecoration(
+                  hintText: 'Additional details (optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (selectedReason.value.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please select a reason'),
+                    backgroundColor: AppTheme.brandGold,
+                  ),
+                );
+                return;
+              }
+              try {
+                final userId = FirebaseAuth.instance.currentUser?.uid;
+                if (userId == null) return;
+                await FirebaseFirestore.instance.collection('reply_reports').add({
+                  'postId': widget.postId,
+                  'replyId': reply['replyId'],
+                  'reportedUserId': reply['userId'],
+                  'reportedUserName': reply['authorName'],
+                  'content': reply['content'],
+                  'userId': userId,
+                  'reason': selectedReason.value,
+                  'details': detailsController.text.trim(),
+                  'status': 'open',
+                  'createdAt': FieldValue.serverTimestamp(),
+                });
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        '✅ Report submitted. Thank you for helping keep our community safe.',
+                      ),
+                      backgroundColor: AppTheme.brandTurquoise,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error submitting report: ${e.toString()}'),
+                      backgroundColor: AppTheme.brandPurple,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.brandPurple,
+              foregroundColor: AppTheme.brandWhite,
+            ),
+            child: const Text('Submit Report'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Blocks an abusive author: records the block, notifies the developer, and
+  /// removes their content from this user's feed instantly (Guideline 1.2).
+  Future<void> _confirmAndBlockUser({
+    required String blockedUid,
+    required String blockedName,
+    required String contextType,
+    String? contentSnapshot,
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sign in to block a user'),
+          backgroundColor: AppTheme.brandGold,
+        ),
+      );
+      return;
+    }
+    if (blockedUid == uid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You cannot block yourself'),
+          backgroundColor: AppTheme.brandGold,
+        ),
+      );
+      return;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Block $blockedName?'),
+        content: const Text(
+          "You won't see posts or replies from this person anymore, and our "
+          'team will be notified to review their content. You can unblock them '
+          'later from your privacy settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.brandPurple,
+              foregroundColor: AppTheme.brandWhite,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      await _blockService.blockUser(
+        blockedUid: blockedUid,
+        blockedName: blockedName,
+        contextType: contextType,
+        contextId: widget.postId,
+        contentSnapshot: contentSnapshot,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('User blocked. Their content has been hidden.'),
+            backgroundColor: AppTheme.brandTurquoise,
+          ),
+        );
+        // If we blocked the post author, the whole thread is now hidden — leave.
+        if (contextType == 'community_post') {
+          Navigator.of(context).maybePop();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not block user: $e'),
+            backgroundColor: AppTheme.brandPurple,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _confirmAndDeletePost(String postTitle) async {
@@ -457,6 +682,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               final data = snapshot.data!.data() as Map<String, dynamic>;
               final title = data['title'] ?? '';
               final postAuthorId = data['userId'] as String?;
+              final postAuthorName = data['authorName'] as String? ?? 'this user';
+              final postContent = data['content'] as String? ?? '';
               final uid = FirebaseAuth.instance.currentUser?.uid;
               final isPostOwner =
                   postAuthorId != null && uid != null && postAuthorId == uid;
@@ -471,9 +698,25 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     ),
                   IconButton(
                     icon: Icon(Icons.flag_outlined, color: AppTheme.textMuted),
-                    onPressed: () => _reportPost(widget.postId, '$title'),
+                    onPressed: () => _reportPost(
+                      widget.postId,
+                      '$title',
+                      reportedUserId: postAuthorId,
+                      reportedUserName: postAuthorName,
+                    ),
                     tooltip: 'Report post',
                   ),
+                  if (!isPostOwner && postAuthorId != null)
+                    IconButton(
+                      icon: Icon(Icons.block, color: AppTheme.textMuted),
+                      tooltip: 'Block user',
+                      onPressed: () => _confirmAndBlockUser(
+                        blockedUid: postAuthorId,
+                        blockedName: postAuthorName,
+                        contextType: 'community_post',
+                        contentSnapshot: '$title\n$postContent',
+                      ),
+                    ),
                 ],
               );
             },
@@ -500,13 +743,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           final authorName = data['authorName'] ?? 'Anonymous';
           final category = data['category'] ?? 'General';
           final likes = List<String>.from(data['likes'] ?? []);
-          final replies = List<Map<String, dynamic>>.from(
-            data['replies'] ?? [],
-          );
           final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
           final postOwnerId = data['userId'] as String?;
           final userId = FirebaseAuth.instance.currentUser?.uid;
           final isLiked = userId != null && likes.contains(userId);
+
+          // Instant feed removal: a blocked author's whole thread is hidden.
+          if (postOwnerId != null && _blockedUids.contains(postOwnerId)) {
+            return _BlockedContentPlaceholder(
+              onBack: () => Navigator.of(context).maybePop(),
+            );
+          }
+
+          // Hide replies from blocked authors instantly (Guideline 1.2).
+          final replies = List<Map<String, dynamic>>.from(
+            data['replies'] ?? [],
+          ).where((r) => !_blockedUids.contains(r['userId'])).toList();
 
           return Column(
             children: [
@@ -852,22 +1104,60 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     ],
                                   ),
                                 ),
-                                if (canDeleteReply)
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.delete_outline,
-                                      size: 22,
-                                      color: AppTheme.textMuted,
-                                    ),
-                                    tooltip: 'Delete reply',
-                                    onPressed: _isDeletingReply
-                                        ? null
-                                        : () => _confirmAndDeleteReply(
+                                Builder(builder: (context) {
+                                  final isOwnReply = replyUserId == userId;
+                                  final canBlockOrReport =
+                                      replyUserId != null && !isOwnReply;
+                                  if (!canDeleteReply && !canBlockOrReport) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return PopupMenuButton<String>(
+                                    icon: Icon(Icons.more_vert,
+                                        size: 20, color: AppTheme.textMuted),
+                                    tooltip: 'More',
+                                    onSelected: (value) {
+                                      switch (value) {
+                                        case 'delete':
+                                          if (!_isDeletingReply) {
+                                            _confirmAndDeleteReply(
                                               reply,
                                               postOwnerId ?? '',
-                                              isOwnReply: replyUserId == userId,
-                                            ),
-                                  ),
+                                              isOwnReply: isOwnReply,
+                                            );
+                                          }
+                                          break;
+                                        case 'report':
+                                          _reportReply(reply);
+                                          break;
+                                        case 'block':
+                                          _confirmAndBlockUser(
+                                            blockedUid: replyUserId!,
+                                            blockedName: replyAuthor,
+                                            contextType: 'community_reply',
+                                            contentSnapshot: replyContent,
+                                          );
+                                          break;
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      if (canDeleteReply)
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: Text('Delete reply'),
+                                        ),
+                                      if (canBlockOrReport)
+                                        const PopupMenuItem(
+                                          value: 'report',
+                                          child: Text('Report reply'),
+                                        ),
+                                      if (canBlockOrReport)
+                                        const PopupMenuItem(
+                                          value: 'block',
+                                          child: Text('Block user'),
+                                        ),
+                                    ],
+                                  );
+                                }),
                               ],
                             ),
                           );
@@ -1007,5 +1297,56 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     } else {
       return DateFormat('MMM d, yyyy').format(date);
     }
+  }
+}
+
+/// Shown in place of a thread when its author has been blocked.
+class _BlockedContentPlaceholder extends StatelessWidget {
+  final VoidCallback onBack;
+
+  const _BlockedContentPlaceholder({required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.block, size: 56, color: AppTheme.textMuted),
+            const SizedBox(height: 16),
+            Text(
+              'Content hidden',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You blocked this user, so their posts and replies are no longer '
+              'shown to you.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: AppTheme.textMuted,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.brandPurple,
+                foregroundColor: AppTheme.brandWhite,
+              ),
+              onPressed: onBack,
+              child: const Text('Go back'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

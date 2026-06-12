@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../auth/guest_guard.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
+import '../utils/content_filter.dart';
 import '../widgets/trust_cue_banner.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -46,6 +48,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _submitPost() async {
+    if (!await requireAccount(context, action: 'post in the community')) return;
+    if (!mounted) return;
+
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -61,6 +66,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         const SnackBar(
           content: Text('Please enter some content for your post'),
           backgroundColor: AppTheme.brandGold,
+        ),
+      );
+      return;
+    }
+
+    // Objectionable-content filter (Guideline 1.2)
+    final filterError = ContentFilter.check(
+      '${_titleController.text}\n${_contentController.text}',
+    );
+    if (filterError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(filterError),
+          backgroundColor: AppTheme.brandPurple,
         ),
       );
       return;

@@ -273,6 +273,17 @@ class _AuthWrapperState extends State<_AuthWrapper> with WidgetsBindingObserver 
   Future<void> _checkProfile() async {
     Widget resolvedScreen = const MainNavigationScaffold();
 
+    // Guests (anonymous auth) browse non-account features directly — never
+    // force profile creation or consent on them (Guideline 5.1.1(v)).
+    if (FirebaseAuth.instance.currentUser?.isAnonymous ?? false) {
+      if (!mounted) return;
+      setState(() {
+        _targetScreen = const MainNavigationScaffold();
+        _isChecking = false;
+      });
+      return;
+    }
+
     try {
       final hasProfile = await _databaseService
           .userProfileExists(widget.userId)

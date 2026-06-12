@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../auth/guest_guard.dart';
 import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/ambient_background.dart';
 import '../services/analytics_service.dart';
+import '../services/block_service.dart';
 import '../services/database_service.dart';
 import 'create_post_screen.dart';
 import 'post_detail_screen.dart';
@@ -33,12 +37,24 @@ class _CommunityScreenState extends State<CommunityScreen> {
   bool _hasSeeded = false;
   final AnalyticsService _analytics = AnalyticsService();
   final DatabaseService _databaseService = DatabaseService();
+  final BlockService _blockService = BlockService();
+  Set<String> _blockedUids = <String>{};
+  StreamSubscription<Set<String>>? _blockedSub;
 
   @override
   void initState() {
     super.initState();
     _trackScreenView();
     _seedMockPostsIfNeeded();
+    _blockedSub = _blockService.blockedUidsStream().listen((blocked) {
+      if (mounted) setState(() => _blockedUids = blocked);
+    });
+  }
+
+  @override
+  void dispose() {
+    _blockedSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _trackScreenView() async {
@@ -122,26 +138,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 ),
               ),
               FilledButton.tonal(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CreatePostScreen(
-                        communityStage: _isPregnancyLossSpace
-                            ? CommunityStage.pregnancyLoss
-                            : CommunityStage.general,
-                        categories: _isPregnancyLossSpace
-                            ? kPregnancyLossCommunityCategories
-                                .where((c) => c != 'All')
-                                .toList()
-                            : null,
-                        contentPlaceholder: _isPregnancyLossSpace
-                            ? 'Share only what feels comfortable…'
-                            : null,
-                      ),
-                    ),
-                  );
-                },
+                onPressed: _openCreatePost,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   shape: RoundedRectangleBorder(
@@ -323,6 +320,29 @@ class _CommunityScreenState extends State<CommunityScreen> {
         ),
       ],
     ];
+  }
+
+  Future<void> _openCreatePost() async {
+    if (!await requireAccount(context, action: 'post in the community')) return;
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreatePostScreen(
+          communityStage: _isPregnancyLossSpace
+              ? CommunityStage.pregnancyLoss
+              : CommunityStage.general,
+          categories: _isPregnancyLossSpace
+              ? kPregnancyLossCommunityCategories
+                  .where((c) => c != 'All')
+                  .toList()
+              : null,
+          contentPlaceholder: _isPregnancyLossSpace
+              ? 'Share only what feels comfortable…'
+              : null,
+        ),
+      ),
+    );
   }
 
   Future<void> _confirmDeletePostFromFeed(String postId, String title) async {
@@ -633,6 +653,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
     final posts = snapshot.data!.docs.where((doc) {
       final data = doc.data() as Map<String, dynamic>;
+      // Instant feed removal of blocked authors' posts (Guideline 1.2).
+      if (_blockedUids.contains(data['userId'])) return false;
       final stage = data['communityStage'] as String?;
       if (_isPregnancyLossSpace) {
         if (stage != CommunityStage.pregnancyLoss) return false;
@@ -725,26 +747,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(28),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CreatePostScreen(
-                    communityStage: _isPregnancyLossSpace
-                        ? CommunityStage.pregnancyLoss
-                        : CommunityStage.general,
-                    categories: _isPregnancyLossSpace
-                        ? kPregnancyLossCommunityCategories
-                            .where((c) => c != 'All')
-                            .toList()
-                        : null,
-                    contentPlaceholder: _isPregnancyLossSpace
-                        ? 'Share only what feels comfortable…'
-                        : null,
-                  ),
-                ),
-              );
-            },
+            onTap: _openCreatePost,
             child: const Icon(Icons.edit, color: AppTheme.textPrimary, size: 24),
           ),
         ),

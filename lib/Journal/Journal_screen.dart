@@ -7,6 +7,7 @@ import '../cors/ui_theme.dart';
 import '../widgets/ambient_background.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
+import '../auth/guest_guard.dart';
 
 /// ICU `a` is AM/PM — never use raw `at` inside [DateFormat] patterns or `a` is misread (e.g. "PMt").
 String _formatJournalCreatedAt(DateTime d) {
@@ -71,6 +72,8 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Future<void> _saveEntry() async {
+    if (!await requireAccount(context, action: 'save journal entries')) return;
+    if (!mounted) return;
     if (_entryController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -153,6 +156,8 @@ class _JournalScreenState extends State<JournalScreen> {
     String? extraNote,
     String prompt = 'How are you feeling today?',
   }) async {
+    if (!await requireAccount(context, action: 'save journal entries')) return;
+    if (!mounted) return;
     setState(() => _isSaving = true);
 
     try {

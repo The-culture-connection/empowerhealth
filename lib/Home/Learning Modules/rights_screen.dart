@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../services/ai_service.dart';
 import '../../services/analytics_service.dart';
 import '../../cors/ui_theme.dart';
+import '../../widgets/medical_citations_section.dart';
 import 'learning_module_detail_screen.dart';
 import 'rights_static_content.dart';
 
@@ -627,6 +628,8 @@ class _StaticDetailView extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 20),
+                MedicalCitationsSection(topic: 'rights ${topic.title}'),
                 const SizedBox(height: 20),
                 Container(
                   padding: const EdgeInsets.all(18),

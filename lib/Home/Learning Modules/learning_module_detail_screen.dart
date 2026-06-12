@@ -7,6 +7,7 @@ import '../../learning/notes_dialog.dart';
 import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
 import '../../widgets/learning_module_formatted_content.dart';
+import '../../widgets/medical_citations_section.dart';
 import '../../widgets/qualitative_survey_dialog.dart';
 
 class LearningModuleDetailScreen extends StatefulWidget {
@@ -299,6 +300,11 @@ class _LearningModuleDetailScreenState
                           ),
                         ],
                       ),
+
+                      const SizedBox(height: 32),
+
+                      // Medical citations (Guideline 1.4.1)
+                      MedicalCitationsSection(topic: widget.title),
 
                       const SizedBox(height: 32),
                       const Divider(),

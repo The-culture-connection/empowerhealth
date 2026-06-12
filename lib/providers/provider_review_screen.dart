@@ -8,6 +8,8 @@ import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../constants/reviewer_self_report_tags.dart';
 import '../cors/ui_theme.dart';
+import '../auth/guest_guard.dart';
+import '../utils/content_filter.dart';
 
 class ProviderReviewScreen extends StatefulWidget {
   final String providerId;
@@ -56,6 +58,8 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
   }
 
   Future<void> _submitReview() async {
+    if (!await requireAccount(context, action: 'review providers')) return;
+    if (!mounted) return;
     if (_rating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -77,6 +81,20 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
     }
 
     // Note: reviewText is optional, so we don't need to validate it
+
+    // Objectionable-content filter (Guideline 1.2)
+    final filterError = ContentFilter.check(
+      '${_reviewController.text}\n${_whatWentWellController.text}',
+    );
+    if (filterError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(filterError),
+          backgroundColor: AppTheme.brandPurple,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isSubmitting = true);
 

@@ -10,6 +10,7 @@ import '../cors/ui_theme.dart';
 import 'notes_dialog.dart';
 import '../widgets/ai_disclaimer_banner.dart';
 import '../widgets/learning_module_formatted_content.dart';
+import '../widgets/medical_citations_section.dart';
 
 class ModuleDetailScreen extends StatefulWidget {
   final String title;
@@ -232,9 +233,14 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               ),
               
               const SizedBox(height: 32),
+
+              // Medical citations (Guideline 1.4.1)
+              MedicalCitationsSection(topic: widget.title),
+
+              const SizedBox(height: 32),
               const Divider(),
               const SizedBox(height: 16),
-              
+
               // Survey Section
               _ModuleReviewSection(
                 moduleTitle: widget.title,

@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/analytics_service.dart';
 import '../cors/ui_theme.dart';
 import '../app_router.dart';
+import '../auth/guest_account_cta.dart';
 import '../utils/pregnancy_utils.dart';
 import '../immediate_support/widgets/immediate_support_home_card.dart';
 import '../widgets/trust_cue_banner.dart';
@@ -327,6 +328,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Guests have no account profile — invite them to create one.
+    if (_auth.currentUser?.isAnonymous ?? false) {
+      return const GuestAccountCta(
+        message:
+            'You\'re exploring as a guest. Create a free account to build your '
+            'profile, save progress, and get personalized support.',
+      );
+    }
+
     if (_isLoading) {
       return Scaffold(
         backgroundColor: Colors.transparent,

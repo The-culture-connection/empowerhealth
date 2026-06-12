@@ -6,6 +6,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../constants/legal_docs_urls.dart';
 import '../cors/ui_theme.dart';
 import '../services/firebase_functions_service.dart';
+import 'blocked_users_screen.dart';
 
 class PrivacyCenterScreen extends StatefulWidget {
   const PrivacyCenterScreen({super.key});
@@ -238,6 +239,27 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
                         subtitle: 'Help improve maternal health care (anonymized data only)',
                         value: _researchDataSharing,
                         onChanged: (value) => _updatePrivacySetting('researchDataSharing', value),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Community Safety
+                  _buildSection(
+                    title: 'Community Safety',
+                    children: [
+                      _buildActionTile(
+                        icon: Icons.block,
+                        title: 'Blocked Users',
+                        subtitle: 'Review and unblock people you\'ve blocked',
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const BlockedUsersScreen(),
+                            ),
+                          );
+                        },
+                        color: AppTheme.brandPurple,
                       ),
                     ],
                   ),

@@ -95,7 +95,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final user = await _authService.registerWithEmail(
+      // Upgrades an anonymous guest in place (preserving UID/analytics) or
+      // registers a fresh account when there's no guest session.
+      final user = await _authService.linkEmailToGuest(
         _email.text.trim(),
         _password.text,
       );

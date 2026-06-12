@@ -1,9 +1,9 @@
 import { Link } from "react-router";
-import { Bell, Stethoscope, ChevronRight, Flag, Tags } from "lucide-react";
+import { Bell, Stethoscope, ChevronRight, Flag, Tags, Ban } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
 export function ModerationHub() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isCommunityManager } = useAuth();
 
   return (
     <div className="p-8 max-w-3xl">
@@ -40,6 +40,34 @@ export function ModerationHub() {
             <ChevronRight className="h-5 w-5 shrink-0 opacity-50" />
           </Link>
         </li>
+
+        {(isAdmin() || isCommunityManager()) && (
+          <li>
+            <Link
+              to="/moderation/users"
+              className="flex items-center gap-4 p-5 rounded-2xl border transition-shadow hover:shadow-md"
+              style={{
+                backgroundColor: "white",
+                borderColor: "var(--lavender-200)",
+                color: "var(--warm-600)",
+              }}
+            >
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-xl"
+                style={{ backgroundColor: "var(--lavender-100)" }}
+              >
+                <Ban className="h-6 w-6" style={{ color: "var(--lavender-600)" }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium">Reported &amp; blocked users</div>
+                <div className="text-sm mt-0.5" style={{ color: "var(--warm-500)" }}>
+                  Review users blocked or flagged in the app and ban abusive accounts.
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 shrink-0 opacity-50" />
+            </Link>
+          </li>
+        )}
 
         {isAdmin() && (
           <li>

@@ -1,10 +1,47 @@
 import 'package:flutter/material.dart';
 import '../app_router.dart';
 import '../cors/ui_theme.dart';
+import '../services/auth_service.dart';
 import '../widgets/feature_session_scope.dart';
+import 'terms_and_conditions_screen.dart';
 
 class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key});
+
+  /// Guest entry: show the Terms/EULA first (Guideline 1.2 requires the EULA
+  /// before entering), then sign in anonymously and open the app so guests can
+  /// browse non-account features without registering (Guideline 5.1.1(v)).
+  void _continueAsGuest(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TermsAndConditionsScreen(
+          acceptLabel: 'Agree & Continue',
+          onAccept: (termsContext) async {
+            showDialog(
+              context: termsContext,
+              barrierDismissible: false,
+              builder: (_) =>
+                  const Center(child: CircularProgressIndicator()),
+            );
+            try {
+              await AuthService().signInAnonymously();
+              if (!termsContext.mounted) return;
+              Navigator.of(termsContext).pushNamedAndRemoveUntil(
+                Routes.main,
+                (route) => false,
+              );
+            } catch (e) {
+              if (!termsContext.mounted) return;
+              Navigator.of(termsContext).pop(); // dismiss loader
+              ScaffoldMessenger.of(termsContext).showSnackBar(
+                SnackBar(content: Text('Could not continue as guest: $e')),
+              );
+            }
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,6 +131,23 @@ class AuthScreen extends StatelessWidget {
                   _AuthPrimaryButton(
                     label: 'Login',
                     onTap: () => Navigator.pushNamed(context, Routes.login),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => _continueAsGuest(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.brandPurple,
+                      backgroundColor: AppTheme.brandWhite.withOpacity(0.85),
+                      minimumSize: const Size(double.infinity, 52),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child: const Text(
+                      'Explore as Guest',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ],
               ),

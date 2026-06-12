@@ -4,7 +4,19 @@ import '../constants/legal_docs_urls.dart';
 import '../cors/ui_theme.dart';
 
 class TermsAndConditionsScreen extends StatelessWidget {
-  const TermsAndConditionsScreen({super.key});
+  const TermsAndConditionsScreen({
+    super.key,
+    this.onAccept,
+    this.acceptLabel = 'Accept',
+  });
+
+  /// Custom action for the Accept button. When null (default sign-up flow),
+  /// accepting routes to the sign-up screen. The guest-entry flow passes a
+  /// handler that signs in anonymously and enters the app.
+  final Future<void> Function(BuildContext context)? onAccept;
+
+  /// Label for the primary (accept) button.
+  final String acceptLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -242,18 +254,24 @@ class TermsAndConditionsScreen extends StatelessWidget {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: () {
-                        // Accept - go to sign up screen
-                        Navigator.of(context).pushReplacementNamed(Routes.signup);
+                      onPressed: () async {
+                        if (onAccept != null) {
+                          await onAccept!(context);
+                        } else {
+                          // Accept - go to sign up screen
+                          Navigator.of(context)
+                              .pushReplacementNamed(Routes.signup);
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.brandPurple,
                         foregroundColor: AppTheme.brandWhite,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text(
-                        'Accept',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      child: Text(
+                        acceptLabel,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),

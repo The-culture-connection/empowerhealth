@@ -120,12 +120,16 @@ class _CrisisButton extends StatelessWidget {
             children: [
               Icon(icon, size: 20, color: AppTheme.brandPurple),
               const SizedBox(width: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: AppTheme.textPrimary,
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
               ),
               const Spacer(),

@@ -103,7 +103,11 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
                           style: TextStyle(color: AppTheme.brandPurple),
                         ),
                       ),
-                      title: Text(name),
+                      title: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       trailing: OutlinedButton(
                         onPressed: () => _unblock(blockedUid, name),
                         child: const Text('Unblock'),

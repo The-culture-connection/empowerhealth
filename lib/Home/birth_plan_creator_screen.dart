@@ -354,12 +354,16 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Your Birth Plan',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.brandPurple,
+                  const Flexible(
+                    child: Text(
+                      'Your Birth Plan',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.brandPurple,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Row(

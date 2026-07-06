@@ -311,7 +311,7 @@ class VisitDetailScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(28),
+                    padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [
@@ -322,24 +322,24 @@ class VisitDetailScreen extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.brandPurple.withOpacity(0.28),
-                          blurRadius: 28,
-                          offset: const Offset(0, 12),
+                          color: AppTheme.brandPurple.withOpacity(0.22),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             color: AppTheme.brandWhite.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: AppTheme.brandWhite.withOpacity(0.22),
                             ),
@@ -347,10 +347,10 @@ class VisitDetailScreen extends StatelessWidget {
                           child: const Icon(
                             Icons.description_outlined,
                             color: AppTheme.brandWhite,
-                            size: 24,
+                            size: 20,
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 14),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,17 +358,17 @@ class VisitDetailScreen extends StatelessWidget {
                               Text(
                                 _formatHeaderDate(appointmentDate),
                                 style: const TextStyle(
-                                  fontSize: 24,
+                                  fontSize: 19,
                                   fontWeight: FontWeight.w500,
                                   color: Color(0xFFF5F0F7),
-                                  height: 1.25,
+                                  height: 1.2,
                                 ),
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 2),
                               Text(
                                 'Visit summary · $readingLevel',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w300,
                                   color: AppTheme.brandWhite.withOpacity(0.88),
                                 ),
@@ -379,65 +379,28 @@ class VisitDetailScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'About this summary',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.brandPurple,
-                    ),
-                  ),
                   const SizedBox(height: 12),
-                  _newUiCard(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFF5EEE0), Color(0xFFEBE0D6)],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Icon(
-                            Icons.favorite_border,
-                            color: Color(0xFFD4A574),
-                            size: 22,
+                  // Single-line disclaimer (replaces the large "About this summary" card).
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 15, color: AppTheme.textMuted),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Plain-language summary — it doesn\'t replace medical advice from your provider.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.4,
+                            fontWeight: FontWeight.w300,
+                            color: AppTheme.textMuted,
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'This summary helps you understand your visit',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'It does not replace medical advice from your provider.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  height: 1.45,
-                                  fontWeight: FontWeight.w300,
-                                  color: AppTheme.textMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
                   Text(
                     'WHAT WAS DISCUSSED',
                     style: TextStyle(
@@ -782,9 +745,9 @@ class VisitDetailScreen extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 24),
+                  // Educational reminder collapsed into an expandable section.
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -792,46 +755,47 @@ class VisitDetailScreen extends StatelessWidget {
                           const Color(0xFFF0EAD8).withOpacity(0.6),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: const Color(0xFFE8DFC8).withOpacity(0.5),
                       ),
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
+                    child: Theme(
+                      data: Theme.of(context)
+                          .copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        tilePadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 2,
+                        ),
+                        childrenPadding:
+                            const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                        leading: Icon(
                           Icons.info_outline,
                           color: AppTheme.brandGold,
                           size: 22,
                         ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Reminder',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                              SizedBox(height: 6),
-                              Text(
-                                'This summary helps you understand your document. It does not replace medical advice from your healthcare provider. Always contact your provider with questions or concerns.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  height: 1.45,
-                                  fontWeight: FontWeight.w300,
-                                  color: AppTheme.textMuted,
-                                ),
-                              ),
-                            ],
+                        title: const Text(
+                          'Reminder',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
                           ),
                         ),
-                      ],
+                        children: const [
+                          Text(
+                            'This summary helps you understand your document. It does not replace medical advice from your healthcare provider. Always contact your provider with questions or concerns.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.45,
+                              fontWeight: FontWeight.w300,
+                              color: AppTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

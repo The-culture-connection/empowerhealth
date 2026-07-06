@@ -188,9 +188,10 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
       child: Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
       body: SafeArea(
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           children: [
-            // Header (matching image exactly)
+            // Header (now scrolls with the content below)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 20), // px-5 pt-4 pb-5
               child: Column(
@@ -343,15 +344,17 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
               ),
             ),
 
-            // Content
-            Expanded(
-              child: _isLoadingProviders
-                  ? const Center(child: CircularProgressIndicator())
-                  : _reviewedProviders.isEmpty
-                      ? _buildEmptyState()
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 20), // px-5
-                          child: Column(
+            // Content (scrolls together with the header above)
+            _isLoadingProviders
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 80),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : _reviewedProviders.isEmpty
+                    ? _buildEmptyState()
+                    : Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24), // px-5
+                        child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Mama Approved™ — community reviews (not insurer “verified”)
@@ -545,8 +548,8 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                             ],
                           ),
                         ),
-            ),
           ],
+        ),
         ),
       ),
     ),
@@ -671,6 +674,8 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                             Expanded(
                               child: Text(
                                 provider.primaryDisplayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 18, // text-lg
                                   fontWeight: FontWeight.w400,

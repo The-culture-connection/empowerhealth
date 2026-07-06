@@ -47,12 +47,16 @@ class MedicalCitationsSection extends StatelessWidget {
               Icon(Icons.menu_book_outlined,
                   size: 20, color: AppTheme.brandPurple),
               const SizedBox(width: 8),
-              Text(
-                'Sources & References',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+              Flexible(
+                child: Text(
+                  'Sources & References',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
               ),
             ],

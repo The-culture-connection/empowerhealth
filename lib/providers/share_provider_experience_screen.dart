@@ -4,6 +4,8 @@ import '../cors/ui_theme.dart';
 import '../models/provider.dart';
 import '../services/provider_repository.dart';
 import '../widgets/mama_approved_community_badge.dart';
+import 'add_provider_screen.dart';
+import 'provider_quick_search_screen.dart';
 import 'provider_review_screen.dart';
 
 /// Entry point in the Community → Reviews → Mama Approved™ flow.
@@ -161,10 +163,7 @@ class _ShareProviderExperienceScreenState
       return _hint('Search for the provider you saw to share your experience.');
     }
     if (_results.isEmpty) {
-      return _hint(
-        'No providers found. Try a different spelling, or search providers '
-        'from the home screen first.',
-      );
+      return _buildNoResults();
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -173,6 +172,81 @@ class _ShareProviderExperienceScreenState
       itemBuilder: (context, i) => _ProviderResultCard(
         provider: _results[i],
         onTap: () => _openReview(_results[i]),
+      ),
+    );
+  }
+
+  /// Shown when the name search finds nothing. Gives real next steps instead of
+  /// dead-ending: search the full directory (universal — no type required) or
+  /// add the provider so it can be reviewed.
+  Widget _buildNoResults() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 48, color: AppTheme.textMuted),
+            const SizedBox(height: 16),
+            Text(
+              "We couldn't find that provider yet",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try a different spelling, search the full directory, or add them '
+              'so you (and other mamas) can share reviews.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                fontWeight: FontWeight.w300,
+                color: AppTheme.textMuted,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.brandPurple,
+                  foregroundColor: AppTheme.brandWhite,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ProviderQuickSearchScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.search, size: 20),
+                label: const Text('Search the full directory'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.brandPurple,
+                  side: BorderSide(color: AppTheme.brandPurple),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AddProviderScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
+                label: const Text('Add a provider'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

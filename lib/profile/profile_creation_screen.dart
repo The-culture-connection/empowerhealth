@@ -249,11 +249,15 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                           ),
                         ),
                         const SizedBox(width: AppTheme.spacingM),
-                        Text(
-                          'Step ${provider.currentStep + 1} of ${provider.totalSteps}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.brandBlack,
+                        Flexible(
+                          child: Text(
+                            'Step ${provider.currentStep + 1} of ${provider.totalSteps}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.brandBlack,
+                            ),
                           ),
                         ),
                       ],

@@ -49,7 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
+                  Flexible(
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -65,6 +66,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 4),
                         Text(
                           _userName!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: 'Primary',
                             fontSize: MediaQuery.of(context).size.width * 0.08,
@@ -74,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ],
+                  ),
                   ),
                   IconButton(
                     onPressed: () {},

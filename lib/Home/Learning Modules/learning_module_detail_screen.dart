@@ -39,6 +39,7 @@ class _LearningModuleDetailScreenState
   DateTime? _viewStartTime;
   bool _hasTrackedView = false;
   bool _hasTrackedCompletion = false;
+  bool _exiting = false;
 
   @override
   void initState() {
@@ -121,9 +122,28 @@ class _LearningModuleDetailScreenState
     super.dispose();
   }
 
+  /// Shows the exit feedback modal, then leaves the screen. Guarded so it runs
+  /// once whether triggered by the back button or the system back gesture.
+  Future<void> _confirmExit() async {
+    if (_exiting) return;
+    _exiting = true;
+    await showModuleExitFeedbackSheet(
+      context,
+      feature: 'learning-modules',
+      sourceId: widget.moduleId ?? widget.taskId,
+      moduleTitle: widget.title,
+    );
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmExit();
+      },
+      child: Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
       body: Container(
         decoration: BoxDecoration(
@@ -143,7 +163,7 @@ class _LearningModuleDetailScreenState
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: _confirmExit,
                     ),
                     Expanded(
                       child: Column(
@@ -242,15 +262,6 @@ class _LearningModuleDetailScreenState
                         ),
                       ),
 
-                      const SizedBox(height: 20),
-
-                      // Quick "Did this help?" feedback — placed right after the
-                      // module content so it isn't overlooked at the bottom.
-                      ModuleQuickFeedback.didThisHelp(
-                        feature: 'learning-modules',
-                        sourceId: widget.moduleId ?? widget.taskId,
-                      ),
-
                       const SizedBox(height: 24),
 
                       // Action buttons
@@ -320,12 +331,8 @@ class _LearningModuleDetailScreenState
                       // Medical citations (Guideline 1.4.1)
                       MedicalCitationsSection(topic: widget.title),
 
-                      const SizedBox(height: 32),
-                      const Divider(),
-                      const SizedBox(height: 16),
-
-                      // Survey Section
-                      _buildNewSurveySection(),
+                      // Feedback now lives directly under the module content
+                      // (see ModuleQuickFeedback above) so it isn't overlooked.
                       const SizedBox(height: 24),
                     ],
                   ),
@@ -334,6 +341,7 @@ class _LearningModuleDetailScreenState
             ],
           ),
         ),
+      ),
       ),
     );
   }

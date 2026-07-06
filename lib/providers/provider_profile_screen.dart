@@ -723,7 +723,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     }
                   },
                   child: Text(
-                    _provider!.phone!,
+                    _provider!.phoneDisplay ?? _provider!.phone!,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.brandPurple,
@@ -744,7 +744,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               children: [
                 Icon(Icons.email, color: AppTheme.brandPurple, size: 20),
                 const SizedBox(width: 12),
-                InkWell(
+                Flexible(
+                  child: InkWell(
                   onTap: () async {
                     // Track provider contact click
                     try {
@@ -771,12 +772,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   },
                   child: Text(
                     _provider!.email!,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.brandPurple,
                       fontWeight: FontWeight.w300,
                     ),
                   ),
+                ),
                 ),
               ],
             ),
@@ -791,7 +795,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               children: [
                 Icon(Icons.language, color: AppTheme.brandPurple, size: 20),
                 const SizedBox(width: 12),
-                InkWell(
+                Flexible(
+                  child: InkWell(
                   onTap: () async {
                     final uri = Uri.parse(_provider!.website!);
                     if (await canLaunchUrl(uri)) {
@@ -803,12 +808,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   },
                   child: Text(
                     _provider!.website!,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.brandPurple,
                       fontWeight: FontWeight.w300,
                     ),
                   ),
+                ),
                 ),
               ],
             ),

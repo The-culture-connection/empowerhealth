@@ -75,6 +75,9 @@ class Provider {
     return name;
   }
 
+  /// Phone number formatted for display, e.g. `(513) 585-8222`.
+  String? get phoneDisplay => ProviderLocation.formatPhone(phone);
+
   /// User-facing coverage / listing source for cards and profile.
   String? get healthCoverageLabel {
     if (acceptedHealthTypes.isNotEmpty) {
@@ -331,10 +334,52 @@ class ProviderLocation {
     this.distance,
   });
 
+  /// Some directory APIs return the street address as a stringified structure
+  /// like `[{'ADDRESS_1':'3113 BELLEVUE AVE','ADDRESS_2':''}]`. Extract the
+  /// human-readable street from that; otherwise return the value unchanged.
+  static String cleanAddress(dynamic raw) {
+    if (raw == null) return '';
+    final s = raw.toString().trim();
+    if (s.isEmpty) return '';
+    final looksRaw = s.contains('ADDRESS_1') ||
+        s.startsWith('[{') ||
+        s.startsWith('{') ||
+        s.startsWith('[');
+    if (!looksRaw) return s;
+
+    final parts = <String>[];
+    final m1 = RegExp('''ADDRESS_1["']?\\s*[:=]\\s*["']([^"']*)["']''')
+        .firstMatch(s);
+    final m2 = RegExp('''ADDRESS_2["']?\\s*[:=]\\s*["']([^"']*)["']''')
+        .firstMatch(s);
+    final a1 = m1?.group(1)?.trim() ?? '';
+    final a2 = m2?.group(1)?.trim() ?? '';
+    if (a1.isNotEmpty) parts.add(a1);
+    if (a2.isNotEmpty) parts.add(a2);
+    if (parts.isNotEmpty) return parts.join(', ');
+    // Unparseable structure — drop it rather than showing raw JSON.
+    return '';
+  }
+
+  /// Phone formatted as `(XXX) XXX-XXXX` when it has 10 digits.
+  static String? formatPhone(String? raw) {
+    if (raw == null) return null;
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 10) {
+      return '(${digits.substring(0, 3)}) '
+          '${digits.substring(3, 6)}-${digits.substring(6)}';
+    }
+    if (digits.length == 11 && digits.startsWith('1')) {
+      final d = digits.substring(1);
+      return '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
+    }
+    return raw;
+  }
+
   factory ProviderLocation.fromMap(Map<String, dynamic> map) {
     return ProviderLocation(
       id: map['id'],
-      address: map['address'] ?? '',
+      address: cleanAddress(map['address']),
       address2: map['address2'],
       city: map['city'] ?? '',
       state: map['state'] ?? 'OH',

@@ -91,6 +91,20 @@ class _AdvocacyAppState extends State<AdvocacyApp> {
         theme: AppTheme.light(),
         themeMode: ThemeMode.light,
         onGenerateRoute: AppRouter.onGenerateRoute,
+        // Bound the OS text-scale so accessibility font settings can't overflow
+        // the app's fixed-size layouts, while still honoring moderate scaling.
+        builder: (context, child) {
+          final mq = MediaQuery.of(context);
+          return MediaQuery(
+            data: mq.copyWith(
+              textScaler: mq.textScaler.clamp(
+                minScaleFactor: 0.9,
+                maxScaleFactor: 1.3,
+              ),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: const _InitialAuthGate(),
       ),
     );

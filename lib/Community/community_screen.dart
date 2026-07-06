@@ -15,7 +15,6 @@ import 'create_post_screen.dart';
 import 'post_detail_screen.dart';
 import 'seed_mock_posts.dart';
 import '../widgets/community_survey_banner.dart';
-import '../widgets/trust_cue_banner.dart';
 import '../support_stage/support_stage.dart';
 import '../pregnancy_loss/pregnancy_loss_constants.dart';
 
@@ -151,123 +150,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
         ),
       ),
-      SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        sliver: SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFEBE4F3),
-                  Color(0xFFE0D5EB),
-                  Color(0xFFE8DFE8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(32),
-              boxShadow: AppTheme.shadowSoft(opacity: 0.1, blur: 24, y: 6),
-            ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Opacity(
-                    opacity: 0.05,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          width: 128,
-                          height: 128,
-                          decoration: BoxDecoration(
-                            color: AppTheme.surfaceCard.withOpacity(0.9),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        Container(
-                          width: 160,
-                          height: 160,
-                          decoration: BoxDecoration(
-                            color: AppTheme.gradientBeigeStart,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceCard.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child:
-                          Icon(Icons.favorite, color: AppTheme.textMuted, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _isPregnancyLossSpace
-                                ? 'Share only what feels comfortable'
-                                : 'You\'re among friends',
-                            style: TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _isPregnancyLossSpace
-                                ? 'This is a supportive space. Please avoid giving medical advice or making assumptions about someone\'s experience.'
-                                : 'Share stories, ask questions, and support each other.',
-                            style: TextStyle(
-                              color: AppTheme.textMuted,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w300,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      const SliverToBoxAdapter(child: SizedBox(height: 16)),
-      SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        sliver: SliverToBoxAdapter(
-          child: TrustCueBanner(
-            message:
-                'Your posts use your display name. Share only what you are comfortable with others reading.',
-            subMessage:
-                'Moderators may remove content that breaks community guidelines. This is not medical advice.',
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          ),
-        ),
-      ),
-      const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      const SliverToBoxAdapter(child: SizedBox(height: 8)),
       SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
         sliver: SliverToBoxAdapter(
@@ -319,6 +202,63 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
         ),
       ],
+    ];
+  }
+
+  /// Minimized community guidelines / welcome note, moved to the bottom so the
+  /// category tabs, review CTA, and posts are reachable without scrolling far.
+  List<Widget> _footerSlivers(BuildContext context) {
+    return [
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 96),
+        sliver: SliverToBoxAdapter(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceCard,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.borderLight.withOpacity(0.7)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.favorite, size: 18, color: AppTheme.brandPurple),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isPregnancyLossSpace
+                            ? 'Share only what feels comfortable'
+                            : "You're among friends",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _isPregnancyLossSpace
+                            ? 'A supportive space — please avoid giving medical advice. Moderators may remove content that breaks community guidelines.'
+                            : 'Share stories, ask questions, and support each other. Your posts show your display name. Moderators may remove content that breaks community guidelines. Not medical advice.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          fontWeight: FontWeight.w300,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     ];
   }
 
@@ -711,6 +651,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
             slivers: [
               ..._headerSlivers(context),
               ..._feedSlivers(snapshot),
+              ..._footerSlivers(context),
             ],
           );
         },

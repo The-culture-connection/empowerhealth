@@ -6,7 +6,6 @@ import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
 import '../utils/content_filter.dart';
-import '../widgets/trust_cue_banner.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({
@@ -172,23 +171,99 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const TrustCueBanner(
-                  message:
-                      'Your post will show your display name to the community.',
-                  subMessage:
-                      'Do not share private health identifiers or anything you do not want others to read.',
-                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                // One-line privacy reminder (replaces the large trust card).
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.lock_outline,
+                        size: 16, color: AppTheme.textMuted),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Community posts are public. Please avoid sharing private health details.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          fontWeight: FontWeight.w300,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
-                // Category Selection
-                const Text(
-                  'Category',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+
+                // Title Field — moved up so users can start writing immediately.
+                TextField(
+                  controller: _titleController,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    hintText: 'Add a title',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF663399),
+                        width: 2,
+                      ),
+                    ),
+                    filled: true,
+                    fillColor: AppTheme.surfaceInput,
+                    contentPadding: const EdgeInsets.all(18),
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                // Content Field
+                TextField(
+                  controller: _contentController,
+                  maxLines: 8,
+                  decoration: InputDecoration(
+                    hintText: widget.contentPlaceholder ?? 'Write your post',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF663399),
+                        width: 2,
+                      ),
+                    ),
+                    filled: true,
+                    fillColor: AppTheme.surfaceInput,
+                    contentPadding: const EdgeInsets.all(18),
+                    suffixIcon: IconButton(
+                      icon: Icon(Icons.keyboard_hide,
+                          color: Colors.grey[400], size: 20),
+                      onPressed: () => FocusScope.of(context).unfocus(),
+                      tooltip: 'Dismiss keyboard',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Category Selection — compact chips, below the writing fields.
+                const Text(
+                  'Category',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -199,8 +274,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                          horizontal: 14,
+                          vertical: 8,
                         ),
                         decoration: BoxDecoration(
                           gradient: isSelected
@@ -218,16 +293,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                 ? AppTheme.brandGold.withOpacity(0.5)
                                 : AppTheme.borderLight,
                           ),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: AppTheme.brandGold.withOpacity(0.12),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ]
-                              : AppTheme.shadowSoft(
-                                  opacity: 0.04, blur: 8, y: 2),
                         ),
                         child: Text(
                           category,
@@ -238,98 +303,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             fontWeight: isSelected
                                 ? FontWeight.w600
                                 : FontWeight.normal,
-                            fontSize: 14,
+                            fontSize: 13,
                           ),
                         ),
                       ),
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 24),
-
-                // Title Field
-                const Text(
-                  'Title',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _titleController,
-                  decoration: InputDecoration(
-                    hintText: 'Enter a title for your post',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF663399),
-                        width: 2,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor: AppTheme.surfaceInput,
-                    contentPadding: const EdgeInsets.all(18),
-                    suffixIcon: IconButton(
-                      icon: Icon(Icons.keyboard_hide, 
-                          color: Colors.grey[400], size: 20),
-                      onPressed: () => FocusScope.of(context).unfocus(),
-                      tooltip: 'Dismiss keyboard',
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Content Field
-                const Text(
-                  'Content',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _contentController,
-                  maxLines: 10,
-                  decoration: InputDecoration(
-                    hintText: widget.contentPlaceholder ??
-                        'Share your thoughts, questions, or experiences...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF663399),
-                        width: 2,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor: AppTheme.surfaceInput,
-                    contentPadding: const EdgeInsets.all(18),
-                    suffixIcon: IconButton(
-                      icon: Icon(Icons.keyboard_hide, 
-                          color: Colors.grey[400], size: 20),
-                      onPressed: () => FocusScope.of(context).unfocus(),
-                      tooltip: 'Dismiss keyboard',
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
 
                 // Submit Button
                 SizedBox(

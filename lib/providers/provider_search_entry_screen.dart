@@ -687,11 +687,10 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
 
                         // Provider Type
                         _buildSection(
-                          title: 'Provider Type',
-                          markTitleRequired: true,
+                          title: 'Provider Type (Optional)',
                           child: _buildTypingMultiSelect(
                             helperText:
-                                'Type part of a name (for example midwife, hospital, doula), then tap to add.',
+                                'Optional — leave blank to search all types, or type part of a name (for example midwife, hospital, doula) then tap to add.',
                             hintText: 'Type to filter provider types…',
                             queryController: _providerTypeQueryController,
                             allOptions: () {

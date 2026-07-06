@@ -226,16 +226,8 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
   }
 
   void _runSearch() {
-    final q = _queryController.text.trim();
-    if (q.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter a provider type to search.'),
-          backgroundColor: AppTheme.brandGold,
-        ),
-      );
-      return;
-    }
+    // Location is genuinely required for a directory search, but provider type
+    // and specialty are NOT — this is a universal search.
     final zip = _zipController.text.trim();
     if (zip.length != 5) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -257,16 +249,15 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
       return;
     }
 
+    // Universal search: if the text matches a known provider type, filter by
+    // it; otherwise treat the text as a name search across the core provider
+    // types so results still come back regardless of type. Empty text = search
+    // everything nearby.
+    final q = _queryController.text.trim();
     final id = _resolveTypeId(q);
-    if (id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pick a provider type from the suggestions below.'),
-          backgroundColor: AppTheme.brandGold,
-        ),
-      );
-      return;
-    }
+    final List<String> providerTypeIds =
+        id != null ? [id] : List<String>.from(ProviderTypes.mvpTypes);
+    final String? nameContains = (id == null && q.isNotEmpty) ? q : null;
 
     final spec = _specialtyController.text.trim();
     final specialties = spec.isEmpty ? <String>[] : <String>[spec];
@@ -280,8 +271,10 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
             'city': city,
             'radius': _radius,
             'healthPlan': _healthPlan,
-            'providerTypeIds': [id],
+            'providerTypeIds': providerTypeIds,
             'specialties': specialties,
+            'nameContains': nameContains,
+            'directoryQuery': q.isEmpty ? null : q,
             'includeNPI': true,
             'telehealth': false,
             'acceptsPregnant': true,
@@ -371,7 +364,8 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Search Ohio directory types (e.g. midwife, hospital).',
+                    'Search by provider name or type — both optional. Leave blank '
+                    'to see everyone nearby.',
                     style: TextStyle(
                       fontSize: 13,
                       color: AppTheme.textMuted,
@@ -393,7 +387,7 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                             textInputAction: TextInputAction.search,
                             onSubmitted: (_) => _runSearch(),
                             decoration: InputDecoration(
-                              hintText: 'Type a provider type…',
+                              hintText: 'Search by name or type (optional)…',
                               prefixIcon:
                                   Icon(Icons.search, color: AppTheme.textMuted),
                               filled: true,

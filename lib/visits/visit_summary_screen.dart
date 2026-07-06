@@ -593,11 +593,15 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
                       children: [
                         const Icon(Icons.medical_information, color: AppTheme.brandPurple),
                         const SizedBox(width: 8),
-                        const Text(
-                          'Your Visit Summary',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        const Flexible(
+                          child: Text(
+                            'Your Visit Summary',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -671,11 +675,15 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
             children: [
               Icon(Icons.psychology, color: Colors.amber),
               SizedBox(width: 8),
-              Text(
-                'Emotional Analysis',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              Flexible(
+                child: Text(
+                  'Emotional Analysis',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],

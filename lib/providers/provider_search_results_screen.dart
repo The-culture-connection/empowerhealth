@@ -205,6 +205,7 @@ class _ProviderSearchResultsScreenState
       );
 
       final nameContains = widget.searchParams['nameContains'] as String?;
+      final directoryQuery = widget.searchParams['directoryQuery'] as String?;
 
       var results = await _repository.searchProviders(
         zip: widget.searchParams['zip'] as String,
@@ -223,6 +224,7 @@ class _ProviderSearchResultsScreenState
         acceptsNewborns: widget.searchParams['acceptsNewborns'] as bool?,
         telehealth: widget.searchParams['telehealth'] as bool?,
         nameContains: nameContains,
+        directoryQuery: directoryQuery,
       );
 
       print(
@@ -1489,6 +1491,8 @@ class _ProviderCard extends StatelessWidget {
                               children: [
                                 Text(
                                   provider.primaryDisplayName,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 18, // text-lg
                                     fontWeight: FontWeight.w400, // font-normal

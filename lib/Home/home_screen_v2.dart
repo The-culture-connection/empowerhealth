@@ -554,6 +554,10 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                         ImmediateSupportHomeCard(
                           entrySource: 'home',
                           compact: true,
+                          title:
+                              'Understand your care, prepare questions, and find support.',
+                          subtitle: '',
+                          ctaLabel: 'See options',
                         ),
                         if (!inLossMode) ...[
                         const SizedBox(height: 12),
@@ -708,6 +712,94 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                   ),
 
                   if (!inLossMode)
+                  // Know your rights — elevated as a core empowerment feature
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 40),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () =>
+                            Navigator.pushNamed(context, Routes.rights),
+                        borderRadius: BorderRadius.circular(24),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF663399), Color(0xFF8855BB)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.brandPurple.withOpacity(0.28),
+                                blurRadius: 24,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.brandWhite.withOpacity(0.16),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color:
+                                          AppTheme.brandWhite.withOpacity(0.25),
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.shield_outlined,
+                                    color: AppTheme.brandWhite,
+                                    size: 24,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Know your rights',
+                                        style: TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.brandWhite,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Understand your options and feel confident speaking up.',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          height: 1.4,
+                                          fontWeight: FontWeight.w300,
+                                          color: AppTheme.brandWhite
+                                              .withOpacity(0.9),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: AppTheme.brandWhite.withOpacity(0.9),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  if (!inLossMode)
                   // Understand Your Care — quick paths to explanation features
                   Padding(
                     padding: const EdgeInsets.only(bottom: 40),
@@ -789,20 +881,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 16),
-                        _CareToolCard(
-                          icon: Icons.shield_outlined,
-                          iconGradient: const [
-                            Color(0xFFE8E0F0),
-                            Color(0xFFEDE7F3),
-                          ],
-                          iconColor: const Color(0xFF8B7AA8),
-                          title: 'Know your rights',
-                          subtitle:
-                              'Understand your options and feel confident speaking up.',
-                          onTap: () =>
-                              Navigator.pushNamed(context, Routes.rights),
                         ),
                       ],
                     ),

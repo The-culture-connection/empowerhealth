@@ -11,6 +11,7 @@ import 'notes_dialog.dart';
 import '../widgets/ai_disclaimer_banner.dart';
 import '../widgets/learning_module_formatted_content.dart';
 import '../widgets/medical_citations_section.dart';
+import '../widgets/module_quick_feedback.dart';
 
 class ModuleDetailScreen extends StatefulWidget {
   final String title;
@@ -37,6 +38,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   final GlobalKey _contentKey = GlobalKey();
   String? _content;
   bool _isLoading = false;
+  bool _exiting = false;
   String? _error;
   UserProfile? _userProfile;
   String? _selectedText;
@@ -129,22 +131,41 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     });
   }
 
+  /// Shows the exit feedback modal, then leaves the screen. Guarded so it runs
+  /// once whether triggered by the app-bar back or the system back gesture.
+  Future<void> _confirmExit() async {
+    if (_exiting) return;
+    _exiting = true;
+    await showModuleExitFeedbackSheet(
+      context,
+      feature: 'learning-modules',
+      moduleTitle: widget.title,
+    );
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      appBar: AppTheme.newUiAppBar(
-        context,
-        title: widget.title,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.note_add),
-            tooltip: 'Add Note',
-            onPressed: () => _openNotesDialog(),
-          ),
-        ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmExit();
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundWarm,
+        appBar: AppTheme.newUiAppBar(
+          context,
+          title: widget.title,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.note_add),
+              tooltip: 'Add Note',
+              onPressed: () => _openNotesDialog(),
+            ),
+          ],
+        ),
+        body: _buildBody(),
       ),
-      body: _buildBody(),
     );
   }
 
@@ -231,21 +252,13 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   _openNotesDialog(highlightedText: selectedText);
                 },
               ),
-              
+
               const SizedBox(height: 32),
 
               // Medical citations (Guideline 1.4.1)
               MedicalCitationsSection(topic: widget.title),
 
-              const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
-
-              // Survey Section
-              _ModuleReviewSection(
-                moduleTitle: widget.title,
-                taskId: null, // Will be passed from learning_modules_screen_v2 if available
-              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -610,12 +623,14 @@ class _SelectableMarkdownWidgetState extends State<_SelectableMarkdownWidget> {
                 children: [
                   Icon(Icons.highlight, size: 18, color: AppTheme.brandPurple),
                   const SizedBox(width: 8),
-                  Text(
-                    'Long-press text below to highlight and add a note',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.brandPurple,
+                  Expanded(
+                    child: Text(
+                      'Long-press text below to highlight and add a note',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.brandPurple,
+                      ),
                     ),
                   ),
                 ],

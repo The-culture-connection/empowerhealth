@@ -264,57 +264,6 @@ class _JournalScreenState extends State<JournalScreen> {
     });
   }
 
-  Widget _buildWelcomingIntroCard() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFF5EEE0),
-            Color(0xFFFAF8F4),
-            Color(0xFFEBE0D6),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE8E0F0).withOpacity(0.4)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF663399).withOpacity(0.12),
-            blurRadius: 40,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'How are you feeling today?',
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Take a moment to check in with yourself — a quick mood tap or a longer reflection both count.',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.textMuted,
-                fontWeight: FontWeight.w300,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildEntryMethodGrid() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -819,68 +768,23 @@ class _JournalScreenState extends State<JournalScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Privacy Notice (matching NewUI)
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFFEBE4F3), // #ebe4f3
-                                  Color(0xFFF5F0F8), // #f5f0f8
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(28),
-                              border: Border.all(
-                                color: AppTheme.borderLighter.withOpacity(0.5),
-                              ),
-                              boxShadow: AppTheme.shadowSoft(opacity: 0.06, blur: 18, y: 4),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.surfaceCard,
-                                    borderRadius: BorderRadius.circular(18),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.favorite,
-                                    color: AppTheme.textLightest,
-                                    size: 20,
-                                  ),
+                          // Compact privacy indicator (replaces the large card).
+                          Row(
+                            children: [
+                              Icon(Icons.lock_outline,
+                                  size: 15, color: AppTheme.textMuted),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Private to you',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textMuted,
+                                  fontWeight: FontWeight.w300,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Your journal is private. Only you can see what you write here.',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: AppTheme.textMuted,
-                                          fontWeight: FontWeight.w300,
-                                          height: 1.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 24),
-                          _buildWelcomingIntroCard(),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
                           if (_entryMode == _JournalEntryMode.hub) ...[
                             _buildEntryMethodGrid(),
                           ] else if (_entryMode == _JournalEntryMode.quick) ...[
@@ -1229,12 +1133,16 @@ class _EntryCard extends StatelessWidget {
                       Icon(Icons.calendar_today, size: 14, color: Colors.grey[400]),
                       const SizedBox(width: 4),
                       if (createdAt != null)
-                        Text(
-                          DateFormat('MMMM d, yyyy').format(createdAt!),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textLightest,
-                            fontWeight: FontWeight.w300,
+                        Flexible(
+                          child: Text(
+                            DateFormat('MMMM d, yyyy').format(createdAt!),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textLightest,
+                              fontWeight: FontWeight.w300,
+                            ),
                           ),
                         ),
                       if (isFeelingPrompt && prompt != null) ...[

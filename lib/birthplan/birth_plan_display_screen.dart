@@ -9,6 +9,7 @@ import '../models/birth_plan.dart';
 import '../cors/ui_theme.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
+import '../widgets/module_quick_feedback.dart';
 import 'comprehensive_birth_plan_screen.dart';
 
 class BirthPlanDisplayScreen extends StatefulWidget {
@@ -350,6 +351,12 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
                     side: const BorderSide(color: purple),
                   ),
                 ),
+              ),
+              const SizedBox(height: 24),
+              // "How do you feel now?" feedback after birth planning.
+              ModuleQuickFeedback.howDoYouFeel(
+                feature: 'birth-planning',
+                moduleTitle: 'Birth Plan',
               ),
             ],
           ),

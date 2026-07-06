@@ -9,13 +9,26 @@ class ImmediateSupportHomeCard extends StatelessWidget {
     super.key,
     required this.entrySource,
     this.compact = false,
+    this.title,
+    this.subtitle,
+    this.ctaLabel,
   });
 
   final String entrySource;
   final bool compact;
 
+  /// Optional copy overrides (e.g. the home "Today's Guidance" card). When
+  /// [subtitle] is an empty string the secondary line is hidden to reduce height.
+  final String? title;
+  final String? subtitle;
+  final String? ctaLabel;
+
   @override
   Widget build(BuildContext context) {
+    final titleText = title ?? 'We\'re here with you 💜';
+    final subtitleText = subtitle ??
+        'Emotional support, guidance, and help with next steps — whenever you need it.';
+    final ctaText = ctaLabel ?? 'See support options';
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -35,7 +48,7 @@ class ImmediateSupportHomeCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'We\'re here with you 💜',
+                titleText,
                 style: TextStyle(
                   fontSize: compact ? 16 : 18,
                   fontWeight: FontWeight.w500,
@@ -43,25 +56,31 @@ class ImmediateSupportHomeCard extends StatelessWidget {
                   height: 1.3,
                 ),
               ),
-              SizedBox(height: compact ? 6 : 8),
-              Text(
-                'Emotional support, guidance, and help with next steps — whenever you need it.',
-                style: TextStyle(
-                  fontSize: compact ? 13 : 14,
-                  fontWeight: FontWeight.w300,
-                  height: 1.45,
-                  color: AppTheme.textMuted,
+              if (subtitleText.isNotEmpty) ...[
+                SizedBox(height: compact ? 6 : 8),
+                Text(
+                  subtitleText,
+                  style: TextStyle(
+                    fontSize: compact ? 13 : 14,
+                    fontWeight: FontWeight.w300,
+                    height: 1.45,
+                    color: AppTheme.textMuted,
+                  ),
                 ),
-              ),
+              ],
               SizedBox(height: compact ? 12 : 14),
               Row(
                 children: [
-                  Text(
-                    'See support options',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: AppTheme.brandPurple,
+                  Flexible(
+                    child: Text(
+                      ctaText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: AppTheme.brandPurple,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),

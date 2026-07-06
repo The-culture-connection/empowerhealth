@@ -171,6 +171,112 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
     return buffer.toString().isEmpty ? contentMap.toString() : buffer.toString();
   }
 
+  /// Buckets a module into a content-first topic section (doc's Learning Center grouping).
+  static const List<String> _topicSectionOrder = [
+    'Birth & hospital basics',
+    'Know your rights & advocacy',
+    'Emotional wellbeing',
+    'Postpartum preparation',
+    'Health made simple',
+  ];
+
+  String _topicSectionFor(String title) {
+    final t = title.toLowerCase();
+    if (t.contains('right') ||
+        t.contains('advoca') ||
+        t.contains('consent') ||
+        t.contains('speak')) {
+      return 'Know your rights & advocacy';
+    }
+    if (t.contains('birth') ||
+        t.contains('labor') ||
+        t.contains('delivery') ||
+        t.contains('hospital') ||
+        t.contains('admission') ||
+        t.contains('triage')) {
+      return 'Birth & hospital basics';
+    }
+    if (t.contains('mental') ||
+        t.contains('emotional') ||
+        t.contains('wellbeing') ||
+        t.contains('well-being') ||
+        t.contains('stress') ||
+        t.contains('mood') ||
+        t.contains('anxiety') ||
+        t.contains('depression')) {
+      return 'Emotional wellbeing';
+    }
+    if (t.contains('postpartum') ||
+        t.contains('recovery') ||
+        t.contains('feeding') ||
+        t.contains('breastfeed') ||
+        t.contains('pumping') ||
+        t.contains('newborn') ||
+        t.contains('baby')) {
+      return 'Postpartum preparation';
+    }
+    return 'Health made simple';
+  }
+
+  Widget _sectionHeader(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.6,
+          color: AppTheme.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  /// Returns an interleaved list of section-header strings and task docs,
+  /// grouping modules into topic sections (with todos under "Your next steps").
+  List<Object> _buildGroupedRows(List<QueryDocumentSnapshot> tasks) {
+    final rows = <Object>[];
+    if (_filterType == 'archived') {
+      rows.addAll(tasks); // flat list, no section headers
+      return rows;
+    }
+
+    final todos = <QueryDocumentSnapshot>[];
+    final sections = <String, List<QueryDocumentSnapshot>>{};
+    for (final doc in tasks) {
+      final data = doc.data() as Map<String, dynamic>;
+      final content = data['content'];
+      final hasContent = content != null &&
+          content.toString().trim().isNotEmpty &&
+          content.toString() != 'null';
+      final category = data['category'];
+      final isTodo = !hasContent ||
+          category != null ||
+          data['birthPlanId'] != null ||
+          (data['moduleType'] == null && !hasContent);
+      if (isTodo) {
+        todos.add(doc);
+      } else {
+        final title = (data['title'] ?? '').toString();
+        sections.putIfAbsent(_topicSectionFor(title), () => []).add(doc);
+      }
+    }
+
+    if (todos.isNotEmpty) {
+      rows.add('Your next steps');
+      rows.addAll(todos);
+    }
+    for (final section in _topicSectionOrder) {
+      final items = sections[section];
+      if (items != null && items.isNotEmpty) {
+        rows.add(section);
+        rows.addAll(items);
+      }
+    }
+    return rows;
+  }
+
   /// Pushed from Home uses an opaque page without main-shell ambient — avoid transparent → black.
   Color get _scaffoldFill =>
       Navigator.canPop(context) ? AppTheme.backgroundWarm : Colors.transparent;
@@ -236,13 +342,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                 ),
                 const SizedBox(width: 8),
                 _FilterChip(
-                  label: 'My Next Steps',
-                  isSelected: _filterType == 'todos',
-                  onTap: () => setState(() => _filterType = 'todos'),
-                ),
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'Learning Modules',
+                  label: 'Modules',
                   isSelected: _filterType == 'modules',
                   onTap: () => setState(() => _filterType = 'modules'),
                 ),
@@ -406,7 +506,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Warm overviews plus optional personalized topics',
+                            'Understand your options and feel confident speaking up.',
                             style: TextStyle(
                               fontSize: 13,
                               height: 1.4,
@@ -425,25 +525,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
           ),
         ),
       ),
-      const SliverToBoxAdapter(child: SizedBox(height: 20)),
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'All topics',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: AppTheme.textSecondary,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ),
-        ),
-      ),
-      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      const SliverToBoxAdapter(child: SizedBox(height: 24)),
     ];
   }
 
@@ -590,6 +672,8 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                       );
                     }
 
+                    final rows = _buildGroupedRows(tasks);
+
                     return CustomScrollView(
                       slivers: [
                         ..._learningScrollHeaderSlivers(),
@@ -598,13 +682,17 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        if (index == tasks.length) {
+                        if (index == rows.length) {
                           return Padding(
                             padding: const EdgeInsets.only(top: 8, bottom: 24),
                             child: _LearningApproachCard(),
                           );
                         }
-                        final doc = tasks[index];
+                        final row = rows[index];
+                        if (row is String) {
+                          return _sectionHeader(row);
+                        }
+                        final doc = row as QueryDocumentSnapshot;
                         final data = doc.data() as Map<String, dynamic>;
                         final title = (data['title'] ?? '').toString();
                         final description = (data['description'] ?? '').toString();
@@ -630,19 +718,19 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                         final isBirthPlanTodo = data['birthPlanId'] != null;
 
                         return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
+                          margin: const EdgeInsets.only(bottom: 10),
                           decoration: BoxDecoration(
                             color: AppTheme.surfaceCard,
-                            borderRadius: BorderRadius.circular(28),
+                            borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: isArchived ? AppTheme.borderLighter : AppTheme.borderLight,
                             ),
-                            boxShadow: AppTheme.shadowSoft(),
+                            boxShadow: AppTheme.shadowSoft(opacity: 0.05, blur: 12, y: 2),
                           ),
                           child: Opacity(
                             opacity: isArchived ? 0.6 : 1.0,
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(28),
+                              borderRadius: BorderRadius.circular(20),
                               onTap: () {
                                 // Only navigate to detail screen if it has content (learning modules)
                                 if (contentString.isNotEmpty && !isTodo) {
@@ -681,7 +769,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                 }
                               },
                               child: Padding(
-                                padding: const EdgeInsets.all(20),
+                                padding: const EdgeInsets.all(14),
                                 child: Row(
                                   children: [
                                     // Checkbox - show for all items (todos and learning modules)
@@ -756,19 +844,19 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                     // Icon box - only show for learning modules, not todos
                                     if (!isTodo) ...[
                                       Container(
-                                        width: 48,
-                                        height: 48,
+                                        width: 40,
+                                        height: 40,
                                         decoration: BoxDecoration(
                                           color: colors['bg']!,
-                                          borderRadius: BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(14),
                                         ),
                                         child: Icon(
                                           icon,
                                           color: colors['icon']!,
-                                          size: 24,
+                                          size: 22,
                                         ),
                                       ),
-                                      const SizedBox(width: 16),
+                                      const SizedBox(width: 12),
                                     ],
                                     Expanded(
                                       child: Column(
@@ -995,7 +1083,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                           ),
                         );
                       },
-                              childCount: tasks.length + 1,
+                              childCount: rows.length + 1,
                             ),
                           ),
                         ),
@@ -1023,23 +1111,21 @@ class _LearningWeekContinueCard extends StatelessWidget {
         ? PregnancyUtils.trimesterDisplayTitle(trimester)
         : 'Your learning journey';
     final subtitle = weeks > 0
-        ? "Week $weeks · ${PregnancyUtils.getTrimesterInfo(trimester)}"
-        : 'Add your due date in your profile for week-by-week guidance';
-    final progress = weeks > 0 ? (weeks / 40.0).clamp(0.0, 1.0) : 0.12;
-    final caption = weeks > 0 ? '$weeks of 40 weeks' : 'Topics below are ready when you are';
+        ? "Week $weeks of 40 · ${PregnancyUtils.getTrimesterInfo(trimester)}"
+        : 'Add your due date for week-by-week guidance';
 
     const fg = AppTheme.textPrimary;
     const muted = AppTheme.textMuted;
-    const labelMuted = Color(0xFF7D6D85);
 
+    // Compact pregnancy-status banner (replaces the large progress card).
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => Navigator.pushNamed(context, Routes.pregnancyJourney),
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(20),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(20),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -1049,138 +1135,58 @@ class _LearningWeekContinueCard extends StatelessWidget {
                 Color(0xFFEAD9E0),
               ],
             ),
-            border: Border.all(color: Color(0x80E0D3E8)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            border: Border.all(color: const Color(0x80E0D3E8)),
           ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                top: -20,
-                right: -10,
-                child: Container(
-                  width: 140,
-                  height: 140,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFD4C5E0).withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(14),
+                    color: const Color(0xCCFAF8F4),
+                  ),
+                  child: const Icon(
+                    Icons.menu_book_rounded,
+                    color: AppTheme.brandPurple,
+                    size: 22,
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: -30,
-                left: -20,
-                child: Container(
-                  width: 160,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppTheme.brandGold.withValues(alpha: 0.35),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: fg,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w300,
+                          color: muted,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(26),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: const Color(0xCCFAF8F4),
-                          ),
-                          child: const Icon(
-                            Icons.menu_book_rounded,
-                            color: AppTheme.brandPurple,
-                            size: 26,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'IN PROGRESS',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.8,
-                                  color: labelMuted,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                title,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w400,
-                                  color: fg,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                subtitle,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w300,
-                                  color: muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: SizedBox(
-                        height: 6,
-                        child: Stack(
-                          children: [
-                            Container(color: Colors.white.withValues(alpha: 0.5)),
-                            FractionallySizedBox(
-                              widthFactor: progress,
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Color(0xFF8B7AA8),
-                                      AppTheme.brandGold,
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      caption,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w300,
-                        color: labelMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Icon(Icons.chevron_right_rounded, color: AppTheme.textLight),
+              ],
+            ),
           ),
         ),
       ),
@@ -1259,11 +1265,11 @@ class _FilterChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           gradient: isSelected ? AppTheme.primaryActionGradient : null,
           color: isSelected ? null : AppTheme.surfaceCard,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
                 ? Colors.transparent
@@ -1278,7 +1284,7 @@ class _FilterChip extends StatelessWidget {
           style: TextStyle(
             color: isSelected ? AppTheme.brandWhite : AppTheme.textMuted,
             fontWeight: FontWeight.w300,
-            fontSize: 14,
+            fontSize: 13,
             height: 1.4,
           ),
         ),

@@ -157,9 +157,9 @@ class BirthPlansListScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 20),
                         _reassuranceCard(),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 24),
                         Text(
                           'YOUR BIRTH PLANS',
                           style: TextStyle(
@@ -217,150 +217,37 @@ class BirthPlansListScreen extends StatelessWidget {
     );
   }
 
+  // Brief supportive line (replaces the large intro reassurance card).
   Widget _reassuranceCard() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFF5EEE0),
-            AppTheme.backgroundWarm,
-            const Color(0xFFEBE0D6),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: const Color(0xFFE8E0F0).withValues(alpha: 0.4),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF663399).withValues(alpha: 0.12),
-            blurRadius: 40,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFF5EEE0), Color(0xFFEBE0D6)],
-                ),
-              ),
-              child: const Icon(
-                Icons.favorite_border,
-                color: Color(0xFFD4A574),
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'There is no one right way to give birth',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Only what\'s right for you. Your birth plan helps start conversations with your care team about your preferences and wishes.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w300,
-                      height: 1.5,
-                      color: AppTheme.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+    return _supportiveLine(
+      '💜 Your birth plan helps you share your preferences with your care team.',
     );
   }
 
+  // Brief supportive line (replaces the large footer card).
   Widget _footerCard() {
+    return _supportiveLine('💜 You can update your birth plan anytime.');
+  }
+
+  Widget _supportiveLine(String message) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFFAF7F3),
-            Color(0xFFF5F0EB),
-            Color(0xFFF0EAD8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
+        color: const Color(0xFFF5EEE0).withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFE8DFC8).withValues(alpha: 0.4),
+          color: const Color(0xFFE8E0F0).withValues(alpha: 0.5),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF663399).withValues(alpha: 0.1),
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              color: AppTheme.backgroundWarm.withValues(alpha: 0.6),
-            ),
-            child: const Icon(
-              Icons.favorite_border,
-              color: Color(0xFFD4A574),
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Plans can change, and that\'s okay',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'This is about starting a conversation with your care team. You can update your preferences anytime.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w300,
-                    height: 1.5,
-                    color: AppTheme.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: Text(
+        message,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w300,
+          height: 1.45,
+          color: AppTheme.textSecondary,
+        ),
       ),
     );
   }
@@ -546,12 +433,16 @@ class BirthPlansListScreen extends StatelessWidget {
                             color: AppTheme.textMuted,
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            _formatDate(birthPlan.createdAt),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w300,
-                              color: AppTheme.textMuted,
+                          Flexible(
+                            child: Text(
+                              _formatDate(birthPlan.createdAt),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w300,
+                                color: AppTheme.textMuted,
+                              ),
                             ),
                           ),
                         ],

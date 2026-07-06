@@ -183,11 +183,15 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
                       children: [
                         const Icon(Icons.checklist, color: AppTheme.brandPurple),
                         const SizedBox(width: 8),
-                        const Text(
-                          'Your Personalized Checklist',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Flexible(
+                          child: const Text(
+                            'Your Personalized Checklist',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],

@@ -115,81 +115,28 @@ class AppointmentsListScreen extends StatelessWidget {
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                            child: Container(
-                              padding: const EdgeInsets.all(22),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFF5EEE0),
-                                    Color(0xFFFAF8F4),
-                                    Color(0xFFEBE0D6),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
+                            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.favorite_border,
+                                  color: Color(0xFFD4A574),
+                                  size: 16,
                                 ),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color:
-                                      AppTheme.borderLight.withOpacity(0.4),
-                                ),
-                                boxShadow: AppTheme.shadowSoft(
-                                  opacity: 0.1,
-                                  blur: 22,
-                                  y: 6,
-                                ),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFFF5EEE0),
-                                          Color(0xFFEBE0D6),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: const Icon(
-                                      Icons.favorite_border,
-                                      color: Color(0xFFD4A574),
-                                      size: 22,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Plain-language summaries to support you — not medical advice.',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      height: 1.4,
+                                      color: AppTheme.textMuted,
+                                      fontWeight: FontWeight.w300,
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'You deserve to feel heard at every visit',
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w500,
-                                            letterSpacing: -0.05,
-                                            color: AppTheme.textPrimary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'These summaries help you understand what was discussed. They\'re written in simple language and organized to support you, not replace medical advice.',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            height: 1.45,
-                                            color: AppTheme.textMuted,
-                                            fontWeight: FontWeight.w300,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                           _VisitSummariesList(
@@ -632,6 +579,8 @@ class _MostRecentVisitCard extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             _providerSubtitleLine(data),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 14,
                               color: AppTheme.textMuted,

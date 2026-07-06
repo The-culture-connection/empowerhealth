@@ -223,12 +223,16 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Your Visit Explained',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.brandPurple,
+                  Flexible(
+                    child: const Text(
+                      'Your Visit Explained',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.brandPurple,
+                      ),
                     ),
                   ),
                   Row(

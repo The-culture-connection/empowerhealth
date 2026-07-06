@@ -277,40 +277,50 @@ class _PregnancyLossNavigationScaffoldState
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _LossNavItem(
-                      icon: Icons.home_outlined,
-                      activeIcon: Icons.home_rounded,
-                      label: 'Home',
-                      isSelected: _index == 0,
-                      onTap: () => _onTabChanged(0),
+                    Expanded(
+                      child: _LossNavItem(
+                        icon: Icons.home_outlined,
+                        activeIcon: Icons.home_rounded,
+                        label: 'Home',
+                        isSelected: _index == 0,
+                        onTap: () => _onTabChanged(0),
+                      ),
                     ),
-                    _LossNavItem(
-                      icon: Icons.menu_book_outlined,
-                      activeIcon: Icons.menu_book_rounded,
-                      label: 'Learn',
-                      isSelected: _index == 1,
-                      onTap: () => _onTabChanged(1),
+                    Expanded(
+                      child: _LossNavItem(
+                        icon: Icons.menu_book_outlined,
+                        activeIcon: Icons.menu_book_rounded,
+                        label: 'Learn',
+                        isSelected: _index == 1,
+                        onTap: () => _onTabChanged(1),
+                      ),
                     ),
-                    _LossNavItem(
-                      icon: Icons.favorite_outline_rounded,
-                      activeIcon: Icons.favorite_rounded,
-                      label: 'Journal',
-                      isSelected: _index == 2,
-                      onTap: () => _onTabChanged(2),
+                    Expanded(
+                      child: _LossNavItem(
+                        icon: Icons.favorite_outline_rounded,
+                        activeIcon: Icons.favorite_rounded,
+                        label: 'Journal',
+                        isSelected: _index == 2,
+                        onTap: () => _onTabChanged(2),
+                      ),
                     ),
-                    _LossNavItem(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      activeIcon: Icons.chat_bubble_rounded,
-                      label: 'Community',
-                      isSelected: _index == 3,
-                      onTap: () => _onTabChanged(3),
+                    Expanded(
+                      child: _LossNavItem(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        activeIcon: Icons.chat_bubble_rounded,
+                        label: 'Community',
+                        isSelected: _index == 3,
+                        onTap: () => _onTabChanged(3),
+                      ),
                     ),
-                    _LossNavItem(
-                      icon: Icons.person_outline_rounded,
-                      activeIcon: Icons.person_rounded,
-                      label: 'You',
-                      isSelected: _index == 4,
-                      onTap: () => _onTabChanged(4),
+                    Expanded(
+                      child: _LossNavItem(
+                        icon: Icons.person_outline_rounded,
+                        activeIcon: Icons.person_rounded,
+                        label: 'You',
+                        isSelected: _index == 4,
+                        onTap: () => _onTabChanged(4),
+                      ),
                     ),
                   ],
                 ),
@@ -347,7 +357,7 @@ class _LossNavItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -362,13 +372,19 @@ class _LossNavItem extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w300,
-                letterSpacing: 0.4,
-                color: color,
+            // Scale-protect the label so it never clips on narrow screens.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w300,
+                  letterSpacing: 0.4,
+                  color: color,
+                ),
               ),
             ),
           ],

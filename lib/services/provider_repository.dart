@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../constants/provider_types.dart';
 import '../models/provider.dart';
 import '../models/provider_report.dart';
 import '../models/provider_review.dart';
@@ -26,6 +27,10 @@ class ProviderRepository {
     /// `providers` directory rows matching the same text are merged in (types
     /// like ambulance "82" that Medicaid/NPI may not return under MVP types).
     String? nameContains,
+    /// Universal free-text query. When set, community directory rows whose
+    /// name, practice, provider type, specialty, city, or ZIP match are merged
+    /// in — so a single search box can match by type/city/name/specialty.
+    String? directoryQuery,
   }) async {
     try {
       // Validate provider type IDs
@@ -191,6 +196,24 @@ class ProviderRepository {
         }
         print(
           '✅ [ProviderRepository] After name filter + directory merge: ${allProviders.length} providers (query: "$nameQ")',
+        );
+      }
+
+      // Universal directory match: surface community/Firestore providers whose
+      // type, city, specialty, or name matches the free-text query, even when
+      // the government APIs couldn't (they only search by ZIP + type).
+      final dirQ = directoryQuery?.trim();
+      if (dirQ != null && dirQ.isNotEmpty) {
+        final universalMatches = await _fetchDirectoryUniversal(dirQ, zip: zip);
+        final seenKeys = <String>{
+          for (final p in allProviders) _providerDedupeKey(p),
+        };
+        for (final p in universalMatches) {
+          final key = _providerDedupeKey(p);
+          if (seenKeys.add(key)) allProviders.add(p);
+        }
+        print(
+          '✅ [ProviderRepository] After universal directory merge: ${allProviders.length} providers (query: "$dirQ")',
         );
       }
 
@@ -1416,6 +1439,81 @@ class ProviderRepository {
         return a.primaryDisplayName.toLowerCase().compareTo(
               b.primaryDisplayName.toLowerCase(),
             );
+      });
+    }
+
+    return out;
+  }
+
+  /// True when [low] (already lower-cased) matches any searchable field of [p]:
+  /// name, practice, provider type, specialty, or location city/ZIP.
+  bool _matchesUniversal(Provider p, String low) {
+    if (p.name.toLowerCase().contains(low)) return true;
+    if ((p.practiceName ?? '').toLowerCase().contains(low)) return true;
+    if ((p.specialty ?? '').toLowerCase().contains(low)) return true;
+    for (final s in p.specialties) {
+      if (s.toLowerCase().contains(low)) return true;
+    }
+    for (final id in p.providerTypes) {
+      final typeName = ProviderTypes.getDisplayName(id);
+      if (typeName != null && typeName.toLowerCase().contains(low)) return true;
+    }
+    for (final loc in p.locations) {
+      if (loc.city.toLowerCase().contains(low)) return true;
+      if (loc.zip.replaceAll(RegExp(r'\D'), '').contains(low)) return true;
+    }
+    return false;
+  }
+
+  /// Universal free-text search over the community/Firestore `providers`
+  /// directory. Matches type, city, name, practice, and specialty so one search
+  /// box can find anything already in the app's directory. Location-based APIs
+  /// (Medicaid/NPI) are searched separately in [searchProviders].
+  Future<List<Provider>> _fetchDirectoryUniversal(
+    String query, {
+    String zip = '',
+  }) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+    final low = q.toLowerCase();
+    final out = <Provider>[];
+    final seen = <String>{};
+
+    try {
+      final snap = await _firestore.collection('providers').limit(500).get();
+      for (final doc in snap.docs) {
+        final m = doc.data();
+        if (m['directoryHidden'] == true) continue;
+        Provider p;
+        try {
+          p = Provider.fromMap(m, id: doc.id);
+        } catch (_) {
+          continue;
+        }
+        if (!_matchesUniversal(p, low)) continue;
+        if (!seen.add(doc.id)) continue;
+        out.add(p);
+        if (out.length >= 100) break;
+      }
+    } catch (e) {
+      print('⚠️ [ProviderRepository] Universal directory scan: $e');
+    }
+
+    final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
+    if (zipDigits.length == 5) {
+      out.sort((a, b) {
+        int zipScore(Provider p) {
+          for (final loc in p.locations) {
+            if (loc.zip.replaceAll(RegExp(r'\D'), '') == zipDigits) return 0;
+          }
+          return 1;
+        }
+
+        final c = zipScore(a).compareTo(zipScore(b));
+        if (c != 0) return c;
+        return a.primaryDisplayName
+            .toLowerCase()
+            .compareTo(b.primaryDisplayName.toLowerCase());
       });
     }
 

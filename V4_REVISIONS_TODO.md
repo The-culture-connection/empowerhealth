@@ -54,6 +54,36 @@ Decisions recorded: trust = *contribute to score*; flow = *dedicated share scree
 
 ---
 
+## V4 — Screen Simplification / Health-Literacy Pass (added from PDF, 2026-06-16)
+
+New requests in `V4 EmpowerHealth Watch Revisions.pdf` that were **not** in the original V4 `.docx`
+(the old doc ended with an empty "OTHER AREAS OF UPDATES NEEDED"). Theme across all of these:
+**one screen = one primary action — reduce explanatory cards, surface user content within seconds,
+fix responsive/overflow issues.**
+
+**Status legend:** `[ ]` outstanding · `[~]` partial · `[x]` done
+
+### 🎨 UI easy fixes (copy, sizing, spacing, reorder)
+
+- [ ] **My Visits screen — reduce intro content** — shrink the "We're here with you" support card + the educational card; reduce explanatory text; move the visit list (date + title rows) higher so summaries surface first.
+- [ ] **My Visits detail screen — content-first** — shrink the large purple date/header card; replace the big "About this summary" card with a **single-line** disclaimer; show the visit summary immediately on entry.
+- [ ] **Create Post screen — de-clutter** — replace the large privacy card with one line (*"Community posts are public. Please avoid sharing private health details."*); make category buttons compact (Questions / Birth Stories / Support / Resources); simplify field labels (*Title → "Add a title"*, *Content → "Write your post"*); move Title + Content fields higher.
+- [ ] **Learning Center — simplify** — reduce the Third-Trimester progress card ~70–80% (compact banner, not a feature card); move learning modules toward the top; shrink filter tabs; trim explanatory text.
+- [ ] **Journal screen — simplify** — replace the large privacy card with a small "🔒 Private to you" indicator; trim intro/instructional text; move the journal prompt + recent entries higher.
+- [ ] **Bottom navigation label** — fix the clipped **"You"** label so all nav labels render fully across screen sizes.
+- [ ] **Birth Plan Builder — simplify copy + layout** — remove/shrink the large intro explanation cards; move the user's birth plan higher; swap long reassurance text for short lines (*"💜 Your birth plan helps you share your preferences with your care team."* / *"💜 You can update your birth plan anytime."*).
+
+### ⚙️ Functional changes (logic, navigation, structure, cross-cutting)
+
+- [ ] **My Visits detail — expandable sections** — convert the educational explanation blocks into collapsible/expandable sections rather than permanent cards (needs a collapsible widget, not just resizing).
+- [ ] **Know Your Rights — elevate to a core feature** — surface Rights outside the Learning Center: a home-screen quick-access entry (and/or rotating rights tips / dedicated nav entry). Navigation + placement change, not just copy.
+- [ ] **Learning Center — layout optimization / module restructure** — convert large module cards into compact list items so several show at once; group modules into clear topic sections (Birth & Hospital Basics · Know Your Rights · Self Advocacy · Emotional Wellbeing · Postpartum Preparation); review/consolidate the All / Learning Modules / Next Steps / Archived filters.
+- [ ] **Global responsive layout review** — app-wide sweep + fixes for text clipping, overflow, oversized cards, excess whitespace, safe-area spacing, bottom-nav visibility, keyboard interactions, and small-screen sizing.
+
+> Note: **Know Your Rights elevation** and **Learning Center optimization** partially restate V3 trimester/rights goals but go further (topic grouping, home-screen elevation).
+
+---
+
 ## V3 — Home Screen Revision (Health Literacy Integration)
 
 Mostly already implemented in `lib/Home/home_screen_v2.dart`. Verified status below.

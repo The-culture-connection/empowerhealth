@@ -30,16 +30,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   // jump the user straight to the editable pregnancy fields.
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _pregnancyEditKey = GlobalKey();
+  final GlobalKey _basicInfoKey = GlobalKey();
+  final FocusNode _usernameFocus = FocusNode();
 
-  void _scrollToPregnancyEdit() {
-    final ctx = _pregnancyEditKey.currentContext;
-    if (ctx == null) return;
-    Scrollable.ensureVisible(
-      ctx,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-      alignment: 0.1,
-    );
+  /// True once the user taps "Edit Profile" — reveals the editing banner so it
+  /// is obvious the fields below are now being edited.
+  bool _isEditing = false;
+
+  /// Enter edit mode: show the editing banner, scroll to [scrollTo], and focus
+  /// [focus] (which pops the keyboard) so it's unmistakable that editing began.
+  void _enterEditMode({GlobalKey? scrollTo, FocusNode? focus}) {
+    setState(() => _isEditing = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = scrollTo?.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+          alignment: 0.05,
+        );
+      }
+      focus?.requestFocus();
+    });
   }
   
   UserProfile? _userProfile;
@@ -157,6 +170,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _medicalConditionController.dispose();
     _medicationController.dispose();
     _scrollController.dispose();
+    _usernameFocus.dispose();
     super.dispose();
   }
 
@@ -227,6 +241,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       await _loadProfile();
       
       if (mounted) {
+        FocusScope.of(context).unfocus();
+        setState(() => _isEditing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile updated successfully!'),
@@ -497,15 +513,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ],
                           ),
                         ),
-                        TextButton(
-                          onPressed: () {
-                            // Toggle edit mode - for now just show full form
-                          },
-                          child: Text(
-                            'Edit',
-                            style: TextStyle(
-                              color: AppTheme.textLighter,
-                              fontWeight: FontWeight.w400,
+                        FilledButton.icon(
+                          onPressed: () => _enterEditMode(
+                            scrollTo: _basicInfoKey,
+                            focus: _usernameFocus,
+                          ),
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('Edit Profile'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.brandPurple,
+                            foregroundColor: AppTheme.brandWhite,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
                             ),
                           ),
                         ),
@@ -528,7 +548,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ),
                         ),
                         TextButton.icon(
-                          onPressed: _scrollToPregnancyEdit,
+                          onPressed: () =>
+                              _enterEditMode(scrollTo: _pregnancyEditKey),
                           icon: const Icon(Icons.edit_outlined, size: 18),
                           label: const Text('Edit'),
                           style: TextButton.styleFrom(
@@ -576,9 +597,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ],
 
                   // Basic Information Section
+                  SizedBox(key: _basicInfoKey),
+                  if (_isEditing) ...[
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.brandPurple.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppTheme.brandPurple.withOpacity(0.25),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_note,
+                              color: AppTheme.brandPurple, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              "You're editing your profile. Update your details "
+                              'below, then tap Save Changes.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                height: 1.35,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   _buildSection('Basic Information', [
                 TextFormField(
                   controller: _usernameController,
+                  focusNode: _usernameFocus,
                   decoration: const InputDecoration(
                     labelText: 'Username *',
                     prefixIcon: Icon(Icons.person_outline),
@@ -1161,26 +1215,28 @@ class _InfoRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         if (icon != null)
           Icon(icon, color: Colors.grey[400], size: 20),

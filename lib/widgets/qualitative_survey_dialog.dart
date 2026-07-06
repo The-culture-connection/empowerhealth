@@ -167,7 +167,11 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Shrink the 5 rating boxes to fit narrow screens (cap at 52).
+              final size = ((constraints.maxWidth - 8 * 4) / 5).clamp(40.0, 52.0);
+              return Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: List.generate(5, (i) {
               final value = i + 1;
@@ -179,8 +183,8 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
                   });
                 },
                 child: Container(
-                  width: 52,
-                  height: 52,
+                  width: size,
+                  height: size,
                   decoration: BoxDecoration(
                     color: isSelected ? AppTheme.brandPurple : AppTheme.surfaceInput,
                     border: Border.all(
@@ -202,6 +206,8 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
                 ),
               );
             }),
+              );
+            },
           ),
         ],
       ),

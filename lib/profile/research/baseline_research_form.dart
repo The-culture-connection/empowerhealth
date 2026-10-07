@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../cors/ui_theme.dart';
 import '../../models/user_profile.dart';
 import '../../research/research_codes.dart';
+import '../../widgets/step_scroll.dart';
 import 'insurance_question.dart';
 import 'pregnancy_postpartum_question.dart';
 
@@ -40,6 +41,7 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
   late final TextEditingController _gestController;
   late final TextEditingController _ppMonthController;
   late final TextEditingController _insuranceOtherController;
+  final StepScrollController _scrollController = StepScrollController();
 
   _BaselinePage _page = _BaselinePage.age;
   int? _pp;
@@ -83,6 +85,7 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
     _gestController.dispose();
     _ppMonthController.dispose();
     _insuranceOtherController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -401,6 +404,8 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
   Widget build(BuildContext context) {
     final isLast = _nextPage(_page) == null;
     final canBack = _previousPage(_page) != null;
+    // Each question starts at the top of the scroll area.
+    _scrollController.syncStep(_page);
 
     return Form(
       key: _formKey,
@@ -418,6 +423,7 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
           const SizedBox(height: 16),
           Expanded(
             child: SingleChildScrollView(
+              controller: _scrollController,
               padding: const EdgeInsets.only(bottom: 16),
               child: _buildPageBody(),
             ),

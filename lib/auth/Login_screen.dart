@@ -66,12 +66,16 @@ class _LoginScreenState extends State<LoginScreen> {
     
     if (result == true && emailController.text.isNotEmpty) {
       try {
-        await _authService.sendPasswordResetEmail(emailController.text.trim());
+        final email = emailController.text.trim();
+        await _authService.sendPasswordResetEmail(email);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Password reset email sent! Check your inbox.'),
+            SnackBar(
+              content: Text(
+                'We sent a reset link to $email. If you don\'t see it in a few minutes, check your spam or junk folder.',
+              ),
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 8),
             ),
           );
         }

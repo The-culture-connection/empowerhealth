@@ -51,7 +51,7 @@ bool emotionalSupportShowsCrisisCard(Set<String> selected) {
       selected.contains(EmotionalSupportOptionId.scaryThoughts);
 }
 
-const String kEmotionalValidationTitle = 'Thank you for checking in 💜';
+const String kEmotionalValidationTitle = 'Thank you for checking in\u00A0💜';
 const String kEmotionalValidationBody =
     'A lot of people go through moments like this. Let’s find support that feels helpful right now.';
 

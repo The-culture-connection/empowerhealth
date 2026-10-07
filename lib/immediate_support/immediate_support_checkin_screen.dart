@@ -109,7 +109,7 @@ class _ImmediateSupportCheckInScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'We\'re here with you 💜',
+                        'We\'re here with you 💜',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w400,

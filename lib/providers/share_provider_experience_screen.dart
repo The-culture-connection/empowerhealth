@@ -87,7 +87,7 @@ class _ShareProviderExperienceScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Help Another Mama Choose Care 💜',
+                    'Help Another Mama Choose Care\u00A0💜',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w500,

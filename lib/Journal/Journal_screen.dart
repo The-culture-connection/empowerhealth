@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/ambient_background.dart';
+import '../widgets/step_scroll.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../auth/guest_guard.dart';
@@ -67,6 +68,7 @@ class JournalScreen extends StatefulWidget {
 class _JournalScreenState extends State<JournalScreen> {
   final TextEditingController _entryController = TextEditingController();
   final TextEditingController _quickNoteController = TextEditingController();
+  final StepScrollController _scrollController = StepScrollController();
   bool _isSaving = false;
   _JournalEntryMode _entryMode = _JournalEntryMode.hub;
   String? _quickMoodEmoji;
@@ -114,6 +116,7 @@ class _JournalScreenState extends State<JournalScreen> {
   void dispose() {
     _entryController.dispose();
     _quickNoteController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -846,6 +849,9 @@ class _JournalScreenState extends State<JournalScreen> {
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     final embeddedInMainNav = MainNavigationScope.maybeOf(context) != null;
+    // Switching between the hub, quick check-in and write steps shows the new
+    // step from the top (the floating shortcuts work from anywhere in the list).
+    _scrollController.syncStep(_entryMode);
     // With the shell's extendBody, padding.bottom = nav bar height while
     // viewPadding.bottom is only the home-indicator inset the nested
     // Scaffold already respects for FAB placement.
@@ -911,6 +917,7 @@ class _JournalScreenState extends State<JournalScreen> {
                             : visibleEntries;
 
                     return SingleChildScrollView(
+                      controller: _scrollController,
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

@@ -6,6 +6,7 @@ import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
+import 'module_notes.dart';
 import 'notes_dialog.dart';
 import '../widgets/ai_disclaimer_banner.dart';
 import '../widgets/learning_module_formatted_content.dart';
@@ -41,6 +42,10 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   String? _error;
   UserProfile? _userProfile;
   String? _selectedText;
+
+  /// The user's notes on this lesson (highlighted in the text below).
+  late final Stream<List<ModuleNote>> _notesStream =
+      watchModuleNotes(moduleTitle: widget.title);
 
   @override
   void initState() {
@@ -244,12 +249,16 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               const SizedBox(height: 16),
               
               // Content with markdown support and text selection
-              _SelectableMarkdownWidget(
-                content: _content!,
-                moduleTitle: widget.title,
-                onTextSelected: (selectedText) {
-                  _openNotesDialog(highlightedText: selectedText);
-                },
+              StreamBuilder<List<ModuleNote>>(
+                stream: _notesStream,
+                builder: (context, snapshot) => _SelectableMarkdownWidget(
+                  content: _content!,
+                  moduleTitle: widget.title,
+                  notes: snapshot.data ?? const <ModuleNote>[],
+                  onTextSelected: (selectedText) {
+                    _openNotesDialog(highlightedText: selectedText);
+                  },
+                ),
               ),
 
               const SizedBox(height: 32),
@@ -587,11 +596,13 @@ class _SelectableMarkdownWidget extends StatefulWidget {
   final String content;
   final String moduleTitle;
   final Function(String) onTextSelected;
+  final List<ModuleNote> notes;
 
   const _SelectableMarkdownWidget({
     required this.content,
     required this.moduleTitle,
     required this.onTextSelected,
+    this.notes = const <ModuleNote>[],
   });
 
   @override
@@ -638,6 +649,7 @@ class _SelectableMarkdownWidgetState extends State<_SelectableMarkdownWidget> {
               LearningModuleFormattedContent(
                 content: cleanedContent,
                 moduleTitle: widget.moduleTitle,
+                notes: widget.notes,
                 // Adds "Add note" to the selection context menu (the old
                 // custom selectionControls toolbar was ignored by Flutter).
                 onAddNote: (text) => widget.onTextSelected(text),

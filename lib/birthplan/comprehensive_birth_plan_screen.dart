@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +11,7 @@ import '../cors/ui_theme.dart';
 import 'birth_plan_display_screen.dart';
 import 'birth_plan_formatter.dart';
 import '../widgets/qualitative_survey_dialog.dart';
+import '../widgets/drag_scroll_behavior.dart';
 import '../widgets/feature_session_scope.dart';
 import 'birth_plan_why_copy.dart';
 
@@ -1440,10 +1440,7 @@ class _ComprehensiveBirthPlanScreenState
     return SizedBox(
       key: _stepChipsKey,
       width: double.infinity,
-      child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(
-          dragDevices: PointerDeviceKind.values.toSet(),
-        ),
+      child: HorizontalDragScroll(
         child: SingleChildScrollView(
           controller: _stepChipsScrollController,
           scrollDirection: Axis.horizontal,
@@ -1813,7 +1810,7 @@ class _ComprehensiveBirthPlanScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'You\'re done! 🎉',
+            'You\'re done!\u00A0🎉',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,

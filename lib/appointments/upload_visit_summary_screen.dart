@@ -52,6 +52,11 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   String _avsUploadResearchSlug = 'unknown';
   final TextEditingController _manualTextController = TextEditingController();
   bool _saveOriginalText = false; // Default: don't save raw text
+  /// Anchors the generated summary so we can scroll it into view.
+  final GlobalKey _summaryKey = GlobalKey();
+
+  static const String _noSummaryMessage =
+      'We couldn\'t open your summary. Please try again in a moment.';
 
   @override
   void initState() {
@@ -600,8 +605,58 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     );
   }
 
+  /// Display text for any successful analysis response, fresh or duplicate.
+  /// Falls back to the saved summary doc when the response only has an id.
+  /// Returns null when there is nothing usable to show.
+  Future<String?> _summaryFromResult(Map<String, dynamic> result) async {
+    final raw = result['summary'];
+    if (raw is String && raw.trim().isNotEmpty) return raw;
+    final summaryId = result['summaryId'];
+    final userId = _auth.currentUser?.uid;
+    if (summaryId is String && summaryId.isNotEmpty && userId != null) {
+      try {
+        final doc = await _firestore
+            .collection('users')
+            .doc(userId)
+            .collection('visit_summaries')
+            .doc(summaryId)
+            .get();
+        final stored = doc.data()?['summary'];
+        if (stored is String && stored.trim().isNotEmpty) return stored;
+      } catch (e) {
+        debugPrint('Could not load visit summary $summaryId: $e');
+      }
+    }
+    return null;
+  }
+
+  /// Bring the generated summary into view once it has been laid out.
+  void _scrollToSummary() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _summaryKey.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  /// Shown when the server returned an existing summary (duplicate: true).
+  void _showDuplicateSummarySnackBar() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('You already had a summary for this visit, so we opened it.'),
+        duration: Duration(seconds: 4),
+      ),
+    );
+  }
+
   /// Plain-language message for upload/analysis failures (never a raw exception).
   String _friendlyErrorMessage(Object e, {required String fallback}) {
+    if (e is VisitSummaryException) return e.message;
     final lower = e.toString().toLowerCase();
     if (lower.contains('unable to resolve host') ||
         lower.contains('network') ||
@@ -825,15 +880,29 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
       print('✅ PDF analysis completed successfully');
 
+      final isDuplicate = analysisResult['duplicate'] == true;
+      final summaryIdValue = analysisResult['summaryId'];
+      final avsSummaryId = summaryIdValue is String ? summaryIdValue : null;
+
       // Update upload status
-      await uploadDocRef.update({
-        'status': 'analyzed',
-        'summaryId': analysisResult['summaryId'],
-        'analyzedAt': FieldValue.serverTimestamp(),
-      });
+      try {
+        await uploadDocRef.update({
+          'status': 'analyzed',
+          'summaryId': avsSummaryId,
+          'analyzedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        print('⚠️ Could not update upload status (non-critical): $e');
+      }
+
+      final summaryText = await _summaryFromResult(analysisResult);
+      if (summaryText == null) {
+        throw const VisitSummaryException(_noSummaryMessage);
+      }
+      if (!mounted) return;
 
       setState(() {
-        _generatedSummary = analysisResult['summary'];
+        _generatedSummary = summaryText;
         _isLoading = false;
         _currentStep = null;
         _uploadProgress = 0.0;
@@ -842,14 +911,20 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         _uploadFileName = null;
         _pdfFileName = null;
       });
+      _scrollToSummary();
+
+      if (isDuplicate) {
+        // Nothing new was created, so no creation analytics or rating prompt.
+        _showDuplicateSummarySnackBar();
+        return;
+      }
 
       // Track visit summary creation
       try {
         final analytics = AnalyticsService();
-        final summaryId = analysisResult['summaryId'] as String?;
-        if (summaryId != null) {
+        if (avsSummaryId != null) {
           await analytics.logVisitSummaryCreated(
-            summaryId: summaryId,
+            summaryId: avsSummaryId,
             timeToComplete: DateTime.now().difference(_selectedDate ?? DateTime.now()).inSeconds,
             userProfile: _userProfile,
             avsUploadType: _avsUploadResearchSlug,
@@ -862,7 +937,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       // Show success message with counts
       final todosCount = (analysisResult['todos'] as List?)?.length ?? 0;
       final modulesCount = (analysisResult['learningModules'] as List?)?.length ?? 0;
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -875,18 +950,18 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         );
       }
 
-      final avsSummaryId = analysisResult['summaryId'] as String?;
       if (avsSummaryId != null && avsSummaryId.isNotEmpty) {
         await _maybePromptVisitSummaryMicroMeasure(avsSummaryId, 'visit_summary_avs');
       }
 
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _currentStep = null;
         _uploadProgress = 0.0;
       });
-      
+
       if (mounted) {
         final lowerMessage = e.toString().toLowerCase();
         final userFriendlyMessage = lowerMessage.contains('cancel')
@@ -981,10 +1056,12 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       );
 
       // Note: The Cloud Function already saves the summary to Firestore
-      // We only need to handle the response for display
-      final summary = analysisResult['summary'];
-      if (summary is! String || summary.trim().isEmpty) {
-        throw Exception('Empty summary returned');
+      // We only need to handle the response for display. A duplicate
+      // (same notes, same date) comes back in the same shape with duplicate: true.
+      final isDuplicate = analysisResult['duplicate'] == true;
+      final summary = await _summaryFromResult(analysisResult);
+      if (summary == null) {
+        throw const VisitSummaryException(_noSummaryMessage);
       }
       if (!mounted) return;
 
@@ -993,6 +1070,13 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         _isLoading = false;
         _currentStep = null;
       });
+      _scrollToSummary();
+
+      if (isDuplicate) {
+        // Nothing new was created, so no creation analytics or rating prompt.
+        _showDuplicateSummarySnackBar();
+        return;
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1004,7 +1088,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         );
       }
 
-      final textSummaryId = analysisResult['summaryId'] as String?;
+      final textSummaryIdValue = analysisResult['summaryId'];
+      final textSummaryId = textSummaryIdValue is String ? textSummaryIdValue : null;
       if (textSummaryId != null && textSummaryId.isNotEmpty) {
         try {
           await AnalyticsService().logVisitSummaryCreated(
@@ -1855,9 +1940,12 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
             // Generated Summary Display — sectioned like NewUI
             if (_generatedSummary != null) ...[
-              const AIDisclaimerBanner(
-                customMessage: 'This summary helps you understand your visit.',
-                customSubMessage: 'It is not medical advice and does not replace your provider.',
+              KeyedSubtree(
+                key: _summaryKey,
+                child: const AIDisclaimerBanner(
+                  customMessage: 'This summary helps you understand your visit.',
+                  customSubMessage: 'It is not medical advice and does not replace your provider.',
+                ),
               ),
               const SizedBox(height: 12),
               Text(

@@ -36,7 +36,7 @@ class EmotionalSupportPregnancyLossScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'We’re so sorry for your loss 💜',
+                  'We’re so sorry for your loss\u00A0💜',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w400,

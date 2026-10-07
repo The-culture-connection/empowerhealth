@@ -13,13 +13,24 @@ class NotesDialog extends StatefulWidget {
   /// automatically so the user doesn't have to organize it manually.
   final String? initialTag;
 
+  /// When set, the dialog edits this existing note in users/{uid}/notes
+  /// instead of adding a new one.
+  final String? noteId;
+
+  /// Existing note text to pre-fill when editing ([noteId] set).
+  final String? initialContent;
+
   const NotesDialog({
     super.key,
     this.preFilledText, // This will be the highlighted text
     this.moduleTitle,
     this.moduleId,
     this.initialTag,
+    this.noteId,
+    this.initialContent,
   });
+
+  bool get isEditing => noteId != null;
 
   /// Journal categories. The richer set lets saved content be auto-organized
   /// by the section it came from (see [categoryForSection]).
@@ -80,6 +91,9 @@ class _NotesDialogState extends State<NotesDialog> {
         NotesDialog.journalCategories.contains(widget.initialTag)) {
       _selectedTag = widget.initialTag;
     }
+    if (widget.initialContent != null) {
+      _notesController.text = widget.initialContent!;
+    }
     // Don't pre-fill notes with highlighted text - show it separately
   }
 
@@ -118,11 +132,31 @@ class _NotesDialogState extends State<NotesDialog> {
         throw Exception('User not authenticated');
       }
 
-      await FirebaseFirestore.instance
+      final notes = FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
-          .collection('notes')
-          .add({
+          .collection('notes');
+
+      if (widget.isEditing) {
+        await notes.doc(widget.noteId).update({
+          'content': _notesController.text.trim(),
+          'tag': _selectedTag,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        if (mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Note updated'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+
+      await notes.add({
         'content': _notesController.text.trim(),
         'tag': _selectedTag,
         'moduleTitle': widget.moduleTitle,
@@ -183,7 +217,11 @@ class _NotesDialogState extends State<NotesDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      widget.preFilledText != null ? 'Add Note from Highlight' : 'Add Note',
+                      widget.isEditing
+                          ? 'Edit Note'
+                          : widget.preFilledText != null
+                              ? 'Add Note from Highlight'
+                              : 'Add Note',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -248,12 +286,14 @@ class _NotesDialogState extends State<NotesDialog> {
                               children: [
                                 const Icon(Icons.format_quote, size: 16, color: Colors.orange),
                                 const SizedBox(width: 8),
-                                const Text(
-                                  'Highlighted Text:',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.orange,
+                                const Expanded(
+                                  child: Text(
+                                    'Highlighted Text:',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.orange,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -342,7 +382,12 @@ class _NotesDialogState extends State<NotesDialog> {
                         side: const BorderSide(color: AppTheme.brandPurple),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: const Text('Cancel'),
+                      child: const Text(
+                        'Cancel',
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -363,7 +408,12 @@ class _NotesDialogState extends State<NotesDialog> {
                                 valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
                               ),
                             )
-                          : const Text('Save to Journal'),
+                          : const Text(
+                              'Save',
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                     ),
                   ),
                 ],

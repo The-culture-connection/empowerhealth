@@ -298,7 +298,7 @@ Future<void> showModuleExitFeedbackSheet(
                 ),
               ),
               Text(
-                'Before you go, a quick check-in 💜',
+                'Before you go, a quick check-in\u00A0💜',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,

@@ -8,6 +8,7 @@ import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
 import '../../services/research/research_firestore_service.dart';
 import '../../cors/ui_theme.dart';
+import '../../widgets/drag_scroll_behavior.dart';
 import '../../utils/pregnancy_utils.dart';
 import '../../utils/second_person.dart';
 import 'learning_module_detail_screen.dart';
@@ -379,29 +380,31 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.only(top: 20),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              children: [
-                _FilterChip(
-                  label: 'All',
-                  isSelected: _filterType == 'all',
-                  onTap: () => setState(() => _filterType = 'all'),
-                ),
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'Modules',
-                  isSelected: _filterType == 'modules',
-                  onTap: () => setState(() => _filterType = 'modules'),
-                ),
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'Archived',
-                  isSelected: _filterType == 'archived',
-                  onTap: () => setState(() => _filterType = 'archived'),
-                ),
-              ],
+          child: HorizontalDragScroll(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  _FilterChip(
+                    label: 'All',
+                    isSelected: _filterType == 'all',
+                    onTap: () => setState(() => _filterType = 'all'),
+                  ),
+                  const SizedBox(width: 8),
+                  _FilterChip(
+                    label: 'Modules',
+                    isSelected: _filterType == 'modules',
+                    onTap: () => setState(() => _filterType = 'modules'),
+                  ),
+                  const SizedBox(width: 8),
+                  _FilterChip(
+                    label: 'Archived',
+                    isSelected: _filterType == 'archived',
+                    onTap: () => setState(() => _filterType = 'archived'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -427,81 +430,83 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
               const SizedBox(height: 10),
               SizedBox(
                 height: birthStripHeight,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  itemCount: birthLaborEducationTopics.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, i) {
-                    final t = birthLaborEducationTopics[i];
-                    return SizedBox(
-                      width: birthCardWidth,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => openBirthLaborTopic(context, t),
-                          borderRadius: BorderRadius.circular(20),
-                          child: Ink(
-                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                            decoration: BoxDecoration(
-                              color: AppTheme.surfaceCard,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: AppTheme.borderLight.withOpacity(0.5),
-                              ),
-                              boxShadow: AppTheme.shadowSoft(
-                                opacity: 0.05,
-                                blur: 14,
-                                y: 2,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.local_hospital_outlined,
-                                  size: 22,
-                                  color: AppTheme.brandPurple.withOpacity(0.85),
+                child: HorizontalDragScroll(
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    itemCount: birthLaborEducationTopics.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (context, i) {
+                      final t = birthLaborEducationTopics[i];
+                      return SizedBox(
+                        width: birthCardWidth,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => openBirthLaborTopic(context, t),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Ink(
+                              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.surfaceCard,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: AppTheme.borderLight.withOpacity(0.5),
                                 ),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        t.title,
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          height: 1.2,
-                                          color: AppTheme.textPrimary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        t.subtitle,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          height: 1.25,
-                                          color: AppTheme.textMuted,
-                                          fontWeight: FontWeight.w300,
-                                        ),
-                                      ),
-                                    ],
+                                boxShadow: AppTheme.shadowSoft(
+                                  opacity: 0.05,
+                                  blur: 14,
+                                  y: 2,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.local_hospital_outlined,
+                                    size: 22,
+                                    color: AppTheme.brandPurple.withOpacity(0.85),
                                   ),
-                                ),
-                              ],
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          t.title,
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            height: 1.2,
+                                            color: AppTheme.textPrimary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          t.subtitle,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            height: 1.25,
+                                            color: AppTheme.textMuted,
+                                            fontWeight: FontWeight.w300,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
             ],

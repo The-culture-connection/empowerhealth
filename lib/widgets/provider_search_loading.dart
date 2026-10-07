@@ -328,36 +328,46 @@ class _ProviderSearchLoadingState extends State<ProviderSearchLoading>
                     
                     const SizedBox(height: 24),
                     
-                    // Icon row showing progress steps
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: List.generate(_loadingStages.length, (index) {
-                        final isActive = index <= _currentStageIndex;
-                        final isCurrent = index == _currentStageIndex;
-                        return Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: isActive 
-                                ? const Color(0xFF663399).withOpacity(isCurrent ? 0.2 : 0.1)
-                                : Colors.grey.shade100,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isActive 
-                                  ? const Color(0xFF663399)
-                                  : Colors.grey.shade300,
-                              width: isCurrent ? 3 : (isActive ? 2 : 1),
-                            ),
-                          ),
-                          child: Icon(
-                            _loadingStages[index].icon,
-                            size: 24,
-                            color: isActive 
-                                ? const Color(0xFF663399)
-                                : Colors.grey.shade400,
-                          ),
+                    // Icon row showing progress steps. Circles shrink to fit
+                    // narrow screens (6 x 48 is wider than an iPhone SE card).
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        const gap = 4.0;
+                        final count = _loadingStages.length;
+                        final diameter =
+                            ((constraints.maxWidth - gap * (count - 1)) / count)
+                                .clamp(28.0, 48.0);
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(count, (index) {
+                            final isActive = index <= _currentStageIndex;
+                            final isCurrent = index == _currentStageIndex;
+                            return Container(
+                              width: diameter,
+                              height: diameter,
+                              decoration: BoxDecoration(
+                                color: isActive 
+                                    ? const Color(0xFF663399).withOpacity(isCurrent ? 0.2 : 0.1)
+                                    : Colors.grey.shade100,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isActive 
+                                      ? const Color(0xFF663399)
+                                      : Colors.grey.shade300,
+                                  width: isCurrent ? 3 : (isActive ? 2 : 1),
+                                ),
+                              ),
+                              child: Icon(
+                                _loadingStages[index].icon,
+                                size: diameter / 2,
+                                color: isActive
+                                    ? const Color(0xFF663399)
+                                    : Colors.grey.shade400,
+                              ),
+                            );
+                          }),
                         );
-                      }),
+                      },
                     ),
                   ],
                 ),

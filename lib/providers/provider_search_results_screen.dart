@@ -1360,12 +1360,14 @@ class _ProviderSearchResultsScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Within ${widget.searchParams['radius']} miles of ${(widget.searchParams['zip'] as String).length > 5 ? (widget.searchParams['zip'] as String).substring(0, 5) : widget.searchParams['zip']}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: AppTheme.textSecondary,
+              Expanded(
+                child: Text(
+                  'Within ${widget.searchParams['radius']} miles of ${(widget.searchParams['zip'] as String).length > 5 ? (widget.searchParams['zip'] as String).substring(0, 5) : widget.searchParams['zip']}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
               ),
               TextButton(
@@ -1880,12 +1882,14 @@ class _ProviderCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        '(${provider.reviewCount ?? 0} review${(provider.reviewCount ?? 0) == 1 ? '' : 's'})',
-                        style: TextStyle(
-                          fontSize: 14, // text-sm
-                          color: Color(0xFFA89CB5), // text-[#a89cb5]
-                          fontWeight: FontWeight.w300, // font-light
+                      Flexible(
+                        child: Text(
+                          '(${provider.reviewCount ?? 0} review${(provider.reviewCount ?? 0) == 1 ? '' : 's'})',
+                          style: TextStyle(
+                            fontSize: 14, // text-sm
+                            color: Color(0xFFA89CB5), // text-[#a89cb5]
+                            fontWeight: FontWeight.w300, // font-light
+                          ),
                         ),
                       ),
                     ],

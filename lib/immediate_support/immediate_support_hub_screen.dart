@@ -76,7 +76,7 @@ class _ImmediateSupportHubScreenState extends State<ImmediateSupportHubScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'We\'re here with you 💜',
+                        'We\'re here with you 💜',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w400,

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../cors/ui_theme.dart' show AppTheme;
+import '../../learning/module_notes.dart';
 import '../../learning/notes_dialog.dart';
 import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
@@ -47,6 +48,13 @@ class _LearningModuleDetailScreenState
   final ValueNotifier<String> _selectedText = ValueNotifier<String>('');
 
   String? get _noteModuleId => widget.moduleId ?? widget.taskId;
+
+  /// The user's notes on this lesson; drives the in-text highlights so a
+  /// newly saved note shows up right away.
+  late final Stream<List<ModuleNote>> _notesStream = watchModuleNotes(
+    moduleId: _noteModuleId,
+    moduleTitle: widget.title,
+  );
 
   /// Opens the journal notes dialog for this module, optionally quoting the
   /// highlighted text. Notes land in users/{uid}/notes with moduleTitle +
@@ -305,14 +313,20 @@ class _LearningModuleDetailScreenState
                               },
                             ),
                             const SizedBox(height: 12),
-                            LearningModuleFormattedContent(
-                              content: widget.content,
-                              moduleTitle: widget.title,
-                              moduleId: _noteModuleId,
-                              onAddNote: (text) =>
-                                  _openNotesDialog(highlightedText: text),
-                              onSelectionTextChanged: (text) =>
-                                  _selectedText.value = text,
+                            StreamBuilder<List<ModuleNote>>(
+                              stream: _notesStream,
+                              builder: (context, snapshot) {
+                                return LearningModuleFormattedContent(
+                                  content: widget.content,
+                                  moduleTitle: widget.title,
+                                  moduleId: _noteModuleId,
+                                  notes: snapshot.data ?? const <ModuleNote>[],
+                                  onAddNote: (text) =>
+                                      _openNotesDialog(highlightedText: text),
+                                  onSelectionTextChanged: (text) =>
+                                      _selectedText.value = text,
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -366,7 +380,15 @@ class _LearningModuleDetailScreenState
                                 );
                               },
                               icon: const Icon(Icons.bookmark_add_outlined),
-                              label: const Text('Save to Journal'),
+                              // One line at narrow widths / large text.
+                              label: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  'Save to Journal',
+                                  maxLines: 1,
+                                  softWrap: false,
+                                ),
+                              ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF663399),
                                 foregroundColor: AppTheme.brandWhite,

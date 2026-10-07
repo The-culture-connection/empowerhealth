@@ -7,6 +7,7 @@ const axios = require("axios");
 const XLSX = require("xlsx");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const {
   PREGNANCY_LOSS_LEARNING_SYSTEM,
   pregnancyLossLearningUserMessage,
@@ -1037,72 +1038,181 @@ exports.processUploadedVisitSummary = onObjectFinalized(
   }
 );
 
-// Helper function to analyze PDF (extracted from summarizeAfterVisitPDF)
-async function analyzeVisitSummaryPDF({pdfText, appointmentDate, educationLevel, userProfile, userId}) {
-      console.log(`🟢 [DEBUG] analyzeVisitSummaryPDF HELPER function called`);
-      console.log(`🟢 [DEBUG] Helper function params:`, {
-        userId: userId,
-        appointmentDate: appointmentDate,
-        appointmentDateType: typeof appointmentDate,
-        pdfTextLength: pdfText?.length || 0,
-        hasEducationLevel: !!educationLevel,
-        hasUserProfile: !!userProfile,
-      });
-      
-      // Extract user context with safe defaults
-      const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
-      const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
-      const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
-      const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
-      const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
-      const learningStyle = (userProfile?.learningStyle || "visual").toString();
-      const insuranceType = (userProfile?.insuranceType || "").toString();
+// ============================================================================
+// VISIT SUMMARY ANALYSIS (shared by typed notes, text PDFs, scans and photos)
+// ============================================================================
+// All three entry points (analyzeVisitSummaryText, analyzeVisitSummaryPDF and
+// the legacy summarizeAfterVisitPDF) produce the same JSON shape through Chat
+// Completions. Text PDFs go through the text prompt; scanned PDFs and photos
+// (which the app converts to a one-page PDF) go to a vision model as a file.
+// The Assistants API that the PDF path used before was shut down by OpenAI in
+// Aug 2026 and now returns 404.
 
-    // Target ~5th grade for health literacy support (not diagnosis or care decisions)
-    const getReadingLevel = (educationLevel) => {
-      if (!educationLevel) return "about 5th grade";
-      if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
-        return "about 6th grade";
-      }
-      if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
-        return "about 5th–6th grade";
-      }
-      return "about 5th grade";
-    };
+const VISIT_SUMMARY_MODEL = "gpt-4o";
+// Fewer non-whitespace characters than this means the PDF is a scan or photo.
+const VISIT_SUMMARY_MIN_TEXT_CHARS = 200;
+// Raw PDF cap. Base64 adds about a third, and OpenAI limits file input size.
+const VISIT_SUMMARY_MAX_PDF_BYTES = 20 * 1024 * 1024;
+// Cap on document text sent to the model so the prompt stays within limits.
+const VISIT_SUMMARY_MAX_TEXT_CHARS = 60000;
+// Per-request OpenAI timeout (the callables run with timeoutSeconds: 300).
+const VISIT_SUMMARY_OPENAI_TIMEOUT_MS = 180000;
 
-      const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "about 5th grade";
+// Plain-language messages shown to the user (sent in HttpsError details.userMessage).
+const VISIT_SUMMARY_MESSAGES = {
+  unreadable_file: "We couldn't read that file. Try a clearer photo or paste the text instead.",
+  unreadable_text: "We couldn't find visit details in that text. Please check it and try again.",
+  too_large: "That file is too large. Try a smaller PDF, one clear photo, or paste the text instead.",
+  file_not_found: "We couldn't find your uploaded file. Please try uploading it again.",
+  busy: "We couldn't simplify this right now. Please try again in a moment.",
+};
 
-  console.log("🤖 Calling OpenAI API for analysis...");
-      const openai = getOpenAIClient(openaiApiKey.value());
-      const response = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: `You are a culturally affirming, trauma-informed health literacy educator for EmpowerHealth Watch (maternal health).
+/** Error with a plain-language message that is safe to show to the user. */
+class VisitSummaryUserError extends Error {
+  constructor(code, reason, detail) {
+    super(detail || VISIT_SUMMARY_MESSAGES[reason] || VISIT_SUMMARY_MESSAGES.busy);
+    this.name = "VisitSummaryUserError";
+    this.httpsCode = code;
+    this.reason = reason;
+    this.userMessage = VISIT_SUMMARY_MESSAGES[reason] || VISIT_SUMMARY_MESSAGES.busy;
+  }
+}
+
+/**
+ * Convert any error from the visit summary pipeline into an HttpsError whose
+ * message is plain language. Details are logged server-side by the caller.
+ * @param {Error} error
+ * @param {string} unreadableReason reason to use when OpenAI rejects the input (400)
+ * @return {HttpsError}
+ */
+function toVisitSummaryHttpsError(error, unreadableReason = "unreadable_file") {
+  const make = (code, reason) => new HttpsError(code, VISIT_SUMMARY_MESSAGES[reason], {
+    reason,
+    userMessage: VISIT_SUMMARY_MESSAGES[reason],
+  });
+  if (error instanceof VisitSummaryUserError) {
+    return make(error.httpsCode, error.reason);
+  }
+  if (error instanceof HttpsError) {
+    return error;
+  }
+  const status = typeof error?.status === "number" ? error.status : null;
+  if (status === 400) {
+    // OpenAI could not use the document (corrupt PDF, unsupported content).
+    return make("invalid-argument", unreadableReason);
+  }
+  if (status === 429) {
+    return make("resource-exhausted", "busy");
+  }
+  const name = error?.name || "";
+  const message = (error?.message || "").toLowerCase();
+  if (name.includes("Timeout") || message.includes("timed out") || message.includes("timeout")) {
+    return make("deadline-exceeded", "busy");
+  }
+  return make("internal", "busy");
+}
+
+function getVisitSummaryReadingLevel(educationLevel) {
+  // Target ~5th grade for health literacy support (not diagnosis or care decisions)
+  if (!educationLevel) return "about 5th grade";
+  const level = educationLevel.toString();
+  if (level.includes("Graduate") || level.includes("Bachelor")) {
+    return "about 6th grade";
+  }
+  if (level.includes("High School") || level.includes("Some College")) {
+    return "about 5th–6th grade";
+  }
+  return "about 5th grade";
+}
+
+/** Count of non-whitespace characters (used to tell text PDFs from scans). */
+function countMeaningfulChars(text) {
+  if (!text || typeof text !== "string") return 0;
+  return text.replace(/\s+/g, "").length;
+}
+
+/**
+ * Stable fingerprint of what the user submitted, used to catch accidental
+ * double-submits (same date + same text or same file bytes).
+ * @param {string} kind "text" or "pdf"
+ * @param {string|Buffer} content
+ * @return {string} hex sha256
+ */
+function computeVisitSourceHash(kind, content) {
+  const hash = crypto.createHash("sha256");
+  hash.update(`${kind}:`);
+  if (Buffer.isBuffer(content)) {
+    hash.update(content);
+  } else {
+    hash.update(String(content || "").replace(/\s+/g, " ").trim());
+  }
+  return hash.digest("hex");
+}
+
+/** Deterministic doc id so concurrent double-submits collide on create(). */
+function visitSummaryDocId(calendarKey, sourceHash) {
+  return `${calendarKey}_${sourceHash.substring(0, 24)}`;
+}
+
+/** Extract text from a PDF buffer. Returns "" when the PDF has no text layer. */
+async function extractPdfText(pdfBuffer) {
+  // Require the library entry directly (pdf-parse's index.js has a debug
+  // branch that reads a test file when module.parent is missing).
+  const pdfParse = require("pdf-parse/lib/pdf-parse.js");
+  // pdf.js reads the underlying ArrayBuffer and ignores a Buffer's byteOffset,
+  // so a pooled Node Buffer parses as garbage ("bad XRef entry"). Give it a
+  // standalone copy. Fall back to the newer bundled pdf.js if the default fails.
+  for (const version of [undefined, "v2.0.550"]) {
+    try {
+      const data = new Uint8Array(pdfBuffer.length);
+      data.set(pdfBuffer);
+      const pdfData = await pdfParse(data, version ? {version} : undefined);
+      if (pdfData && typeof pdfData.text === "string") return pdfData.text;
+    } catch (e) {
+      console.warn(`⚠️ pdf-parse (${version || "default"}) could not read the PDF: ${e.message}`);
+    }
+  }
+  console.warn("⚠️ No text layer extracted from PDF, will use the vision model");
+  return "";
+}
+
+/**
+ * Build the system + user prompts for visit summary analysis.
+ * @return {{systemPrompt: string, userPrompt: string, readingLevel: string, trimester: string}}
+ */
+function buildVisitSummaryPrompts({documentText, educationLevel, userProfile}) {
+  // Extract user context with safe defaults
+  const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
+  const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
+  const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
+  const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
+  const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
+  const learningStyle = (userProfile?.learningStyle || "visual").toString();
+  const insuranceType = (userProfile?.insuranceType || "").toString();
+  const readingLevel = getVisitSummaryReadingLevel(educationLevel);
+
+  const systemPrompt = `You are a culturally affirming, trauma-informed health literacy educator for EmpowerHealth Watch (maternal health).
 
 Your role is strictly to help the user READ and UNDERSTAND paperwork or visit-related text in plain language at a ${readingLevel} reading level.
 
 You do NOT diagnose, treat, or interpret clinical findings as medical truth. You do not replace a clinician. Frame everything as understanding what the document or visit notes say, questions to ask the care team, and practical next steps, not as definitive medical advice.
 
-Accept and work from: after-visit summaries, discharge instructions, provider or nurse notes, printed visit recaps, and similar documents, even if the text is partial or informal.
+Accept and work from: after-visit summaries, discharge instructions, provider or nurse notes, printed visit recaps, and similar documents, even if the text is partial or informal. Documents may be scanned pages or phone photos of paperwork; read them carefully.
 
 Avoid casual terms like "momma".
 
 ${SECOND_PERSON_VOICE_RULE} This applies to every string value in the JSON (summary fields, todos, learning modules, notes, tips).
 
-Your entire reply must be one JSON object only: no apologies, no "It seems…", no markdown fences, no text before or after the JSON.`,
-          },
-          {
-            role: "user",
-            content: `From the following document or visit text, produce JSON that helps the user understand what they have in front of them.
+Your entire reply must be one JSON object only: no apologies, no "It seems…", no markdown fences, no text before or after the JSON. Only if the document has no readable content at all (blank, completely blurry, or not a document), reply with exactly {"unreadable": true}.`;
+
+  const userPrompt = `From the following document or visit text, produce JSON that helps the user understand what they have in front of them.
 
 Explain medical terms simply. Include "tap-to-explain" style entries in keyMedicalTerms (term + short explanation). Prefer short sentences and short paragraphs.
 
 Tailor tone to trimester (${trimester}), concerns (${JSON.stringify(concerns)}), birth preferences (${JSON.stringify(birthPlanPreferences)}).
 
 Document / visit text:
-${pdfText}
+${documentText}
 
 User Context:
 - Trimester: ${trimester}
@@ -1155,7 +1265,23 @@ Return a JSON object with the following structure:
     ...
   ],
   "learningModules": [
-    {"title": "Module title", "description": "Why this matters for you", "reason": "Based on what came up at your visit"},
+    {
+      "title": "Module title",
+      "description": "Why this matters for you",
+      "reason": "Based on what came up at your visit",
+      "content": {
+        "whatThisIs": "Simple explanation of what this is",
+        "whyItMatters": "Why this matters for your health - explain the 'why' behind the 'what' in detail",
+        "whatToExpect": "Step-by-step what to expect",
+        "whatYouCanAsk": ["Advocacy question 1", "Advocacy question 2", "Advocacy question 3"],
+        "risksOptionsAlternatives": "Balanced information about risks, options, and alternatives",
+        "whenToSeekHelp": "When to seek medical help",
+        "empowermentConnection": "How this connects to your empowerment",
+        "keyPoints": ["Key point 1", "Key point 2", "Key point 3"],
+        "yourRights": ["Your right 1", "Your right 2"],
+        "insuranceNotes": "Insurance-specific information if applicable, otherwise insurance-agnostic guidance"
+      }
+    },
     ...
   ],
   "redFlags": [
@@ -1189,536 +1315,7 @@ Each todo is a short plain-language next step written to her as "you": "title" i
 
 LEARNING MODULES: Create DETAILED, comprehensive learning modules (not high-level) for new diagnoses, tests/procedures discussed, medications, provider communication issues, contradictions/missing explanations.
 
-Each learning module MUST follow this structure and be DETAILED:
-1. **What This Is (Simple Explanation)** - Clear, plain-language explanation
-2. **Why It Matters for Your Health** - Explain the "why" behind the "what" - why this matters, why it's important, what happens if ignored. Be detailed and specific.
-3. **What to Expect** - Step-by-step, detailed guidance on what will happen
-4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts you can use (written in her own voice, e.g. "Can you explain why I need this?")
-5. **Risks, Options, and Alternatives** - Balanced, non-fearful information
-6. **When to Seek Medical Help** - Clear guidance on when to call provider
-7. **How This Connects to Your Empowerment** - How this topic relates to self-advocacy and empowerment
-8. **Key Points** - 3-5 key takeaways
-9. **Your Rights** - 2-3 specific rights related to this topic
-10. **Insurance Notes** - ${userProfile?.insuranceType ? `Tailor information for ${userProfile.insuranceType} insurance. Include coverage considerations, what's typically covered, and any cost considerations.` : "Provide insurance-agnostic guidance that applies regardless of insurance type."}
-
-TONE & VOICE REQUIREMENTS:
-- Warm, supportive, nonjudgmental language
-- Sound like: "Here's what this test means and why it matters. You deserve clear explanations and the chance to ask questions."
-- Trauma-informed (acknowledge possible fears, past negative experiences)
-- Emphasize: Your rights, Your choices, Your voice
-- Cultural responsiveness (acknowledge mistrust, bias, communication issues Black mothers may face)
-- Avoid: Fear-based language, provider-blaming, cultural stereotypes, overly technical explanations, long paragraphs
-- Use: Short paragraphs, bulleted lists, defined terms
-
-Brand Voice: "Your Health. Your Voice. Your Empowerment."
-
-Use trauma-informed, culturally affirming language throughout. Make all explanations accessible at ${readingLevel} reading level.`,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 4000,
-      });
-
-      if (!response.choices || response.choices.length === 0 || !response.choices[0].message.content) {
-    throw new Error("❌ OpenAI API returned an invalid response");
-      }
-
-      const responseContent = response.choices[0].message.content;
-      let parsedResponse;
-
-      try {
-        parsedResponse = parseJsonFromOpenAIContent(responseContent);
-      } catch (parseError) {
-        console.error("❌ JSON parse error:", parseError);
-        throw new Error("❌ Failed to parse AI response: " + parseError.message);
-      }
-
-      if (!parsedResponse.summary || typeof parsedResponse.summary !== "object" || Array.isArray(parsedResponse.summary)) {
-        throw new Error("AI JSON must include a \"summary\" object");
-      }
-
-      // Safety net: rewrite any third-person "the patient" phrasing in woman-facing
-      // fields (summary, todos/next steps, learning modules) to second person.
-      applySecondPersonToVisitAnalysis(parsedResponse);
-
-  // Same **calendar** date as the picker (YYYY-MM-DD from client). Store noon UTC so US TZs don't show prior day.
-      console.log(`🟢 [DEBUG] Helper: Starting duplicate check`);
-      const {y, m, d} = parseAppointmentCalendarParts(appointmentDate);
-      const incomingCalendarKey = calendarYmdKey(y, m, d);
-      const appointmentTimestamp = firestoreTimestampFromCalendarYmd(y, m, d);
-      const normalizedDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
-
-      console.log(`📅 Appointment calendar key (helper): ${incomingCalendarKey} → Firestore: ${appointmentTimestamp.toDate().toISOString()} (original: ${appointmentDate})`);
-      
-      // Check if summary already exists for this date using range query to catch timezone variations
-      const dayStart = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
-        normalizedDate.getUTCFullYear(),
-        normalizedDate.getUTCMonth(),
-        normalizedDate.getUTCDate(),
-        0, 0, 0, 0
-      )));
-      const dayEnd = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
-        normalizedDate.getUTCFullYear(),
-        normalizedDate.getUTCMonth(),
-        normalizedDate.getUTCDate(),
-        23, 59, 59, 999
-      )));
-      
-      console.log(`🟢 [DEBUG] Helper: Checking for existing summaries between ${dayStart.toDate().toISOString()} and ${dayEnd.toDate().toISOString()}`);
-      console.log(`🟢 [DEBUG] Helper: Query path: users/${userId}/visit_summaries`);
-      
-      // DEBUG: List ALL summaries for this user to see what exists
-      let allSummaries;
-      try {
-        allSummaries = await admin.firestore()
-          .collection("users")
-          .doc(userId)
-          .collection("visit_summaries")
-          .orderBy("createdAt", "desc")
-          .limit(10)
-          .get();
-      } catch (e) {
-        // If orderBy fails (no index), just get without ordering
-        console.log(`🟢 [DEBUG] Helper: orderBy failed, getting without order: ${e.message}`);
-        allSummaries = await admin.firestore()
-          .collection("users")
-          .doc(userId)
-          .collection("visit_summaries")
-          .limit(10)
-          .get();
-      }
-      console.log(`🟢 [DEBUG] Helper: Total summaries for user: ${allSummaries.size}`);
-      allSummaries.docs.forEach((doc, idx) => {
-        const data = doc.data();
-        // Safely extract appointmentDate - handle Timestamp, Date, or string
-        let appointmentDateStr = 'unknown';
-        if (data.appointmentDate) {
-          if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
-            appointmentDateStr = data.appointmentDate.toDate().toISOString();
-          } else if (data.appointmentDate instanceof Date) {
-            appointmentDateStr = data.appointmentDate.toISOString();
-          } else if (typeof data.appointmentDate === 'string') {
-            appointmentDateStr = data.appointmentDate;
-          } else {
-            appointmentDateStr = String(data.appointmentDate);
-          }
-        }
-        
-        let createdAtStr = 'unknown';
-        if (data.createdAt) {
-          if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
-            createdAtStr = data.createdAt.toDate().toISOString();
-          } else if (data.createdAt instanceof Date) {
-            createdAtStr = data.createdAt.toISOString();
-          } else if (typeof data.createdAt === 'string') {
-            createdAtStr = data.createdAt;
-          }
-        }
-        
-        console.log(`🟢 [DEBUG] Helper: Summary ${idx + 1}:`, {
-          id: doc.id,
-          appointmentDate: appointmentDateStr,
-          appointmentDateTimestamp: data.appointmentDate?.seconds,
-          createdAt: createdAtStr,
-        });
-      });
-      
-      // Get ALL summaries and filter client-side to handle both Timestamp and string formats
-      const allUserSummaries = await admin.firestore()
-        .collection("users")
-        .doc(userId)
-        .collection("visit_summaries")
-        .get();
-      
-      console.log(`🟢 [DEBUG] Helper: Total summaries in collection: ${allUserSummaries.size}`);
-      
-      const matchingSummaries = allUserSummaries.docs.filter((doc) => {
-        const existingDate = doc.data().appointmentDate;
-        if (!existingDate) return false;
-        return appointmentCalendarKeyFromValue(existingDate) === incomingCalendarKey;
-      });
-
-      console.log(`🟢 [DEBUG] Helper: Client-side filter found: ${matchingSummaries.length} matching summaries`);
-      
-      let existingSummaries = { empty: matchingSummaries.length === 0, docs: matchingSummaries, size: matchingSummaries.length };
-      
-      console.log(`🟢 [DEBUG] Helper: Existing summaries found: ${existingSummaries.size}`);
-      if (existingSummaries.size > 0) {
-        existingSummaries.docs.forEach((doc, idx) => {
-          const data = doc.data();
-          // Safely extract appointmentDate - handle Timestamp, Date, or string
-          let appointmentDateStr = 'unknown';
-          if (data.appointmentDate) {
-            if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
-              appointmentDateStr = data.appointmentDate.toDate().toISOString();
-            } else if (data.appointmentDate instanceof Date) {
-              appointmentDateStr = data.appointmentDate.toISOString();
-            } else if (typeof data.appointmentDate === 'string') {
-              appointmentDateStr = data.appointmentDate;
-            } else {
-              appointmentDateStr = String(data.appointmentDate);
-            }
-          }
-          
-          let createdAtStr = 'unknown';
-          if (data.createdAt) {
-            if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
-              createdAtStr = data.createdAt.toDate().toISOString();
-            } else if (data.createdAt instanceof Date) {
-              createdAtStr = data.createdAt.toISOString();
-            } else if (typeof data.createdAt === 'string') {
-              createdAtStr = data.createdAt;
-            }
-          }
-          
-          console.log(`🟢 [DEBUG] Helper: Existing summary ${idx + 1}:`, {
-            id: doc.id,
-            appointmentDate: appointmentDateStr,
-            createdAt: createdAtStr,
-            hasSummary: !!data.summary,
-          });
-        });
-      }
-      
-      if (!existingSummaries.empty) {
-        console.log(`⚠️ Summary already exists for appointment date ${normalizedDate.toISOString()}, skipping duplicate creation`);
-        console.log(`🟢 [DEBUG] Helper: Returning existing summary ID: ${existingSummaries.docs[0].id}`);
-        return {
-          summaryId: existingSummaries.docs[0].id,
-          summary: formatSummaryForDisplay(
-            parsedResponse.summary,
-            parsedResponse.learningModules || []
-          ),
-          todos: parsedResponse.todos || [],
-          learningModules: parsedResponse.learningModules || [],
-          redFlags: parsedResponse.redFlags || [],
-        };
-      }
-      
-      console.log(`🟢 [DEBUG] Helper: No existing summary found, will create new one`);
-
-  // Save to Firestore
-      const formattedSummary = formatSummaryForDisplay(
-        parsedResponse.summary,
-        parsedResponse.learningModules || []
-      );
-      if (typeof formattedSummary !== "string" || !formattedSummary.trim()) {
-        throw new Error("Could not build visit summary text from AI output");
-      }
-
-      console.log(`🟢 [DEBUG] Helper: Creating new summary document`);
-      const summaryRef = await admin.firestore()
-          .collection("users")
-    .doc(userId)
-          .collection("visit_summaries")
-          .add({
-        appointmentDate: appointmentTimestamp,
-      originalText: pdfText.substring(0, 10000),
-        summary: formattedSummary,
-        summaryData: parsedResponse.summary,
-        todos: parsedResponse.todos || [],
-        learningModules: parsedResponse.learningModules || [],
-        redFlags: parsedResponse.redFlags || [],
-        readingLevel: readingLevel,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      console.log(`🟢 [DEBUG] Helper: Created new summary with ID: ${summaryRef.id}`);
-      console.log(`🟢 [DEBUG] Helper: New summary appointmentDate: ${appointmentTimestamp.toDate().toISOString()}`);
-
-  // Create todos
-      if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
-        const todosBatch = admin.firestore().batch();
-        parsedResponse.todos.forEach((todo) => {
-      if (!todo || !todo.title) return;
-      const todoRef = admin.firestore().collection("learning_tasks").doc();
-      todosBatch.set(todoRef, {
-        userId: userId,
-        title: todo.title.toString(),
-        description: (todo.description || "").toString(),
-        category: (todo.category || "followup").toString(),
-        visitSummaryId: summaryRef.id,
-        isGenerated: true,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        completed: false,
-      });
-    });
-    await todosBatch.commit();
-  }
-
-  // Create learning modules
-  if (parsedResponse.learningModules && Array.isArray(parsedResponse.learningModules) && parsedResponse.learningModules.length > 0) {
-    const modulesBatch = admin.firestore().batch();
-    parsedResponse.learningModules.forEach((module) => {
-      if (!module || !module.title) return;
-      const moduleRef = admin.firestore().collection("learning_tasks").doc();
-        modulesBatch.set(moduleRef, {
-          userId: userId,
-          title: module.title.toString(),
-          description: (module.description || module.reason || "").toString(),
-          content: module.content || null, // Store detailed content structure
-          trimester: trimester,
-          isGenerated: true,
-          visitSummaryId: summaryRef.id,
-          moduleType: "visit_based",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-    });
-    await modulesBatch.commit();
-  }
-
-  console.log(`🟢 [DEBUG] Helper: Returning from analyzeVisitSummaryPDF helper function`);
-  return {
-    summaryId: summaryRef.id,
-    summary: formattedSummary,
-    todos: parsedResponse.todos || [],
-    learningModules: parsedResponse.learningModules || [],
-    redFlags: parsedResponse.redFlags || [],
-  };
-}
-
-// 9. Analyze PDF directly with OpenAI (NO text extraction)
-// Analyze Visit Summary PDF - Recreated to match working function structure exactly
-exports.analyzeVisitSummaryPDF = onCall(
-  {secrets: [openaiApiKey]},
-  async (request) => {
-    const functionCallId = `CF-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    console.log(`🔵 [DEBUG] ========================================`);
-    console.log(`🔵 [DEBUG] analyzeVisitSummaryPDF Cloud Function called`);
-    console.log(`🔵 [DEBUG] Function Call ID: ${functionCallId}`);
-    console.log(`🔵 [DEBUG] User ID: ${request.auth?.uid || 'NOT AUTHENTICATED'}`);
-    console.log(`🔵 [DEBUG] Timestamp: ${new Date().toISOString()}`);
-    
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "🔒 User must be authenticated. Please log in.");
-    }
-
-    const data = request.data;
-    const {
-      storagePath,
-      downloadUrl,
-      appointmentDate,
-      educationLevel,
-      userProfile,
-    } = data;
-    
-    console.log(`🔵 [DEBUG] Input data:`, {
-      storagePath: storagePath?.substring(0, 50) + '...',
-      downloadUrl: downloadUrl ? 'present' : 'missing',
-      appointmentDate: appointmentDate,
-      appointmentDateType: typeof appointmentDate,
-      hasEducationLevel: !!educationLevel,
-      hasUserProfile: !!userProfile,
-    });
-    
-    // Check for processing lock to prevent concurrent executions
-    const lockDocRef = admin.firestore()
-      .collection("users")
-      .doc(request.auth.uid)
-      .collection("processing_locks")
-      .doc(`visit_summary_${storagePath?.replace(/\//g, '_') || 'unknown'}`);
-    
-    const lockDoc = await lockDocRef.get();
-    if (lockDoc.exists) {
-      const lockData = lockDoc.data();
-      const lockTime = lockData.timestamp?.toDate();
-      const now = new Date();
-      const lockAge = now - lockTime;
-      
-      // If lock is less than 5 minutes old, another process is likely running
-      if (lockAge < 5 * 60 * 1000) {
-        console.log(`🔵 [DEBUG] Processing lock found - another process may be running`);
-        console.log(`🔵 [DEBUG] Lock age: ${lockAge}ms, Lock function: ${lockData.functionCallId}`);
-        // Don't throw error, just log - we'll check for duplicates later
-      }
-    }
-    
-    // Create processing lock
-    await lockDocRef.set({
-      functionCallId: functionCallId,
-      storagePath: storagePath,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    });
-    console.log(`🔵 [DEBUG] Created processing lock: ${functionCallId}`);
-
-    if (!storagePath && !downloadUrl) {
-      throw new HttpsError("invalid-argument", "📄 PDF file location is required (storagePath or downloadUrl)");
-    }
-
-    if (!appointmentDate) {
-      throw new HttpsError("invalid-argument", "📅 Appointment date is required");
-    }
-
-    // Extract user context
-    const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
-    const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
-    const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
-    const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
-    const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
-    const learningStyle = (userProfile?.learningStyle || "visual").toString();
-    const insuranceType = (userProfile?.insuranceType || "").toString();
-
-    // Determine reading level
-    const getReadingLevel = (educationLevel) => {
-      if (!educationLevel) return "6th grade";
-      if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
-        return "8th grade";
-      }
-      if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
-        return "6th-7th grade";
-      }
-      return "5th-6th grade";
-    };
-
-    const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "6th grade";
-
-    try {
-      // Download PDF from Firebase Storage
-      console.log(`📥 Downloading PDF from storage: ${storagePath}`);
-      const bucket = admin.storage().bucket();
-      const file = bucket.file(storagePath);
-      const [exists] = await file.exists();
-      if (!exists) {
-        throw new HttpsError("not-found", `📄 PDF file not found at: ${storagePath}`);
-      }
-      const [pdfBuffer] = await file.download();
-      console.log(`✅ Downloaded PDF: ${pdfBuffer.length} bytes`);
-
-      // Upload PDF to OpenAI
-      console.log(`📤 Uploading PDF to OpenAI...`);
-      const openai = getOpenAIClient(openaiApiKey.value());
-      
-      // Create File object - Node.js 20 has File API available
-      // The OpenAI SDK expects a File object with name, type, and stream/buffer
-      const pdfFile = new File([pdfBuffer], "visit_summary.pdf", {
-        type: "application/pdf",
-      });
-      console.log(`📄 Created File: ${pdfFile.name}, ${pdfFile.size} bytes, type: ${pdfFile.type}`);
-      
-      // Upload PDF to OpenAI for analysis
-      // Note: OpenAI SDK accepts File objects in Node.js 20+
-      const fileUpload = await openai.files.create({
-        file: pdfFile,
-        purpose: "assistants",
-      });
-      console.log(`✅ File uploaded to OpenAI: ${fileUpload.id}`);
-
-      // Wait for file to be processed
-      console.log(`⏳ Waiting for file to be processed...`);
-      let fileStatus = await openai.files.retrieve(fileUpload.id);
-      let attempts = 0;
-      while (fileStatus.status !== "processed" && attempts < 60) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        fileStatus = await openai.files.retrieve(fileUpload.id);
-        attempts++;
-        if (fileStatus.status === "error") {
-          throw new HttpsError("internal", "❌ OpenAI file processing failed. Please try again.");
-        }
-        if (attempts % 10 === 0) {
-          console.log(`⏳ Still processing... (attempt ${attempts}/60)`);
-        }
-      }
-      if (fileStatus.status !== "processed") {
-        throw new HttpsError("deadline-exceeded", "⏱️ File processing timed out. Please try again.");
-      }
-      console.log(`✅ File processed successfully`);
-
-      // Use Assistants API - attach file to message correctly
-      console.log(`🤖 Creating OpenAI assistant...`);
-      const assistant = await openai.beta.assistants.create({
-        name: "Visit Summary Analyzer",
-        instructions: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. Analyze the uploaded PDF visit summary and generate a comprehensive, plain-language summary at a ${readingLevel} reading level using professional clinical language. Avoid casual terms like "momma".
-
-${SECOND_PERSON_VOICE_RULE} This applies to every string value in the JSON you return.`,
-        model: "gpt-4o", // Use stable model name
-        tools: [{ type: "code_interpreter" }],
-      });
-      console.log(`✅ Assistant created: ${assistant.id}`);
-
-      const thread = await openai.beta.threads.create();
-      console.log(`✅ Thread created: ${thread.id}`);
-
-      // Add message with file attachment
-      console.log(`📝 Adding message with file attachment...`);
-      await openai.beta.threads.messages.create(thread.id, {
-        role: "user",
-        content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary PDF. Explain medical terms clearly, outline next steps, offer advocacy questions she can ask, and provide supportive, trauma-informed language. Tailor the content to her trimester (${trimester}), stated concerns (${JSON.stringify(concerns)}), and birth preferences (${JSON.stringify(birthPlanPreferences)}). Include a short explanation, what to expect, questions to ask, and when to seek help. Write every string directly to her as "you/your" (e.g. "Your next annual exam is in one year", "You were referred to..."), never "the patient".
-
-User Context:
-- Trimester: ${trimester}
-- Stated Concerns: ${concerns.join(", ") || "None specified"} (pain, safety, anxiety, postpartum issues)
-- Birth Plan Preferences: ${birthPlanPreferences.join(", ") || "None specified"}
-- Cultural/Trauma-Informed Preferences: ${culturalPreferences.concat(traumaInformedPreferences).join(", ") || "None specified"}
-- Learning Style: ${learningStyle} (audio, visual, short summaries)
-- Insurance Type: ${insuranceType || "Not specified - use insurance-agnostic guidance"}
-
-Return a JSON object with this exact structure:
-{
-  "summary": {
-    "howBabyIsDoing": "Brief summary of your baby's health, measurements, heartbeat, movements, development, written to you (e.g. \"Your baby's heartbeat was 145 beats per minute, which is normal.\")",
-    "howYouAreDoing": "Brief summary of your health, vitals, symptoms, and concerns addressed, written to you (e.g. \"Your blood pressure was 118/76, which is normal.\")",
-    "keyMedicalTerms": [{"term": "term name", "explanation": "plain language explanation"}],
-    "nextSteps": "Plain language breakdown of your next steps, written to you (e.g. \"Your next annual exam is in one year.\")",
-    "questionsToAsk": ["Question 1", "Question 2"],
-    "visitNotes": ["Affirming reminder from this visit", "Another supportive note for the Notes card"],
-    "empowermentTips": ["Advocacy tip 1", "Advocacy tip 2"],
-    "newDiagnoses": [{"diagnosis": "name", "explanation": "plain language explanation"}],
-    "testsProcedures": [{"name": "test/procedure name", "explanation": "what to expect", "whyNeeded": "reason"}],
-    "medications": [{"name": "medication name", "purpose": "why prescribed", "instructions": "how to take"}],
-    "followUpInstructions": "Follow-up care instructions written to you (e.g. \"You were referred to a specialist. Your next annual exam is in one year.\")",
-    "providerCommunicationStyle": "Description of communication style if flagged (rushed, unclear, dismissive, etc.)",
-    "emotionalMarkers": ["confused", "scared", "unsure", etc. if detected],
-    "advocacyMoments": ["Your provider mentioned XYZ without explaining it", etc.],
-    "contradictions": ["Any contradictions or missing explanations"]
-  },
-  "todos": [
-    {"title": "Schedule your follow-up ultrasound", "description": "Your provider wants to check your baby's growth in 4 weeks. Call the office to book it.", "category": "advocacy|followup|medication|test"}
-  ],
-  "learningModules": [
-    {
-      "title": "Module title",
-      "description": "Why this matters for you",
-      "reason": "Based on what came up at your visit",
-      "content": {
-        "whatThisIs": "Simple explanation of what this is",
-        "whyItMatters": "Why this matters for your health - explain the 'why' behind the 'what' in detail",
-        "whatToExpect": "Step-by-step what to expect",
-        "whatYouCanAsk": ["Advocacy question 1", "Advocacy question 2", "Advocacy question 3"],
-        "risksOptionsAlternatives": "Balanced information about risks, options, and alternatives",
-        "whenToSeekHelp": "When to seek medical help",
-        "empowermentConnection": "How this connects to your empowerment",
-        "keyPoints": ["Key point 1", "Key point 2", "Key point 3"],
-        "yourRights": ["Your right 1", "Your right 2"],
-        "insuranceNotes": "Insurance-specific information if applicable, otherwise insurance-agnostic guidance"
-      }
-    }
-  ],
-  "redFlags": [
-    {"type": "mistreatment|unclear|dismissive", "description": "What was flagged"}
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-1. Explain key medical terms mentioned - add to keyMedicalTerms array
-2. Break down next steps in plain language - add to nextSteps
-3. **questionsToAsk**: At least 4 specific questions for the next visit (advocacy-focused); shown in the visit detail "Questions to ask" card in the app.
-4. **visitNotes**: 2–4 short, affirming strings for the visit detail "Notes" card: warm reminders of what mattered, strengths, or gentle encouragement (not the same as empowermentTips; visitNotes are reflective, tips are action-oriented).
-5. Provide empowerment + advocacy tips based on that specific encounter - add to empowermentTips AND create todos
-6. Reinforce understanding of any new diagnoses, tests, or procedures - add to newDiagnoses/testsProcedures AND create learning modules
-7. Flag potential mistreatment or unclear communication - add to redFlags
-8. Tests or procedures recommended - add to testsProcedures AND create learning modules
-9. Medications discussed - add to medications AND create learning modules
-10. Follow-up instructions - turn into todos
-11. Provider communication style (e.g., rushed, unclear, dismissive, if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
-12. Emotional markers (mom tapped "confused," "scared," or "unsure") - add to emotionalMarkers
-13. Advocacy moments (e.g., "Your provider mentioned XYZ without explaining it") - add to advocacyMoments
-14. Any contradictions or missing explanations - add to contradictions AND create learning modules to bridge gap
-
-TODOS: Create todos for empowerment/advocacy tips (category: "advocacy"), follow-up instructions (category: "followup"), medications to take (category: "medication"), tests to schedule (category: "test").
-Each todo is a short plain-language next step written to her as "you": "title" is a short action that starts with a verb (8 words or fewer); "description" is a 1-2 sentence summary under 30 words saying what to do and why (e.g. "You were referred to a heart specialist. Call to book a visit in the next 2 weeks."). Keep extra clinical detail out of todos; it belongs in the summary or learning modules.
-
-LEARNING MODULES: Create DETAILED, comprehensive learning modules (not high-level) for new diagnoses, tests/procedures discussed, medications, provider communication issues, contradictions/missing explanations.
-
-Each learning module MUST follow this structure and be DETAILED:
+Each learning module MUST follow this structure (in its "content" object) and be DETAILED:
 1. **What This Is (Simple Explanation)** - Clear, plain-language explanation
 2. **Why It Matters for Your Health** - Explain the "why" behind the "what" - why this matters, why it's important, what happens if ignored. Be detailed and specific.
 3. **What to Expect** - Step-by-step, detailed guidance on what will happen
@@ -1741,402 +1338,444 @@ TONE & VOICE REQUIREMENTS:
 
 Brand Voice: "Your Health. Your Voice. Your Empowerment."
 
-Use trauma-informed, culturally affirming language throughout. Make all explanations accessible at ${readingLevel} reading level. Return ONLY valid JSON.`,
-        attachments: [
-          {
-            file_id: fileUpload.id,
-            tools: [{ type: "code_interpreter" }],
+Use trauma-informed, culturally affirming language throughout. Make all explanations accessible at ${readingLevel} reading level. Return ONLY valid JSON.`;
+
+  return {systemPrompt, userPrompt, readingLevel, trimester};
+}
+
+/** Placeholder for the "Document / visit text" slot when the PDF is attached as a file. */
+const VISIT_SUMMARY_ATTACHED_PDF_TEXT =
+  "(The document is attached to this message as a PDF file. It may be a scanned page or a phone photo of paperwork. Read every page carefully and work only from what it says.)";
+
+/**
+ * Chat Completions user content for the vision path: the PDF as a file
+ * content part followed by the instructions. Matches OpenAI's documented
+ * file input format: {type: "file", file: {filename, file_data: "data:application/pdf;base64,..."}}.
+ */
+function buildVisitSummaryPdfUserContent({pdfBuffer, filename, userPrompt}) {
+  return [
+    {
+      type: "file",
+      file: {
+        filename: filename || "visit_summary.pdf",
+        file_data: `data:application/pdf;base64,${pdfBuffer.toString("base64")}`,
+      },
+    },
+    {type: "text", text: userPrompt},
+  ];
+}
+
+/** Request body for the visit summary Chat Completions call. */
+function buildVisitSummaryChatRequest({systemPrompt, userContent}) {
+  return {
+    model: VISIT_SUMMARY_MODEL,
+    messages: [
+      {role: "system", content: systemPrompt},
+      {role: "user", content: userContent},
+    ],
+    temperature: 0.7,
+    max_tokens: 8000,
+    response_format: {type: "json_object"},
+  };
+}
+
+/**
+ * Parse and validate the model's JSON reply, then apply the second-person
+ * safety net. Throws VisitSummaryUserError when the model says the document
+ * is unreadable.
+ */
+function parseVisitSummaryResponse(responseContent, unreadableReason) {
+  let parsedResponse;
+  try {
+    parsedResponse = parseJsonFromOpenAIContent(responseContent);
+  } catch (parseError) {
+    console.error("❌ JSON parse error:", parseError);
+    console.error("Response content (start):", String(responseContent).substring(0, 500));
+    throw new Error("Failed to parse AI response: " + parseError.message);
+  }
+
+  if (parsedResponse && parsedResponse.unreadable === true && !parsedResponse.summary) {
+    throw new VisitSummaryUserError("invalid-argument", unreadableReason, "Model reported the document as unreadable");
+  }
+
+  if (!parsedResponse.summary || typeof parsedResponse.summary !== "object" || Array.isArray(parsedResponse.summary)) {
+    throw new Error("AI JSON must include a \"summary\" object");
+  }
+
+  // Safety net: rewrite any third-person "the patient" phrasing in woman-facing
+  // fields (summary, todos/next steps, learning modules) to second person.
+  applySecondPersonToVisitAnalysis(parsedResponse);
+  return parsedResponse;
+}
+
+async function requestVisitSummaryAnalysis({systemPrompt, userContent, unreadableReason}) {
+  console.log(`🤖 Calling OpenAI (${VISIT_SUMMARY_MODEL}) for visit summary analysis (${Array.isArray(userContent) ? "PDF file input" : "text input"})...`);
+  const openai = getOpenAIClient(openaiApiKey.value());
+  const response = await openai.chat.completions.create(
+    buildVisitSummaryChatRequest({systemPrompt, userContent}),
+    {timeout: VISIT_SUMMARY_OPENAI_TIMEOUT_MS, maxRetries: 1},
+  );
+
+  const choice = response && Array.isArray(response.choices) ? response.choices[0] : null;
+  const responseContent = choice && choice.message ? choice.message.content : null;
+  if (!responseContent) {
+    console.error("❌ OpenAI returned no content", {
+      finishReason: choice?.finish_reason,
+      refusal: choice?.message?.refusal ? "present" : "none",
+    });
+    throw new Error("OpenAI API returned an empty response");
+  }
+  if (choice.finish_reason === "length") {
+    console.warn("⚠️ OpenAI response hit max_tokens; JSON may be truncated");
+  }
+  console.log(`✅ Received response (${responseContent.length} chars)`);
+  return parseVisitSummaryResponse(responseContent, unreadableReason);
+}
+
+/** Same response shape as a fresh analysis, built from a stored summary doc. */
+function visitSummaryResultFromDoc(snap) {
+  const data = snap.data() || {};
+  const learningModules = Array.isArray(data.learningModules) ? data.learningModules : [];
+  let summary = typeof data.summary === "string" ? data.summary : "";
+  if (!summary.trim()) {
+    summary = formatSummaryForDisplay(data.summaryData || data.summary, learningModules);
+  }
+  return {
+    summaryId: snap.id,
+    summary,
+    todos: Array.isArray(data.todos) ? data.todos : [],
+    learningModules,
+    redFlags: Array.isArray(data.redFlags) ? data.redFlags : [],
+  };
+}
+
+function visitSummariesCollection(userId) {
+  return admin.firestore().collection("users").doc(userId).collection("visit_summaries");
+}
+
+/**
+ * Accidental double-submit guard: the same text or file for the same
+ * appointment date already has a summary. A different note for a date that
+ * already has a summary is NOT a duplicate and gets its own summary.
+ * @return {Promise<object|null>} full result with duplicate: true, or null
+ */
+async function findDuplicateVisitSummary({userId, appointmentDate, sourceHash}) {
+  if (!sourceHash) return null;
+  const {y, m, d} = parseAppointmentCalendarParts(appointmentDate);
+  const docId = visitSummaryDocId(calendarYmdKey(y, m, d), sourceHash);
+  const snap = await visitSummariesCollection(userId).doc(docId).get();
+  if (!snap.exists) return null;
+  const result = visitSummaryResultFromDoc(snap);
+  if (!result.summary || !result.summary.trim()) return null;
+  console.log(`♻️ Same source already summarized for this date, returning existing summary ${snap.id}`);
+  return {...result, duplicate: true};
+}
+
+/**
+ * Save a parsed analysis: visit_summaries doc + learning_tasks for todos and
+ * learning modules. Uses a deterministic doc id (date + source hash) with
+ * create() so a concurrent double-submit returns the first summary instead of
+ * writing a second one.
+ */
+async function saveVisitSummaryAnalysis({
+  userId,
+  appointmentDate,
+  parsedResponse,
+  readingLevel,
+  trimester,
+  sourceHash,
+  docFields = {},
+}) {
+  // Same **calendar** date as the picker (YYYY-MM-DD from client). Store noon UTC so US TZs don't show prior day.
+  const {y, m, d} = parseAppointmentCalendarParts(appointmentDate);
+  const calendarKey = calendarYmdKey(y, m, d);
+  const appointmentTimestamp = firestoreTimestampFromCalendarYmd(y, m, d);
+  console.log(`📅 Appointment calendar key: ${calendarKey} → Firestore: ${appointmentTimestamp.toDate().toISOString()} (original: ${appointmentDate})`);
+
+  const formattedSummary = formatSummaryForDisplay(
+    parsedResponse.summary,
+    parsedResponse.learningModules || []
+  );
+  if (typeof formattedSummary !== "string" || !formattedSummary.trim()) {
+    throw new Error("Could not build visit summary text from AI output");
+  }
+
+  const summaries = visitSummariesCollection(userId);
+  const summaryRef = sourceHash ?
+    summaries.doc(visitSummaryDocId(calendarKey, sourceHash)) :
+    summaries.doc();
+
+  try {
+    await summaryRef.create({
+      ...docFields,
+      appointmentDate: appointmentTimestamp,
+      summary: formattedSummary,
+      summaryData: parsedResponse.summary,
+      todos: parsedResponse.todos || [],
+      learningModules: parsedResponse.learningModules || [],
+      redFlags: parsedResponse.redFlags || [],
+      readingLevel: readingLevel,
+      sourceHash: sourceHash || null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    const alreadyExists = e && (e.code === 6 || e.code === "already-exists" ||
+      /already exists/i.test(e.message || ""));
+    if (alreadyExists) {
+      const existing = await summaryRef.get();
+      if (existing.exists) {
+        console.log(`♻️ Concurrent submit already created summary ${summaryRef.id}, returning it`);
+        return {...visitSummaryResultFromDoc(existing), duplicate: true};
+      }
+    }
+    throw e;
+  }
+  console.log(`✅ Created visit summary ${summaryRef.id}`);
+
+  // Create todos
+  if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
+    const todosBatch = admin.firestore().batch();
+    parsedResponse.todos.forEach((todo) => {
+      if (!todo || !todo.title) return;
+      const todoRef = admin.firestore().collection("learning_tasks").doc();
+      todosBatch.set(todoRef, {
+        userId: userId,
+        title: todo.title.toString(),
+        description: (todo.description || "").toString(),
+        category: (todo.category || "followup").toString(),
+        visitSummaryId: summaryRef.id,
+        isGenerated: true,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        completed: false,
+      });
+    });
+    await todosBatch.commit();
+  }
+
+  // Create learning modules
+  if (parsedResponse.learningModules && Array.isArray(parsedResponse.learningModules) && parsedResponse.learningModules.length > 0) {
+    const modulesBatch = admin.firestore().batch();
+    parsedResponse.learningModules.forEach((module) => {
+      if (!module || !module.title) return;
+      const moduleRef = admin.firestore().collection("learning_tasks").doc();
+      modulesBatch.set(moduleRef, {
+        userId: userId,
+        title: module.title.toString(),
+        description: (module.description || module.reason || "").toString(),
+        content: module.content || null, // Store detailed content structure
+        trimester: trimester,
+        isGenerated: true,
+        visitSummaryId: summaryRef.id,
+        moduleType: "visit_based",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+    await modulesBatch.commit();
+  }
+
+  return {
+    summaryId: summaryRef.id,
+    summary: formattedSummary,
+    todos: parsedResponse.todos || [],
+    learningModules: parsedResponse.learningModules || [],
+    redFlags: parsedResponse.redFlags || [],
+    duplicate: false,
+  };
+}
+
+/**
+ * Analyze a visit document and save it. Pass either `documentText` (typed
+ * notes or text extracted from a PDF) or `pdfFile` ({buffer, filename}) for a
+ * scanned PDF / photo, which goes to the vision model as a file.
+ * @return {Promise<{summaryId, summary, todos, learningModules, redFlags, duplicate}>}
+ */
+async function analyzeAndSaveVisitSummary({
+  userId,
+  appointmentDate,
+  educationLevel,
+  userProfile,
+  documentText,
+  pdfFile,
+  sourceHash,
+  unreadableReason = "unreadable_text",
+  docFields = {},
+}) {
+  const duplicate = await findDuplicateVisitSummary({userId, appointmentDate, sourceHash});
+  if (duplicate) return duplicate;
+
+  let prompts;
+  let userContent;
+  if (pdfFile) {
+    prompts = buildVisitSummaryPrompts({
+      documentText: VISIT_SUMMARY_ATTACHED_PDF_TEXT,
+      educationLevel,
+      userProfile,
+    });
+    userContent = buildVisitSummaryPdfUserContent({
+      pdfBuffer: pdfFile.buffer,
+      filename: pdfFile.filename,
+      userPrompt: prompts.userPrompt,
+    });
+  } else {
+    const text = String(documentText || "").substring(0, VISIT_SUMMARY_MAX_TEXT_CHARS);
+    prompts = buildVisitSummaryPrompts({documentText: text, educationLevel, userProfile});
+    userContent = prompts.userPrompt;
+  }
+
+  const parsedResponse = await requestVisitSummaryAnalysis({
+    systemPrompt: prompts.systemPrompt,
+    userContent,
+    unreadableReason,
+  });
+
+  return saveVisitSummaryAnalysis({
+    userId,
+    appointmentDate,
+    parsedResponse,
+    readingLevel: prompts.readingLevel,
+    trimester: prompts.trimester,
+    sourceHash,
+    docFields,
+  });
+}
+
+// Helper used by analyzeVisitSummaryText, summarizeAfterVisitPDF and the
+// (disabled) storage trigger: analyze plain text and save the summary.
+async function analyzeVisitSummaryPDF({pdfText, appointmentDate, educationLevel, userProfile, userId}) {
+  console.log(`🟢 analyzeVisitSummaryPDF helper called`, {
+    userId: userId,
+    appointmentDate: appointmentDate,
+    pdfTextLength: pdfText?.length || 0,
+    hasEducationLevel: !!educationLevel,
+    hasUserProfile: !!userProfile,
+  });
+  return analyzeAndSaveVisitSummary({
+    userId,
+    appointmentDate,
+    educationLevel,
+    userProfile,
+    documentText: pdfText,
+    sourceHash: computeVisitSourceHash("text", pdfText),
+    unreadableReason: "unreadable_text",
+    docFields: {
+      originalText: String(pdfText || "").substring(0, 10000),
+      sourceType: "text",
+    },
+  });
+}
+
+// 9. Analyze an uploaded visit summary PDF (text PDF, scan, or photo converted to PDF)
+exports.analyzeVisitSummaryPDF = onCall(
+  {secrets: [openaiApiKey], timeoutSeconds: 300, memory: "1GiB"},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Please sign in again, then try once more.");
+    }
+    const userId = request.auth.uid;
+
+    const {
+      storagePath,
+      downloadUrl,
+      appointmentDate,
+      educationLevel,
+      userProfile,
+    } = request.data || {};
+
+    console.log(`🔵 analyzeVisitSummaryPDF called`, {
+      userId,
+      storagePath: storagePath ? `${String(storagePath).substring(0, 60)}...` : "missing",
+      downloadUrl: downloadUrl ? "present" : "missing",
+      appointmentDate,
+      hasEducationLevel: !!educationLevel,
+      hasUserProfile: !!userProfile,
+    });
+
+    if (!storagePath || typeof storagePath !== "string") {
+      throw new HttpsError("invalid-argument", VISIT_SUMMARY_MESSAGES.file_not_found, {
+        reason: "file_not_found",
+        userMessage: VISIT_SUMMARY_MESSAGES.file_not_found,
+      });
+    }
+    // Only read files from the caller's own upload folder.
+    if (!storagePath.startsWith(`visit_summaries/${userId}/`) || storagePath.includes("..")) {
+      throw new HttpsError("permission-denied", "You can only summarize files you uploaded.");
+    }
+    if (!appointmentDate) {
+      throw new HttpsError("invalid-argument", "Please choose your appointment date first.");
+    }
+
+    try {
+      // Download PDF from Firebase Storage
+      console.log(`📥 Downloading PDF from storage: ${storagePath}`);
+      const file = admin.storage().bucket().file(storagePath);
+      const [exists] = await file.exists();
+      if (!exists) {
+        throw new VisitSummaryUserError("not-found", "file_not_found", `PDF not found at ${storagePath}`);
+      }
+      const [pdfBuffer] = await file.download();
+      console.log(`✅ Downloaded PDF: ${pdfBuffer.length} bytes`);
+      if (pdfBuffer.length > VISIT_SUMMARY_MAX_PDF_BYTES) {
+        throw new VisitSummaryUserError("invalid-argument", "too_large", `PDF is ${pdfBuffer.length} bytes`);
+      }
+
+      const sourceHash = computeVisitSourceHash("pdf", pdfBuffer);
+      const docFields = {
+        storagePath: storagePath,
+        downloadUrl: downloadUrl || null,
+      };
+
+      // Cheap check before any parsing or AI call: same file, same date.
+      const duplicate = await findDuplicateVisitSummary({userId, appointmentDate, sourceHash});
+      let result = duplicate;
+      if (!result) {
+        const extractedText = await extractPdfText(pdfBuffer);
+        const meaningfulChars = countMeaningfulChars(extractedText);
+        const useText = meaningfulChars >= VISIT_SUMMARY_MIN_TEXT_CHARS;
+        console.log(`📄 Extracted ${meaningfulChars} non-whitespace chars from PDF → ${useText ? "text analysis" : "vision (PDF file input)"}`);
+
+        result = await analyzeAndSaveVisitSummary({
+          userId,
+          appointmentDate,
+          educationLevel,
+          userProfile,
+          // Redact obvious identifiers before sending text, as the typed-notes path does.
+          documentText: useText ? redactPHI(extractedText) : undefined,
+          pdfFile: useText ? undefined : {buffer: pdfBuffer, filename: "visit_summary.pdf"},
+          sourceHash,
+          unreadableReason: "unreadable_file",
+          docFields: {
+            ...docFields,
+            sourceType: useText ? "pdf_text" : "pdf_vision",
           },
-        ],
-      });
-
-      console.log(`🚀 Starting analysis run...`);
-      const run = await openai.beta.threads.runs.create(thread.id, {
-        assistant_id: assistant.id,
-      });
-
-      let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
-      let runAttempts = 0;
-      while (runStatus.status !== "completed" && runAttempts < 120) {
-        if (runStatus.status === "failed") {
-          const errorMsg = runStatus.last_error?.message || "Unknown error";
-          console.error(`❌ Run failed: ${errorMsg}`);
-          throw new HttpsError("internal", `🤖 OpenAI analysis failed: ${errorMsg}`);
-        }
-        if (runStatus.status === "cancelled" || runStatus.status === "expired") {
-          throw new HttpsError("deadline-exceeded", "⏱️ Analysis was cancelled or expired. Please try again.");
-        }
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
-        runAttempts++;
-        if (runAttempts % 15 === 0) {
-          console.log(`⏳ Analysis in progress... (${runAttempts * 2}s elapsed)`);
-        }
-      }
-      if (runStatus.status !== "completed") {
-        throw new HttpsError("deadline-exceeded", "⏱️ Analysis timed out. Please try again with a smaller PDF.");
-      }
-      console.log(`✅ Analysis completed`);
-
-      console.log(`📥 Retrieving analysis results...`);
-      const messages = await openai.beta.threads.messages.list(thread.id);
-      const assistantMessage = messages.data.find(m => m.role === "assistant");
-      
-      if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
-        console.error("❌ No response from OpenAI assistant");
-        throw new HttpsError("internal", "🤖 No response received from AI. Please try again.");
-      }
-
-      const responseContent = assistantMessage.content[0].text.value;
-      console.log(`✅ Received response (${responseContent.length} chars)`);
-      let parsedResponse;
-      try {
-        parsedResponse = parseJsonFromOpenAIContent(responseContent);
-        console.log(`✅ Parsed JSON response successfully`);
-      } catch (parseError) {
-        console.error("❌ JSON parse error:", parseError);
-        console.error("Response content:", responseContent.substring(0, 500));
-        throw new HttpsError("internal", `❌ Failed to parse AI response: ${parseError.message}`);
-      }
-
-      if (!parsedResponse.summary || typeof parsedResponse.summary !== "object" || Array.isArray(parsedResponse.summary)) {
-        throw new HttpsError("internal", "AI response missing a valid \"summary\" object. Please try again.");
-      }
-
-      // Safety net: rewrite any third-person "the patient" phrasing in woman-facing
-      // fields (summary, todos/next steps, learning modules) to second person.
-      applySecondPersonToVisitAnalysis(parsedResponse);
-
-      // Clean up uploaded file and assistant
-      try {
-        await openai.files.del(fileUpload.id);
-        await openai.beta.assistants.del(assistant.id);
-        console.log(`🧹 Cleaned up OpenAI resources`);
-      } catch (e) {
-        console.warn("⚠️ Failed to clean up OpenAI resources:", e);
-      }
-
-      // Save to Firestore
-      console.log(`💾 Saving results to Firestore...`);
-      console.log(`🔵 [DEBUG] Starting duplicate check process`);
-      
-      const {y, m, d} = parseAppointmentCalendarParts(appointmentDate);
-      const incomingCalendarKey = calendarYmdKey(y, m, d);
-      const appointmentTimestamp = firestoreTimestampFromCalendarYmd(y, m, d);
-      const normalizedDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
-
-      console.log(`📅 Appointment calendar key: ${incomingCalendarKey} → Firestore noon UTC: ${appointmentTimestamp.toDate().toISOString()} (original: ${appointmentDate})`);
-      
-      // Check if summary already exists for this date to prevent duplicates
-      // Use a range query to catch any timezone-related variations (within 24 hours)
-      const dayStart = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
-        normalizedDate.getUTCFullYear(),
-        normalizedDate.getUTCMonth(),
-        normalizedDate.getUTCDate(),
-        0, 0, 0, 0
-      )));
-      const dayEnd = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
-        normalizedDate.getUTCFullYear(),
-        normalizedDate.getUTCMonth(),
-        normalizedDate.getUTCDate(),
-        23, 59, 59, 999
-      )));
-      
-      console.log(`🔵 [DEBUG] Checking for existing summaries between ${dayStart.toDate().toISOString()} and ${dayEnd.toDate().toISOString()}`);
-      console.log(`🔵 [DEBUG] Normalized timestamp to match: ${appointmentTimestamp.toDate().toISOString()}`);
-      console.log(`🔵 [DEBUG] Query path: users/${request.auth.uid}/visit_summaries`);
-      
-      // DEBUG: List ALL summaries for this user to see what exists
-      let allSummaries;
-      try {
-        allSummaries = await admin.firestore()
-          .collection("users")
-          .doc(request.auth.uid)
-          .collection("visit_summaries")
-          .orderBy("createdAt", "desc")
-          .limit(10)
-          .get();
-      } catch (e) {
-        // If orderBy fails (no index), just get without ordering
-        console.log(`🔵 [DEBUG] orderBy failed, getting without order: ${e.message}`);
-        allSummaries = await admin.firestore()
-          .collection("users")
-          .doc(request.auth.uid)
-          .collection("visit_summaries")
-          .limit(10)
-          .get();
-      }
-      console.log(`🔵 [DEBUG] Total summaries for user: ${allSummaries.size}`);
-      allSummaries.docs.forEach((doc, idx) => {
-        const data = doc.data();
-        // Safely extract appointmentDate - handle Timestamp, Date, or string
-        let appointmentDateStr = 'unknown';
-        let appointmentTimestampValue = null;
-        if (data.appointmentDate) {
-          if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
-            appointmentDateStr = data.appointmentDate.toDate().toISOString();
-            appointmentTimestampValue = data.appointmentDate;
-          } else if (data.appointmentDate instanceof Date) {
-            appointmentDateStr = data.appointmentDate.toISOString();
-          } else if (typeof data.appointmentDate === 'string') {
-            appointmentDateStr = data.appointmentDate;
-          } else {
-            appointmentDateStr = String(data.appointmentDate);
-          }
-        }
-        
-        let createdAtStr = 'unknown';
-        if (data.createdAt) {
-          if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
-            createdAtStr = data.createdAt.toDate().toISOString();
-          } else if (data.createdAt instanceof Date) {
-            createdAtStr = data.createdAt.toISOString();
-          } else if (typeof data.createdAt === 'string') {
-            createdAtStr = data.createdAt;
-          }
-        }
-        
-        // Check if this summary matches our date
-        let matchesDate = false;
-        if (appointmentTimestampValue && appointmentTimestampValue.seconds) {
-          const isInRange = appointmentTimestampValue.seconds >= dayStart.seconds && 
-                           appointmentTimestampValue.seconds <= dayEnd.seconds;
-          matchesDate = isInRange;
-          console.log(`🔵 [DEBUG] Summary ${idx + 1} date comparison:`, {
-            summaryTimestamp: appointmentTimestampValue.seconds,
-            dayStart: dayStart.seconds,
-            dayEnd: dayEnd.seconds,
-            matches: isInRange,
-          });
-        }
-        
-        console.log(`🔵 [DEBUG] Summary ${idx + 1}:`, {
-          id: doc.id,
-          appointmentDate: appointmentDateStr,
-          appointmentDateTimestamp: data.appointmentDate?.seconds,
-          createdAt: createdAtStr,
-          matchesOurDate: matchesDate,
-        });
-      });
-      
-      // Get ALL summaries and filter client-side to handle both Timestamp and string formats
-      // This is necessary because older summaries may have appointmentDate as a string
-      const allUserSummaries = await admin.firestore()
-        .collection("users")
-        .doc(request.auth.uid)
-        .collection("visit_summaries")
-        .get();
-      
-      console.log(`🔵 [DEBUG] Total summaries in collection: ${allUserSummaries.size}`);
-      
-      const matchingSummaries = allUserSummaries.docs.filter((doc) => {
-        const existingDate = doc.data().appointmentDate;
-        if (!existingDate) return false;
-        const matches = appointmentCalendarKeyFromValue(existingDate) === incomingCalendarKey;
-        if (matches) {
-          console.log(`🔵 [DEBUG] Found matching summary by calendar key: ${doc.id}`);
-        }
-        return matches;
-      });
-
-      console.log(`🔵 [DEBUG] Client-side filter found: ${matchingSummaries.length} matching summaries`);
-      
-      let existingSummaries = { empty: matchingSummaries.length === 0, docs: matchingSummaries, size: matchingSummaries.length };
-      
-      // Also check for summaries created in the last 30 seconds with same storagePath (race condition protection)
-      if (existingSummaries.empty && storagePath) {
-        const thirtySecondsAgo = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 30000));
-        const recentSummaries = await admin.firestore()
-          .collection("users")
-          .doc(request.auth.uid)
-          .collection("visit_summaries")
-          .where("createdAt", ">=", thirtySecondsAgo)
-          .where("storagePath", "==", storagePath)
-          .limit(1)
-          .get();
-        if (!recentSummaries.empty) {
-          console.log(`🔵 [DEBUG] Found recent summary created in last 30 seconds with same storagePath, using that instead`);
-          existingSummaries = recentSummaries;
-        }
-      }
-      
-      console.log(`🔵 [DEBUG] Existing summaries found: ${existingSummaries.size}`);
-      if (existingSummaries.size > 0) {
-        existingSummaries.docs.forEach((doc, idx) => {
-          const data = doc.data();
-          // Safely extract appointmentDate - handle Timestamp, Date, or string
-          let appointmentDateStr = 'unknown';
-          if (data.appointmentDate) {
-            if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
-              appointmentDateStr = data.appointmentDate.toDate().toISOString();
-            } else if (data.appointmentDate instanceof Date) {
-              appointmentDateStr = data.appointmentDate.toISOString();
-            } else if (typeof data.appointmentDate === 'string') {
-              appointmentDateStr = data.appointmentDate;
-            } else {
-              appointmentDateStr = String(data.appointmentDate);
-            }
-          }
-          
-          let createdAtStr = 'unknown';
-          if (data.createdAt) {
-            if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
-              createdAtStr = data.createdAt.toDate().toISOString();
-            } else if (data.createdAt instanceof Date) {
-              createdAtStr = data.createdAt.toISOString();
-            } else if (typeof data.createdAt === 'string') {
-              createdAtStr = data.createdAt;
-            }
-          }
-          
-          console.log(`🔵 [DEBUG] Existing summary ${idx + 1}:`, {
-            id: doc.id,
-            appointmentDate: appointmentDateStr,
-            createdAt: createdAtStr,
-            hasSummary: !!data.summary,
-          });
         });
       }
-      
-      // Format summary before using it (needed for both update and create paths)
-      const formattedSummary = formatSummaryForDisplay(
-        parsedResponse.summary,
-        parsedResponse.learningModules || []
-      );
-      if (typeof formattedSummary !== "string" || !formattedSummary.trim()) {
-        throw new HttpsError("internal", "Could not build visit summary text from AI output. Please try again.");
-      }
 
-      let summaryRef;
-      if (!existingSummaries.empty) {
-        console.log(`⚠️ Summary already exists for appointment date ${normalizedDate.toISOString()}, updating existing entry`);
-        console.log(`🔵 [DEBUG] Updating existing summary ID: ${existingSummaries.docs[0].id}`);
-        summaryRef = existingSummaries.docs[0].ref;
-        await summaryRef.update({
-          appointmentDate: appointmentTimestamp, // Update to normalized date
-          storagePath: storagePath,
-          downloadUrl: downloadUrl,
-          summary: formattedSummary,
-          summaryData: parsedResponse.summary,
-          todos: parsedResponse.todos || [],
-          learningModules: parsedResponse.learningModules || [],
-          redFlags: parsedResponse.redFlags || [],
-          readingLevel: readingLevel,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        console.log(`🔵 [DEBUG] Successfully updated existing summary`);
-      } else {
-        console.log(`🔵 [DEBUG] No existing summary found, creating new one`);
-        
-        summaryRef = await admin.firestore()
-          .collection("users")
-          .doc(request.auth.uid)
-          .collection("visit_summaries")
-          .add({
-            appointmentDate: appointmentTimestamp,
-            storagePath: storagePath,
-            downloadUrl: downloadUrl,
-            summary: formattedSummary,
-            summaryData: parsedResponse.summary,
-            todos: parsedResponse.todos || [],
-            learningModules: parsedResponse.learningModules || [],
-            redFlags: parsedResponse.redFlags || [],
-            readingLevel: readingLevel,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-        console.log(`🔵 [DEBUG] Created new summary with ID: ${summaryRef.id}`);
-        console.log(`🔵 [DEBUG] New summary appointmentDate: ${appointmentTimestamp.toDate().toISOString()}`);
-      }
-
-      // Create todos
-      if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
-        const todosBatch = admin.firestore().batch();
-        parsedResponse.todos.forEach((todo) => {
-          if (!todo || !todo.title) return;
-          const todoRef = admin.firestore().collection("learning_tasks").doc();
-          todosBatch.set(todoRef, {
-            userId: request.auth.uid,
-            title: todo.title.toString(),
-            description: (todo.description || "").toString(),
-            category: (todo.category || "followup").toString(),
-            visitSummaryId: summaryRef.id,
-            isGenerated: true,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            completed: false,
-          });
-        });
-        await todosBatch.commit();
-      }
-
-      // Create learning modules
-      if (parsedResponse.learningModules && Array.isArray(parsedResponse.learningModules) && parsedResponse.learningModules.length > 0) {
-        const modulesBatch = admin.firestore().batch();
-        parsedResponse.learningModules.forEach((module) => {
-          if (!module || !module.title) return;
-          const moduleRef = admin.firestore().collection("learning_tasks").doc();
-          modulesBatch.set(moduleRef, {
-            userId: request.auth.uid,
-            title: module.title.toString(),
-            description: (module.description || module.reason || "").toString(),
-          content: module.content || null, // Store detailed content structure
-            trimester: trimester,
-            isGenerated: true,
-            visitSummaryId: summaryRef.id,
-            moduleType: "visit_based",
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-        });
-        await modulesBatch.commit();
-      }
-
-      // Remove processing lock
-      try {
-        await lockDocRef.delete();
-        console.log(`🔵 [DEBUG] Removed processing lock: ${functionCallId}`);
-      } catch (e) {
-        console.log(`🔵 [DEBUG] Failed to remove lock (non-critical): ${e.message}`);
-      }
-      
-      console.log(`✅ Analysis complete! Summary ID: ${summaryRef.id}`);
-      console.log(`🔵 [DEBUG] Function Call ID: ${functionCallId} - CREATED/UPDATED summary: ${summaryRef.id}`);
-      console.log(`🔵 [DEBUG] Returning from analyzeVisitSummaryPDF Cloud Function`);
+      console.log(`✅ Visit summary ready: ${result.summaryId} (duplicate: ${!!result.duplicate})`);
       return {
-        success: true, 
-        summaryId: summaryRef.id,
-        summary: formattedSummary,
-        todos: parsedResponse.todos || [],
-        learningModules: parsedResponse.learningModules || [],
-        redFlags: parsedResponse.redFlags || [],
+        success: true,
+        summaryId: result.summaryId,
+        summary: result.summary,
+        todos: result.todos || [],
+        learningModules: result.learningModules || [],
+        redFlags: result.redFlags || [],
+        duplicate: !!result.duplicate,
       };
     } catch (error) {
-      console.error("❌ Error in analyzeVisitSummaryPDF:", error);
-      console.error("Error stack:", error.stack);
-      
-      // If it's already an HttpsError, rethrow it
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      
-      // Convert other errors to HttpsError
-      const errorMessage = error.message || "Unknown error";
-      if (errorMessage.includes("authentication") || errorMessage.includes("auth")) {
-        throw new HttpsError("unauthenticated", "🔒 Authentication error. Please log in again.");
-      } else if (errorMessage.includes("not found") || errorMessage.includes("not-found")) {
-        throw new HttpsError("not-found", `📄 ${errorMessage}`);
-      } else if (errorMessage.includes("timeout") || errorMessage.includes("deadline")) {
-        throw new HttpsError("deadline-exceeded", "⏱️ Analysis timed out. Please try again.");
-      } else if (errorMessage.includes("OpenAI") || errorMessage.includes("API")) {
-        throw new HttpsError("internal", `🤖 AI service error: ${errorMessage}`);
-      } else {
-        throw new HttpsError("internal", `❌ Failed to analyze PDF: ${errorMessage}`);
-      }
+      console.error("❌ Error in analyzeVisitSummaryPDF:", {
+        name: error?.name,
+        message: error?.message,
+        status: error?.status,
+        reason: error?.reason,
+      });
+      console.error("Error stack:", error?.stack);
+      throw toVisitSummaryHttpsError(error, "unreadable_file");
     }
   }
 );
 
 // 10. After-Visit Summary - Summarize uploaded PDF with specific structure (kept for backward compatibility)
 exports.summarizeAfterVisitPDF = onCall(
-  {secrets: [openaiApiKey]},
+  {secrets: [openaiApiKey], timeoutSeconds: 300},
   async (request) => {
     try {
       if (!request.auth) {
@@ -2206,17 +1845,21 @@ exports.summarizeAfterVisitPDF = onCall(
         learningModules: analysisResult.learningModules,
         redFlags: analysisResult.redFlags,
         summaryId: analysisResult.summaryId,
+        duplicate: !!analysisResult.duplicate,
       };
     } catch (error) {
       console.error("❌ Error in summarizeAfterVisitPDF:", error);
       console.error("Error stack:", error.stack);
       console.error("Error message:", error.message);
-      
+
       // Provide more specific error messages with emojis
       if (error instanceof HttpsError) {
         throw error;
       }
-      
+      if (error instanceof VisitSummaryUserError || typeof error?.status === "number") {
+        throw toVisitSummaryHttpsError(error, "unreadable_text");
+      }
+
       if (error.message && error.message.includes("authentication")) {
         throw new HttpsError("unauthenticated", "🔒 Authentication required. Please log in.");
       } else if (error.message && (error.message.includes("required") || error.message.includes("missing"))) {
@@ -2448,7 +2091,7 @@ function safeLog(level, message, data = {}) {
 // ============================================================================
 
 exports.analyzeVisitSummaryText = onCall(
-  {secrets: [openaiApiKey]},
+  {secrets: [openaiApiKey], timeoutSeconds: 300},
   async (request) => {
     // Verify authentication
     if (!request.auth) {
@@ -2499,12 +2142,17 @@ exports.analyzeVisitSummaryText = onCall(
         userId
       });
       
-      // Return summary (not raw text unless user opted in)
+      // Return summary (not raw text unless user opted in).
+      // duplicate: true means this exact text was already summarized for this
+      // date; the existing summary is returned in the same shape.
       return {
+        success: true,
+        summaryId: analysisResult.summaryId,
         summary: analysisResult.summary,
         todos: analysisResult.todos || [],
         learningModules: analysisResult.learningModules || [],
         redFlags: analysisResult.redFlags || [],
+        duplicate: !!analysisResult.duplicate,
         hasRedaction: hasRedaction,
         // Only include original text if user explicitly opted in
         ...(saveOriginalText ? {originalText: visitText} : {})
@@ -2512,9 +2160,12 @@ exports.analyzeVisitSummaryText = onCall(
     } catch (error) {
       safeLog('error', 'Error analyzing visit summary text', {
         userId,
-        error: error.message
+        error: error.message,
+        name: error.name,
+        status: error.status,
+        reason: error.reason,
       });
-      throw new HttpsError('internal', 'Failed to analyze visit summary: ' + error.message);
+      throw toVisitSummaryHttpsError(error, 'unreadable_text');
     }
   }
 );

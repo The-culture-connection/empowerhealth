@@ -8,6 +8,7 @@ import '../auth/guest_guard.dart';
 import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/ambient_background.dart';
+import '../widgets/drag_scroll_behavior.dart';
 import '../services/analytics_service.dart';
 import '../services/block_service.dart';
 import '../services/database_service.dart';
@@ -195,17 +196,19 @@ class _CommunityScreenState extends State<CommunityScreen> {
               stops: [0.0, 0.86, 1.0],
             ).createShader(rect),
             blendMode: BlendMode.dstIn,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(24, 4, 48, 8),
-              itemCount: _categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, i) => Center(
-                child: _CategoryChip(
-                  label: _categories[i],
-                  isSelected: _selectedCategory == _categories[i],
-                  onTap: () =>
-                      setState(() => _selectedCategory = _categories[i]),
+            child: HorizontalDragScroll(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(24, 4, 48, 8),
+                itemCount: _categories.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, i) => Center(
+                  child: _CategoryChip(
+                    label: _categories[i],
+                    isSelected: _selectedCategory == _categories[i],
+                    onTap: () =>
+                        setState(() => _selectedCategory = _categories[i]),
+                  ),
                 ),
               ),
             ),

@@ -6,7 +6,49 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:async';
 
+/// Visit summary failure with a plain-language message from the server
+/// (HttpsError details.userMessage) that is safe to show as-is.
+class VisitSummaryException implements Exception {
+  const VisitSummaryException(this.message, {this.reason});
+
+  final String message;
+  final String? reason;
+
+  @override
+  String toString() => message;
+}
+
 class FirebaseFunctionsService {
+  /// Visit summary callables run with timeoutSeconds: 300 on the server;
+  /// give the client a little longer so the server's own error arrives first.
+  static const Duration _visitSummaryTimeout = Duration(seconds: 320);
+
+  /// If [e] is a callable error carrying a server-provided plain-language
+  /// message, return it as a [VisitSummaryException].
+  static VisitSummaryException? _visitSummaryUserError(Object e) {
+    if (e is! FirebaseFunctionsException) return null;
+    final details = e.details;
+    if (details is Map) {
+      final msg = details['userMessage'];
+      if (msg is String && msg.trim().isNotEmpty) {
+        final reason = details['reason'];
+        return VisitSummaryException(
+          msg.trim(),
+          reason: reason is String ? reason : null,
+        );
+      }
+    }
+    return null;
+  }
+
+  /// Callable results arrive as maps whose nested maps may be untyped.
+  static Map<String, dynamic> _asResultMap(Object? data) {
+    if (data is Map) return Map<String, dynamic>.from(data);
+    throw const VisitSummaryException(
+      'We couldn\'t open your summary. Please try again in a moment.',
+    );
+  }
+
   /// Gen-2 callables are deployed to us-central1 (see functions/index.js).
   final FirebaseFunctions _functions =
       FirebaseFunctions.instanceFor(region: 'us-central1');
@@ -281,10 +323,10 @@ class FirebaseFunctionsService {
       final callable = _functions.httpsCallable(
         'analyzeVisitSummaryPDF',
         options: HttpsCallableOptions(
-          timeout: const Duration(seconds: 300),
+          timeout: _visitSummaryTimeout,
         ),
       );
-      
+
       print('📤 Sending request with auth token...');
       final result = await callable.call({
         'storagePath': storagePath,
@@ -293,13 +335,17 @@ class FirebaseFunctionsService {
         'educationLevel': educationLevel,
         'userProfile': userProfile,
       });
-      
+
       print('✅ PDF analysis completed successfully');
-      return result.data as Map<String, dynamic>;
+      return _asResultMap(result.data);
     } catch (e, stackTrace) {
       print('❌ Error analyzing PDF: $e');
       print('❌ Stack trace: $stackTrace');
-      
+
+      if (e is VisitSummaryException) rethrow;
+      final userError = _visitSummaryUserError(e);
+      if (userError != null) throw userError;
+
       // Provide user-friendly error messages with emojis
       final errorString = e.toString().toLowerCase();
       if (errorString.contains('timeout') || errorString.contains('deadline exceeded')) {
@@ -456,10 +502,10 @@ class FirebaseFunctionsService {
       final callable = _functions.httpsCallable(
         'analyzeVisitSummaryText',
         options: HttpsCallableOptions(
-          timeout: const Duration(seconds: 300),
+          timeout: _visitSummaryTimeout,
         ),
       );
-      
+
       final result = await callable.call({
         'visitText': visitText,
         'appointmentDate': appointmentDate,
@@ -467,13 +513,17 @@ class FirebaseFunctionsService {
         'userProfile': userProfile,
         'saveOriginalText': saveOriginalText,
       });
-      
+
       print('✅ Function call successful');
-      return result.data as Map<String, dynamic>;
+      return _asResultMap(result.data);
     } catch (e, stackTrace) {
       print('❌ Error calling analyzeVisitSummaryText: $e');
       print('❌ Stack trace: $stackTrace');
-      
+
+      if (e is VisitSummaryException) rethrow;
+      final userError = _visitSummaryUserError(e);
+      if (userError != null) throw userError;
+
       final errorString = e.toString().toLowerCase();
       if (errorString.contains('timeout') || errorString.contains('deadline exceeded')) {
         throw Exception('⏱️ Request timed out. Please try again.');

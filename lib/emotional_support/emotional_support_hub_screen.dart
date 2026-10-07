@@ -65,7 +65,7 @@ class EmotionalSupportHubScreen extends StatelessWidget {
                           .contains(EmotionalSupportOptionId.notMyself)) ...[
                         const SizedBox(height: 28),
                         _PathwaySection(
-                          headline: 'You deserve support too 💜',
+                          headline: 'You deserve support too\u00A0💜',
                           actions: [
                             _SupportTile(
                               label: 'Find postpartum mental health support',
@@ -124,7 +124,7 @@ class EmotionalSupportHubScreen extends StatelessWidget {
                           .contains(EmotionalSupportOptionId.healthWorry)) ...[
                         const SizedBox(height: 28),
                         _PathwaySection(
-                          headline: 'Let’s help you figure out next steps 💜',
+                          headline: 'Let’s help you figure out next steps\u00A0💜',
                           actions: [
                             _SupportTile(
                               label: 'When to contact a provider',
@@ -180,7 +180,7 @@ class EmotionalSupportHubScreen extends StatelessWidget {
                         const SizedBox(height: 28),
                         _PathwaySection(
                           headline:
-                              'A lot of people feel overwhelmed during big life changes 💜',
+                              'A lot of people feel overwhelmed during big life changes\u00A0💜',
                           subtext: 'You deserve support while adjusting too.',
                           actions: [
                             _SupportTile(

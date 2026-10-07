@@ -333,8 +333,10 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                             children: [
                               Text(
                                 inLossMode
-                                    ? 'We\'re here with you 💜'
-                                    : 'Welcome, Mama 🤍',
+                                    // Non-breaking space keeps the emoji on
+                                    // the same line as the last word.
+                                    ? 'We\'re here with you$_kNbsp💜'
+                                    : 'Welcome, Mama$_kNbsp🤍',
                                 style: const TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.w400,
@@ -535,7 +537,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "💜 TODAY'S GUIDANCE",
+                          "💜${_kNbsp}TODAY'S GUIDANCE",
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -992,7 +994,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                   const SizedBox(height: 40),
                   // Community (NewUI: conversational header + belonging copy)
                   Text(
-                    'FROM THE COMMUNITY 💬',
+                    'FROM THE COMMUNITY$_kNbsp💬',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,

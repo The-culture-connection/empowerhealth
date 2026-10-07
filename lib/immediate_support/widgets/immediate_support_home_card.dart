@@ -25,7 +25,7 @@ class ImmediateSupportHomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleText = title ?? 'We\'re here with you 💜';
+    final titleText = title ?? 'We\'re here with you 💜';
     final subtitleText = subtitle ??
         'Emotional support, guidance, and help with next steps, whenever you need it.';
     final ctaText = ctaLabel ?? 'See support options';

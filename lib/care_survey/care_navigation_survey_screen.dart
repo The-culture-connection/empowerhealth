@@ -20,6 +20,7 @@ import '../services/research/research_firestore_service.dart';
 import '../services/research/research_navigation_outcome_service.dart';
 import '../services/research/research_needs_checklist_service.dart';
 import '../widgets/feature_session_scope.dart';
+import '../widgets/step_scroll.dart';
 
 class CareNavigationSurveyScreen extends StatefulWidget {
   const CareNavigationSurveyScreen({super.key});
@@ -43,6 +44,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
 
   final DatabaseService _databaseService = DatabaseService();
   final TextEditingController _otherNeedDetailController = TextEditingController();
+  final StepScrollController _scrollController = StepScrollController();
 
   final List<Map<String, String>> _accessOptions = [
     {'value': 'yes', 'label': 'Yes'},
@@ -382,11 +384,16 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
   @override
   void dispose() {
     _otherNeedDetailController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Each step (and each need on the access step) starts at the top.
+    _scrollController.syncStep(
+      _step == 'access' ? 'access-$_currentNeedIndex' : _step,
+    );
     return FeatureSessionScope(
       feature: 'user-feedback',
       entrySource: 'care_navigation_survey',
@@ -394,6 +401,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
       backgroundColor: AppTheme.backgroundWarm,
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController,
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

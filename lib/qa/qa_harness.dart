@@ -310,55 +310,70 @@ class QaHarness {
     );
   }
 
-  /// The bottom-nav scope inside the main scaffold, if the user is signed in.
-  static MainNavigationScope? _tabScope() {
-    MainNavigationScope? found;
-    void visit(Element e) {
-      if (found != null) return;
-      final w = e.widget;
-      if (w is MainNavigationScope) {
-        found = w;
-        return;
-      }
-      e.visitChildElements(visit);
-    }
-
-    final root = WidgetsBinding.instance.rootElement;
-    if (root != null) visit(root);
-    return found;
-  }
-
-  /// Selected bottom-nav tab (0 Home … 4 You), or null outside the main scaffold.
-  static int? _currentTab() {
+  /// The bottom-nav scope (main tab scaffold) on the topmost route that has
+  /// one. After login the app pushes a second main scaffold above the auth
+  /// gate's route, so there can be more than one.
+  static Element? _tabScopeElement() {
     final root = WidgetsBinding.instance.rootElement;
     if (root == null) return null;
-    int? index;
-    var insideScope = false;
+    final scopes = <Element>[];
     void visit(Element e) {
-      if (index != null) return;
-      final w = e.widget;
-      if (w is MainNavigationScope) insideScope = true;
-      if (insideScope && w is IndexedStack) {
-        index = w.index;
+      if (e.widget is MainNavigationScope) {
+        scopes.add(e);
         return;
       }
       e.visitChildElements(visit);
     }
 
     visit(root);
+    Element? best;
+    var bestIndex = -2;
+    for (final element in scopes) {
+      final route = ModalRoute.of(element);
+      if (route != null && !route.isActive) continue;
+      final index = route == null ? -1 : _QaNavigatorObserver.stack.indexOf(route);
+      if (index >= bestIndex) {
+        best = element;
+        bestIndex = index;
+      }
+    }
+    return best;
+  }
+
+  /// Selected bottom-nav tab (0 Home … 4 You), or null outside the main scaffold.
+  static int? _currentTab() {
+    final scope = _tabScopeElement();
+    if (scope == null) return null;
+    int? index;
+    void visit(Element e) {
+      if (index != null) return;
+      final w = e.widget;
+      if (w is IndexedStack) {
+        index = w.index;
+        return;
+      }
+      e.visitChildElements(visit);
+    }
+
+    visit(scope);
     return index;
   }
 
-  /// Opens the screen a checklist item is about: back to the first route,
-  /// select [target]['tab'], then push the named [target]['route'].
+  /// Opens the screen a checklist item is about: closes pages above the main
+  /// tab scaffold (never the scaffold itself or what's under it, such as the
+  /// sign-in route), selects [target]['tab'], then pushes [target]['route'].
   static void _navigate(Map<String, dynamic> target) {
     final navigator = _observer.navigator;
     if (navigator == null) return;
-    navigator.popUntil((route) => route.isFirst);
+    final scopeElement = _tabScopeElement();
+    final mainRoute = scopeElement == null ? null : ModalRoute.of(scopeElement);
+    if (mainRoute != null && mainRoute.navigator == navigator) {
+      navigator.popUntil((route) => route == mainRoute);
+    }
     final tab = target['tab'];
     if (tab is num) {
-      final scope = _tabScope();
-      if (scope == null) {
+      final scope = scopeElement?.widget;
+      if (scope is! MainNavigationScope) {
         qaPost({
           'type': 'log',
           'level': 'warn',

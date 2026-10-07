@@ -98,7 +98,7 @@ class _ShareProviderExperienceScreenState
                   Text(
                     'Find the provider, hospital, doula, or birth team you saw and '
                     'share your experience. Your feedback helps other mothers find '
-                    'care where they feel heard, respected, and supported — and '
+                    'care where they feel heard, respected, and supported, and '
                     'helps providers earn Mama Approved™.',
                     style: TextStyle(
                       fontSize: 14,

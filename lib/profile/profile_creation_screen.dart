@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/profile_creation_provider.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
@@ -28,6 +27,28 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   final AuthService _authService = AuthService();
   final DatabaseService _databaseService = DatabaseService();
   bool _isLoading = false;
+
+  // Shared by every step so we can jump back to the top when the step changes
+  // (otherwise the next step opens at the previous step's scroll offset).
+  final ScrollController _stepScrollController = ScrollController();
+  int? _lastRenderedStep;
+
+  @override
+  void dispose() {
+    _stepScrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToTopOnStepChange(int step) {
+    if (_lastRenderedStep != null && _lastRenderedStep != step) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_stepScrollController.hasClients) {
+          _stepScrollController.jumpTo(0);
+        }
+      });
+    }
+    _lastRenderedStep = step;
+  }
 
   final List<Widget> _steps = [
     const BasicInfoStep(),
@@ -100,7 +121,11 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving profile: $e')),
+          const SnackBar(
+            content: Text(
+              'We couldn\'t save your profile. Check your connection and try again.',
+            ),
+          ),
         );
       }
     } finally {
@@ -224,6 +249,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   Widget build(BuildContext context) {
     return Consumer<ProfileCreationProvider>(
       builder: (context, provider, child) {
+        _scrollToTopOnStepChange(provider.currentStep);
         return Scaffold(
           backgroundColor: AppTheme.backgroundWarm,
           appBar: AppTheme.newUiAppBar(context, title: 'Create Your Profile'),
@@ -281,6 +307,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
               // Step content
               Expanded(
                 child: SingleChildScrollView(
+                  controller: _stepScrollController,
                   padding: const EdgeInsets.all(AppTheme.spacingL),
                   child: _steps[provider.currentStep],
                 ),

@@ -67,6 +67,17 @@ void main() {
     expect(info?['text'], 'My Visits');
   });
 
+  testWidgets('ignores text inside a horizontal SingleChildScrollView', (tester) async {
+    await tester.pumpWidget(_host(const SizedBox(
+      width: 800,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Text('Questions  Birth Stories  Support  Resources  Pregnancy loss  More'),
+      ),
+    )));
+    expect(qaRunAudit().where((i) => i.kind == 'offscreen'), isEmpty);
+  });
+
   testWidgets('reports nothing for text that wraps at word boundaries', (tester) async {
     await tester.pumpWidget(_host(const SizedBox(
       width: 375,

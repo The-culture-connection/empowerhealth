@@ -145,7 +145,7 @@ class _PregnancyLossPreferencesScreenState
                           maxLines: 3,
                           maxLength: 500,
                           decoration: InputDecoration(
-                            hintText: 'Optional — only what you want to share',
+                            hintText: 'Optional: only what you want to share',
                             filled: true,
                             fillColor: AppTheme.surfaceCard,
                             border: OutlineInputBorder(

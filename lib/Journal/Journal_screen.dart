@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +9,7 @@ import '../widgets/ambient_background.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../auth/guest_guard.dart';
+import 'journal_learning_note_opener.dart';
 
 /// ICU `a` is AM/PM — never use raw `at` inside [DateFormat] patterns or `a` is misread (e.g. "PMt").
 String _formatJournalCreatedAt(DateTime d) {
@@ -15,6 +17,45 @@ String _formatJournalCreatedAt(DateTime d) {
 }
 
 enum _JournalEntryMode { hub, quick, write }
+
+/// What kind of reflection a `users/{uid}/notes` doc is, for the timeline
+/// filter. Quick check-ins are tagged 'Feelings'; notes saved from a lesson
+/// carry `isFromModule` / `moduleTitle`; everything else is a writing.
+enum _ReflectionKind { checkIn, writing, learningNote }
+
+enum _ReflectionFilter { all, checkIns, writings, learningNotes }
+
+_ReflectionKind _reflectionKindOf(Map<String, dynamic> data) {
+  final moduleTitle = data['moduleTitle'];
+  if (data['isFromModule'] == true ||
+      (moduleTitle is String && moduleTitle.trim().isNotEmpty)) {
+    return _ReflectionKind.learningNote;
+  }
+  if (data['tag'] == 'Feelings') return _ReflectionKind.checkIn;
+  return _ReflectionKind.writing;
+}
+
+bool _matchesReflectionFilter(_ReflectionKind kind, _ReflectionFilter filter) {
+  switch (filter) {
+    case _ReflectionFilter.all:
+      return true;
+    case _ReflectionFilter.checkIns:
+      return kind == _ReflectionKind.checkIn;
+    case _ReflectionFilter.writings:
+      return kind == _ReflectionKind.writing;
+    case _ReflectionFilter.learningNotes:
+      return kind == _ReflectionKind.learningNote;
+  }
+}
+
+/// Mood picker emojis. Also laid out offstage on web (see build) so CanvasKit
+/// fetches its color-emoji fallback font before the picker is shown.
+const String _moodEmojiWarmup = '😊😌😐😟😢';
+
+/// Recent reflections shown under "All"; a type filter shows every match
+/// among the most recent [_reflectionFetchLimit] notes.
+const int _allReflectionsShown = 10;
+const int _reflectionFetchLimit = 50;
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
@@ -31,6 +72,11 @@ class _JournalScreenState extends State<JournalScreen> {
   String? _quickMoodEmoji;
   String? _quickMoodLabel;
   String? _writePrompt;
+  _ReflectionFilter _reflectionFilter = _ReflectionFilter.all;
+  // Cached so filter / mood taps (setState) don't resubscribe the
+  // StreamBuilder and flash the loading spinner over the whole screen.
+  Stream<QuerySnapshot>? _notesStream;
+  String? _notesStreamUserId;
   final AnalyticsService _analytics = AnalyticsService();
   final DatabaseService _databaseService = DatabaseService();
 
@@ -695,7 +741,7 @@ class _JournalScreenState extends State<JournalScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'There\'s no rush — try a quick check-in above, or write a few words when you\'re ready.',
+            'There\'s no rush. Try a quick check-in above, or write a few words when you\'re ready.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -705,6 +751,93 @@ class _JournalScreenState extends State<JournalScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Stream<QuerySnapshot>? _notesStreamFor(String? userId) {
+    if (userId == null) {
+      _notesStream = null;
+      _notesStreamUserId = null;
+      return null;
+    }
+    if (_notesStream == null || _notesStreamUserId != userId) {
+      _notesStreamUserId = userId;
+      _notesStream = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('notes')
+          .orderBy('createdAt', descending: true)
+          .limit(_reflectionFetchLimit)
+          .snapshots();
+    }
+    return _notesStream;
+  }
+
+  Widget _buildReflectionFilterChips() {
+    const options = <_ReflectionFilter, String>{
+      _ReflectionFilter.all: 'All',
+      _ReflectionFilter.checkIns: 'Check-ins',
+      _ReflectionFilter.writings: 'Writings',
+      _ReflectionFilter.learningNotes: 'Learning notes',
+    };
+    // Wrap (not a horizontal scroller) so every option stays visible at
+    // large text sizes on narrow phones.
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: options.entries.map((option) {
+        final sel = _reflectionFilter == option.key;
+        return ChoiceChip(
+          label: Text(
+            option.value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: sel ? AppTheme.brandWhite : AppTheme.textMuted,
+            ),
+          ),
+          selected: sel,
+          showCheckmark: false,
+          onSelected: (value) {
+            if (!value) return;
+            setState(() => _reflectionFilter = option.key);
+          },
+          selectedColor: const Color(0xFF663399),
+          backgroundColor: AppTheme.surfaceCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(
+              color: sel
+                  ? const Color(0xFF663399)
+                  : AppTheme.borderLighter.withOpacity(0.5),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildEmptyFilteredReflections() {
+    final message = switch (_reflectionFilter) {
+      _ReflectionFilter.checkIns =>
+        'No check-ins yet. Tap Quick check-in above to note how you feel.',
+      _ReflectionFilter.writings =>
+        'No writings yet. Tap Write above when you\'d like to reflect.',
+      _ReflectionFilter.learningNotes =>
+        'No learning notes yet. Notes you save while reading a lesson will show up here.',
+      _ReflectionFilter.all => '',
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Text(
+        message,
+        style: TextStyle(
+          fontSize: 14,
+          color: AppTheme.textMuted,
+          fontWeight: FontWeight.w300,
+          height: 1.45,
+        ),
       ),
     );
   }
@@ -754,21 +887,28 @@ class _JournalScreenState extends State<JournalScreen> {
               // Content
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
-                  stream: userId != null
-                      ? FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(userId)
-                          .collection('notes')
-                          .orderBy('createdAt', descending: true)
-                          .limit(10)
-                          .snapshots()
-                      : null,
+                  stream: _notesStreamFor(userId),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    final entries = snapshot.hasData ? snapshot.data!.docs : [];
+                    final entries = snapshot.hasData
+                        ? snapshot.data!.docs
+                        : <QueryDocumentSnapshot>[];
+                    final visibleEntries = <MapEntry<QueryDocumentSnapshot,
+                        _ReflectionKind>>[];
+                    for (final doc in entries) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final kind = _reflectionKindOf(data);
+                      if (_matchesReflectionFilter(kind, _reflectionFilter)) {
+                        visibleEntries.add(MapEntry(doc, kind));
+                      }
+                    }
+                    final shownEntries =
+                        _reflectionFilter == _ReflectionFilter.all
+                            ? visibleEntries.take(_allReflectionsShown)
+                            : visibleEntries;
 
                     return SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -812,23 +952,31 @@ class _JournalScreenState extends State<JournalScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          
+
                           if (entries.isEmpty)
                             _buildWarmEmptyReflections()
-                          else
-                            ...entries.map((doc) {
+                          else ...[
+                            _buildReflectionFilterChips(),
+                            const SizedBox(height: 16),
+                            if (visibleEntries.isEmpty)
+                              _buildEmptyFilteredReflections(),
+                            ...shownEntries.map((entry) {
+                              final doc = entry.key;
                               final data = doc.data() as Map<String, dynamic>;
                               return _EntryCard(
                                 entryId: doc.id,
+                                kind: entry.value,
                                 content: data['content'] ?? '',
                                 tag: data['tag'] ?? 'Untagged',
                                 moduleTitle: data['moduleTitle'],
+                                moduleId: data['moduleId']?.toString(),
                                 highlightedText: data['highlightedText'],
                                 createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
                                 prompt: data['prompt'],
                                 isFeelingPrompt: data['isFeelingPrompt'] ?? false,
                               );
-                            }).toList(),
+                            }),
+                          ],
                           
                           // Clear the floating quick check-in / write buttons
                           // (2 x 56 + gap + margin) so the last reflection card
@@ -844,18 +992,35 @@ class _JournalScreenState extends State<JournalScreen> {
           ),
         );
 
+    Widget body = embeddedInMainNav
+        ? content
+        : Stack(
+            fit: StackFit.expand,
+            children: [
+              const AmbientBackground(),
+              content,
+            ],
+          );
+    if (kIsWeb) {
+      // Flutter web (CanvasKit/skwasm) downloads its color-emoji fallback
+      // font the first time an emoji is laid out, showing a tofu box until
+      // it arrives. This screen is built eagerly in the main-nav
+      // IndexedStack, so laying the mood emojis out offstage here starts
+      // that download at app launch instead of when the picker opens.
+      // iOS/Android use the system emoji font, so this is web-only.
+      body = Stack(
+        fit: StackFit.expand,
+        children: [
+          const Offstage(child: Text(_moodEmojiWarmup)),
+          body,
+        ],
+      );
+    }
+
     return Scaffold(
       backgroundColor:
           embeddedInMainNav ? Colors.transparent : AppTheme.backgroundWarm,
-      body: embeddedInMainNav
-          ? content
-          : Stack(
-              fit: StackFit.expand,
-              children: [
-                const AmbientBackground(),
-                content,
-              ],
-            ),
+      body: body,
       // Shortcuts are only shown on the hub: inside the check-in / write cards
       // they duplicate the current mode and could cover Save / Cancel.
       floatingActionButton: _entryMode != _JournalEntryMode.hub
@@ -1101,9 +1266,11 @@ class _SelectableMoodChip extends StatelessWidget {
 
 class _EntryCard extends StatelessWidget {
   final String entryId;
+  final _ReflectionKind kind;
   final String content;
   final String tag;
   final String? moduleTitle;
+  final String? moduleId;
   final String? highlightedText;
   final DateTime? createdAt;
   final String? prompt;
@@ -1111,26 +1278,45 @@ class _EntryCard extends StatelessWidget {
 
   const _EntryCard({
     required this.entryId,
+    required this.kind,
     required this.content,
     required this.tag,
     this.moduleTitle,
+    this.moduleId,
     this.highlightedText,
     this.createdAt,
     this.prompt,
     this.isFeelingPrompt = false,
   });
 
+  bool get _isLearningNote => kind == _ReflectionKind.learningNote;
+
+  IconData get _kindIcon {
+    switch (kind) {
+      case _ReflectionKind.checkIn:
+        return Icons.favorite;
+      case _ReflectionKind.writing:
+        return Icons.edit;
+      case _ReflectionKind.learningNote:
+        return Icons.school;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final title = moduleTitle?.trim();
+    // Learning notes preview what the user wrote; fall back to the
+    // highlighted passage when the note body is empty.
+    final preview = content.trim().isEmpty && highlightedText != null
+        ? highlightedText!
+        : content;
+
+    // Whole card is the tap target (incl. padding) and opens the full entry;
+    // the preview below is clamped to keep the timeline scannable.
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: AppTheme.borderLighter.withOpacity(0.5),
-        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -1139,94 +1325,141 @@ class _EntryCard extends StatelessWidget {
           ),
         ],
       ),
-      child: InkWell(
-        onTap: () => _showEntryDetail(context),
-        borderRadius: BorderRadius.circular(24),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.gradientBeigeStart, AppTheme.gradientBeigeEnd],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showEntryDetail(context),
+          borderRadius: BorderRadius.circular(28),
+          child: Ink(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceCard,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: AppTheme.borderLighter.withOpacity(0.5),
               ),
-              child: const Icon(Icons.favorite, color: AppTheme.brandWhite, size: 20),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Compact date ("Sep 26, 2026") + tag in a Wrap so the tag
-                  // drops to the next line instead of truncating the date
-                  // under Bold Text / larger Dynamic Type.
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppTheme.gradientBeigeStart, AppTheme.gradientBeigeEnd],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(_kindIcon, color: AppTheme.brandWhite, size: 20),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      // Compact date ("Sep 26, 2026") + tag in a Wrap so the tag
+                      // drops to the next line instead of truncating the date
+                      // under Bold Text / larger Dynamic Type.
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Icon(Icons.calendar_today,
-                              size: 14, color: Colors.grey[400]),
-                          if (createdAt != null) ...[
-                            const SizedBox(width: 4),
-                            Text(
-                              DateFormat.yMMMd().format(createdAt!),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textLight,
-                                fontWeight: FontWeight.w300,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.calendar_today,
+                                  size: 14, color: Colors.grey[400]),
+                              if (createdAt != null) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  DateFormat.yMMMd().format(createdAt!),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textLight,
+                                    fontWeight: FontWeight.w300,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (isFeelingPrompt && prompt != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'feeling',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.purple.shade700,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (_isLearningNote && title != null && title.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.menu_book_outlined,
+                                  size: 14, color: Color(0xFF663399)),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF663399),
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ],
-                        ],
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      Text(
+                        preview,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w300,
+                          height: 1.5,
+                        ),
                       ),
-                      if (isFeelingPrompt && prompt != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'feeling',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.purple.shade700,
-                            ),
+                      if (_isLearningNote)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: _OpenLessonButton(
+                            moduleId: moduleId,
+                            moduleTitle: title,
                           ),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    content,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1240,10 +1473,83 @@ class _EntryCard extends StatelessWidget {
         content: content,
         tag: tag,
         moduleTitle: moduleTitle,
+        isLearningNote: _isLearningNote,
+        // Uses the card's context: the dialog's own context is gone once it
+        // pops itself before navigating to the lesson.
+        onOpenLesson: () => openLearningNoteModule(
+          context,
+          moduleId: moduleId,
+          moduleTitle: moduleTitle,
+        ),
         highlightedText: highlightedText,
         createdAt: createdAt,
         prompt: prompt,
         isFeelingPrompt: isFeelingPrompt,
+      ),
+    );
+  }
+}
+
+/// "Open lesson" action for journal notes taken inside a learning module.
+class _OpenLessonButton extends StatefulWidget {
+  final String? moduleId;
+  final String? moduleTitle;
+  final VoidCallback? onPressedOverride;
+
+  const _OpenLessonButton({
+    this.moduleId,
+    this.moduleTitle,
+    this.onPressedOverride,
+  });
+
+  @override
+  State<_OpenLessonButton> createState() => _OpenLessonButtonState();
+}
+
+class _OpenLessonButtonState extends State<_OpenLessonButton> {
+  bool _opening = false;
+
+  Future<void> _open() async {
+    if (widget.onPressedOverride != null) {
+      widget.onPressedOverride!();
+      return;
+    }
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      await openLearningNoteModule(
+        context,
+        moduleId: widget.moduleId,
+        moduleTitle: widget.moduleTitle,
+      );
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: _opening ? null : _open,
+      style: TextButton.styleFrom(
+        foregroundColor: const Color(0xFF663399),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        minimumSize: const Size(44, 44),
+        tapTargetSize: MaterialTapTargetSize.padded,
+      ),
+      icon: _opening
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF663399),
+              ),
+            )
+          : const Icon(Icons.arrow_forward, size: 18),
+      label: const Text(
+        'Open lesson',
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -1254,6 +1560,8 @@ class _EntryDetailDialog extends StatelessWidget {
   final String content;
   final String tag;
   final String? moduleTitle;
+  final bool isLearningNote;
+  final VoidCallback? onOpenLesson;
   final String? highlightedText;
   final DateTime? createdAt;
   final String? prompt;
@@ -1264,6 +1572,8 @@ class _EntryDetailDialog extends StatelessWidget {
     required this.content,
     required this.tag,
     this.moduleTitle,
+    this.isLearningNote = false,
+    this.onOpenLesson,
     this.highlightedText,
     this.createdAt,
     this.prompt,
@@ -1364,6 +1674,16 @@ class _EntryDetailDialog extends StatelessWidget {
                           ],
                         ),
                       ),
+                      if (isLearningNote && onOpenLesson != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: _OpenLessonButton(
+                            onPressedOverride: () {
+                              Navigator.of(context).pop();
+                              onOpenLesson!();
+                            },
+                          ),
+                        ),
                       const SizedBox(height: 16),
                     ],
                     if (highlightedText != null) ...[

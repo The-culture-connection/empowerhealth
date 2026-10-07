@@ -88,7 +88,7 @@ class _PregnancyLossHomeVariantState extends State<PregnancyLossHomeVariant> {
         if (_shows('future')) ...[
           _SecondaryCard(
             title: 'Support when I\'m ready',
-            subtitle: 'Future care questions — only if or when you want them',
+            subtitle: 'Future care questions, only if or when you want them',
             icon: Icons.schedule_outlined,
             onTap: (ctx) => _openTopic(ctx, 'future_when_ready'),
           ),
@@ -97,7 +97,7 @@ class _PregnancyLossHomeVariantState extends State<PregnancyLossHomeVariant> {
         if (_shows('learning')) ...[
           _SecondaryCard(
             title: 'Pregnancy loss learning modules',
-            subtitle: 'Plain-language guides — no milestone content',
+            subtitle: 'Plain-language guides, no milestone content',
             icon: Icons.menu_book_outlined,
             onTap: (ctx) => openPregnancyLossLearn(ctx),
           ),

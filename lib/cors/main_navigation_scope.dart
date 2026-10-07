@@ -22,9 +22,12 @@ class MainNavigationScope extends InheritedWidget {
   static bool goToTab(BuildContext context, int tabIndex) {
     final scope = maybeOf(context);
     if (scope == null) return false;
-    final navigator = Navigator.of(context);
-    while (navigator.canPop()) {
-      navigator.pop();
+    // Close only routes above the one holding the tabs. After login the app
+    // pushes the tab scaffold above the auth route, so popping while canPop()
+    // would remove the tabs too and drop the user on the sign-in screen.
+    final tabsRoute = ModalRoute.of(context);
+    if (tabsRoute != null) {
+      Navigator.of(context).popUntil((route) => route == tabsRoute);
     }
     scope.selectTab(tabIndex);
     return true;

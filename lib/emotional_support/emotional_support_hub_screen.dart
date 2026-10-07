@@ -158,7 +158,7 @@ class EmotionalSupportHubScreen extends StatelessWidget {
                             ),
                             _SupportTile(
                               label: 'Talk through a symptom',
-                              subtitle: 'Assistant — educational framing only',
+                              subtitle: 'Assistant (educational framing only)',
                               onTap: () => openEmotionalSupportResource(
                                 context,
                                 resourceId: 'health_assistant',
@@ -193,7 +193,7 @@ class EmotionalSupportHubScreen extends StatelessWidget {
                               ),
                             ),
                             _SupportTile(
-                              label: 'Take a moment — journal check-in',
+                              label: 'Take a moment: journal check-in',
                               onTap: () => openEmotionalSupportResource(
                                 context,
                                 resourceId: 'adjust_journal',

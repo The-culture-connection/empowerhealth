@@ -199,7 +199,7 @@
     <div class="panel-head" style="border-top:1px solid var(--line);border-bottom:0">
       <div class="row" style="justify-content:space-between">
         <span class="sync" id="sync">connecting…</span>
-        <span class="row"><button class="btn small" id="expandAll">Expand all</button><button class="btn small" id="exportTodos">Export</button></span>
+        <span class="row"><button class="btn small" id="expandAll">Expand all</button><button class="btn small primary" id="exportReport" title="Download the whole checklist as a Markdown report: open bugs, unfinished checks, notes and screenshot links. Attach it in a message to Claude.">Download report</button><button class="btn small" id="exportTodos" title="Raw data backup (JSON)">JSON</button></span>
       </div>
     </div>
   </section>
@@ -878,9 +878,15 @@
       $('expandAll').textContent = allOpen ? 'Expand all' : 'Collapse all';
       renderTodos();
     };
-    $('exportTodos').onclick = () => {
-      const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), checklist: builtins, ...state.server }, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'empowerhealth-qa-checklist.json'; a.click(); URL.revokeObjectURL(a.href);
+    const download = (text, type, name) => {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); URL.revokeObjectURL(a.href);
+    };
+    const stamp = () => new Date().toISOString().slice(0, 10);
+    $('exportTodos').onclick = () => download(JSON.stringify({ exportedAt: new Date().toISOString(), checklist: builtins, ...state.server }, null, 2), 'application/json', `empowerhealth-qa-data-${stamp()}.json`);
+    $('exportReport').onclick = async () => {
+      await loadState();
+      download(exportReport(), 'text/markdown', `empowerhealth-qa-report-${stamp()}.md`);
+      toast('Report downloaded. Attach it in a message to Claude.');
     };
     renderTodos();
   }
@@ -1022,6 +1028,28 @@
     out.push(`## Recent errors (${errs.length})`, '', ...(errs.length ? errs : ['None.']), '');
     const ins = inspectedLines();
     if (ins.length) out.push('## Inspected element', '', ...ins, '');
+    return out.join('\n');
+  }
+  // The whole checklist, for sending as a file: everything still to do in full,
+  // then a one-line list of what passed.
+  function exportReport() {
+    const items = allItems();
+    const order = (i) => ({ P0: 0, P1: 1, P2: 2 }[i.pri] ?? 3);
+    const byScreen = (a, b) => GROUPS.findIndex((g) => g.name === a.group) - GROUPS.findIndex((g) => g.name === b.group) || order(a) - order(b);
+    const done = (i) => ['pass', 'na'].includes(statusOf(i.id));
+    const todo = items.filter((i) => !done(i)).sort(byScreen);
+    const passed = items.filter(done).sort(byScreen);
+    const c = { pass: 0, fail: 0, na: 0 }; items.forEach((i) => { const s = statusOf(i.id); if (s) c[s]++; });
+    const out = ['# EmpowerHealth Watch — QA checklist export', '', PREAMBLE, '',
+      `- Exported: ${new Date().toLocaleString()} by ${author()}`,
+      `- Build: ${state.build || 'unknown'} · ${location.origin}`,
+      `- Totals: ${items.length} items · ${c.pass} pass · ${c.fail} fail · ${c.na} N/A · ${items.length - c.pass - c.fail - c.na} not tested · ${items.filter((i) => i.bug).length} bug reports`, ''];
+    out.push(`## Still to do (${todo.length})`, '');
+    for (const g of GROUPS) {
+      const list = todo.filter((i) => i.group === g.name);
+      if (list.length) out.push(`### ${g.name} (${list.length})`, '', ...list.map((i) => itemBlock(i).replace(/^### /, '#### ')).join('\n\n').split('\n'), '');
+    }
+    out.push(`## Passed or N/A (${passed.length})`, '', ...passed.map((i) => `- [${statusOf(i.id) === 'na' ? 'N/A' : 'pass'}] ${i.group}: ${i.text}${i.bug ? ' (bug report)' : ''}`), '');
     return out.join('\n');
   }
   function itemReport(item) {

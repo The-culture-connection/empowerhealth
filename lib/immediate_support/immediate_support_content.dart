@@ -83,16 +83,16 @@ ImmediateSupportSectionConfig _emotionalSection() {
     supportMessage: 'Your feelings are valid. You do not have to go through this alone.',
     prioritize988: true,
     bullets: const [
-      'Stress and coping support — small steps like rest, hydration, and asking for help with one task can matter.',
-      'Ways to care for yourself today — reduce non-essential tasks if you can; limit triggers if helpful.',
+      'Stress and coping support: small steps like rest, hydration, and asking for help with one task can matter.',
+      'Ways to care for yourself today: reduce non-essential tasks if you can; limit triggers if helpful.',
       'Grounding can help when overwhelmed: notice five things you see, four you feel, three you hear.',
-      'Talking to someone may help — peer or professional support is available through external services.',
+      'Talking to someone may help. Peer or professional support is available through external services.',
     ],
     tiles: [
       ImmediateSupportTile(
         id: 'journal',
         label: 'Private journal space',
-        subtitle: 'Write what you feel — only you can see it',
+        subtitle: 'Write what you feel. Only you can see it',
         onTap: (ctx) async => openJournalTab(ctx),
       ),
       ImmediateSupportTile(
@@ -126,20 +126,20 @@ ImmediateSupportSectionConfig _understandNextSection() {
     bullets: const [
       'Plain-language explanations can help you prepare for conversations with your care team.',
       'It is okay to ask providers to explain things again in everyday words.',
-      'Organizing one or two next steps — a call, an appointment, or a question list — can reduce overwhelm.',
+      'Organizing one or two next steps (a call, an appointment, or a question list) can reduce overwhelm.',
       'CDC Hear Her and similar public health resources describe warning signs worth discussing with a provider.',
     ],
     tiles: [
       ImmediateSupportTile(
         id: 'assistant',
         label: 'Ask in plain language',
-        subtitle: 'Use the assistant to simplify terms — educational only, not diagnosis',
+        subtitle: 'Use the assistant to simplify terms. Educational only, not diagnosis',
         onTap: (ctx) async {
           await Navigator.pushNamed(
             ctx,
             Routes.assistant,
             arguments:
-                'Help me understand what to do next in plain language. I do not need a diagnosis — just clear next steps and questions I can ask my care team.',
+                'Help me understand what to do next in plain language. I do not need a diagnosis, just clear next steps and questions I can ask my care team.',
           );
         },
       ),
@@ -199,7 +199,7 @@ ImmediateSupportSectionConfig _followUpCareSection() {
       ImmediateSupportTile(
         id: 'cdc_hear_her_followup',
         label: 'When to contact a provider',
-        subtitle: 'CDC Hear Her — warning signs (external)',
+        subtitle: 'CDC Hear Her: warning signs (external)',
         onTap: (ctx) async => openAppResourceById(ctx, 'cdc_hear_her'),
       ),
     ],
@@ -221,7 +221,7 @@ ImmediateSupportSectionConfig _providerTalkSection() {
       ImmediateSupportTile(
         id: 'journal_provider',
         label: 'Save questions for your visit',
-        subtitle: 'Private journal — copy prompts before you go',
+        subtitle: 'Private journal. Copy prompts before you go',
         onTap: (ctx) async => openJournalTab(ctx),
       ),
       ImmediateSupportTile(
@@ -254,7 +254,7 @@ ImmediateSupportSectionConfig _findResourcesSection() {
     supportMessage: 'Support may look different for everyone. We\'ll help you explore your options.',
     bullets: const [
       'Community programs, WIC, Medicaid, and 211 can help with practical needs.',
-      'Mental health directories and PSI connect you to external support — not in-app counseling.',
+      'Mental health directories and PSI connect you to external support, not in-app counseling.',
       'Local organizations vary by area; 211 can help you find options near you.',
     ],
     tiles: [
@@ -266,7 +266,7 @@ ImmediateSupportSectionConfig _findResourcesSection() {
       ),
       ImmediateSupportTile(
         id: '211',
-        label: '211 — local help',
+        label: '211: local help',
         subtitle: 'Food, housing, transportation, and more (external)',
         onTap: (ctx) async => openAppResourceById(ctx, '211'),
       ),
@@ -293,13 +293,13 @@ ImmediateSupportSectionConfig _transportationSection() {
     supportMessage: 'Getting to care can be difficult sometimes. Support is available.',
     bullets: const [
       '211 may connect you to local transportation, Medicaid non-emergency medical transport, or ride programs in your area.',
-      'If you miss an appointment, you can call the office to reschedule — ask what to do before your next visit.',
+      'If you miss an appointment, you can call the office to reschedule. Ask what to do before your next visit.',
       'Questions to ask when rescheduling: "Do I need any labs or forms before I come in?"',
     ],
     tiles: [
       ImmediateSupportTile(
         id: '211_transport',
-        label: '211 — transportation & local help',
+        label: '211: transportation & local help',
         subtitle: 'Find programs near you (external)',
         onTap: (ctx) async => openAppResourceById(ctx, '211'),
       ),
@@ -325,7 +325,7 @@ ImmediateSupportSectionConfig _somethingElseSection() {
     headline: 'Something else I need',
     supportMessage: 'Tell us what would feel helpful right now.',
     bullets: const [
-      'You can share only what feels comfortable — nothing is required.',
+      'You can share only what feels comfortable. Nothing is required.',
       'The assistant can help organize questions or next steps in plain language.',
       'External hotlines and 211 are available if you need to talk to someone now.',
     ],
@@ -333,13 +333,13 @@ ImmediateSupportSectionConfig _somethingElseSection() {
       ImmediateSupportTile(
         id: 'assistant_other',
         label: 'Talk with the assistant',
-        subtitle: 'Educational support only — not counseling or emergency response',
+        subtitle: 'Educational support only, not counseling or emergency response',
         onTap: (ctx) async {
           await Navigator.pushNamed(
             ctx,
             Routes.assistant,
             arguments:
-                'I need help figuring out what support might help me right now. Please use plain language and suggest gentle next steps — no diagnosis.',
+                'I need help figuring out what support might help me right now. Please use plain language and suggest gentle next steps. No diagnosis.',
           );
         },
       ),

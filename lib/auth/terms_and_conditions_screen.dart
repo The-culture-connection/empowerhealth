@@ -33,7 +33,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'EmpowerHealth Watch – Terms and Conditions & End User License Agreement',
+                    'EmpowerHealth Watch: Terms and Conditions & End User License Agreement',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -90,7 +90,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                   
                   _buildSection(
                     '5. Intellectual Property',
-                    'All content in the App—including logos, graphics, text, audio, designs, health modules, and software—is owned by The Empowerment Foundation and protected by copyright and trademark law.',
+                    'All content in the App (including logos, graphics, text, audio, designs, health modules, and software) is owned by The Empowerment Foundation and protected by copyright and trademark law.',
                   ),
                   
                   _buildSection(

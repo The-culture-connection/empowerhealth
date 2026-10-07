@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firebase_functions_service.dart';
@@ -639,11 +638,9 @@ class _SelectableMarkdownWidgetState extends State<_SelectableMarkdownWidget> {
               LearningModuleFormattedContent(
                 content: cleanedContent,
                 moduleTitle: widget.moduleTitle,
-                selectionControls: _CustomTextSelectionControls(
-                  onAddNote: (text) {
-                    widget.onTextSelected(text);
-                  },
-                ),
+                // Adds "Add note" to the selection context menu (the old
+                // custom selectionControls toolbar was ignored by Flutter).
+                onAddNote: (text) => widget.onTextSelected(text),
               ),
             ],
           ),
@@ -652,150 +649,3 @@ class _SelectableMarkdownWidgetState extends State<_SelectableMarkdownWidget> {
     );
   }
 }
-
-// Custom text selection controls with "Add Note" option
-class _CustomTextSelectionControls extends MaterialTextSelectionControls {
-  final Function(String) onAddNote;
-
-  _CustomTextSelectionControls({required this.onAddNote});
-
-  @override
-  Widget buildToolbar(
-    BuildContext context,
-    Rect globalEditableRegion,
-    double textLineHeight,
-    Offset selectionMidpoint,
-    List<TextSelectionPoint> endpoints,
-    TextSelectionDelegate delegate,
-    ValueListenable<ClipboardStatus>? clipboardStatus,
-    Offset? lastSecondaryTapDownPosition,
-  ) {
-    final selectedText = delegate.textEditingValue.selection.textInside(delegate.textEditingValue.text);
-    return _CustomTextSelectionToolbar(
-      globalEditableRegion: globalEditableRegion,
-      textLineHeight: textLineHeight,
-      selectionMidpoint: selectionMidpoint,
-      endpoints: endpoints,
-      delegate: delegate,
-      clipboardStatus: clipboardStatus,
-      selectedText: selectedText,
-      onAddNote: (text) {
-        onAddNote(text);
-        delegate.hideToolbar();
-      },
-    );
-  }
-}
-
-class _CustomTextSelectionToolbar extends StatelessWidget {
-  final Rect globalEditableRegion;
-  final double textLineHeight;
-  final Offset selectionMidpoint;
-  final List<TextSelectionPoint> endpoints;
-  final TextSelectionDelegate delegate;
-  final ValueListenable<ClipboardStatus>? clipboardStatus;
-  final String selectedText;
-  final Function(String) onAddNote;
-
-  const _CustomTextSelectionToolbar({
-    required this.globalEditableRegion,
-    required this.textLineHeight,
-    required this.selectionMidpoint,
-    required this.endpoints,
-    required this.delegate,
-    this.clipboardStatus,
-    required this.selectedText,
-    required this.onAddNote,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints.tight(globalEditableRegion.size),
-      child: CustomSingleChildLayout(
-        delegate: _TextSelectionToolbarLayout(
-          globalEditableRegion: globalEditableRegion,
-          textLineHeight: textLineHeight,
-          selectionMidpoint: selectionMidpoint,
-          endpoints: endpoints,
-        ),
-        child: Material(
-          elevation: 1.0,
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.grey[850],
-          child: Wrap(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.copy, color: AppTheme.brandWhite, size: 20),
-                tooltip: 'Copy',
-                onPressed: () {
-                  delegate.copySelection(SelectionChangedCause.toolbar);
-                  delegate.hideToolbar();
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.note_add, color: AppTheme.brandWhite, size: 20),
-                tooltip: 'Add Note',
-                onPressed: () {
-                  if (selectedText.isNotEmpty) {
-                    onAddNote(selectedText);
-                  }
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.select_all, color: AppTheme.brandWhite, size: 20),
-                tooltip: 'Select All',
-                onPressed: () {
-                  delegate.selectAll(SelectionChangedCause.toolbar);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TextSelectionToolbarLayout extends SingleChildLayoutDelegate {
-  final Rect globalEditableRegion;
-  final double textLineHeight;
-  final Offset selectionMidpoint;
-  final List<TextSelectionPoint> endpoints;
-
-  _TextSelectionToolbarLayout({
-    required this.globalEditableRegion,
-    required this.textLineHeight,
-    required this.selectionMidpoint,
-    required this.endpoints,
-  });
-
-  @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    return constraints.loosen();
-  }
-
-  @override
-  Offset getPositionForChild(Size size, Size childSize) {
-    final toolbarHeight = childSize.height;
-    final toolbarWidth = childSize.width;
-    final double x = (selectionMidpoint.dx - (toolbarWidth / 2)).clamp(
-      globalEditableRegion.left,
-      globalEditableRegion.right - toolbarWidth,
-    );
-    final double y = (endpoints.first.point.dy - toolbarHeight - 8).clamp(
-      globalEditableRegion.top,
-      globalEditableRegion.bottom - toolbarHeight,
-    );
-    return Offset(x, y);
-  }
-
-  @override
-  bool shouldRelayout(_TextSelectionToolbarLayout oldDelegate) {
-    return globalEditableRegion != oldDelegate.globalEditableRegion ||
-        textLineHeight != oldDelegate.textLineHeight ||
-        selectionMidpoint != oldDelegate.selectionMidpoint ||
-        endpoints != oldDelegate.endpoints;
-  }
-}
-

@@ -238,6 +238,13 @@ bool _insideHorizontalScroll(RenderObject node) {
   RenderObject? p = node.parent;
   while (p != null) {
     if (p is RenderViewportBase && p.axis == Axis.horizontal) return true;
+    // SingleChildScrollView's viewport is private; read its direction dynamically.
+    if (p is RenderAbstractViewport && p is! RenderViewportBase) {
+      try {
+        final direction = (p as dynamic).axisDirection as AxisDirection;
+        if (axisDirectionToAxis(direction) == Axis.horizontal) return true;
+      } catch (_) {}
+    }
     p = p.parent;
   }
   return false;

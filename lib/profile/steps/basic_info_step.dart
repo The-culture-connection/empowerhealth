@@ -73,11 +73,15 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               _buildSectionHeader('How did you hear about EmpowerHealth Watch?'),
               const SizedBox(height: AppTheme.spacingM),
               DropdownButtonFormField<String>(
+                isExpanded: true,
+                isDense: false,
+                itemHeight: null,
                 key: _formRecruitmentKey,
                 value: provider.recruitmentSource,
                 decoration: const InputDecoration(
                   labelText: 'Select an option',
                   helperText: 'This helps us understand how people find the app',
+                  helperMaxLines: 3,
                 ),
                 items: const [
                   DropdownMenuItem(
@@ -123,6 +127,8 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                   hintText: 'Choose a username',
                   prefixIcon: Icon(Icons.person_outline),
                   helperText: 'This will be displayed in the community and reviews',
+                  helperMaxLines: 3,
+                  errorMaxLines: 3,
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -300,6 +306,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                   labelText: 'Zip Code',
                   hintText: 'Enter your zip code',
                   prefixIcon: Icon(Icons.location_on_outlined),
+                  errorMaxLines: 2,
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
@@ -359,11 +366,15 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
 
               // Insurance Type
               DropdownButtonFormField<String>(
+                isExpanded: true,
+                isDense: false,
+                itemHeight: null,
                 value: provider.insuranceType.isEmpty ? null : provider.insuranceType,
                 decoration: const InputDecoration(
                   labelText: 'Insurance Type',
                   hintText: 'Select your insurance type',
                   prefixIcon: Icon(Icons.medical_services_outlined),
+                  errorMaxLines: 2,
                 ),
                 items: const [
                   DropdownMenuItem(value: 'Private', child: Text('Private Insurance')),

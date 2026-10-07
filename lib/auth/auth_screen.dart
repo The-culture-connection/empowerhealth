@@ -3,6 +3,7 @@ import '../app_router.dart';
 import '../cors/ui_theme.dart';
 import '../services/auth_service.dart';
 import '../widgets/feature_session_scope.dart';
+import 'auth_error_messages.dart';
 import 'terms_and_conditions_screen.dart';
 
 class AuthScreen extends StatelessWidget {
@@ -34,7 +35,11 @@ class AuthScreen extends StatelessWidget {
               if (!termsContext.mounted) return;
               Navigator.of(termsContext).pop(); // dismiss loader
               ScaffoldMessenger.of(termsContext).showSnackBar(
-                SnackBar(content: Text('Could not continue as guest: $e')),
+                SnackBar(
+                  content: Text(
+                    'We couldn\'t start guest mode. ${AuthErrorMessages.forError(e)}',
+                  ),
+                ),
               );
             }
           },
@@ -139,6 +144,8 @@ class AuthScreen extends StatelessWidget {
                       foregroundColor: AppTheme.brandPurple,
                       backgroundColor: AppTheme.brandWhite.withOpacity(0.85),
                       minimumSize: const Size(double.infinity, 52),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -167,14 +174,17 @@ class _AuthPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Minimum (not fixed) height: a fixed 56px box plus the theme's 16px
+    // vertical padding clipped glyph descenders at large text sizes.
     return SizedBox(
       width: double.infinity,
-      height: 56,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.brandPurple,
           foregroundColor: AppTheme.brandWhite,
           elevation: 0,
+          minimumSize: const Size(double.infinity, 56),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),

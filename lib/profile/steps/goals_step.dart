@@ -173,12 +173,16 @@ class GoalsStep extends StatelessWidget {
                             color: AppTheme.brandGold,
                           ),
                         if (isSelected) const SizedBox(width: AppTheme.spacingS),
-                        Text(
-                          goal,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                            color: isSelected ? AppTheme.brandGold : Colors.black87,
+                        // Flexible so a long chip label wraps instead of
+                        // overflowing at large text sizes.
+                        Flexible(
+                          child: Text(
+                            goal,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                              color: isSelected ? AppTheme.brandGold : Colors.black87,
+                            ),
                           ),
                         ),
                       ],

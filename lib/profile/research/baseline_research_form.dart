@@ -264,7 +264,7 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
           decoration: const InputDecoration(
             labelText: 'What is your age (in years)?',
             border: OutlineInputBorder(),
-            helperText: 'Research baseline — numbers only',
+            helperText: 'Research baseline: numbers only',
           ),
         );
       case _BaselinePage.pregnancyPostpartum:

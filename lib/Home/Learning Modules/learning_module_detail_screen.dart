@@ -41,6 +41,30 @@ class _LearningModuleDetailScreenState
   bool _hasTrackedCompletion = false;
   bool _exiting = false;
 
+  /// Text the user most recently selected in the module body. Kept after the
+  /// selection is cleared by focus loss (e.g. clicking the "Add note" button
+  /// on web) so the button can still attach it to the note.
+  final ValueNotifier<String> _selectedText = ValueNotifier<String>('');
+
+  String? get _noteModuleId => widget.moduleId ?? widget.taskId;
+
+  /// Opens the journal notes dialog for this module, optionally quoting the
+  /// highlighted text. Notes land in users/{uid}/notes with moduleTitle +
+  /// moduleId so the Journal can link them back to this module.
+  void _openNotesDialog({String? highlightedText}) {
+    final highlight = highlightedText?.trim();
+    showDialog<void>(
+      context: context,
+      builder: (context) => NotesDialog(
+        moduleTitle: widget.title,
+        moduleId: _noteModuleId,
+        preFilledText:
+            (highlight == null || highlight.isEmpty) ? null : highlight,
+        initialTag: NotesDialog.categoryForSection('learning_module'),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -119,6 +143,7 @@ class _LearningModuleDetailScreenState
   @override
   void dispose() {
     _trackModuleExit();
+    _selectedText.dispose();
     super.dispose();
   }
 
@@ -191,13 +216,7 @@ class _LearningModuleDetailScreenState
                     IconButton(
                       icon: const Icon(Icons.note_add),
                       tooltip: 'Add Note',
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) =>
-                              NotesDialog(moduleTitle: widget.title),
-                        );
-                      },
+                      onPressed: () => _openNotesDialog(),
                     ),
                     IconButton(
                       icon: const Icon(Icons.share),
@@ -236,27 +255,64 @@ class _LearningModuleDetailScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.auto_awesome,
-                                  size: 18,
-                                  color: const Color(0xFF663399),
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 1),
+                                  child: Icon(
+                                    Icons.auto_awesome,
+                                    size: 18,
+                                    color: Color(0xFF663399),
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  'Long-press text to highlight and add a note',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF663399),
+                                const Expanded(
+                                  child: Text(
+                                    'Long-press or drag across text to highlight it, then add a note',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF663399),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 4),
+                            // Always-visible fallback: on web the browser's
+                            // own context menu replaces Flutter's, so the
+                            // selection toolbar's "Add note" never appears.
+                            ValueListenableBuilder<String>(
+                              valueListenable: _selectedText,
+                              builder: (context, selected, _) {
+                                return TextButton.icon(
+                                  onPressed: () => _openNotesDialog(
+                                    highlightedText: selected,
+                                  ),
+                                  icon: const Icon(Icons.edit_note, size: 20),
+                                  label: Text(
+                                    selected.isEmpty
+                                        ? 'Add a note'
+                                        : 'Add note to highlighted text',
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFF663399),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 12),
                             LearningModuleFormattedContent(
                               content: widget.content,
                               moduleTitle: widget.title,
+                              moduleId: _noteModuleId,
+                              onAddNote: (text) =>
+                                  _openNotesDialog(highlightedText: text),
+                              onSelectionTextChanged: (text) =>
+                                  _selectedText.value = text,
                             ),
                           ],
                         ),

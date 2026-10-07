@@ -35,6 +35,23 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Set<String> _blockedUids = <String>{};
   StreamSubscription<Set<String>>? _blockedSub;
 
+  // Created once (not in build) so setState (reply sending, block updates)
+  // never resubscribes and flashes the loading spinner.
+  late final Stream<DocumentSnapshot> _postStream = _postRef().snapshots();
+  late final Stream<DocumentSnapshot> _postActionsStream =
+      _postRef().snapshots();
+
+  DocumentReference<Map<String, dynamic>> _postRef() => FirebaseFirestore
+      .instance
+      .collection('community_posts')
+      .doc(widget.postId);
+
+  /// Display name for a post, honoring the anonymous flag.
+  static String _postAuthorLabel(Map<String, dynamic> data) =>
+      data['isAnonymous'] == true
+          ? 'Anonymous'
+          : (data['authorName'] as String?) ?? 'Anonymous';
+
   @override
   void initState() {
     super.initState();
@@ -172,13 +189,25 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         throw Exception('User not authenticated');
       }
 
-      // Get user profile for author name
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-      final userData = userDoc.data();
-      final authorName = userData?['username'] ?? 'Anonymous';
+      // An anonymous poster replying in their own thread stays anonymous, so
+      // their name is never tied to the post through the replies list.
+      final postSnap = await _postRef().get();
+      final postData = postSnap.data();
+      final replyAnonymously = postData?['isAnonymous'] == true &&
+          postData?['userId'] == userId;
+
+      final String authorName;
+      if (replyAnonymously) {
+        authorName = 'Anonymous';
+      } else {
+        // Get user profile for author name
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+        final userData = userDoc.data();
+        authorName = (userData?['username'] as String?) ?? 'Anonymous';
+      }
 
       final replyId = FirebaseFirestore.instance.collection('community_posts').doc().id;
       // Use Timestamp.now() instead of FieldValue.serverTimestamp() for array elements
@@ -186,6 +215,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         'replyId': replyId,
         'userId': userId,
         'authorName': authorName,
+        if (replyAnonymously) 'isAnonymous': true,
         'content': _replyController.text.trim(),
         'createdAt': Timestamp.now(),
       };
@@ -671,18 +701,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         title: 'Discussion',
         actions: [
           StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('community_posts')
-                .doc(widget.postId)
-                .snapshots(),
+            stream: _postActionsStream,
             builder: (context, snapshot) {
-              if (!snapshot.hasData) {
+              if (!snapshot.hasData || !snapshot.data!.exists) {
                 return const SizedBox.shrink();
               }
               final data = snapshot.data!.data() as Map<String, dynamic>;
               final title = data['title'] ?? '';
               final postAuthorId = data['userId'] as String?;
-              final postAuthorName = data['authorName'] as String? ?? 'this user';
+              final postAuthorName = data['isAnonymous'] == true
+                  ? 'this user'
+                  : data['authorName'] as String? ?? 'this user';
               final postContent = data['content'] as String? ?? '';
               final uid = FirebaseAuth.instance.currentUser?.uid;
               final isPostOwner =
@@ -724,12 +753,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         ],
       ),
       body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('community_posts')
-            .doc(widget.postId)
-            .snapshots(),
+        stream: _postStream,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          // Spinner only until the first snapshot arrives.
+          if (!snapshot.hasData && !snapshot.hasError) {
             return const Center(child: CircularProgressIndicator());
           }
 
@@ -740,12 +767,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           final data = snapshot.data!.data() as Map<String, dynamic>;
           final title = data['title'] ?? '';
           final content = data['content'] ?? '';
-          final authorName = data['authorName'] ?? 'Anonymous';
           final category = data['category'] ?? 'General';
           final likes = List<String>.from(data['likes'] ?? []);
           final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
           final postOwnerId = data['userId'] as String?;
           final userId = FirebaseAuth.instance.currentUser?.uid;
+          final authorName = _postAuthorLabel(data);
+          final isOwnPost = postOwnerId != null && postOwnerId == userId;
           final isLiked = userId != null && likes.contains(userId);
 
           // Instant feed removal: a blocked author's whole thread is hidden.
@@ -874,7 +902,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 // Author Name
                                 Expanded(
                                   child: Text(
-                                    authorName,
+                                    isOwnPost
+                                        ? '$authorName (you)'
+                                        : authorName,
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors.grey[700],
@@ -1011,8 +1041,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         )
                       else
                         ...replies.map((reply) {
-                          final replyAuthor =
-                              reply['authorName'] ?? 'Anonymous';
+                          final String replyAuthor = reply['isAnonymous'] == true
+                              ? 'Anonymous'
+                              : (reply['authorName'] as String?) ??
+                                  'Anonymous';
                           final replyContent = reply['content'] ?? '';
                           final replyUserId = reply['userId'] as String?;
                           final replyCreatedAt =

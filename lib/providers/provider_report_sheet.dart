@@ -89,7 +89,7 @@ class _ProviderReportSheetBodyState extends State<_ProviderReportSheetBody> {
       if (mounted) Navigator.of(context).pop();
       messenger?.showSnackBar(
         const SnackBar(
-          content: Text('Thank you — we received your report and will review it.'),
+          content: Text('Thank you. We received your report and will review it.'),
           backgroundColor: Colors.green,
         ),
       );

@@ -35,7 +35,7 @@ Labor is your body’s process of opening the cervix and helping your baby move 
 Follow the instructions your team gave you. In general, call right away for bleeding like a period, fluid leaking, baby moving less, severe pain, or if you are unsure you are safe.
 
 ## How to speak up
-You can say: *“How far apart should my contractions be before I come in?”* or *“I’m not sure if this is labor — can you help me decide?”*
+You can say: *“How far apart should my contractions be before I come in?”* or *“I’m not sure if this is labor. Can you help me decide?”*
 ''',
   ),
   BirthLaborEducationTopic(
@@ -100,7 +100,7 @@ Speaking up helps your team understand pain, fear, or confusion. You are not bot
 - *“Please explain that in simpler words.”*
 - *“I need a minute before I decide.”*
 - *“What are my other options?”*
-- *“I’m scared — can someone stay with me?”*
+- *“I’m scared. Can someone stay with me?”*
 
 ## When to escalate
 If you feel ignored after asking, you can ask for the charge nurse or patient advocate. You deserve respectful, understandable care.

@@ -35,7 +35,7 @@ class PregnancyLossSupportHubScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'One step at a time — choose what feels right today.',
+                'One step at a time. Choose what feels right today.',
                 style: TextStyle(
                   fontSize: 15,
                   color: AppTheme.textMuted,

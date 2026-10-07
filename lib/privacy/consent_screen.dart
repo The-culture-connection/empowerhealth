@@ -110,7 +110,7 @@ class _ConsentScreenState extends State<ConsentScreen> {
                   content: [
                     'AI helps us create easy-to-understand summaries of your visits',
                     'AI generates personalized learning content based on your needs',
-                    'AI provides educational support—this is not medical advice',
+                    'AI provides educational support. This is not medical advice',
                     'Your raw documents are not stored unless you choose to save them',
                     'You can turn off AI features anytime in Settings',
                   ],

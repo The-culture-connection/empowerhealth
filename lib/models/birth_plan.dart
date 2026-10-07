@@ -114,7 +114,20 @@ class BirthPlan {
   
   // Section 12: In My Own Words
   final String? inMyOwnWords;
-  
+
+  // Fields collected by ComprehensiveBirthPlanScreen that previously had no
+  // home in the model (and so were dropped from the saved/downloaded plan).
+  final List<String> environmentPreferences; // quiet room, music, dim lighting...
+  final String? perinealSupportPreference; // warm cloths, hands-on support
+  final bool? eyeOintment;
+  final bool? cordBloodBanking;
+  final String? cordBloodCompany;
+  final bool? photosAllowedInOR;
+  final bool? delayNewbornCareUntilHolding;
+  final String? anesthesiaPreference;
+  final String? surgicalClosurePreference;
+  final String? culturalConsiderations;
+
   // Generated content
   final String? formattedPlan;
   final DateTime createdAt;
@@ -212,6 +225,16 @@ class BirthPlan {
     this.preferredBadNewsDelivery,
     this.fearReductionRequests = const [],
     this.inMyOwnWords,
+    this.environmentPreferences = const [],
+    this.perinealSupportPreference,
+    this.eyeOintment,
+    this.cordBloodBanking,
+    this.cordBloodCompany,
+    this.photosAllowedInOR,
+    this.delayNewbornCareUntilHolding,
+    this.anesthesiaPreference,
+    this.surgicalClosurePreference,
+    this.culturalConsiderations,
     this.formattedPlan,
     DateTime? createdAt,
     this.updatedAt,
@@ -307,6 +330,16 @@ class BirthPlan {
       'preferredBadNewsDelivery': preferredBadNewsDelivery,
       'fearReductionRequests': fearReductionRequests,
       'inMyOwnWords': inMyOwnWords,
+      'environmentPreferences': environmentPreferences,
+      'perinealSupportPreference': perinealSupportPreference,
+      'eyeOintment': eyeOintment,
+      'cordBloodBanking': cordBloodBanking,
+      'cordBloodCompany': cordBloodCompany,
+      'photosAllowedInOR': photosAllowedInOR,
+      'delayNewbornCareUntilHolding': delayNewbornCareUntilHolding,
+      'anesthesiaPreference': anesthesiaPreference,
+      'surgicalClosurePreference': surgicalClosurePreference,
+      'culturalConsiderations': culturalConsiderations,
       'formattedPlan': formattedPlan,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
@@ -405,6 +438,17 @@ class BirthPlan {
       preferredBadNewsDelivery: data['preferredBadNewsDelivery'],
       fearReductionRequests: List<String>.from(data['fearReductionRequests'] ?? []),
       inMyOwnWords: data['inMyOwnWords'],
+      environmentPreferences:
+          List<String>.from(data['environmentPreferences'] ?? []),
+      perinealSupportPreference: data['perinealSupportPreference'],
+      eyeOintment: data['eyeOintment'],
+      cordBloodBanking: data['cordBloodBanking'],
+      cordBloodCompany: data['cordBloodCompany'],
+      photosAllowedInOR: data['photosAllowedInOR'],
+      delayNewbornCareUntilHolding: data['delayNewbornCareUntilHolding'],
+      anesthesiaPreference: data['anesthesiaPreference'],
+      surgicalClosurePreference: data['surgicalClosurePreference'],
+      culturalConsiderations: data['culturalConsiderations'],
       formattedPlan: data['formattedPlan'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),

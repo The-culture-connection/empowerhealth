@@ -66,7 +66,7 @@ If you had surgery or medication, follow the specific warning signs on your disc
         'Learn what follow-up care may involve and when to reach out for help.',
     listIcon: Icons.healing_outlined,
     markdownBody: '''
-This guide is about **physical recovery** — bleeding, pain, hormones, and what to track before your next visit.
+This guide is about **physical recovery**: bleeding, pain, hormones, and what to track before your next visit.
 
 ## Bleeding, cramping, and fatigue
 Physical recovery may involve bleeding (often like a heavy period at first), cramping, fatigue, breast changes, and hormone shifts. Timing varies by how far along the pregnancy was and whether you had medication or a procedure.
@@ -109,7 +109,7 @@ Seek care promptly for soaking through more than one pad per hour, passing large
         'Support for the emotional side of loss, at your own pace.',
     listIcon: Icons.favorite_outline,
     markdownBody: '''
-This guide is about **emotional responses** — not a checklist you have to match, and not a timeline you must follow.
+This guide is about **emotional responses**. It is not a checklist you have to match, and not a timeline you must follow.
 
 ## Feelings that are commonly reported
 Emotional responses after pregnancy loss vary widely. Some people feel sadness, anger, numbness, guilt, irritability, or difficulty concentrating. Others focus on practical tasks first and feel emotions more later.
@@ -154,7 +154,7 @@ For 24/7 support in the U.S., you can call or text **988** or use the maternal m
         'Prepare words and questions for your next visit.',
     listIcon: Icons.record_voice_over_outlined,
     markdownBody: '''
-This guide helps you **prepare for conversations** with your care team — before, during, and between visits.
+This guide helps you **prepare for conversations** with your care team: before, during, and between visits.
 
 ## Who you might see and why
 Follow-up visits may focus on physical recovery first. You can still ask for time to discuss emotional needs, paperwork, or future planning.
@@ -199,7 +199,7 @@ Use the contact method your team gave you (nurse line, portal, on-call number) f
         'There is no timeline you have to follow.',
     listIcon: Icons.calendar_month_outlined,
     markdownBody: '''
-This guide is only for when **you** want to talk about future care — there is no required timeline.
+This guide is only for when **you** want to talk about future care. There is no required timeline.
 
 ## You choose if and when to discuss the future
 There is no required timeline for discussing a future pregnancy. Some people want information at the first follow-up visit; others prefer to wait months or years.
@@ -228,7 +228,7 @@ Genetic counseling may be offered after certain losses or if you have family his
 - *"How long do you suggest waiting, and why?"*
 - *"Would I need early ultrasound or other monitoring next time?"*
 - *"What should I do if I have anxiety in a future pregnancy?"*
-- *"I am not planning another pregnancy — what ongoing care do I still need?"*
+- *"I am not planning another pregnancy. What ongoing care do I still need?"*
 
 ## If you become pregnant again
 Contact your care team as early as you feel comfortable so they can schedule appropriate dating and monitoring.

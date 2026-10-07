@@ -159,7 +159,7 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                _step == 0 ? 'Step 1 of 2 — About you' : 'Step 2 of 2 — Baseline survey',
+                _step == 0 ? 'Step 1 of 2: About you' : 'Step 2 of 2: Baseline survey',
                 style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.brandPurple),
               ),
               const SizedBox(height: 12),

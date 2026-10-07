@@ -386,7 +386,12 @@ class BirthPlansListScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      // Wrap so the "Incomplete" badge drops below the title
+                      // instead of overflowing at large text sizes.
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
                             'Birth Plan',
@@ -397,7 +402,6 @@ class BirthPlansListScreen extends StatelessWidget {
                             ),
                           ),
                           if (isIncomplete) ...[
-                            const SizedBox(width: 10),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,

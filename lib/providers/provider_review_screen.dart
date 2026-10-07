@@ -471,7 +471,7 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
                     controller: _whatWentWellController,
                     maxLines: 3,
                     decoration: InputDecoration(
-                      hintText: 'Optional — e.g. listened without rushing…',
+                      hintText: 'Optional. For example: listened without rushing…',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),

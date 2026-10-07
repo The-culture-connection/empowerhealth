@@ -116,7 +116,7 @@ const Map<String, List<CareSupportAction>> kCareCheckinSupportByNeedId = {
     ),
     CareSupportAction(
       id: 'is_normal',
-      label: 'What I’m feeling — is this normal?',
+      label: 'What I’m feeling: is this normal?',
       destination: CareSupportDestination.pregnancyJourney,
     ),
     CareSupportAction(

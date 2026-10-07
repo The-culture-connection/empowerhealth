@@ -92,6 +92,9 @@ class _HealthInfoStepState extends State<HealthInfoStep> {
             ] else ...[
               // Allow manual selection for postpartum or if not pregnant
               DropdownButtonFormField<String>(
+                isExpanded: true,
+                isDense: false,
+                itemHeight: null,
                 value: provider.pregnancyStage,
                 decoration: const InputDecoration(
                   labelText: 'Pregnancy Stage',

@@ -54,7 +54,7 @@ String formatSummaryFromMap(Map<String, dynamic> summaryMap) {
       final instr = med['instructions']?.toString();
       var line = '**$name**';
       if (purpose != null && purpose.isNotEmpty) line += ': $purpose';
-      if (instr != null && instr.isNotEmpty) line += ' — $instr';
+      if (instr != null && instr.isNotEmpty) line += '. $instr';
       buffer.writeln(line);
     }
     buffer.writeln();

@@ -197,7 +197,7 @@ class _ResourcesHeroCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'Trusted national programs for nutrition, local help, mental health, and maternal wellness — curated for your care journey.',
+                'Trusted national programs for nutrition, local help, mental health, and maternal wellness, curated for your care journey.',
                 style: TextStyle(
                   fontSize: 15,
                   color: AppTheme.textMuted,

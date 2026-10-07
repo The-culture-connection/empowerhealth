@@ -122,7 +122,7 @@ function parseJsonFromOpenAIContent(raw) {
  * Shared prompt rule: all woman-facing generated content speaks directly to
  * the mother in second person ("you/your"), never "the patient".
  */
-const SECOND_PERSON_VOICE_RULE = `VOICE (required): Speak directly to the mother using second person ("you" / "your") in plain language. Never refer to her as "the patient", "the mother", "the client", or "she/her". Examples: write "Your next annual exam is in one year" (not "The patient's next annual exam..."), "You were referred to a specialist" (not "The patient has been referred..."), "Your blood pressure was normal" (not "The patient's blood pressure was normal"). Keep all clinical facts, numbers, medication names, doses, and instructions exactly accurate — change only who the sentence is addressed to. If you must quote the provider's notes word for word, introduce the quote for her, e.g. "Your provider's note says: '...'". Use third person only when it is clinically necessary (for example, describing the baby or another person).`;
+const SECOND_PERSON_VOICE_RULE = `VOICE (required): Speak directly to the mother using second person ("you" / "your") in plain language. Never refer to her as "the patient", "the mother", "the client", or "she/her". Examples: write "Your next annual exam is in one year" (not "The patient's next annual exam..."), "You were referred to a specialist" (not "The patient has been referred..."), "Your blood pressure was normal" (not "The patient's blood pressure was normal"). Keep all clinical facts, numbers, medication names, doses, and instructions exactly accurate; change only who the sentence is addressed to. If you must quote the provider's notes word for word, introduce the quote for her, e.g. "Your provider's note says: '...'". Use third person only when it is clinically necessary (for example, describing the baby or another person). Do not use em dashes (—); use commas, periods or colons instead.`;
 
 // Nouns that follow "the patient" in normal phrases we must not rewrite
 // (e.g. "the patient portal", "the patient advocate").
@@ -327,7 +327,7 @@ ${userProfile?.insuranceType ? `Insurance Type: ${userProfile.insuranceType}. Ta
 CRITICAL: This module must be DETAILED (not high-level) and follow this EXACT structure.
 
 FORMATTING (required for the app):
-- Each section starts on its own line as a markdown H2 heading with the number and title—example: ## 1. What This Is (Simple Explanation)
+- Each section starts on its own line as a markdown H2 heading with the number and title. Example: ## 1. What This Is (Simple Explanation)
 - Do NOT wrap section titles in asterisks. Use **only** inside paragraphs for short emphasis on a word or phrase (not whole headings).
 - After each heading, write 2–4 short paragraphs (not one long wall of text). Use a blank line between paragraphs.
 - For lists, use lines starting with "- " (hyphen space). Reserve bullets mainly for "Key Points" and "Your Rights" sections.
@@ -335,20 +335,20 @@ FORMATTING (required for the app):
 
 The ten sections (use these exact titles after ## and the number):
 
-1. What This Is (Simple Explanation) — clear, plain-language explanation of what this is
-2. Why It Matters for Your Health — why this matters, what happens if ignored; be specific
-3. What to Expect — step-by-step, concrete guidance
-4. What You Can Ask or Say — at least 3 advocacy prompts you can use, written in your own voice (e.g. "Can you explain why this test is needed?") (can be bullet lines)
-5. Risks, Options, and Alternatives — balanced, non-alarming
-6. When to Seek Medical Help — when to call or seek emergency care
-7. How This Connects to Your Empowerment — self-advocacy and informed choice
-8. Key Points — 3–5 takeaways as "- " bullets
-9. Your Rights — 2–3 rights as "- " bullets
-10. Insurance Notes — ${userProfile?.insuranceType ? `Tailor for ${userProfile.insuranceType}: coverage, costs, what to ask.` : "Insurance-agnostic: what to ask about coverage and costs."}
+1. What This Is (Simple Explanation): clear, plain-language explanation of what this is
+2. Why It Matters for Your Health: why this matters, what happens if ignored; be specific
+3. What to Expect: step-by-step, concrete guidance
+4. What You Can Ask or Say: at least 3 advocacy prompts you can use, written in your own voice (e.g. "Can you explain why this test is needed?") (can be bullet lines)
+5. Risks, Options, and Alternatives: balanced, non-alarming
+6. When to Seek Medical Help: when to call or seek emergency care
+7. How This Connects to Your Empowerment: self-advocacy and informed choice
+8. Key Points: 3–5 takeaways as "- " bullets
+9. Your Rights: 2–3 rights as "- " bullets
+10. Insurance Notes: ${userProfile?.insuranceType ? `Tailor for ${userProfile.insuranceType}: coverage, costs, what to ask.` : "Insurance-agnostic: what to ask about coverage and costs."}
 
 TONE & VOICE REQUIREMENTS:
 - Warm, supportive, nonjudgmental language
-- Speak directly to her as "you/your" throughout — never "the patient" or "the mother"
+- Speak directly to her as "you/your" throughout; never "the patient" or "the mother"
 - Sound like: "Here's what this test means and why it matters. You deserve clear explanations and the chance to ask questions."
 - Trauma-informed: Acknowledge possible fears, past negative experiences, pressure. Use supportive language that reassures and centers safety.
 - Cultural responsiveness: Reflect realities Black mothers may face (bias, being dismissed, rushed). Use validating, empowering language.
@@ -1083,15 +1083,15 @@ async function analyzeVisitSummaryPDF({pdfText, appointmentDate, educationLevel,
 
 Your role is strictly to help the user READ and UNDERSTAND paperwork or visit-related text in plain language at a ${readingLevel} reading level.
 
-You do NOT diagnose, treat, or interpret clinical findings as medical truth. You do not replace a clinician. Frame everything as understanding what the document or visit notes say, questions to ask the care team, and practical next steps — not as definitive medical advice.
+You do NOT diagnose, treat, or interpret clinical findings as medical truth. You do not replace a clinician. Frame everything as understanding what the document or visit notes say, questions to ask the care team, and practical next steps, not as definitive medical advice.
 
-Accept and work from: after-visit summaries, discharge instructions, provider or nurse notes, printed visit recaps, and similar documents — even if the text is partial or informal.
+Accept and work from: after-visit summaries, discharge instructions, provider or nurse notes, printed visit recaps, and similar documents, even if the text is partial or informal.
 
 Avoid casual terms like "momma".
 
 ${SECOND_PERSON_VOICE_RULE} This applies to every string value in the JSON (summary fields, todos, learning modules, notes, tips).
 
-Your entire reply must be one JSON object only — no apologies, no "It seems…", no markdown fences, no text before or after the JSON.`,
+Your entire reply must be one JSON object only: no apologies, no "It seems…", no markdown fences, no text before or after the JSON.`,
           },
           {
             role: "user",
@@ -1115,8 +1115,8 @@ User Context:
 Return a JSON object with the following structure:
 {
   "summary": {
-    "whatThisMeans": "1–3 short paragraphs at ${readingLevel} level, written to you: in plain words, what this visit or document is mainly about (literacy support only — not a diagnosis)",
-    "importantNextSteps": "Plain language, written to you: what you need to do next, follow-ups, scheduling — separate from medication list (e.g. \"You were referred to a specialist. Call to schedule within 2 weeks.\")",
+    "whatThisMeans": "1–3 short paragraphs at ${readingLevel} level, written to you: in plain words, what this visit or document is mainly about (literacy support only, not a diagnosis)",
+    "importantNextSteps": "Plain language, written to you: what you need to do next, follow-ups, scheduling; separate from medication list (e.g. \"You were referred to a specialist. Call to schedule within 2 weeks.\")",
     "howBabyIsDoing": "If applicable: brief plain-language note on fetal/baby-related content; else empty string",
     "howYouAreDoing": "If applicable: brief plain-language note on your health topics mentioned, written to you; else empty string",
     "keyMedicalTerms": [
@@ -1165,17 +1165,17 @@ Return a JSON object with the following structure:
 
 CRITICAL REQUIREMENTS:
 0. Fill **whatThisMeans** and **importantNextSteps** clearly; they drive the main "What this means" and "Important next steps" sections in the app.
-1. Explain key medical terms mentioned — add at least 3–8 items to keyMedicalTerms when the text includes clinical words (for tap-to-explain in the app).
-2. Break down next steps in plain language — importantNextSteps and nextSteps should be consistent and actionable (who to call, what to schedule), not diagnostic conclusions.
+1. Explain key medical terms mentioned: add at least 3–8 items to keyMedicalTerms when the text includes clinical words (for tap-to-explain in the app).
+2. Break down next steps in plain language: importantNextSteps and nextSteps should be consistent and actionable (who to call, what to schedule), not diagnostic conclusions.
 3. **questionsToAsk**: At least 4 specific questions for the next visit (advocacy-focused); shown in the visit detail "Questions to ask" card in the app.
-4. **visitNotes**: 2–4 short, affirming strings for the visit detail "Notes" card—warm reminders of what mattered, strengths, or gentle encouragement (not the same as empowermentTips; visitNotes are reflective, tips are action-oriented).
+4. **visitNotes**: 2–4 short, affirming strings for the visit detail "Notes" card: warm reminders of what mattered, strengths, or gentle encouragement (not the same as empowermentTips; visitNotes are reflective, tips are action-oriented).
 5. Provide empowerment + advocacy tips based on that specific encounter - add to empowermentTips AND create todos
 6. Reinforce understanding of any new diagnoses, tests, or procedures - add to newDiagnoses/testsProcedures AND create learning modules
 7. Flag potential mistreatment or unclear communication - add to redFlags
 8. Tests or procedures recommended - add to testsProcedures AND create learning modules
 9. Medications discussed - add to medications AND create learning modules
 10. Follow-up instructions - turn into todos
-11. Provider communication style (e.g., rushed, unclear, dismissive — if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
+11. Provider communication style (e.g., rushed, unclear, dismissive, if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
 12. Emotional markers (mom tapped "confused," "scared," or "unsure") - add to emotionalMarkers
 13. Advocacy moments (e.g., "Your provider mentioned XYZ without explaining it") - add to advocacyMoments
 14. Any contradictions or missing explanations - add to contradictions AND create learning modules to bridge gap
@@ -1701,14 +1701,14 @@ CRITICAL REQUIREMENTS:
 1. Explain key medical terms mentioned - add to keyMedicalTerms array
 2. Break down next steps in plain language - add to nextSteps
 3. **questionsToAsk**: At least 4 specific questions for the next visit (advocacy-focused); shown in the visit detail "Questions to ask" card in the app.
-4. **visitNotes**: 2–4 short, affirming strings for the visit detail "Notes" card—warm reminders of what mattered, strengths, or gentle encouragement (not the same as empowermentTips; visitNotes are reflective, tips are action-oriented).
+4. **visitNotes**: 2–4 short, affirming strings for the visit detail "Notes" card: warm reminders of what mattered, strengths, or gentle encouragement (not the same as empowermentTips; visitNotes are reflective, tips are action-oriented).
 5. Provide empowerment + advocacy tips based on that specific encounter - add to empowermentTips AND create todos
 6. Reinforce understanding of any new diagnoses, tests, or procedures - add to newDiagnoses/testsProcedures AND create learning modules
 7. Flag potential mistreatment or unclear communication - add to redFlags
 8. Tests or procedures recommended - add to testsProcedures AND create learning modules
 9. Medications discussed - add to medications AND create learning modules
 10. Follow-up instructions - turn into todos
-11. Provider communication style (e.g., rushed, unclear, dismissive — if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
+11. Provider communication style (e.g., rushed, unclear, dismissive, if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
 12. Emotional markers (mom tapped "confused," "scared," or "unsure") - add to emotionalMarkers
 13. Advocacy moments (e.g., "Your provider mentioned XYZ without explaining it") - add to advocacyMoments
 14. Any contradictions or missing explanations - add to contradictions AND create learning modules to bridge gap
@@ -2291,7 +2291,7 @@ function formatSummaryForDisplay(summary, learningModules = []) {
     summary.medications.forEach((med) => {
       let line = `**${med.name || "Medication"}**`;
       if (med.purpose) line += `: ${med.purpose}`;
-      if (med.instructions) line += ` — ${med.instructions}`;
+      if (med.instructions) line += `. ${med.instructions}`;
       formatted += `${line}\n`;
     });
     formatted += `\n`;

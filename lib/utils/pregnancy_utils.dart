@@ -60,7 +60,7 @@ class PregnancyUtils {
       case 'Second':
         return 'You’re doing beautifully. This is a time of steady growth and settling in.';
       case 'Third':
-        return 'You’re so strong. These weeks are about preparing to meet your baby—with support all around you.';
+        return 'You’re so strong. These weeks are about preparing to meet your baby, with support all around you.';
       default:
         return 'You’re supported every step of the way.';
     }
@@ -73,7 +73,7 @@ class PregnancyUtils {
       case 'First':
         return [
           '**Nausea or food aversions** are common early on. Small meals and hydration can help.',
-          '**Fatigue** is normal—your body is doing a lot of growing work.',
+          '**Fatigue** is normal. Your body is doing a lot of growing work.',
           '**Breast tenderness** often shows up as hormones shift.',
           '**Mood shifts** happen; reaching out for support is a strength, not a weakness.',
         ];
@@ -82,14 +82,14 @@ class PregnancyUtils {
           '**Your belly is growing.** Your bump may be more visible and you might feel movement more regularly.',
           '**You might have more energy** than in the first trimester.',
           '**Back or hip discomfort** is common as your body adjusts.',
-          '**Skin changes** like dryness or stretch marks can appear—that’s typical for many people.',
+          '**Skin changes** like dryness or stretch marks can appear. That’s typical for many people.',
         ];
       case 'Third':
         return [
-          '**Baby is gaining weight**—you may feel heavier and more tired.',
+          '**Baby is gaining weight**, so you may feel heavier and more tired.',
           '**Braxton-Hicks contractions** can feel like practice tightening; your care team can help you tell them apart from labor.',
           '**Shortness of breath** or heartburn can show up as baby presses upward.',
-          '**Swelling in feet or hands** can happen—mention sudden or severe swelling to your provider.',
+          '**Swelling in feet or hands** can happen. Mention sudden or severe swelling to your provider.',
         ];
       default:
         return [
@@ -103,7 +103,7 @@ class PregnancyUtils {
       case 'First':
         return [
           'Rest when you can and ask for help with meals or chores.',
-          'Keep prenatal visits—even quick check-ins matter.',
+          'Keep prenatal visits. Even quick check-ins matter.',
           'Gentle walks or stretching may help if your provider says they’re okay for you.',
         ];
       case 'Second':
@@ -119,7 +119,7 @@ class PregnancyUtils {
           'Pack your bag and line up support for early labor when you’re ready.',
         ];
       default:
-        return ['Your care team is there for questions—no concern is too small.'];
+        return ['Your care team is there for questions. No concern is too small.'];
     }
   }
 
@@ -127,15 +127,15 @@ class PregnancyUtils {
     switch (trimester) {
       case 'First':
         return [
-          '**Major organs and structures** are forming—this is a time of rapid, foundational growth.',
-          '**The neural tube** (future brain and spine) develops early—folic acid and prenatal care support this process.',
+          '**Major organs and structures** are forming. This is a time of rapid, foundational growth.',
+          '**The neural tube** (future brain and spine) develops early. Folic acid and prenatal care support this process.',
           '**Heartbeat** may be detectable on ultrasound in later first-trimester visits.',
         ];
       case 'Second':
         return [
-          '**Lungs are developing**—baby practices breathing movements with amniotic fluid.',
-          '**Hearing improves**—your baby may respond to your voice or familiar sounds.',
-          '**Taste buds form**—flavors from your meals reach the amniotic fluid.',
+          '**Lungs are developing**. Baby practices breathing movements with amniotic fluid.',
+          '**Hearing improves**. Your baby may respond to your voice or familiar sounds.',
+          '**Taste buds form**. Flavors from your meals reach the amniotic fluid.',
           '**The brain grows quickly** as connections form for movement and sensing.',
         ];
       case 'Third':
@@ -143,7 +143,7 @@ class PregnancyUtils {
           '**Lungs mature** toward readiness for breathing air after birth.',
           '**Baby stores fat** for warmth and energy after delivery.',
           '**Movement patterns** may feel more like rolls or stretches as space gets cozy.',
-          '**Brain growth continues**—early bonding and voice help support development.',
+          '**Brain growth continues**. Early bonding and voice help support development.',
         ];
       default:
         return ['Your provider can share what they’re watching for at your stage.'];
@@ -157,16 +157,16 @@ class PregnancyUtils {
     }
     switch (trimester) {
       case 'First':
-        if (week <= 8) return 'About the size of a raspberry—tiny and mighty.';
-        if (week <= 12) return 'About the size of a lime—lots of growth happening fast.';
-        return 'Moving into the second trimester—steady growth ahead.';
+        if (week <= 8) return 'About the size of a raspberry: tiny and mighty.';
+        if (week <= 12) return 'About the size of a lime. Lots of growth happening fast.';
+        return 'Moving into the second trimester, with steady growth ahead.';
       case 'Second':
-        if (week <= 20) return 'About the size of a banana—movement may start to feel real.';
-        if (week <= 28) return 'About the size of an eggplant—sounds and movement are picking up.';
-        return 'Growing strong—your provider tracks length and weight at visits.';
+        if (week <= 20) return 'About the size of a banana. Movement may start to feel real.';
+        if (week <= 28) return 'About the size of an eggplant. Sounds and movement are picking up.';
+        return 'Growing strong. Your provider tracks length and weight at visits.';
       case 'Third':
-        if (week <= 34) return 'About the size of a pineapple—baby is plumping up for birth.';
-        return 'Nearing full term—baby is putting finishing touches on lungs and brain.';
+        if (week <= 34) return 'About the size of a pineapple. Baby is plumping up for birth.';
+        return 'Nearing full term. Baby is putting finishing touches on lungs and brain.';
       default:
         return 'Every pregnancy grows at its own pace.';
     }

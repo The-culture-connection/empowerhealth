@@ -513,7 +513,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${Provider.mamaApprovedCriteriaText} It reflects community reviews only — not a hospital, insurer, or medical board.',
+                    '${Provider.mamaApprovedCriteriaText} It reflects community reviews only, not a hospital, insurer, or medical board.',
                     style: TextStyle(
                       fontSize: 14,
                       height: 1.4,

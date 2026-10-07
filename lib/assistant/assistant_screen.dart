@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -14,9 +16,9 @@ import '../widgets/ai_disclaimer_banner.dart';
 const String _kAssistantMessages = 'assistant_messages';
 
 const List<String> _kAcknowledgementLines = [
-  'Got it — I\'m thinking that through for you.',
-  'Thanks for sharing — give me just a moment.',
-  'I\'m on it — pulling together a thoughtful reply.',
+  'Got it. I\'m thinking that through for you.',
+  'Thanks for sharing. Give me just a moment.',
+  'I\'m on it, pulling together a thoughtful reply.',
 ];
 
 String _ackLineFor(String userMessage) {
@@ -356,6 +358,57 @@ class _AssistantScreenState extends State<AssistantScreen>
     }
   }
 
+  /// Disclaimer banner, sources and "Show earlier messages" / "New
+  /// conversation" controls. Rendered as the top item of the scrollable
+  /// conversation so they scroll away with the messages instead of taking
+  /// fixed space above the chat.
+  Widget _buildConversationHeader({
+    required bool keyboardOpen,
+    required bool signedIn,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // While typing, a compact disclaimer is pinned above the thread
+        // instead (see build), so the full banner is not shown twice.
+        if (!keyboardOpen)
+          const AIDisclaimerBanner(
+            customMessage: 'This assistant helps you understand your care.',
+            customSubMessage: 'It does not replace your provider.',
+          ),
+        if (!_introDismissed && !keyboardOpen) const _AssistantSourcesBar(),
+        if (signedIn)
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (_conversationStartedAt != null && !_showEarlierMessages)
+                TextButton.icon(
+                  onPressed: () => setState(() => _showEarlierMessages = true),
+                  icon: const Icon(Icons.history, size: 18),
+                  label: const Text('Show earlier messages'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.textMuted,
+                  ),
+                )
+              else
+                const SizedBox.shrink(),
+              TextButton.icon(
+                onPressed: _isLoading ? null : _confirmNewConversation,
+                icon: const Icon(Icons.add_comment_outlined, size: 18),
+                label: const Text('New conversation'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.brandPurple,
+                ),
+              ),
+            ],
+          ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
   @override
   void dispose() {
     _dotController.dispose();
@@ -374,7 +427,16 @@ class _AssistantScreenState extends State<AssistantScreen>
     // again — doing so double-counted the keyboard and pushed the composer
     // off-screen with Bold Text / larger Dynamic Type.
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-    final bottomPad = keyboardOpen ? 10.0 : 20.0;
+    // The body SafeArea skips the bottom edge, so clear the home indicator
+    // here. MediaQuery padding.bottom already drops to 0 while the keyboard
+    // is up (it is reduced by viewInsets), so this never double-counts.
+    final bottomPad = keyboardOpen
+        ? 10.0
+        : math.max(20.0, MediaQuery.paddingOf(context).bottom + 8);
+    final conversationHeader = _buildConversationHeader(
+      keyboardOpen: keyboardOpen,
+      signedIn: userId != null,
+    );
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
@@ -484,79 +546,38 @@ class _AssistantScreenState extends State<AssistantScreen>
                 ),
               ),
 
-              // Full disclaimer when there is room; a compact one-line
-              // version while typing so the composer + latest message stay
-              // visible above the keyboard. The disclaimer is never hidden.
+              // The full disclaimer banner, sources and conversation controls
+              // live at the top of the scrollable conversation (see
+              // [conversationHeader]) so they scroll away with the messages.
+              // While typing, the banner is swapped for this compact pinned
+              // version so the disclaimer is never hidden but the composer +
+              // latest message stay visible above the keyboard.
               if (keyboardOpen)
                 const Padding(
                   padding: EdgeInsets.fromLTRB(20, 0, 20, 6),
                   child: _CompactAssistantDisclaimer(),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: const AIDisclaimerBanner(
-                    customMessage:
-                        'This assistant helps you understand your care.',
-                    customSubMessage: 'It does not replace your provider.',
-                  ),
                 ),
-              if (!_introDismissed && !keyboardOpen)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: _AssistantSourcesBar(),
-                ),
-              if (userId != null && !keyboardOpen)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      if (_conversationStartedAt != null &&
-                          !_showEarlierMessages)
-                        TextButton.icon(
-                          onPressed: () =>
-                              setState(() => _showEarlierMessages = true),
-                          icon: const Icon(Icons.history, size: 18),
-                          label: const Text('Show earlier messages'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppTheme.textMuted,
-                          ),
-                        )
-                      else
-                        const SizedBox.shrink(),
-                      TextButton.icon(
-                        onPressed: _isLoading ? null : _confirmNewConversation,
-                        icon: const Icon(Icons.add_comment_outlined, size: 18),
-                        label: const Text('New conversation'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.brandPurple,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                const SizedBox(height: 8),
 
               Expanded(
                 child: userId == null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            'Sign in to chat and keep your conversation history.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppTheme.textMuted,
-                              fontSize: 15,
-                            ),
+                    ? _AssistantStaticConversation(
+                        header: conversationHeader,
+                        child: Text(
+                          'Sign in to chat and keep your conversation history.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 15,
                           ),
                         ),
                       )
                     : !_conversationPrefsLoaded
-                        ? const Center(child: CircularProgressIndicator())
+                        ? _AssistantStaticConversation(
+                            header: conversationHeader,
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
                         : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                         // Keyed by the conversation window so "New
                         // conversation" / "Show earlier" get a fresh stream.
@@ -569,8 +590,11 @@ class _AssistantScreenState extends State<AssistantScreen>
                           if (snapshot.connectionState ==
                                   ConnectionState.waiting &&
                               !snapshot.hasData) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
+                            return _AssistantStaticConversation(
+                              header: conversationHeader,
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
                             );
                           }
 
@@ -580,11 +604,11 @@ class _AssistantScreenState extends State<AssistantScreen>
                               entries.isNotEmpty || _isLoading;
 
                           if (!hasMessages) {
-                            return Center(
-                              // Scrollable so the empty state never overflows
-                              // the short space left above the keyboard.
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.all(24.0),
+                            // Scrollable (with the header on top) so the
+                            // empty state never overflows the short space
+                            // left above the keyboard.
+                            return _AssistantStaticConversation(
+                                header: conversationHeader,
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -619,11 +643,11 @@ class _AssistantScreenState extends State<AssistantScreen>
                                     ),
                                   ],
                                 ),
-                              ),
                             );
                           }
 
                           return _AssistantChatList(
+                            header: conversationHeader,
                             scrollController: _scrollController,
                             entries: entries,
                             isLoading: _isLoading,
@@ -713,8 +737,36 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 }
 
+/// Non-chat states (signed out, loading, empty thread): the conversation
+/// header on top with [child] below, all in one scroll view so nothing
+/// overflows the short space left above the keyboard.
+class _AssistantStaticConversation extends StatelessWidget {
+  final Widget header;
+  final Widget child;
+
+  const _AssistantStaticConversation({
+    required this.header,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      children: [
+        header,
+        const SizedBox(height: 24),
+        child,
+      ],
+    );
+  }
+}
+
 /// Owns [ListView] + auto-scroll when messages or loading state change (no side effects in [build]).
 class _AssistantChatList extends StatefulWidget {
+  /// Disclaimer + conversation controls shown above the oldest message.
+  final Widget header;
   final ScrollController scrollController;
   final List<_ChatListEntry> entries;
   final bool isLoading;
@@ -722,6 +774,7 @@ class _AssistantChatList extends StatefulWidget {
   final Animation<double> dotAnimation;
 
   const _AssistantChatList({
+    required this.header,
     required this.scrollController,
     required this.entries,
     required this.isLoading,
@@ -734,6 +787,8 @@ class _AssistantChatList extends StatefulWidget {
 }
 
 class _AssistantChatListState extends State<_AssistantChatList> {
+  static const _headerKey = ValueKey<String>('assistant_conversation_header');
+
   @override
   void initState() {
     super.initState();
@@ -769,7 +824,10 @@ class _AssistantChatListState extends State<_AssistantChatList> {
 
   @override
   Widget build(BuildContext context) {
-    final totalItems = widget.entries.length + (widget.isLoading ? 1 : 0);
+    final messageItems = widget.entries.length + (widget.isLoading ? 1 : 0);
+    // +1 for the header, which is the last item of the reversed list, i.e.
+    // the very top of the conversation above the oldest message.
+    final totalItems = messageItems + 1;
 
     // Reversed list: item 0 is the newest entry and the list is anchored to
     // the bottom, so re-entry and keyboard resizes always show the latest
@@ -789,8 +847,15 @@ class _AssistantChatListState extends State<_AssistantChatList> {
           bottom: 12,
         ),
         itemCount: totalItems,
+        // Keep the header's element (and the sources bar's expanded state)
+        // when new messages shift its index.
+        findChildIndexCallback: (key) =>
+            key == _headerKey ? messageItems : null,
         itemBuilder: (context, reversedIndex) {
-          final index = totalItems - 1 - reversedIndex;
+          if (reversedIndex == messageItems) {
+            return KeyedSubtree(key: _headerKey, child: widget.header);
+          }
+          final index = messageItems - 1 - reversedIndex;
           return _buildEntry(index);
         },
       ),

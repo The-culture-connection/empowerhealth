@@ -218,7 +218,7 @@ class _ModuleQuickFeedbackState extends State<ModuleQuickFeedback> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Thank you — your feedback helps us make this clearer.',
+                    'Thank you! Your feedback helps us make this clearer.',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
@@ -298,7 +298,7 @@ Future<void> showModuleExitFeedbackSheet(
                 ),
               ),
               Text(
-                'Before you go — a quick check-in 💜',
+                'Before you go, a quick check-in 💜',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,

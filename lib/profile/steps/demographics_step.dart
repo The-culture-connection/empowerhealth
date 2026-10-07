@@ -31,6 +31,9 @@ class DemographicsStep extends StatelessWidget {
 
             // Race/Ethnicity
             DropdownButtonFormField<String>(
+              isExpanded: true,
+              isDense: false,
+              itemHeight: null,
               value: provider.raceEthnicity,
               decoration: const InputDecoration(
                 labelText: 'Race/Ethnicity',
@@ -55,6 +58,9 @@ class DemographicsStep extends StatelessWidget {
 
             // Language Preference
             DropdownButtonFormField<String>(
+              isExpanded: true,
+              isDense: false,
+              itemHeight: null,
               value: provider.languagePreference,
               decoration: const InputDecoration(
                 labelText: 'Preferred Language',
@@ -81,6 +87,9 @@ class DemographicsStep extends StatelessWidget {
 
             // Marital Status
             DropdownButtonFormField<String>(
+              isExpanded: true,
+              isDense: false,
+              itemHeight: null,
               value: provider.maritalStatus,
               decoration: const InputDecoration(
                 labelText: 'Marital Status',
@@ -103,6 +112,9 @@ class DemographicsStep extends StatelessWidget {
 
             // Education Level
             DropdownButtonFormField<String>(
+              isExpanded: true,
+              isDense: false,
+              itemHeight: null,
               value: provider.educationLevel,
               decoration: const InputDecoration(
                 labelText: 'Education Level',

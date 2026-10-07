@@ -53,7 +53,7 @@ class MilestonePromptModal {
                       studyId: sid,
                       milestoneType: milestoneType,
                       title: 'Milestone check-in',
-                      subtitle: 'Three yes or no questions — there are no wrong answers.',
+                      subtitle: 'Three yes or no questions. There are no wrong answers.',
                     ),
                   ),
                 );

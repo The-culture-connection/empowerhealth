@@ -558,9 +558,19 @@ service cloud.firestore {
     
     // Community posts - users can read all posts, create their own
     match /community_posts/{postId} {
+      // Anonymous posts: isAnonymous (when present) must be a bool, and an
+      // anonymous post may only carry the literal author name 'Anonymous' so
+      // the poster's real name can never be stored on it.
+      function anonymityOk(d) {
+        return !('isAnonymous' in d) ||
+               d.isAnonymous == false ||
+               (d.isAnonymous == true &&
+                'authorName' in d && d.authorName == 'Anonymous');
+      }
+
       // Anyone authenticated can read posts
       allow read: if isAuthenticated();
-      
+
       // Anyone authenticated (and not banned) can create posts (must include their userId)
       allow create: if isAuthenticated() && !isBanned() &&
                     request.resource.data.userId == request.auth.uid &&
@@ -573,14 +583,16 @@ service cloud.firestore {
                     request.resource.data.category is string &&
                     request.resource.data.category.size() > 0 &&
                     request.resource.data.category.size() <= 80 &&
-                    request.resource.data.category != 'All';
+                    request.resource.data.category != 'All' &&
+                    anonymityOk(request.resource.data);
 
       // Owners can edit their own post but never reassign it to someone else.
       // Everyone else (not banned) may only like or reply; this also stops a
       // non-owner from rewriting userId to themselves and then deleting the post.
       allow update: if isAuthenticated() && !isBanned() && (
         (resource.data.userId == request.auth.uid &&
-         request.resource.data.userId == resource.data.userId) ||
+         request.resource.data.userId == resource.data.userId &&
+         anonymityOk(request.resource.data)) ||
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['likes', 'replies', 'updatedAt'])
       );

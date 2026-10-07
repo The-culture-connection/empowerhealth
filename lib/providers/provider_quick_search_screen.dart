@@ -364,7 +364,7 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Search by provider name or type — both optional. Leave blank '
+                    'Search by provider name or type (both optional). Leave blank '
                     'to see everyone nearby.',
                     style: TextStyle(
                       fontSize: 13,
@@ -458,7 +458,7 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Text(
-                        'No suggestions — you can still search or open expanded filters.',
+                        'No suggestions. You can still search or open expanded filters.',
                         style: TextStyle(
                           fontSize: 13,
                           color: AppTheme.textMuted,

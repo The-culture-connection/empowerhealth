@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../app_router.dart';
+import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
 import '../birthplan/birth_plans_list_screen.dart';
 import '../appointments/appointments_list_screen.dart';
@@ -346,7 +347,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                               Text(
                                 inLossMode
                                     ? 'Support is here when you\'re ready.'
-                                    : "You're supported — with clear answers and tools to speak up.",
+                                    : "You're supported, with clear answers and tools to speak up.",
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w300,
@@ -827,7 +828,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                 iconColor: AppTheme.brandPurple,
                                 title: 'What does this test mean?',
                                 subtitle:
-                                    'Labs and visit notes—plain language',
+                                    'Labs and visit notes in plain language',
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute<void>(
@@ -846,7 +847,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                 iconColor: const Color(0xFFD4A574),
                                 title: 'Is this normal?',
                                 subtitle:
-                                    "What's typical—and when to reach out",
+                                    "What's typical, and when to reach out",
                                 onTap: () {
                                   final due = profile?.dueDate;
                                   final weeks =
@@ -1003,8 +1004,14 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () =>
-                          Navigator.pushNamed(context, Routes.community),
+                      // Switch to the Community tab so the bottom tab bar
+                      // stays visible; push only outside the main shell.
+                      onTap: () {
+                        if (!MainNavigationScope.goToTab(
+                            context, MainNavigationScope.tabCommunity)) {
+                          Navigator.pushNamed(context, Routes.community);
+                        }
+                      },
                       borderRadius: BorderRadius.circular(24),
                       child: Ink(
                         decoration: BoxDecoration(

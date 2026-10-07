@@ -182,8 +182,13 @@ class _ProviderSearchResultsScreenState
     }
   }
 
+  /// Incremented per search so a slower, superseded request (e.g. after
+  /// "Try Again") can't overwrite newer results or end the loading state.
+  int _searchGeneration = 0;
+
   Future<void> _performSearch() async {
     print('🔍 [ResultsScreen] Search started');
+    final generation = ++_searchGeneration;
     setState(() {
       _isLoading = true;
       _error = null;
@@ -465,6 +470,8 @@ class _ProviderSearchResultsScreenState
         ),
       );
 
+      if (!mounted || generation != _searchGeneration) return;
+
       print('✅ [ResultsScreen] After scoring: ${listForUi.length} providers');
       print(
         '📊 [ResultsScreen] Match scores: ${_providerMatchInfo.values.map((v) => v['score']).join(', ')}',
@@ -486,6 +493,7 @@ class _ProviderSearchResultsScreenState
     } catch (e, stackTrace) {
       print('❌ [ResultsScreen] Error in _performSearch: $e');
       print('❌ [ResultsScreen] Stack trace: $stackTrace');
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -628,7 +636,14 @@ class _ProviderSearchResultsScreenState
                                   ),
                                   const SizedBox(height: 8), // mb-2
                                   Text(
-                                    _providers.length == 1
+                                    // Only report a count once the search has
+                                    // finished — never "0 providers" while
+                                    // results are still loading.
+                                    _isLoading
+                                        ? 'Searching for providers near you…'
+                                        : _error != null
+                                        ? 'Search didn\'t finish'
+                                        : _providers.length == 1
                                         ? '1 provider found near you'
                                         : '${_providers.length} providers found near you',
                                     style: TextStyle(

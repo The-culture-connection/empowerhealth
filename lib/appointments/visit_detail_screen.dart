@@ -154,7 +154,7 @@ class VisitDetailScreen extends StatelessWidget {
         'detail': [
           if (m['purpose'] != null) m['purpose'].toString(),
           if (m['instructions'] != null) m['instructions'].toString(),
-        ].where((e) => e.isNotEmpty).join(' — '),
+        ].where((e) => e.isNotEmpty).join('. '),
       });
     }
     return out;
@@ -389,7 +389,7 @@ class VisitDetailScreen extends StatelessWidget {
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
-                          'Plain-language summary — it doesn\'t replace medical advice from your provider.',
+                          'Plain-language summary. It doesn\'t replace medical advice from your provider.',
                           style: TextStyle(
                             fontSize: 13,
                             height: 1.4,
@@ -732,7 +732,7 @@ class VisitDetailScreen extends StatelessWidget {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: Text(
-                              '$i. $title${reason.toString().isNotEmpty ? ' — $reason' : ''}',
+                              '$i. $title${reason.toString().isNotEmpty ? ': $reason' : ''}',
                               style: const TextStyle(
                                 fontSize: 14,
                                 height: 1.45,

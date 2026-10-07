@@ -2,14 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
@@ -37,8 +36,11 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  File? _selectedPDF;
-  String? _pdfFileName;
+  /// Picked document as PDF bytes (photos are converted to PDF on pick).
+  /// Kept in memory rather than a temp file so it works on web and mobile.
+  Uint8List? _selectedPdfBytes;
+  String? _pdfFileName; // display name
+  String? _uploadFileName; // storage-safe name ending in .pdf
   DateTime? _selectedDate;
   UserProfile? _userProfile;
   String? _generatedSummary;
@@ -117,7 +119,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'We simplify the language in paperwork or notes you choose to share. '
-                    'We don’t diagnose or tell you what to do medically — your care team does that.',
+                    'We don’t diagnose or tell you what to do medically. Your care team does that.',
                     style: TextStyle(
                       fontSize: 14,
                       height: 1.5,
@@ -411,239 +413,102 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   }
 
   /// One page, image scaled to fill the page (visit paperwork photos).
-  Future<File> _imageBytesToTempPdf(Uint8List bytes, String baseName) async {
+  /// Returns the PDF bytes in memory so this works on web and mobile alike.
+  Future<Uint8List> _imageBytesToPdfBytes(Uint8List bytes) async {
     final document = PdfDocument();
-    final page = document.pages.add();
-    final bitmap = PdfBitmap(bytes);
-    final pageSize = page.getClientSize();
-    page.graphics.drawImage(
-      bitmap,
-      Rect.fromLTWH(0, 0, pageSize.width, pageSize.height),
+    try {
+      final page = document.pages.add();
+      final bitmap = PdfBitmap(bytes);
+      final pageSize = page.getClientSize();
+      page.graphics.drawImage(
+        bitmap,
+        Rect.fromLTWH(0, 0, pageSize.width, pageSize.height),
+      );
+      final List<int> out = await document.save();
+      return Uint8List.fromList(out);
+    } finally {
+      document.dispose();
+    }
+  }
+
+  /// Storage-safe file name ending in `.pdf` (we always upload a PDF).
+  String _storageSafePdfName(String originalName) {
+    var base = originalName;
+    final dot = base.lastIndexOf('.');
+    if (dot > 0) base = base.substring(0, dot);
+    base = base.replaceAll(RegExp(r'[^\w\-]'), '_');
+    if (base.isEmpty) base = 'visit_summary';
+    return '$base.pdf';
+  }
+
+  /// Read the picked file's bytes. Web (and `withData: true`) gives bytes
+  /// directly; on mobile we fall back to reading the cached file path.
+  Future<Uint8List?> _readPickedBytes(PlatformFile pickedFile) async {
+    if (pickedFile.bytes != null) return pickedFile.bytes;
+    if (!kIsWeb && pickedFile.path != null) {
+      final f = File(pickedFile.path!);
+      if (await f.exists()) {
+        return await f.readAsBytes();
+      }
+    }
+    return null;
+  }
+
+  void _showPickError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 5),
+        backgroundColor: Colors.red,
+        action: SnackBarAction(
+          label: 'Retry',
+          textColor: AppTheme.brandWhite,
+          onPressed: () => _pickPDF(),
+        ),
+      ),
     );
-    final List<int> out = await document.save();
-    document.dispose();
-    final dir = await getTemporaryDirectory();
-    final safe = baseName.replaceAll(RegExp(r'[^\w\-\.]'), '_');
-    final file = File(
-      '${dir.path}/visit_img_${DateTime.now().millisecondsSinceEpoch}_$safe.pdf',
-    );
-    await file.writeAsBytes(out);
-    return file;
   }
 
   Future<void> _pickPDF() async {
+    // FileType.any on Android is more reliable (some devices/emulators reject
+    // custom extension filters). Web and iOS use the extension filter.
+    final useAnyType = !kIsWeb && Platform.isAndroid;
+
+    FilePickerResult? result;
     try {
-      print('📄 Opening file picker...');
-      
-      // On Android, use withData: true to get bytes directly (more reliable)
-      // Add timeout to prevent hanging
-      FilePickerResult? result;
-      
       try {
-        // Try with document picker first (better for Android 10+)
-        // Use FileType.any on Android emulator as it's more reliable
         result = await FilePicker.platform.pickFiles(
-          type: Platform.isAndroid ? FileType.any : FileType.custom,
-          allowedExtensions: Platform.isAndroid
+          type: useAnyType ? FileType.any : FileType.custom,
+          allowedExtensions: useAnyType
               ? null
               : ['pdf', 'jpg', 'jpeg', 'png', 'heic', 'webp'],
-          withData: true, // Load file data directly - more reliable on Android
+          withData: true, // Load file data directly (required on web)
           allowMultiple: false,
         ).timeout(
-          const Duration(seconds: 60), // Increased timeout for emulator
-          onTimeout: () {
-            print('⏱️ File picker timed out after 60 seconds');
-            throw TimeoutException('⏱️ File picker timed out. Please try again.');
-          },
+          const Duration(seconds: 60),
+          onTimeout: () => throw TimeoutException('File picker timed out'),
         );
-        print('📄 File picker completed (first attempt)');
       } catch (e) {
-        if (e is TimeoutException) {
-          print('⏱️ Timeout: $e');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('⏱️ File picker timed out. Please try again.'),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 3),
-                action: SnackBarAction(
-                  label: 'Retry',
-                  textColor: AppTheme.brandWhite,
-                  onPressed: () => _pickPDF(),
-                ),
-              ),
-            );
-          }
-          return;
-        }
-        print('❌ Error with custom file type: $e');
-        print('📄 Trying fallback: any file type...');
+        if (e is TimeoutException) rethrow;
+        debugPrint('File picker (custom type) failed, trying any type: $e');
         // Fallback: try picking any file
-        try {
-          result = await FilePicker.platform.pickFiles(
-            type: FileType.any,
-            withData: true,
-            allowMultiple: false,
-          ).timeout(
-            const Duration(seconds: 30),
-            onTimeout: () {
-              print('⏱️ File picker fallback timed out');
-              throw TimeoutException('⏱️ File picker timed out. Please try again.');
-            },
-          );
-          print('📄 File picker completed (fallback attempt)');
-        } catch (e2) {
-          if (e2 is TimeoutException) {
-            print('⏱️ Fallback timeout: $e2');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('⏱️ File picker timed out. Please try again.'),
-                  backgroundColor: Colors.orange,
-                  action: SnackBarAction(
-                    label: 'Retry',
-                    textColor: AppTheme.brandWhite,
-                    onPressed: () => _pickPDF(),
-                  ),
-                ),
-              );
-            }
-            return;
-          }
-          print('❌ Fallback also failed: $e2');
-          rethrow;
-        }
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.any,
+          withData: true,
+          allowMultiple: false,
+        ).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () => throw TimeoutException('File picker timed out'),
+        );
       }
-
-      print('📄 File picker returned: ${result != null}');
-      print('📄 File picker result: ${result != null ? "File selected" : "Cancelled"}');
-      
-      if (result != null && result.files.isNotEmpty) {
-        final pickedFile = result.files.first;
-        print('📄 Result files count: ${result.files.length}');
-        print('📄 File name: ${pickedFile.name}');
-        print('📄 File path: ${pickedFile.path}');
-        print('📄 File size: ${pickedFile.size} bytes');
-        print('📄 File extension: ${pickedFile.extension}');
-        print('📄 Has bytes: ${pickedFile.bytes != null}');
-        
-        // Check if it's a PDF (more lenient check for Android)
-        final fileName = pickedFile.name.toLowerCase();
-        final extension = pickedFile.extension?.toLowerCase() ?? '';
-        final isPdf = extension == 'pdf' || fileName.endsWith('.pdf');
-        final isImage = [
-              'jpg',
-              'jpeg',
-              'png',
-              'heic',
-              'webp',
-            ].contains(extension) ||
-            fileName.endsWith('.jpg') ||
-            fileName.endsWith('.jpeg') ||
-            fileName.endsWith('.png') ||
-            fileName.endsWith('.heic') ||
-            fileName.endsWith('.webp');
-
-        if (!isPdf && !isImage) {
-          print('❌ Unsupported file: $fileName (extension: $extension)');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Please choose a PDF or a photo (JPG, PNG, HEIC, WebP). Selected: ${pickedFile.name}',
-                ),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 4),
-                action: SnackBarAction(
-                  label: 'Retry',
-                  textColor: AppTheme.brandWhite,
-                  onPressed: () => _pickPDF(),
-                ),
-              ),
-            );
-          }
-          return;
-        }
-
-        late final File finalFile;
-        String displayName = pickedFile.name;
-
-        if (isImage) {
-          Uint8List? imageBytes = pickedFile.bytes;
-          if (imageBytes == null && pickedFile.path != null) {
-            final f = File(pickedFile.path!);
-            if (await f.exists()) {
-              imageBytes = await f.readAsBytes();
-            }
-          }
-          if (imageBytes == null) {
-            throw Exception(
-              'Could not read image data. Please try selecting the file again.',
-            );
-          }
-          finalFile = await _imageBytesToTempPdf(imageBytes, pickedFile.name);
-          displayName = '${pickedFile.name} (as PDF)';
-        } else {
-          // PDF — prefer bytes (more reliable on Android)
-          if (pickedFile.bytes != null) {
-            print('📄 Saving file from bytes...');
-            final tempDir = await getTemporaryDirectory();
-            final tempFile = File(
-              '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}',
-            );
-            await tempFile.writeAsBytes(pickedFile.bytes!);
-            finalFile = tempFile;
-            print('📄 Temp file created: ${tempFile.path}');
-          } else if (pickedFile.path != null) {
-            print('📄 Using file path: ${pickedFile.path}');
-            final file = File(pickedFile.path!);
-
-            if (await file.exists()) {
-              finalFile = file;
-              print('📄 File exists and verified');
-            } else {
-              print('❌ File does not exist at path: ${pickedFile.path}');
-              throw Exception('Selected file does not exist. Please try again.');
-            }
-          } else {
-            print('❌ Both file path and bytes are null!');
-            throw Exception(
-              'Could not access file data. Please try selecting the file again.',
-            );
-          }
-        }
-
-        setState(() {
-          _selectedPDF = finalFile;
-          _pdfFileName = displayName;
-          _avsUploadResearchSlug = isImage ? 'image_gallery' : 'pdf';
-        });
-
-        print('📄 State updated with PDF file: $_pdfFileName');
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('PDF selected: $_pdfFileName'),
-              duration: const Duration(seconds: 3),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } else {
-        print('📄 File picker cancelled by user or no file selected');
-        // Don't show error for user cancellation - it's expected behavior
-        // Only show message if it seems like an error occurred
-      }
-    } catch (e, stackTrace) {
-      print('❌ Error selecting PDF: $e');
-      print('❌ Stack trace: $stackTrace');
+    } on TimeoutException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error selecting PDF: ${e.toString()}'),
-            duration: const Duration(seconds: 5),
-            backgroundColor: Colors.red,
+            content: const Text('The file picker took too long to open. Please try again.'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'Retry',
               textColor: AppTheme.brandWhite,
@@ -652,7 +517,118 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
           ),
         );
       }
+      return;
+    } catch (e) {
+      debugPrint('File picker error: $e');
+      _showPickError('We couldn\'t open your files. Please try again.');
+      return;
     }
+
+    // Cancelled by the user — expected, no message.
+    if (result == null || result.files.isEmpty) return;
+
+    final pickedFile = result.files.first;
+    final fileName = pickedFile.name.toLowerCase();
+    final extension = pickedFile.extension?.toLowerCase() ?? '';
+    final isPdf = extension == 'pdf' || fileName.endsWith('.pdf');
+    const imageExts = ['jpg', 'jpeg', 'png', 'heic', 'webp'];
+    final isImage = imageExts.contains(extension) ||
+        imageExts.any((ext) => fileName.endsWith('.$ext'));
+
+    if (!isPdf && !isImage) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Please choose a PDF or a photo (JPG, PNG, HEIC, WebP). Selected: ${pickedFile.name}',
+            ),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: AppTheme.brandWhite,
+              onPressed: () => _pickPDF(),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    Uint8List? bytes;
+    try {
+      bytes = await _readPickedBytes(pickedFile);
+    } catch (e) {
+      debugPrint('Reading picked file failed: $e');
+    }
+    if (bytes == null || bytes.isEmpty) {
+      _showPickError('We couldn\'t read that file. Please try choosing it again.');
+      return;
+    }
+
+    Uint8List pdfBytes;
+    String displayName = pickedFile.name;
+    if (isImage) {
+      try {
+        pdfBytes = await _imageBytesToPdfBytes(bytes);
+      } catch (e) {
+        debugPrint('Image to PDF conversion failed: $e');
+        _showPickError(
+          'We couldn\'t read that photo. Please try a JPG or PNG, or a PDF instead.',
+        );
+        return;
+      }
+      displayName = '${pickedFile.name} (as PDF)';
+    } else {
+      pdfBytes = bytes;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectedPdfBytes = pdfBytes;
+      _pdfFileName = displayName;
+      _uploadFileName = _storageSafePdfName(pickedFile.name);
+      _avsUploadResearchSlug = isImage ? 'image_gallery' : 'pdf';
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('File selected: $_pdfFileName'),
+        duration: const Duration(seconds: 3),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  /// Plain-language message for upload/analysis failures (never a raw exception).
+  String _friendlyErrorMessage(Object e, {required String fallback}) {
+    final lower = e.toString().toLowerCase();
+    if (lower.contains('unable to resolve host') ||
+        lower.contains('network') ||
+        lower.contains('connection') ||
+        lower.contains('unavailable') ||
+        lower.contains('unreachable') ||
+        lower.contains('no address associated') ||
+        lower.contains('failed to fetch')) {
+      return '🌐 We couldn\'t connect. Please check your internet connection and try again.';
+    }
+    if (lower.contains('timeout') ||
+        lower.contains('timed out') ||
+        lower.contains('deadline')) {
+      return '⏱️ This is taking longer than expected. Please try again.';
+    }
+    if (lower.contains('unauthenticated') ||
+        lower.contains('not signed in') ||
+        lower.contains('session expired')) {
+      return '🔒 Please sign in again, then try once more.';
+    }
+    if (lower.contains('permission') || lower.contains('unauthorized')) {
+      return '🔒 We don\'t have permission to do that. Please sign in again and try once more.';
+    }
+    if (lower.contains('quota') || lower.contains('resource-exhausted')) {
+      return 'We\'re getting a lot of requests right now. Please try again in a few minutes.';
+    }
+    return fallback;
   }
 
   Future<bool> _checkAIFeaturesBeforeProcessing() async {
@@ -668,10 +644,14 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   }
 
   Future<void> _processPDF() async {
-    if (_selectedPDF == null || _selectedDate == null) {
+    if (_selectedPdfBytes == null || _selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('📅 Please select both date and PDF'),
+        SnackBar(
+          content: Text(
+            _selectedDate == null
+                ? '📅 Please choose your appointment date at the top first.'
+                : 'Please choose a file to upload.',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -705,15 +685,14 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     try {
       print('📄 Starting PDF upload to Firebase Storage...');
       
-      // Read PDF file
-      setState(() => _currentStep = '📄 Reading PDF file...');
-      final pdfBytes = await _selectedPDF!.readAsBytes();
+      // PDF bytes were read (and photos converted) at pick time
+      final pdfBytes = _selectedPdfBytes!;
       print('📄 PDF size: ${pdfBytes.length} bytes');
 
       // Create storage path: visit_summaries/{userId}/{timestamp}_{fileName}
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = _pdfFileName ?? 'visit_summary.pdf';
-      final storagePath = 'visit_summaries/$userId/$timestamp\_$fileName';
+      final fileName = _uploadFileName ?? 'visit_summary.pdf';
+      final storagePath = 'visit_summaries/$userId/${timestamp}_$fileName';
       
       // Create storage reference
       final storageRef = _storage.ref().child(storagePath);
@@ -737,11 +716,14 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
       // Listen to upload progress
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        if (!mounted || snapshot.totalBytes <= 0) return;
         final progress = snapshot.bytesTransferred / snapshot.totalBytes;
         setState(() {
           _uploadProgress = progress;
           _currentStep = '📤 Uploading... ${(progress * 100).toStringAsFixed(0)}%';
         });
+      }, onError: (_) {
+        // Upload failures surface through `await uploadTask` below.
       });
 
       // Wait for upload to complete
@@ -856,7 +838,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         _currentStep = null;
         _uploadProgress = 0.0;
         // Clear selected file to show success state
-        _selectedPDF = null;
+        _selectedPdfBytes = null;
+        _uploadFileName = null;
         _pdfFileName = null;
       });
 
@@ -905,27 +888,15 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       });
       
       if (mounted) {
-        final errorMessage = e.toString();
-        String userFriendlyMessage = errorMessage;
-        
-        // Provide user-friendly error messages with emojis
-        final lowerMessage = errorMessage.toLowerCase();
-        if (lowerMessage.contains('unable to resolve host') || 
-            lowerMessage.contains('network') ||
-            lowerMessage.contains('connection') ||
-            lowerMessage.contains('unavailable') ||
-            lowerMessage.contains('no address associated')) {
-          userFriendlyMessage = '🌐 Network connection error. Please check your internet connection and try again.';
-        } else if (lowerMessage.contains('permission') || lowerMessage.contains('unauthorized')) {
-          userFriendlyMessage = '🔒 Permission denied. Please ensure you are logged in and try again.';
-        } else if (lowerMessage.contains('quota') || lowerMessage.contains('storage')) {
-          userFriendlyMessage = '💾 Storage quota exceeded. Please contact support.';
-        } else if (lowerMessage.contains('cancel')) {
-          userFriendlyMessage = '❌ Upload cancelled.';
-        } else {
-          userFriendlyMessage = '❌ Upload failed: ${e.toString()}';
-        }
-        
+        final lowerMessage = e.toString().toLowerCase();
+        final userFriendlyMessage = lowerMessage.contains('cancel')
+            ? '❌ Upload cancelled.'
+            : _friendlyErrorMessage(
+                e,
+                fallback:
+                    'We couldn\'t upload and simplify your file. Please try again in a moment.',
+              );
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(userFriendlyMessage),
@@ -945,10 +916,15 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   }
 
   Future<void> _processManualText() async {
+    if (_isLoading) return;
     if (_selectedDate == null || _manualTextController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('📅 Please select date and enter visit notes'),
+        SnackBar(
+          content: Text(
+            _selectedDate == null
+                ? '📅 Please choose your appointment date at the top first.'
+                : 'Please type or paste your visit notes first.',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -1006,9 +982,14 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
       // Note: The Cloud Function already saves the summary to Firestore
       // We only need to handle the response for display
+      final summary = analysisResult['summary'];
+      if (summary is! String || summary.trim().isEmpty) {
+        throw Exception('Empty summary returned');
+      }
+      if (!mounted) return;
 
       setState(() {
-        _generatedSummary = analysisResult['summary'];
+        _generatedSummary = summary;
         _isLoading = false;
         _currentStep = null;
       });
@@ -1037,19 +1018,31 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         await _maybePromptVisitSummaryMicroMeasure(textSummaryId, 'visit_summary_avs');
       }
     } catch (e) {
+      debugPrint('Visit notes analysis error: $e');
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _currentStep = null;
       });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _friendlyErrorMessage(
+              e,
+              fallback:
+                  'We couldn\'t simplify your notes right now. Please try again in a moment.',
+            ),
           ),
-        );
-      }
+          duration: const Duration(seconds: 6),
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: AppTheme.brandWhite,
+            onPressed: () => _processManualText(),
+          ),
+        ),
+      );
     }
   }
 
@@ -1139,7 +1132,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Doctor visits can be overwhelming. We’re here to help you understand paperwork in plain language — after-visit summaries, discharge instructions, provider notes, and similar documents. This is literacy support, not a diagnosis.',
+                          'Doctor visits can be overwhelming. We’re here to help you understand paperwork in plain language: after-visit summaries, discharge instructions, provider notes, and similar documents. This is literacy support, not a diagnosis.',
                           style: TextStyle(
                             fontSize: 15,
                             height: 1.45,
@@ -1392,7 +1385,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                           ),
 
             // PDF Upload Section
-            if (_inputMethod == 'pdf' && _selectedPDF == null) ...[
+            if (_inputMethod == 'pdf' && _selectedPdfBytes == null) ...[
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
                 decoration: BoxDecoration(
@@ -1525,7 +1518,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                       icon: const Icon(Icons.close, color: Colors.red),
                       onPressed: () {
                         setState(() {
-                          _selectedPDF = null;
+                          _selectedPdfBytes = null;
+                          _uploadFileName = null;
                           _pdfFileName = null;
                           _avsUploadResearchSlug = 'unknown';
                         });
@@ -1538,7 +1532,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
               // Process Button
               ElevatedButton(
-                onPressed: (_selectedDate != null && !_isLoading)
+                onPressed: !_isLoading
                     ? _processPDF
                     : null,
                 style: ElevatedButton.styleFrom(
@@ -1599,6 +1593,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                   children: [
                     TextField(
                       controller: _manualTextController,
+                      // Rebuild so the Simplify button reflects typed/pasted text.
+                      onChanged: (_) => setState(() {}),
                       maxLines: 10,
                       style: TextStyle(
                         fontSize: 15,
@@ -1654,13 +1650,17 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     const SizedBox(height: 8),
                     Builder(
                       builder: (context) {
-                        final canRun = _selectedDate != null &&
-                            _manualTextController.text.trim().isNotEmpty &&
-                            !_isLoading;
+                        final isReady = _selectedDate != null &&
+                            _manualTextController.text.trim().isNotEmpty;
+                        // Keep the filled style while loading so the white
+                        // spinner/progress text stays readable.
+                        final canRun = isReady || _isLoading;
                         return Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: canRun ? _processManualText : null,
+                            // Stay tappable when not ready so the user is told what is missing
+                            // (date or notes) instead of a silently dead button.
+                            onTap: _isLoading ? null : _processManualText,
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
                               height: 52,
@@ -1727,6 +1727,18 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                         );
                       },
                     ),
+                    if (_selectedDate == null && !_isLoading) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Choose your appointment date above to continue.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1862,7 +1874,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
               ..._buildVisitSummarySections(context),
               const SizedBox(height: 12),
               Text(
-                'Still have questions? Write them down and ask your care team — you’re not bothering anyone.',
+                'Still have questions? Write them down and ask your care team. You’re not bothering anyone.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
@@ -1876,7 +1888,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                 onPressed: () {
                   setState(() {
                     _generatedSummary = null;
-                    _selectedPDF = null;
+                    _selectedPdfBytes = null;
+                    _uploadFileName = null;
                     _pdfFileName = null;
                     _selectedDate = null;
                     _avsUploadResearchSlug = 'unknown';

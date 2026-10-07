@@ -1,15 +1,17 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart' show Uint8List;
+import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/birth_plan.dart';
 import '../cors/ui_theme.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../widgets/module_quick_feedback.dart';
+import 'birth_plan_file_saver.dart';
+import 'birth_plan_formatter.dart';
 import 'comprehensive_birth_plan_screen.dart';
 
 class BirthPlanDisplayScreen extends StatefulWidget {
@@ -24,10 +26,13 @@ class BirthPlanDisplayScreen extends StatefulWidget {
 class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
   final AnalyticsService _analytics = AnalyticsService();
   final DatabaseService _databaseService = DatabaseService();
+  late BirthPlan _plan;
+  bool _isDownloading = false;
 
   @override
   void initState() {
     super.initState();
+    _plan = widget.birthPlan;
     WidgetsBinding.instance.addPostFrameCallback((_) => _trackViewed());
   }
 
@@ -56,85 +61,163 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
     } catch (_) {}
   }
 
-  Future<void> _exportAsPdf(BuildContext context) async {
-    try {
-      final pdf = pw.Document();
-      final formattedText = widget.birthPlan.formattedPlan ?? '';
+  /// Always rebuilt from the saved fields so the on-screen and downloaded plan
+  /// include everything recorded (older plans stored a shorter text snapshot).
+  String get _planText {
+    final text = BirthPlanFormatter().format(_plan);
+    if (text.trim().isNotEmpty) return text;
+    return _plan.formattedPlan ?? '';
+  }
 
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(40),
-          build: (pw.Context context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'BIRTH PLAN',
-                  style: pw.TextStyle(
-                    fontSize: 24,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
+  /// The built-in PDF fonts only cover Latin-1, so swap common typographic
+  /// characters for plain equivalents and drop anything else (e.g. emoji)
+  /// rather than printing empty boxes.
+  String _pdfSafe(String input) {
+    const replacements = {
+      '—': '-', // em dash
+      '–': '-', // en dash
+      '‘': "'",
+      '’': "'",
+      '“': '"',
+      '”': '"',
+      '…': '...',
+      '•': '-',
+      '☑': '[x]',
+      '☐': '[ ]',
+    };
+    final out = StringBuffer();
+    for (final rune in input.runes) {
+      final ch = String.fromCharCode(rune);
+      final mapped = replacements[ch];
+      if (mapped != null) {
+        out.write(mapped);
+      } else if (rune <= 0xFF) {
+        out.write(ch);
+      }
+    }
+    return out.toString();
+  }
+
+  /// Splits [text] at word boundaries into pieces of at most [maxChars].
+  List<String> _chunkForPdf(String text, {int maxChars = 600}) {
+    if (text.length <= maxChars) return [text];
+    final chunks = <String>[];
+    var current = StringBuffer();
+    for (final word in text.split(' ')) {
+      if (current.isNotEmpty && current.length + word.length + 1 > maxChars) {
+        chunks.add(current.toString());
+        current = StringBuffer();
+      }
+      // A single enormous "word" (e.g. a pasted URL) is hard-split.
+      var remaining = word;
+      while (remaining.length > maxChars) {
+        chunks.add(remaining.substring(0, maxChars));
+        remaining = remaining.substring(maxChars);
+      }
+      if (current.isNotEmpty) current.write(' ');
+      current.write(remaining);
+    }
+    if (current.isNotEmpty) chunks.add(current.toString());
+    return chunks;
+  }
+
+  Future<Uint8List> _buildPdfBytes() async {
+    final pdf = pw.Document(title: 'Birth Plan', author: _plan.fullName);
+    final lines = _planText.split('\n');
+    // The formatter starts with its own "BIRTH PLAN" heading; the PDF draws a
+    // styled title instead.
+    if (lines.isNotEmpty && lines.first.trim().toUpperCase() == 'BIRTH PLAN') {
+      lines.removeAt(0);
+    }
+    final sectionHeading = RegExp(r'^\d+\. ');
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40),
+        build: (pw.Context context) => [
+          pw.Text(
+            'BIRTH PLAN',
+            style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 16),
+          for (final raw in lines)
+            if (raw.trim().isEmpty)
+              pw.SizedBox(height: 8)
+            else if (sectionHeading.hasMatch(raw)) ...[
+              pw.SizedBox(height: 4),
+              pw.Text(
+                _pdfSafe(raw),
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
                 ),
-                pw.SizedBox(height: 20),
+              ),
+              pw.SizedBox(height: 4),
+            ] else
+              // A single pw.Text can't break across pages, so very long
+              // answers are split into smaller blocks that MultiPage can flow.
+              for (final chunk in _chunkForPdf(_pdfSafe(raw)))
                 pw.Text(
-                  formattedText,
-                  style: const pw.TextStyle(fontSize: 11),
+                  chunk,
+                  style: const pw.TextStyle(fontSize: 11, lineSpacing: 2),
                 ),
-              ],
-            );
-          },
+        ],
+      ),
+    );
+    return pdf.save();
+  }
+
+  Future<void> _downloadPdf() async {
+    if (_isDownloading) return;
+    setState(() => _isDownloading = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final bytes = await _buildPdfBytes();
+      final stamp = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      await saveBirthPlanPdf(bytes, 'birth_plan_$stamp.pdf');
+      await _logExported(kIsWeb ? 'pdf_download' : 'pdf_share');
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            kIsWeb
+                ? 'Your birth plan PDF is downloading.'
+                : 'Your birth plan PDF is ready to save or send.',
+          ),
         ),
       );
-
-      final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/birth_plan_${DateTime.now().millisecondsSinceEpoch}.pdf');
-      await file.writeAsBytes(await pdf.save());
-
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: 'My Birth Plan',
-      );
-      await _logExported('pdf_share');
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Birth plan exported successfully!')),
-        );
-      }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error exporting: ${e.toString()}')),
-        );
-      }
+      debugPrint('Birth plan PDF download failed: $e');
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Sorry, we couldn\'t download your birth plan. Please try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
     }
   }
 
-  Future<void> _shareAsText(BuildContext context) async {
-    try {
-      final formattedText = widget.birthPlan.formattedPlan ?? '';
-      final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/birth_plan_${DateTime.now().millisecondsSinceEpoch}.txt');
-      await file.writeAsString(formattedText);
-
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: 'My Birth Plan',
+  Future<void> _editPlan() async {
+    final updated = await Navigator.push<BirthPlan>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ComprehensiveBirthPlanScreen(editingPlan: _plan),
+      ),
+    );
+    if (updated != null && mounted) {
+      setState(() => _plan = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your birth plan was updated.')),
       );
-      await _logExported('text_share');
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sharing: ${e.toString()}')),
-        );
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final birthPlan = widget.birthPlan;
+    final birthPlan = _plan;
     const purple = Color(0xFF663399);
     return Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
@@ -179,7 +262,7 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Share with your care team and update anytime.',
+                'Download a copy for your care team and update anytime.',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w300,
@@ -279,7 +362,9 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
                   ],
                 ),
                 child: SelectableText(
-                  birthPlan.formattedPlan ?? 'No plan content available.',
+                  _planText.trim().isNotEmpty
+                      ? _planText.trimRight()
+                      : 'No plan content available.',
                   style: TextStyle(
                     fontSize: 15,
                     height: 1.55,
@@ -289,48 +374,63 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _exportAsPdf(context),
-                      icon: const Icon(Icons.download_outlined, size: 20),
-                      label: const Text('Download PDF'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.textMuted,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        side: BorderSide(
-                          color: const Color(0xFFE8E0F0).withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _shareAsText(context),
-                      icon: const Icon(Icons.share_outlined, size: 20),
-                      label: const Text('Share with team'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: purple,
-                        foregroundColor: AppTheme.brandWhite,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        elevation: 2,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton.icon(
+                child: ElevatedButton.icon(
+                  onPressed: _isDownloading ? null : _downloadPdf,
+                  icon: _isDownloading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.brandWhite,
+                          ),
+                        )
+                      : const Icon(Icons.download_outlined, size: 20),
+                  label: const Text('Download PDF'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: purple,
+                    foregroundColor: AppTheme.brandWhite,
+                    disabledBackgroundColor: purple.withValues(alpha: 0.7),
+                    disabledForegroundColor: AppTheme.brandWhite,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (birthPlan.id != null) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _editPlan,
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    label: const Text('Edit plan'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: purple,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      side: const BorderSide(color: purple),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
@@ -342,13 +442,15 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
                   },
                   icon: const Icon(Icons.add, size: 20),
                   label: const Text('Create another plan'),
-                  style: OutlinedButton.styleFrom(
+                  style: TextButton.styleFrom(
                     foregroundColor: purple,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    side: const BorderSide(color: purple),
                   ),
                 ),
               ),

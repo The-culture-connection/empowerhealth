@@ -53,7 +53,7 @@ class Crisis988Card extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'You can connect with a trained counselor for free and confidential support. This is the 988 Suicide & Crisis Lifeline — not EmpowerHealth Watch.',
+            'You can connect with a trained counselor for free and confidential support. This is the 988 Suicide & Crisis Lifeline, not EmpowerHealth Watch.',
             style: TextStyle(
               fontSize: 14,
               color: AppTheme.textMuted,

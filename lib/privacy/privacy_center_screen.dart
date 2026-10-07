@@ -303,7 +303,7 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
                         content: [
                           'AI analyzes visit summaries to create easy-to-read summaries',
                           'AI generates personalized learning content',
-                          'AI provides educational support—not medical advice',
+                          'AI provides educational support, not medical advice',
                           'Raw documents are not stored unless you choose to save them',
                         ],
                       ),

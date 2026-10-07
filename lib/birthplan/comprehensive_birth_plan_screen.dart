@@ -1,4 +1,7 @@
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderAbstractViewport;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -16,10 +19,16 @@ class ComprehensiveBirthPlanScreen extends StatefulWidget {
   final String? incompletePlanId; // For resuming incomplete plans
   final Map<String, dynamic>? savedProgress; // Saved progress data
 
+  /// A completed plan to edit. The form is prefilled from it and saving
+  /// updates the same Firestore document (no new plan, no duplicate to-dos).
+  /// The screen pops with the updated [BirthPlan].
+  final BirthPlan? editingPlan;
+
   const ComprehensiveBirthPlanScreen({
     super.key,
     this.incompletePlanId,
     this.savedProgress,
+    this.editingPlan,
   });
 
   @override
@@ -34,9 +43,22 @@ class _ComprehensiveBirthPlanScreenState
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   bool _isLoading = false;
+  // Set once the plan is saved so leaving the screen doesn't also store a draft.
+  bool _saved = false;
+
+  static const String _introDismissedPrefKey = 'birth_plan_intro_dismissed';
+  bool _introDismissed = false;
+
+  final ScrollController _pageScrollController = ScrollController();
+  final ScrollController _stepChipsScrollController = ScrollController();
+  final GlobalKey _stepChipsKey = GlobalKey();
+  final List<GlobalKey> _stepChipKeys =
+      List.generate(_stepCount, (_) => GlobalKey());
 
   static const int _stepCount = 5;
   int _currentStep = 0;
+
+  bool get _isEditing => widget.editingPlan?.id != null;
   final Map<String, bool> _whyExpanded = {};
   final Map<String, bool> _jargonExpanded = {};
 
@@ -44,6 +66,8 @@ class _ComprehensiveBirthPlanScreenState
   final _supportPersonNameController = TextEditingController();
   final _supportPersonRelationshipController = TextEditingController();
   final _contactInfoController = TextEditingController();
+  final _communicationStyleController = TextEditingController();
+  final _tearingPreferenceController = TextEditingController();
   final _allergyController = TextEditingController();
   final _medicalConditionController = TextEditingController();
   final _complicationController = TextEditingController();
@@ -135,10 +159,229 @@ class _ComprehensiveBirthPlanScreenState
   void initState() {
     super.initState();
     _trackScreenView();
-    _loadUserProfile();
-    if (widget.savedProgress != null) {
+    _loadIntroDismissed();
+    final editing = widget.editingPlan;
+    if (editing != null) {
+      _applyProgress(editing.progressData ?? _progressFromPlan(editing));
+    } else if (widget.savedProgress != null) {
       _loadSavedProgress();
+    } else {
+      // Only prefill from the profile for a brand-new plan; otherwise the
+      // async profile load would overwrite what the person already entered.
+      _loadUserProfile();
     }
+  }
+
+  Future<void> _loadIntroDismissed() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dismissed = prefs.getBool(_introDismissedPrefKey) ?? false;
+      if (dismissed && mounted) setState(() => _introDismissed = true);
+    } catch (_) {}
+  }
+
+  Future<void> _dismissIntro() async {
+    setState(() => _introDismissed = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_introDismissedPrefKey, true);
+    } catch (_) {}
+  }
+
+  /// Moves to [step], brings the top of that step into view and keeps its
+  /// chip visible in the horizontally scrolling step banner.
+  void _goToStep(int step) {
+    if (step < 0 || step >= _stepCount) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _currentStep = step);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final chipsContext = _stepChipsKey.currentContext;
+      if (chipsContext != null && _pageScrollController.hasClients) {
+        // Align the step banner with the top of the page so the new step's
+        // content starts right below it.
+        final box = chipsContext.findRenderObject() as RenderBox?;
+        final viewport = RenderAbstractViewport.maybeOf(box);
+        if (box != null && viewport != null) {
+          final target = viewport
+              .getOffsetToReveal(box, 0)
+              .offset
+              .clamp(0.0, _pageScrollController.position.maxScrollExtent);
+          // Only scroll up: if the person is already above the step (e.g. they
+          // tapped a chip in the banner) the step's top is already in view.
+          if (target < _pageScrollController.offset) {
+            _pageScrollController.animateTo(
+              target,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        }
+      } else if (_pageScrollController.hasClients) {
+        _pageScrollController.jumpTo(0);
+      }
+      _revealCurrentStepChip();
+    });
+  }
+
+  /// Centers the current step's chip in the step banner. Only the banner's
+  /// horizontal scroll moves (Scrollable.ensureVisible would also scroll the
+  /// page vertically).
+  void _revealCurrentStepChip() {
+    if (!_stepChipsScrollController.hasClients) return;
+    final chipBox = _stepChipKeys[_currentStep].currentContext
+        ?.findRenderObject() as RenderBox?;
+    if (chipBox == null) return;
+    final viewport = RenderAbstractViewport.maybeOf(chipBox);
+    if (viewport == null) return;
+    final position = _stepChipsScrollController.position;
+    final target = viewport
+        .getOffsetToReveal(chipBox, 0.5)
+        .offset
+        .clamp(position.minScrollExtent, position.maxScrollExtent);
+    _stepChipsScrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
+  static const Map<String, List<String>> _dropdownOptions = {
+    'preferredLanguage': ['English', 'Spanish', 'Other'],
+    'monitoringPreference': [
+      'Intermittent',
+      'Continuous',
+      'Wireless if available',
+    ],
+    'painManagementPreference': [
+      'Unmedicated',
+      'Epidural',
+      'Nitrous oxide',
+      'IV pain meds',
+      'Comfort measures only',
+    ],
+    'membraneSweepingPreference': [
+      'Yes, if offered',
+      'No',
+      'Only if medically indicated',
+    ],
+    'inductionPreference': [
+      'Natural methods first',
+      'Open to medical induction',
+      'Prefer to avoid',
+    ],
+    'pushingStyle': ['Guided', 'Spontaneous', 'Either'],
+    'episiotomyPreference': [
+      'Avoid unless absolutely necessary',
+      'Open to if needed',
+      'No preference',
+    ],
+    'whoCatchesBaby': ['Partner', 'Doctor', 'Midwife', 'Myself'],
+    'delayedCordClampingPreference': [
+      '1-3 minutes',
+      '3-5 minutes',
+      'Until cord stops pulsing',
+      'No preference',
+    ],
+    'whoCutsCord': ['Partner', 'Myself', 'Doctor', 'No preference'],
+    'feedingPreference': ['Breastfeeding', 'Formula feeding', 'Combo feeding'],
+    'drapePreference': ['Clear drape', 'Standard drape', 'No preference'],
+    'anesthesiaPreference': [
+      'Spinal',
+      'Epidural',
+      'General (if emergency)',
+      'No preference',
+    ],
+    'surgicalClosurePreference': [
+      'Staples',
+      'Sutures',
+      'Dissolvable',
+      'No preference',
+    ],
+    'preferredBadNewsDelivery': [
+      'Private conversation',
+      'With partner present',
+      'Written first, then discussion',
+      'Direct and clear',
+    ],
+  };
+
+  /// Dropdowns assert if their value isn't one of their items, so drop any
+  /// stored value (e.g. from an older version of the form) that no longer is.
+  String? _dropdownValue(Map<String, dynamic> progress, String key) {
+    final value = progress[key];
+    if (value is! String) return null;
+    return (_dropdownOptions[key]?.contains(value) ?? true) ? value : null;
+  }
+
+  /// Rebuilds the form state from a saved plan that has no `progressData`
+  /// snapshot (plans saved before edit support existed).
+  static Map<String, dynamic> _progressFromPlan(BirthPlan plan) {
+    return {
+      'supportPersonName': plan.supportPersonName ?? '',
+      'supportPersonRelationship': plan.supportPersonRelationship ?? '',
+      'contactInfo': plan.emergencyContact ?? '',
+      'dueDate': plan.dueDate?.toIso8601String(),
+      'allergies': plan.allergies,
+      'medicalConditions': plan.medicalConditions,
+      'pregnancyComplications': plan.pregnancyComplications,
+      'environmentPreferences': plan.environmentPreferences,
+      'photographyAllowed': plan.photographyAllowed,
+      'videographyAllowed': plan.videographyAllowed,
+      'preferredLanguage': plan.preferredLanguage,
+      'traumaInformedCare': plan.traumaInformedCare,
+      'preferredLaborPositions': plan.preferredLaborPositions,
+      'movementFreedom': plan.movementFreedom,
+      'monitoringPreference': plan.monitoringPreference,
+      'painManagementPreference': plan.painManagementPreference,
+      'useDoula': plan.useDoula,
+      'waterLaborAvailable': plan.waterLaborAvailable,
+      'membraneSweepingPreference': plan.augmentationPreference,
+      'inductionPreference': plan.inductionMethodsPreference,
+      'communicationStyle': plan.communicationStyle,
+      'preferredPushingPositions': plan.preferredPushingPositions,
+      'pushingStyle': plan.coachingStyle,
+      'mirrorDuringPushing': plan.mirrorDuringPushing,
+      'episiotomyPreference': plan.episiotomyPreference,
+      'tearingPreference': plan.perinealSupportPreference,
+      'whoCatchesBaby': plan.whoCatchesBaby,
+      'delayedPushingWithEpidural': plan.delayedPushingWithEpidural,
+      'delayedCordClampingPreference': plan.delayedCordClampingPreference,
+      'whoCutsCord': plan.whoCutsCord,
+      'immediateSkinToSkin': plan.immediateSkinToSkin,
+      'babyStaysWithParent': plan.delayedNewbornProcedures ?? true,
+      'vitaminK': plan.vitaminK,
+      'eyeOintment': plan.eyeOintment,
+      'hepBVaccine': plan.hepBVaccine,
+      'cordBloodBanking': plan.cordBloodBanking ??
+          (plan.placentaPreference == 'Save placenta' ? true : null),
+      'cordBloodCompany': plan.cordBloodCompany ?? '',
+      'feedingPreference': plan.feedingPreference,
+      'lactationConsultantRequested': plan.lactationConsultantRequested,
+      'noPacifierUntilBreastfeeding': plan.noPacifierUntilBreastfeeding,
+      'consentForDonorMilk': plan.consentForDonorMilk,
+      'roomingIn': plan.roomingIn,
+      'mentalHealthSupport': plan.mentalHealthScreeningPreference,
+      'visitorPreference': plan.visitorsAfterBirth ?? '',
+      'dietaryPreferences': plan.dietaryPreferences ?? '',
+      'postpartumPainManagement': plan.postpartumPainControlPlan ?? '',
+      'drapePreference': plan.cesareanDrapePreference,
+      'partnerInOR': plan.supportPersonInOR,
+      'photosAllowedInOR': plan.photosAllowedInOR,
+      'babyOnChestImmediately': plan.immediateSkinToSkinInOR,
+      'delayNewbornCareUntilHolding': plan.delayNewbornCareUntilHolding,
+      'anesthesiaPreference': plan.anesthesiaPreference,
+      'surgicalClosurePreference': plan.surgicalClosurePreference,
+      'religiousConsiderations': plan.culturalReligiousRituals ?? '',
+      'culturalConsiderations': plan.culturalConsiderations ?? '',
+      'accessibilityNeeds': plan.accessibilityNeeds ?? '',
+      'traumaHistory': plan.pastBirthTraumaOrComplications ?? '',
+      'anxietyTriggers': plan.anxietyTriggers,
+      'consentBasedCare': plan.consentBasedCare,
+      'preferredBadNewsDelivery': plan.preferredBadNewsDelivery,
+      'fearReductionRequests': plan.fearReductionRequests,
+      'inMyOwnWords': plan.inMyOwnWords ?? '',
+    };
   }
 
   Future<void> _trackScreenView() async {
@@ -175,8 +418,10 @@ class _ComprehensiveBirthPlanScreenState
 
   void _loadSavedProgress() {
     if (widget.savedProgress == null) return;
-    final progress = widget.savedProgress!;
+    _applyProgress(widget.savedProgress!);
+  }
 
+  void _applyProgress(Map<String, dynamic> progress) {
     setState(() {
       _supportPersonNameController.text = progress['supportPersonName'] ?? '';
       _supportPersonRelationshipController.text =
@@ -202,31 +447,33 @@ class _ComprehensiveBirthPlanScreenState
       );
       _photographyAllowed = progress['photographyAllowed'];
       _videographyAllowed = progress['videographyAllowed'];
-      _preferredLanguage = progress['preferredLanguage'];
+      _preferredLanguage = _dropdownValue(progress, 'preferredLanguage');
       _traumaInformedCare = progress['traumaInformedCare'] ?? false;
       _preferredLaborPositions = List<String>.from(
         progress['preferredLaborPositions'] ?? [],
       );
       _movementFreedom = progress['movementFreedom'] ?? true;
-      _monitoringPreference = progress['monitoringPreference'];
-      _painManagementPreference = progress['painManagementPreference'];
+      _monitoringPreference = _dropdownValue(progress, 'monitoringPreference');
+      _painManagementPreference = _dropdownValue(progress, 'painManagementPreference');
       _useDoula = progress['useDoula'] ?? false;
       _waterLaborAvailable = progress['waterLaborAvailable'];
-      _membraneSweepingPreference = progress['membraneSweepingPreference'];
-      _inductionPreference = progress['inductionPreference'];
+      _membraneSweepingPreference = _dropdownValue(progress, 'membraneSweepingPreference');
+      _inductionPreference = _dropdownValue(progress, 'inductionPreference');
       _communicationStyle = progress['communicationStyle'];
+      _communicationStyleController.text = progress['communicationStyle'] ?? '';
       _preferredPushingPositions = List<String>.from(
         progress['preferredPushingPositions'] ?? [],
       );
-      _pushingStyle = progress['pushingStyle'];
+      _pushingStyle = _dropdownValue(progress, 'pushingStyle');
       _mirrorDuringPushing = progress['mirrorDuringPushing'];
-      _episiotomyPreference = progress['episiotomyPreference'];
+      _episiotomyPreference = _dropdownValue(progress, 'episiotomyPreference');
       _tearingPreference = progress['tearingPreference'];
-      _whoCatchesBaby = progress['whoCatchesBaby'];
+      _tearingPreferenceController.text = progress['tearingPreference'] ?? '';
+      _whoCatchesBaby = _dropdownValue(progress, 'whoCatchesBaby');
       _delayedPushingWithEpidural = progress['delayedPushingWithEpidural'];
       _delayedCordClampingPreference =
-          progress['delayedCordClampingPreference'];
-      _whoCutsCord = progress['whoCutsCord'];
+          _dropdownValue(progress, 'delayedCordClampingPreference');
+      _whoCutsCord = _dropdownValue(progress, 'whoCutsCord');
       _immediateSkinToSkin = progress['immediateSkinToSkin'] ?? true;
       _babyStaysWithParent = progress['babyStaysWithParent'] ?? true;
       _vitaminK = progress['vitaminK'];
@@ -234,7 +481,7 @@ class _ComprehensiveBirthPlanScreenState
       _hepBVaccine = progress['hepBVaccine'];
       _cordBloodBanking = progress['cordBloodBanking'];
       _cordBloodCompanyController.text = progress['cordBloodCompany'] ?? '';
-      _feedingPreference = progress['feedingPreference'];
+      _feedingPreference = _dropdownValue(progress, 'feedingPreference');
       _lactationConsultantRequested =
           progress['lactationConsultantRequested'] ?? false;
       _noPacifierUntilBreastfeeding = progress['noPacifierUntilBreastfeeding'];
@@ -245,13 +492,13 @@ class _ComprehensiveBirthPlanScreenState
       _dietaryPreferencesController.text = progress['dietaryPreferences'] ?? '';
       _postpartumPainManagementController.text =
           progress['postpartumPainManagement'] ?? '';
-      _drapePreference = progress['drapePreference'];
+      _drapePreference = _dropdownValue(progress, 'drapePreference');
       _partnerInOR = progress['partnerInOR'];
       _photosAllowedInOR = progress['photosAllowedInOR'];
       _babyOnChestImmediately = progress['babyOnChestImmediately'];
       _delayNewbornCareUntilHolding = progress['delayNewbornCareUntilHolding'];
-      _anesthesiaPreference = progress['anesthesiaPreference'];
-      _surgicalClosurePreference = progress['surgicalClosurePreference'];
+      _anesthesiaPreference = _dropdownValue(progress, 'anesthesiaPreference');
+      _surgicalClosurePreference = _dropdownValue(progress, 'surgicalClosurePreference');
       _religiousConsiderationsController.text =
           progress['religiousConsiderations'] ?? '';
       _culturalConsiderationsController.text =
@@ -261,7 +508,7 @@ class _ComprehensiveBirthPlanScreenState
       _anxietyTriggerController.text = progress['anxietyTrigger'] ?? '';
       _anxietyTriggers = List<String>.from(progress['anxietyTriggers'] ?? []);
       _consentBasedCare = progress['consentBasedCare'] ?? false;
-      _preferredBadNewsDelivery = progress['preferredBadNewsDelivery'];
+      _preferredBadNewsDelivery = _dropdownValue(progress, 'preferredBadNewsDelivery');
       _fearReductionController.text = progress['fearReduction'] ?? '';
       _fearReductionRequests = List<String>.from(
         progress['fearReductionRequests'] ?? [],
@@ -275,6 +522,10 @@ class _ComprehensiveBirthPlanScreenState
     _supportPersonNameController.dispose();
     _supportPersonRelationshipController.dispose();
     _contactInfoController.dispose();
+    _communicationStyleController.dispose();
+    _tearingPreferenceController.dispose();
+    _pageScrollController.dispose();
+    _stepChipsScrollController.dispose();
     _allergyController.dispose();
     _medicalConditionController.dispose();
     _complicationController.dispose();
@@ -307,29 +558,30 @@ class _ComprehensiveBirthPlanScreenState
 
       // Get user profile for name
       final profile = await _databaseService.getUserProfile(userId);
-      if (profile == null) {
+      final editing = widget.editingPlan;
+      if (profile == null && editing == null) {
         throw Exception('User profile not found');
       }
 
-      // Create birth plan object
+      String? text(TextEditingController c) =>
+          c.text.trim().isEmpty ? null : c.text.trim();
+      String? optional(String? v) =>
+          (v == null || v.trim().isEmpty) ? null : v.trim();
+
+      // Create birth plan object. Toggle values fall back to the same
+      // defaults the switches display, so the saved plan matches the screen.
       final birthPlan = BirthPlan(
+        id: editing?.id,
         userId: userId,
-        fullName: profile.username,
+        fullName: profile?.username ?? editing!.fullName,
         dueDate: _dueDate,
-        supportPersonName: _supportPersonNameController.text.trim().isEmpty
-            ? null
-            : _supportPersonNameController.text.trim(),
-        supportPersonRelationship:
-            _supportPersonRelationshipController.text.trim().isEmpty
-            ? null
-            : _supportPersonRelationshipController.text.trim(),
-        emergencyContact: _contactInfoController.text.trim().isEmpty
-            ? null
-            : _contactInfoController.text.trim(),
+        supportPersonName: text(_supportPersonNameController),
+        supportPersonRelationship: text(_supportPersonRelationshipController),
+        emergencyContact: text(_contactInfoController),
         allergies: _allergies,
         medicalConditions: _medicalConditions,
         pregnancyComplications: _pregnancyComplications,
-        // environmentPreferences removed - now using lightingPreference, noisePreference, visitorsAllowed
+        environmentPreferences: _environmentPreferences,
         photographyAllowed: _photographyAllowed,
         videographyAllowed: _videographyAllowed,
         preferredLanguage: _preferredLanguage,
@@ -343,12 +595,12 @@ class _ComprehensiveBirthPlanScreenState
         augmentationPreference:
             _membraneSweepingPreference, // membrane sweep is now part of augmentation
         inductionMethodsPreference: _inductionPreference,
-        communicationStyle: _communicationStyle,
+        communicationStyle: optional(_communicationStyle),
         preferredPushingPositions: _preferredPushingPositions,
         coachingStyle: _pushingStyle, // pushingStyle renamed to coachingStyle
         mirrorDuringPushing: _mirrorDuringPushing,
         episiotomyPreference: _episiotomyPreference,
-        // tearingPreference removed
+        perinealSupportPreference: optional(_tearingPreference),
         whoCatchesBaby: _whoCatchesBaby,
         delayedPushingWithEpidural: _delayedPushingWithEpidural,
         delayedCordClampingPreference: _delayedCordClampingPreference,
@@ -356,142 +608,75 @@ class _ComprehensiveBirthPlanScreenState
         immediateSkinToSkin: _immediateSkinToSkin,
         delayedNewbornProcedures:
             _babyStaysWithParent, // babyStaysWithParent -> delayedNewbornProcedures
-        vitaminK: _vitaminK,
-        // eyeOintment removed
-        hepBVaccine: _hepBVaccine,
-        placentaPreference: _cordBloodBanking == true
-            ? 'Save placenta'
-            : null, // cordBloodBanking -> placentaPreference
-        // cordBloodCompany removed
+        vitaminK: _vitaminK ?? true,
+        eyeOintment: _eyeOintment ?? true,
+        hepBVaccine: _hepBVaccine ?? true,
+        cordBloodBanking: _cordBloodBanking,
+        cordBloodCompany:
+            _cordBloodBanking == true ? text(_cordBloodCompanyController) : null,
         feedingPreference: _feedingPreference,
         lactationConsultantRequested: _lactationConsultantRequested,
         noPacifierUntilBreastfeeding: _noPacifierUntilBreastfeeding,
         consentForDonorMilk: _consentForDonorMilk,
-        roomingIn: _roomingIn,
+        roomingIn: _roomingIn ?? true,
         mentalHealthScreeningPreference: _mentalHealthSupport,
-        visitorsAfterBirth: _visitorPreferenceController.text.trim().isEmpty
-            ? null
-            : _visitorPreferenceController.text.trim(),
-        dietaryPreferences: _dietaryPreferencesController.text.trim().isEmpty
-            ? null
-            : _dietaryPreferencesController.text.trim(),
-        postpartumPainControlPlan:
-            _postpartumPainManagementController.text.trim().isEmpty
-            ? null
-            : _postpartumPainManagementController.text.trim(),
+        visitorsAfterBirth: text(_visitorPreferenceController),
+        dietaryPreferences: text(_dietaryPreferencesController),
+        postpartumPainControlPlan: text(_postpartumPainManagementController),
         cesareanDrapePreference: _drapePreference,
-        supportPersonInOR: _partnerInOR,
-        // photosAllowedInOR removed
-        immediateSkinToSkinInOR: _babyOnChestImmediately,
-        // delayNewbornCareUntilHolding removed
-        // anesthesiaPreference removed
-        // surgicalClosurePreference removed
-        culturalReligiousRituals:
-            _religiousConsiderationsController.text.trim().isEmpty
-            ? null
-            : _religiousConsiderationsController.text.trim(),
-        // culturalConsiderations removed (now part of culturalReligiousRituals)
-        accessibilityNeeds: _accessibilityNeedsController.text.trim().isEmpty
-            ? null
-            : _accessibilityNeedsController.text.trim(),
-        pastBirthTraumaOrComplications:
-            _traumaHistoryController.text.trim().isEmpty
-            ? null
-            : _traumaHistoryController.text.trim(),
+        supportPersonInOR: _partnerInOR ?? true,
+        photosAllowedInOR: _photosAllowedInOR ?? true,
+        immediateSkinToSkinInOR: _babyOnChestImmediately ?? true,
+        delayNewbornCareUntilHolding: _delayNewbornCareUntilHolding,
+        anesthesiaPreference: _anesthesiaPreference,
+        surgicalClosurePreference: _surgicalClosurePreference,
+        culturalReligiousRituals: text(_religiousConsiderationsController),
+        culturalConsiderations: text(_culturalConsiderationsController),
+        accessibilityNeeds: text(_accessibilityNeedsController),
+        pastBirthTraumaOrComplications: text(_traumaHistoryController),
         anxietyTriggers: _anxietyTriggers,
         consentBasedCare: _consentBasedCare,
         preferredBadNewsDelivery: _preferredBadNewsDelivery,
         fearReductionRequests: _fearReductionRequests,
-        inMyOwnWords: _inMyOwnWordsController.text.trim().isEmpty
-            ? null
-            : _inMyOwnWordsController.text.trim(),
-        providerName: _providerName,
+        inMyOwnWords: text(_inMyOwnWordsController),
+        providerName: editing?.providerName ?? _providerName,
+        createdAt: editing?.createdAt,
+        updatedAt: editing != null ? DateTime.now() : null,
       );
 
-      // Format the birth plan
-      final formatter = BirthPlanFormatter();
-      final formattedPlan = formatter.format(birthPlan);
-
-      // Update birth plan with formatted content
-      final updatedPlan = BirthPlan(
-        id: birthPlan.id,
-        userId: birthPlan.userId,
-        fullName: birthPlan.fullName,
-        dueDate: birthPlan.dueDate,
-        supportPersonName: birthPlan.supportPersonName,
-        supportPersonRelationship: birthPlan.supportPersonRelationship,
-        emergencyContact: birthPlan.emergencyContact,
-        allergies: birthPlan.allergies,
-        medicalConditions: birthPlan.medicalConditions,
-        pregnancyComplications: birthPlan.pregnancyComplications,
-        // environmentPreferences removed
-        photographyAllowed: birthPlan.photographyAllowed,
-        videographyAllowed: birthPlan.videographyAllowed,
-        preferredLanguage: birthPlan.preferredLanguage,
-        traumaInformedCare: birthPlan.traumaInformedCare,
-        preferredLaborPositions: birthPlan.preferredLaborPositions,
-        movementFreedom: birthPlan.movementFreedom,
-        monitoringPreference: birthPlan.monitoringPreference,
-        painManagementPreference: birthPlan.painManagementPreference,
-        useDoula: birthPlan.useDoula,
-        waterLaborAvailable: birthPlan.waterLaborAvailable,
-        augmentationPreference: birthPlan.augmentationPreference,
-        inductionMethodsPreference: birthPlan.inductionMethodsPreference,
-        communicationStyle: birthPlan.communicationStyle,
-        preferredPushingPositions: birthPlan.preferredPushingPositions,
-        coachingStyle: birthPlan.coachingStyle,
-        mirrorDuringPushing: birthPlan.mirrorDuringPushing,
-        episiotomyPreference: birthPlan.episiotomyPreference,
-        // tearingPreference removed
-        whoCatchesBaby: birthPlan.whoCatchesBaby,
-        delayedPushingWithEpidural: birthPlan.delayedPushingWithEpidural,
-        delayedCordClampingPreference: birthPlan.delayedCordClampingPreference,
-        whoCutsCord: birthPlan.whoCutsCord,
-        immediateSkinToSkin: birthPlan.immediateSkinToSkin,
-        delayedNewbornProcedures: birthPlan.delayedNewbornProcedures,
-        vitaminK: birthPlan.vitaminK,
-        // eyeOintment removed
-        hepBVaccine: birthPlan.hepBVaccine,
-        placentaPreference: birthPlan.placentaPreference,
-        // cordBloodCompany removed
-        feedingPreference: birthPlan.feedingPreference,
-        lactationConsultantRequested: birthPlan.lactationConsultantRequested,
-        noPacifierUntilBreastfeeding: birthPlan.noPacifierUntilBreastfeeding,
-        consentForDonorMilk: birthPlan.consentForDonorMilk,
-        roomingIn: birthPlan.roomingIn,
-        mentalHealthScreeningPreference:
-            birthPlan.mentalHealthScreeningPreference,
-        visitorsAfterBirth: birthPlan.visitorsAfterBirth,
-        dietaryPreferences: birthPlan.dietaryPreferences,
-        postpartumPainControlPlan: birthPlan.postpartumPainControlPlan,
-        cesareanDrapePreference: birthPlan.cesareanDrapePreference,
-        supportPersonInOR: birthPlan.supportPersonInOR,
-        // photosAllowedInOR removed
-        immediateSkinToSkinInOR: birthPlan.immediateSkinToSkinInOR,
-        // delayNewbornCareUntilHolding removed
-        // anesthesiaPreference removed
-        // surgicalClosurePreference removed
-        culturalReligiousRituals: birthPlan.culturalReligiousRituals,
-        // culturalConsiderations removed (now part of culturalReligiousRituals)
-        accessibilityNeeds: birthPlan.accessibilityNeeds,
-        pastBirthTraumaOrComplications:
-            birthPlan.pastBirthTraumaOrComplications,
-        anxietyTriggers: birthPlan.anxietyTriggers,
-        consentBasedCare: birthPlan.consentBasedCare,
-        preferredBadNewsDelivery: birthPlan.preferredBadNewsDelivery,
-        fearReductionRequests: birthPlan.fearReductionRequests,
-        inMyOwnWords: birthPlan.inMyOwnWords,
+      // Format the birth plan and keep a snapshot of the form so the plan can
+      // be reopened for editing exactly as it was filled in.
+      final formattedPlan = BirthPlanFormatter().format(birthPlan);
+      final updatedPlan = birthPlan.copyWith(
         formattedPlan: formattedPlan,
-        createdAt: birthPlan.createdAt,
-        providerName: birthPlan.providerName,
+        status: 'complete',
+        progressData: _getProgressData(),
       );
 
-      // Save to Firestore with complete status
+      // Save to Firestore with complete status. Editing updates the same
+      // plan; finishing a saved draft completes that draft instead of
+      // leaving a duplicate "Incomplete" card behind.
       final planData = updatedPlan.toFirestore();
       planData['status'] = 'complete';
-      final docRef = await FirebaseFirestore.instance
-          .collection('birth_plans')
-          .add(planData);
+      final targetId = editing?.id ?? widget.incompletePlanId;
+      final DocumentReference docRef;
+      if (targetId != null) {
+        docRef =
+            FirebaseFirestore.instance.collection('birth_plans').doc(targetId);
+        await docRef.set(planData);
+      } else {
+        docRef = await FirebaseFirestore.instance
+            .collection('birth_plans')
+            .add(planData);
+      }
+      _saved = true;
+
+      if (editing != null) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        Navigator.pop(context, updatedPlan.copyWith(id: docRef.id));
+        return;
+      }
 
       // Generate and save todos
       await _generateTodos(updatedPlan);
@@ -642,8 +827,9 @@ class _ComprehensiveBirthPlanScreenState
     });
 
     // Paperwork & Permissions To-Dos
-    if (plan.placentaPreference != null &&
-        plan.placentaPreference!.contains('Save')) {
+    if (plan.cordBloodBanking == true ||
+        (plan.placentaPreference != null &&
+            plan.placentaPreference!.contains('Save'))) {
       todos.add({
         'title': 'Complete paperwork for cord blood banking',
         'description': 'Fill out cord blood banking forms',
@@ -778,7 +964,7 @@ class _ComprehensiveBirthPlanScreenState
       });
     }
     todos.add({
-      'title': 'Plan 2–3 postpartum support people',
+      'title': 'Plan 2 to 3 postpartum support people',
       'description': 'Arrange meals + house help',
       'category': 'Mental & Emotional Support',
     });
@@ -976,6 +1162,9 @@ class _ComprehensiveBirthPlanScreenState
   }
 
   Future<void> _saveProgress() async {
+    // Nothing to draft once the plan is saved, and backing out of an edit
+    // should leave the saved plan untouched rather than create a draft.
+    if (_saved || widget.editingPlan != null) return;
     try {
       final userId = _auth.currentUser?.uid;
       if (userId == null) return;
@@ -1042,6 +1231,7 @@ class _ComprehensiveBirthPlanScreenState
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
+              controller: _pageScrollController,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(
                 24,
@@ -1088,7 +1278,7 @@ class _ComprehensiveBirthPlanScreenState
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your birth, your choices — one step at a time',
+                    'Your birth, your choices, one step at a time',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w300,
@@ -1097,8 +1287,10 @@ class _ComprehensiveBirthPlanScreenState
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _buildAffirmingIntroCard(),
-                  const SizedBox(height: 24),
+                  if (!_introDismissed) ...[
+                    _buildAffirmingIntroCard(),
+                    const SizedBox(height: 24),
+                  ],
                   _buildStepChipsRow(),
                   const SizedBox(height: 16),
                   AnimatedSwitcher(
@@ -1170,7 +1362,8 @@ class _ComprehensiveBirthPlanScreenState
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(24),
+            // Extra right padding keeps the title clear of the close button.
+            padding: const EdgeInsets.fromLTRB(24, 24, 40, 24),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1225,24 +1418,66 @@ class _ComprehensiveBirthPlanScreenState
               ],
             ),
           ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: IconButton(
+              onPressed: _dismissIntro,
+              tooltip: 'Dismiss',
+              icon: Icon(Icons.close, size: 20, color: AppTheme.textMuted),
+            ),
+          ),
         ],
       ),
     );
   }
 
+  /// Horizontally scrolling step banner. Swipe (or drag with a mouse/trackpad
+  /// on web) to see every step; tap any step to jump to it. Answers entered on
+  /// other steps are kept.
   Widget _buildStepChipsRow() {
+    // The keyed SizedBox is what _goToStep aligns to the top of the page.
     return SizedBox(
-      height: 48,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _stepCount,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final meta = _stepMeta[index];
-          final isActive = _currentStep == index;
-          final isComplete = _currentStep > index;
+      key: _stepChipsKey,
+      width: double.infinity,
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(
+          dragDevices: PointerDeviceKind.values.toSet(),
+        ),
+        child: SingleChildScrollView(
+          controller: _stepChipsScrollController,
+          scrollDirection: Axis.horizontal,
+          // Vertical padding leaves room for the chip shadows.
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var index = 0; index < _stepCount; index++) ...[
+                if (index > 0) const SizedBox(width: 8),
+                _buildStepChip(index),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepChip(int index) {
+    final meta = _stepMeta[index];
+    final isActive = _currentStep == index;
+    final isComplete = _currentStep > index;
+    return Semantics(
+      key: _stepChipKeys[index],
+      button: true,
+      selected: isActive,
+      label: 'Step ${index + 1} of $_stepCount: ${meta.title}',
+      excludeSemantics: true,
+      child: Builder(
+        builder: (_) {
           return GestureDetector(
-            onTap: () => setState(() => _currentStep = index),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _goToStep(index),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -1505,7 +1740,7 @@ class _ComprehensiveBirthPlanScreenState
         if (_currentStep > 0)
           Expanded(
             child: OutlinedButton(
-              onPressed: () => setState(() => _currentStep--),
+              onPressed: () => _goToStep(_currentStep - 1),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.textMuted,
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1519,7 +1754,7 @@ class _ComprehensiveBirthPlanScreenState
                 children: [
                   Icon(Icons.chevron_left, size: 18),
                   SizedBox(width: 4),
-                  Text('Previous'),
+                  Flexible(child: Text('Previous', textAlign: TextAlign.center)),
                 ],
               ),
             ),
@@ -1527,7 +1762,7 @@ class _ComprehensiveBirthPlanScreenState
         if (_currentStep > 0) const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton(
-            onPressed: () => setState(() => _currentStep++),
+            onPressed: () => _goToStep(_currentStep + 1),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF663399),
               foregroundColor: AppTheme.brandWhite,
@@ -1540,7 +1775,7 @@ class _ComprehensiveBirthPlanScreenState
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('Next step'),
+                Flexible(child: Text('Next step', textAlign: TextAlign.center)),
                 SizedBox(width: 4),
                 Icon(Icons.chevron_right, size: 18),
               ],
@@ -1587,7 +1822,7 @@ class _ComprehensiveBirthPlanScreenState
           ),
           const SizedBox(height: 8),
           Text(
-            'Tap Save plan below to finish and store your preferences. You can open your plan from the list anytime.',
+            _isEditing ? 'Tap Save changes below to update your plan.' : 'Tap Save plan below to finish and store your preferences. You can open your plan from the list anytime.',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w300,
@@ -1606,7 +1841,7 @@ class _ComprehensiveBirthPlanScreenState
       children: [
         if (_currentStep > 0)
           OutlinedButton(
-            onPressed: () => setState(() => _currentStep--),
+            onPressed: () => _goToStep(_currentStep - 1),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.textMuted,
               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1622,7 +1857,7 @@ class _ComprehensiveBirthPlanScreenState
               children: [
                 Icon(Icons.chevron_left, size: 18),
                 SizedBox(width: 4),
-                Text('Previous'),
+                Flexible(child: Text('Previous', textAlign: TextAlign.center)),
               ],
             ),
           ),
@@ -1646,7 +1881,7 @@ class _ComprehensiveBirthPlanScreenState
                     color: AppTheme.brandWhite,
                   ),
                 )
-              : const Text('Save plan'),
+              : Text(_isEditing ? 'Save changes' : 'Save plan'),
         ),
       ],
     );
@@ -1867,7 +2102,10 @@ class _ComprehensiveBirthPlanScreenState
                     labelText: 'Language you want care in',
                   ),
                   items: ['English', 'Spanish', 'Other']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .map((e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e, overflow: TextOverflow.ellipsis),
+                            ))
                       .toList(),
                   onChanged: (v) => setState(() => _preferredLanguage = v),
                 ),
@@ -1880,7 +2118,7 @@ class _ComprehensiveBirthPlanScreenState
                 _jargonExpandable(
                   'trauma_informed',
                   'Trauma-informed care means your team checks in before touch or exams, '
-                  'so you feel more in control—especially if past experiences make care harder.',
+                  'so you feel more in control, especially if past experiences make care harder.',
                 ),
               ],
             ),
@@ -1923,7 +2161,7 @@ class _ComprehensiveBirthPlanScreenState
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'There are many ways to stay comfortable. Choose what you’re considering—you can change your mind later.',
+                  'There are many ways to stay comfortable. Choose what you’re considering. You can change your mind later.',
                   style: TextStyle(
                     fontSize: 14,
                     color: AppTheme.textMuted,
@@ -2004,14 +2242,14 @@ class _ComprehensiveBirthPlanScreenState
                     DropdownMenuItem(
                       value: 'Unmedicated',
                       child: Text(
-                        'No pain medicine — comfort tools only',
+                        'No pain medicine, comfort tools only',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     DropdownMenuItem(
                       value: 'Epidural',
                       child: Text(
-                        'Epidural — small tube in your back',
+                        'Epidural (small tube in your back)',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -2032,7 +2270,7 @@ class _ComprehensiveBirthPlanScreenState
                     DropdownMenuItem(
                       value: 'Comfort measures only',
                       child: Text(
-                        'Massage, water, breathing — open to discussion',
+                        'Massage, water, breathing: open to discussion',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -2045,7 +2283,7 @@ class _ComprehensiveBirthPlanScreenState
                   'There are many ways to stay comfortable in labor. '
                   'Some people use medicine (epidural, IV meds, or nitrous). '
                   'Others prefer movement, water, massage, or breathing. '
-                  'You can change your mind later—this is what you’re open to discussing.',
+                  'You can change your mind later. This is what you’re open to discussing.',
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(
@@ -2069,7 +2307,10 @@ class _ComprehensiveBirthPlanScreenState
                   items:
                       ['Yes, if offered', 'No', 'Only if medically indicated']
                           .map(
-                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e, overflow: TextOverflow.ellipsis),
+                            ),
                           )
                           .toList(),
                   onChanged: (v) =>
@@ -2078,7 +2319,7 @@ class _ComprehensiveBirthPlanScreenState
                 _jargonExpandable(
                   'membrane',
                   'A membrane sweep is when a care provider gently sweeps a finger at the cervix '
-                  '(opening of the womb) to encourage labor. It is optional—only if you and your provider agree it’s right for you.',
+                  '(opening of the womb) to encourage labor. It is optional, only if you and your provider agree it’s right for you.',
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
@@ -2094,13 +2335,17 @@ class _ComprehensiveBirthPlanScreenState
                             'Prefer to avoid',
                           ]
                           .map(
-                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e, overflow: TextOverflow.ellipsis),
+                            ),
                           )
                           .toList(),
                   onChanged: (v) => setState(() => _inductionPreference = v),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
+                  controller: _communicationStyleController,
                   decoration: const InputDecoration(
                     labelText: 'How you like updates and decisions explained',
                     hintText: 'e.g. explain options first, keep me calm',
@@ -2212,7 +2457,10 @@ class _ComprehensiveBirthPlanScreenState
                             'No preference',
                           ]
                           .map(
-                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e, overflow: TextOverflow.ellipsis),
+                            ),
                           )
                           .toList(),
                   onChanged: (v) => setState(() => _episiotomyPreference = v),
@@ -2220,10 +2468,11 @@ class _ComprehensiveBirthPlanScreenState
                 _jargonExpandable(
                   'episiotomy',
                   'An episiotomy is a small cut at the vaginal opening, usually only if there is a medical reason. '
-                  'Many people prefer to avoid it unless truly necessary—your provider can explain in the moment.',
+                  'Many people prefer to avoid it unless truly necessary. Your provider can explain in the moment.',
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
+                  controller: _tearingPreferenceController,
                   decoration: const InputDecoration(
                     labelText: 'Support for the vaginal area while stretching',
                     hintText: 'e.g. warm cloths, hands-on support',
@@ -2238,7 +2487,10 @@ class _ComprehensiveBirthPlanScreenState
                     labelText: 'Who you’d like to receive baby',
                   ),
                   items: ['Partner', 'Doctor', 'Midwife', 'Myself']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .map((e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e, overflow: TextOverflow.ellipsis),
+                            ))
                       .toList(),
                   onChanged: (v) => setState(() => _whoCatchesBaby = v),
                 ),
@@ -2325,7 +2577,10 @@ class _ComprehensiveBirthPlanScreenState
                             'No preference',
                           ]
                           .map(
-                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e, overflow: TextOverflow.ellipsis),
+                            ),
                           )
                           .toList(),
                   onChanged: (v) =>
@@ -2344,7 +2599,10 @@ class _ComprehensiveBirthPlanScreenState
                     labelText: 'Who cuts the cord',
                   ),
                   items: ['Partner', 'Myself', 'Doctor', 'No preference']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .map((e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e, overflow: TextOverflow.ellipsis),
+                            ))
                       .toList(),
                   onChanged: (v) => setState(() => _whoCutsCord = v),
                 ),
@@ -2385,7 +2643,7 @@ class _ComprehensiveBirthPlanScreenState
                 const SizedBox(height: 16),
                 SwitchListTile(
                   title: const Text('Save cord blood for banking'),
-                  subtitle: const Text('Optional—often arranged ahead with a company'),
+                  subtitle: const Text('Optional. Often arranged ahead with a company'),
                   value: _cordBloodBanking ?? false,
                   onChanged: (v) => setState(() => _cordBloodBanking = v),
                 ),
@@ -2472,7 +2730,7 @@ class _ComprehensiveBirthPlanScreenState
                   title: const Text(
                     'Wait on pacifiers until feeding is going well',
                   ),
-                  subtitle: const Text('If nursing—optional preference'),
+                  subtitle: const Text('If nursing (optional preference)'),
                   value: _noPacifierUntilBreastfeeding ?? false,
                   onChanged: (v) =>
                       setState(() => _noPacifierUntilBreastfeeding = v),
@@ -2625,7 +2883,7 @@ class _ComprehensiveBirthPlanScreenState
                     DropdownMenuItem(
                       value: 'Clear drape',
                       child: Text(
-                        'Clear screen — see baby lifted up',
+                        'Clear screen to see baby lifted up',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -2691,14 +2949,14 @@ class _ComprehensiveBirthPlanScreenState
                     DropdownMenuItem(
                       value: 'Spinal',
                       child: Text(
-                        'Spinal — numbs from waist down',
+                        'Spinal (numbs from waist down)',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     DropdownMenuItem(
                       value: 'Epidural',
                       child: Text(
-                        'Epidural — tube in back',
+                        'Epidural (tube in back)',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -2862,7 +3120,7 @@ class _ComprehensiveBirthPlanScreenState
                 ),
                 _jargonExpandable(
                   'consent_care',
-                  'Extra check-ins so you can consent before procedures or exams along the way—not just once at admission.',
+                  'Extra check-ins so you can consent before procedures or exams along the way, not just once at admission.',
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
@@ -2879,7 +3137,10 @@ class _ComprehensiveBirthPlanScreenState
                             'Direct and clear',
                           ]
                           .map(
-                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e, overflow: TextOverflow.ellipsis),
+                            ),
                           )
                           .toList(),
                   onChanged: (v) =>
@@ -2939,7 +3200,7 @@ class _ComprehensiveBirthPlanScreenState
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Optional—your own words for your care team.',
+                  'Optional: your own words for your care team.',
                   style: TextStyle(
                     fontSize: 14,
                     color: AppTheme.textMuted,
@@ -3130,6 +3391,8 @@ extension BirthPlanCopyWith on BirthPlan {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? providerName,
+    String? status,
+    Map<String, dynamic>? progressData,
   }) {
     return BirthPlan(
       id: id ?? this.id,
@@ -3222,6 +3485,50 @@ extension BirthPlanCopyWith on BirthPlan {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       providerName: providerName ?? this.providerName,
+      status: status ?? this.status,
+      progressData: progressData ?? this.progressData,
+      // Fields not exposed as parameters are carried over unchanged so a
+      // copy never silently drops recorded preferences.
+      doulaName: doulaName,
+      preferredHospital: preferredHospital,
+      lightingPreference: lightingPreference,
+      noisePreference: noisePreference,
+      visitorsAllowed: visitorsAllowed,
+      naturalComfortMeasures: naturalComfortMeasures,
+      whenToOfferPainMedication: whenToOfferPainMedication,
+      ivFluidsPreference: ivFluidsPreference,
+      vaginalExamsPreference: vaginalExamsPreference,
+      membraneRupturePreference: membraneRupturePreference,
+      vacuumForcepsPreference: vacuumForcepsPreference,
+      cesareanPreference: cesareanPreference,
+      seeTouchBabyHeadDuringCrowning: seeTouchBabyHeadDuringCrowning,
+      cordCuttingPreference: cordCuttingPreference,
+      nicuTransferInstructions: nicuTransferInstructions,
+      gentleCesarean: gentleCesarean,
+      musicAllowedInOR: musicAllowedInOR,
+      delayCordClampingInCesarean: delayCordClampingInCesarean,
+      partnerCutsCordInCesarean: partnerCutsCordInCesarean,
+      goldenHourHonoredIfStable: goldenHourHonoredIfStable,
+      traumaInformedCareNotes: traumaInformedCareNotes,
+      preferredCommunicationStyle: preferredCommunicationStyle,
+      genderPreferenceForProviders: genderPreferenceForProviders,
+      racialBiasConcerns: racialBiasConcerns,
+      stopWordOrPhrase: stopWordOrPhrase,
+      advocacyPreferences: advocacyPreferences,
+      socialWorkConsultIfNeeded: socialWorkConsultIfNeeded,
+      highRiskPregnancyNotes: highRiskPregnancyNotes,
+      chronicHealthConditions: chronicHealthConditions,
+      medications: medications,
+      environmentPreferences: environmentPreferences,
+      perinealSupportPreference: perinealSupportPreference,
+      eyeOintment: eyeOintment,
+      cordBloodBanking: cordBloodBanking,
+      cordBloodCompany: cordBloodCompany,
+      photosAllowedInOR: photosAllowedInOR,
+      delayNewbornCareUntilHolding: delayNewbornCareUntilHolding,
+      anesthesiaPreference: anesthesiaPreference ?? this.anesthesiaPreference,
+      surgicalClosurePreference: surgicalClosurePreference,
+      culturalConsiderations: culturalConsiderations,
     );
   }
 }

@@ -65,6 +65,11 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
   bool _includeNPI = false;
   bool _showAdvanced = false;
   bool _hasLoadedProfile = false;
+  /// Set once the user changes these fields, so the async profile autofill
+  /// (which can land after the screen is interactive) never overwrites
+  /// what they picked.
+  bool _userPickedPlan = false;
+  bool _userPickedTypes = false;
   
   List<String> _selectedProviderTypes = [];
   List<String> _selectedSpecialties = [];
@@ -223,7 +228,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           
           // Map insurance type to health plan (overrides default "All plans" when known)
           final mappedPlan = _mapInsuranceToHealthPlan(profile.insuranceType);
-          if (mappedPlan.isNotEmpty && !prefilledPlan) {
+          if (mappedPlan.isNotEmpty && !prefilledPlan && !_userPickedPlan) {
             _healthPlan = mappedPlan;
           }
           
@@ -244,6 +249,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           
           // Map birth preference to provider types
           if (!prefilledTypes &&
+              !_userPickedTypes &&
               profile.birthPreference != null &&
               profile.birthPreference!.isNotEmpty) {
             final providerTypes = _mapBirthPreferenceToProviderTypes(profile.birthPreference!);
@@ -617,6 +623,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                                 items: _healthPlans,
                                 onChanged: (value) {
                                   setState(() {
+                                    _userPickedPlan = true;
                                     _healthPlan = value ?? '';
                                   });
                                 },
@@ -720,7 +727,10 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                             onToggleItem: (item) => _toggleItem(
                               item,
                               _selectedProviderTypes,
-                              (list) => _selectedProviderTypes = list,
+                              (list) {
+                                _userPickedTypes = true;
+                                _selectedProviderTypes = list;
+                              },
                             ),
                           ),
                         ),
@@ -732,7 +742,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                           title: 'Specialty (Optional)',
                           child: _buildTypingMultiSelect(
                             helperText:
-                                'Optional — type a few letters to narrow specialties, then tap to add.',
+                                'Optional: type a few letters to narrow specialties, then tap to add.',
                             hintText: 'Type to filter specialties…',
                             queryController: _specialtyQueryController,
                             allOptions: () {
@@ -1033,7 +1043,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Add them here — it helps other mamas discover care that worked for you.',
+                        'Add them here. It helps other mamas discover care that worked for you.',
                         style: TextStyle(
                           fontSize: 13,
                           height: 1.35,
@@ -1122,7 +1132,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              'Showing a few common types — type to see more.',
+              'Showing a few common types. Type to see more.',
               style: TextStyle(
                 fontSize: 11,
                 color: AppTheme.textBarelyVisible,
@@ -1181,7 +1191,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
-              'No matches — try different words.',
+              'No matches. Try different words.',
               style: TextStyle(
                 fontSize: 13,
                 color: AppTheme.textMuted,

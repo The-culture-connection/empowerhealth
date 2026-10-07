@@ -276,7 +276,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
           children: [
             const TrustCueBanner(
               message: 'Visit summaries may include health information. They are stored securely for your account only.',
-              subMessage: 'Do not use this screen for emergencies — call 911 or your care team.',
+              subMessage: 'Do not use this screen for emergencies. Call 911 or your care team.',
             ),
             const SizedBox(height: 16),
             // Header

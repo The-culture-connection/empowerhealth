@@ -40,6 +40,15 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Set<String> _blockedUids = <String>{};
   StreamSubscription<Set<String>>? _blockedSub;
 
+  /// Created once so rebuilds (category taps, block-list updates, tab
+  /// switches) never resubscribe. A stream created inside build() made the
+  /// StreamBuilder drop back to ConnectionState.waiting on every rebuild,
+  /// which flashed the spinner and made the posts flicker.
+  late final Stream<QuerySnapshot> _postsStream = FirebaseFirestore.instance
+      .collection('community_posts')
+      .orderBy('createdAt', descending: true)
+      .snapshots();
+
   @override
   void initState() {
     super.initState();
@@ -84,7 +93,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       
       if (snapshot.docs.isEmpty) {
         await seedMockPosts();
-        setState(() => _hasSeeded = true);
+        if (mounted) setState(() => _hasSeeded = true);
       }
     } catch (e) {
       // Silently fail - don't block the UI
@@ -171,33 +180,34 @@ class _CommunityScreenState extends State<CommunityScreen> {
         ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: 8)),
-      // Deliberate horizontally scrollable tab row: full-bleed so chips are
-      // never clipped mid-label at the 24px gutter, with a right-edge fade as
-      // the "more tabs" affordance.
+      // Deliberate horizontally scrollable tab row: a real horizontal
+      // ListView (viewport) so chips scroll instead of running off the
+      // screen, full-bleed so they are never clipped mid-label at the 24px
+      // gutter, with a right-edge fade as the "more tabs" affordance.
       SliverToBoxAdapter(
-        child: ShaderMask(
-          shaderCallback: (rect) => const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [Colors.white, Colors.white, Colors.transparent],
-            stops: [0.0, 0.86, 1.0],
-          ).createShader(rect),
-          blendMode: BlendMode.dstIn,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(24, 4, 48, 8),
-            child: Row(
-              children: [
-                for (var i = 0; i < _categories.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  _CategoryChip(
-                    label: _categories[i],
-                    isSelected: _selectedCategory == _categories[i],
-                    onTap: () =>
-                        setState(() => _selectedCategory = _categories[i]),
-                  ),
-                ],
-              ],
+        child: SizedBox(
+          height: _CategoryChip.heightFor(context) + 12,
+          child: ShaderMask(
+            shaderCallback: (rect) => const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [Colors.white, Colors.white, Colors.transparent],
+              stops: [0.0, 0.86, 1.0],
+            ).createShader(rect),
+            blendMode: BlendMode.dstIn,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(24, 4, 48, 8),
+              itemCount: _categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, i) => Center(
+                child: _CategoryChip(
+                  label: _categories[i],
+                  isSelected: _selectedCategory == _categories[i],
+                  onTap: () =>
+                      setState(() => _selectedCategory = _categories[i]),
+                ),
+              ),
             ),
           ),
         ),
@@ -272,8 +282,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       const SizedBox(height: 4),
                       Text(
                         _isPregnancyLossSpace
-                            ? 'A supportive space — please avoid giving medical advice. Moderators may remove content that breaks community guidelines.'
-                            : 'Share stories, ask questions, and support each other. Your posts show your display name. Moderators may remove content that breaks community guidelines. Not medical advice.',
+                            ? 'A supportive space. Please avoid giving medical advice. Moderators may remove content that breaks community guidelines.'
+                            : 'Share stories, ask questions, and support each other. Your posts show your display name unless you choose to post anonymously. Moderators may remove content that breaks community guidelines. Not medical advice.',
                         style: TextStyle(
                           fontSize: 12,
                           height: 1.4,
@@ -371,7 +381,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Widget _postCard(BuildContext context, QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final title = data['title'] ?? '';
-    final authorName = data['authorName'] ?? 'Anonymous';
+    // Anonymous posts always render as "Anonymous", whatever authorName holds.
+    final String authorName = data['isAnonymous'] == true
+        ? 'Anonymous'
+        : (data['authorName'] as String?) ?? 'Anonymous';
     final replies =
         List<Map<String, dynamic>>.from(data['replies'] ?? []);
     final category = data['category'] ?? 'General';
@@ -499,7 +512,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        isOwnPost ? '$authorName (you)' : '$authorName',
+                        isOwnPost ? '$authorName (you)' : authorName,
                         style: TextStyle(
                           fontSize: 12,
                           color: AppTheme.textMuted,
@@ -578,7 +591,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   List<Widget> _feedSlivers(AsyncSnapshot<QuerySnapshot> snapshot) {
-    if (snapshot.connectionState == ConnectionState.waiting) {
+    // Spinner only before the very first snapshot; afterwards the current
+    // posts stay on screen while Firestore delivers updates.
+    if (!snapshot.hasData && !snapshot.hasError) {
       return [
         const SliverFillRemaining(
           hasScrollBody: false,
@@ -661,7 +676,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) =>
-                _postCard(context, posts[index] as QueryDocumentSnapshot),
+                _postCard(context, posts[index]),
             childCount: posts.length,
           ),
         ),
@@ -675,10 +690,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
     final feed = SafeArea(
       child: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('community_posts')
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
+        stream: _postsStream,
         builder: (context, snapshot) {
           return CustomScrollView(
             slivers: [
@@ -766,6 +778,18 @@ class _CategoryChip extends StatelessWidget {
     required this.onTap,
   });
 
+  static const double _fontSize = 14;
+  static const double _lineHeight = 1.4;
+
+  /// Chip height at the current text scale (vertical padding + border + one
+  /// line of text, plus a little slack), so the horizontal ListView that
+  /// hosts the chips is never too short under large Dynamic Type.
+  static double heightFor(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(_fontSize) * _lineHeight +
+      10 * 2 +
+      2 +
+      4;
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -806,8 +830,8 @@ class _CategoryChip extends StatelessWidget {
           style: TextStyle(
             color: isSelected ? AppTheme.textPrimary : AppTheme.textMuted,
             fontWeight: FontWeight.w400,
-            fontSize: 14,
-            height: 1.4,
+            fontSize: _fontSize,
+            height: _lineHeight,
           ),
         ),
       ),

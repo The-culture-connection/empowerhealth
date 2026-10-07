@@ -58,7 +58,7 @@ class AppointmentsListScreen extends StatelessWidget {
                                       ),
                                       const SizedBox(height: 8),
                                       Text(
-                                        'Summaries in plain language — newest first',
+                                        'Summaries in plain language, newest first',
                                         style: TextStyle(
                                           fontSize: 15,
                                           height: 1.45,
@@ -127,7 +127,7 @@ class AppointmentsListScreen extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Plain-language summaries to support you — not medical advice.',
+                                    'Plain-language summaries to support you. Not medical advice.',
                                     style: TextStyle(
                                       fontSize: 13,
                                       height: 1.4,

@@ -29,6 +29,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   late String _selectedCategory;
   bool _isSubmitting = false;
 
+  /// When true the post is stored with authorName 'Anonymous' and
+  /// isAnonymous: true; the real name never reaches the post document.
+  /// userId is still stored so the owner can delete it and moderators can act.
+  bool _postAnonymously = false;
+
+  static const String anonymousAuthorName = 'Anonymous';
+
   List<String> get _categories =>
       widget.categories ??
       const ['Questions', 'Birth Stories', 'Support', 'Resources'];
@@ -119,17 +126,22 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         throw Exception('User not authenticated');
       }
 
-      // Get user profile for username
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-      final userData = userDoc.data();
-      final authorName = _displayNameFrom(userData);
+      // Anonymous posts never read or store the profile name.
+      final String authorName;
+      if (_postAnonymously) {
+        authorName = anonymousAuthorName;
+      } else {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
+        authorName = _displayNameFrom(userDoc.data());
+      }
 
       final postData = <String, dynamic>{
         'userId': userId,
         'authorName': authorName,
+        'isAnonymous': _postAnonymously,
         'title': _titleController.text.trim(),
         'content': _contentController.text.trim(),
         'category': _selectedCategory,
@@ -339,18 +351,58 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Attribution summary so the user knows how the post will
-                // appear before publishing (there is no anonymous mode; posts
-                // always show the profile display name).
+                // Anonymous option, directly above the Post button.
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.borderLight),
+                  ),
+                  child: SwitchListTile.adaptive(
+                    value: _postAnonymously,
+                    onChanged: _isSubmitting
+                        ? null
+                        : (v) => setState(() => _postAnonymously = v),
+                    activeTrackColor: AppTheme.brandPurple,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                    title: const Text(
+                      'Post anonymously',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      "Others will see “Anonymous” instead of your name.",
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        color: AppTheme.textMuted,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Attribution summary so the user knows exactly how the post
+                // will appear before publishing.
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.person_outline,
-                        size: 16, color: AppTheme.textMuted),
+                    Icon(
+                        _postAnonymously
+                            ? Icons.visibility_off_outlined
+                            : Icons.person_outline,
+                        size: 16,
+                        color: AppTheme.textMuted),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _authorName == null
+                        _postAnonymously
+                            ? 'Posting as Anonymous in “$_selectedCategory”. You can still delete it later.'
+                            : _authorName == null
                             ? 'Your post will show your profile display name in “$_selectedCategory”.'
                             : 'Posting publicly as $_authorName in “$_selectedCategory”.',
                         style: const TextStyle(

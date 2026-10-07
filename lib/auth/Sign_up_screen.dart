@@ -4,6 +4,7 @@ import '../app_router.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
+import 'auth_error_messages.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -29,6 +30,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
+  void _showAuthError(Object e, {String fallback = AuthErrorMessages.generic}) {
+    if (AuthErrorMessages.isUserCancellation(e)) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(AuthErrorMessages.forError(e, fallback: fallback)),
+        backgroundColor: AppTheme.error,
+      ),
+    );
+  }
+
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
     try {
@@ -45,12 +56,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppTheme.error,
-          ),
-        );
+        _showAuthError(e, fallback: AuthErrorMessages.googleFailed);
       }
     } finally {
       if (mounted) {
@@ -75,12 +81,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppTheme.error,
-          ),
-        );
+        _showAuthError(e, fallback: AuthErrorMessages.appleFailed);
       }
     } finally {
       if (mounted) {
@@ -110,12 +111,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppTheme.error,
-          ),
-        );
+        _showAuthError(e);
       }
     } finally {
       if (mounted) {
@@ -403,8 +399,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             style: TextButton.styleFrom(
                               foregroundColor: AppTheme.textMuted,
                             ),
-                            child: RichText(
-                              text: TextSpan(
+                            child: Text.rich(
+                              TextSpan(
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: AppTheme.textMuted,
@@ -420,6 +416,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   ),
                                 ],
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ),

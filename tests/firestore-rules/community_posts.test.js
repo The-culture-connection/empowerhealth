@@ -145,3 +145,78 @@ describe('community_posts update', () => {
     await assertFails(updateDoc(doc(db(OWNER), 'community_posts', POST), { userId: OTHER }));
   });
 });
+
+describe('community_posts anonymous posting', () => {
+  const anonPost = (uid, extra = {}) =>
+    newPost(uid, { authorName: 'Anonymous', isAnonymous: true, ...extra });
+
+  it('allows an anonymous post stored as "Anonymous"', async () => {
+    await assertSucceeds(setDoc(doc(db(OWNER), 'community_posts', 'anon'), anonPost(OWNER)));
+  });
+
+  it('rejects an anonymous post that carries the real name', async () => {
+    await assertFails(setDoc(doc(db(OWNER), 'community_posts', 'anon'),
+      anonPost(OWNER, { authorName: 'Test Mama' })));
+  });
+
+  it('rejects an anonymous post with no authorName', async () => {
+    const { authorName, ...withoutName } = anonPost(OWNER);
+    await assertFails(setDoc(doc(db(OWNER), 'community_posts', 'anon'), withoutName));
+  });
+
+  it('rejects a non-boolean isAnonymous', async () => {
+    await assertFails(setDoc(doc(db(OWNER), 'community_posts', 'anon'),
+      anonPost(OWNER, { isAnonymous: 'yes' })));
+  });
+
+  it('allows an explicit non-anonymous post', async () => {
+    await assertSucceeds(setDoc(doc(db(OWNER), 'community_posts', 'named'),
+      newPost(OWNER, { isAnonymous: false })));
+  });
+
+  it('still requires the poster\'s own userId', async () => {
+    await assertFails(setDoc(doc(db(OTHER), 'community_posts', 'anon'), anonPost(OWNER)));
+  });
+
+  describe('existing anonymous post', () => {
+    beforeEach(async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'community_posts', 'anon'), {
+          ...anonPost(OWNER),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      });
+    });
+
+    it('lets the owner delete it (ownership via userId)', async () => {
+      await assertSucceeds(deleteDoc(doc(db(OWNER), 'community_posts', 'anon')));
+    });
+
+    it('blocks another user from deleting it', async () => {
+      await assertFails(deleteDoc(doc(db(OTHER), 'community_posts', 'anon')));
+    });
+
+    it('lets the owner edit content', async () => {
+      await assertSucceeds(updateDoc(doc(db(OWNER), 'community_posts', 'anon'), { content: 'edited' }));
+    });
+
+    it('blocks the owner from attaching their real name while still anonymous', async () => {
+      await assertFails(updateDoc(doc(db(OWNER), 'community_posts', 'anon'), { authorName: 'Test Mama' }));
+    });
+
+    it('lets another user reply', async () => {
+      await assertSucceeds(updateDoc(doc(db(OTHER), 'community_posts', 'anon'), {
+        replies: arrayUnion({ replyId: 'r1', userId: OTHER, authorName: 'Other', content: 'Hi' }),
+        updatedAt: serverTimestamp(),
+      }));
+    });
+
+    it('lets the owner reply anonymously in their own thread', async () => {
+      await assertSucceeds(updateDoc(doc(db(OWNER), 'community_posts', 'anon'), {
+        replies: arrayUnion({ replyId: 'r2', userId: OWNER, authorName: 'Anonymous', isAnonymous: true, content: 'Thanks' }),
+        updatedAt: serverTimestamp(),
+      }));
+    });
+  });
+});

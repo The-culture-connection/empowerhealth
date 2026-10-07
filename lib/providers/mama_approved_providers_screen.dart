@@ -239,7 +239,7 @@ class _MamaApprovedProvidersScreenState
                                         (p.reviewCount ?? 0) > 0) ...[
                                       const SizedBox(height: 6),
                                       Text(
-                                        '${p.rating != null ? Provider.formatAverageRating(p.rating!) : '—'} ★ · ${p.reviewCount ?? 0} reviews',
+                                        '${p.rating != null ? '${Provider.formatAverageRating(p.rating!)} ★ · ' : ''}${p.reviewCount ?? 0} reviews',
                                         style: TextStyle(
                                           fontSize: 13,
                                           color: AppTheme.textMuted,

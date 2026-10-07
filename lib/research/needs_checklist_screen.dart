@@ -96,7 +96,7 @@ class NeedsChecklistScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Let’s check if your care needs were met. Select anything you needed help with — even if you didn’t receive it.',
+          'Let’s check if your care needs were met. Select anything you needed help with, even if you didn’t receive it.',
           style: TextStyle(
             fontSize: 14,
             color: AppTheme.textMuted,

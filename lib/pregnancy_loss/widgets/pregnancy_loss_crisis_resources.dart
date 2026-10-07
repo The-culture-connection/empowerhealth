@@ -38,7 +38,7 @@ class PregnancyLossCrisisResourcesCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'You can connect with a trained counselor for free and confidential support. These are external resources — not counselors inside this app.',
+            'You can connect with a trained counselor for free and confidential support. These are external resources, not counselors inside this app.',
             style: TextStyle(
               fontSize: 13,
               color: AppTheme.textMuted,

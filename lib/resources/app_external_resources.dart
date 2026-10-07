@@ -47,9 +47,9 @@ const List<AppExternalResource> kAppExternalResources = [
   // Benefits & essentials
   AppExternalResource(
     id: 'wic',
-    title: 'WIC — nutrition support',
+    title: 'WIC: nutrition support',
     description:
-        'USDA’s Special Supplemental Nutrition Program for Women, Infants, and Children — healthy foods, nutrition education, and breastfeeding support.',
+        'USDA’s Special Supplemental Nutrition Program for Women, Infants, and Children: healthy foods, nutrition education, and breastfeeding support.',
     url: 'https://www.fns.usda.gov/wic',
     category: AppResourceCategory.benefits,
     icon: Icons.restaurant_rounded,
@@ -66,7 +66,7 @@ const List<AppExternalResource> kAppExternalResources = [
   // Care navigation
   AppExternalResource(
     id: '211',
-    title: '211 — community help',
+    title: '211: community help',
     description:
         'Free, confidential connection to local help with housing, utilities, food, transportation, and more.',
     url: 'https://www.211.org/',
@@ -115,7 +115,7 @@ const List<AppExternalResource> kAppExternalResources = [
   ),
   AppExternalResource(
     id: 'hhs_womens_health_pp',
-    title: 'Postpartum depression — HHS Office on Women’s Health',
+    title: 'Postpartum depression (HHS Office on Women’s Health)',
     description:
         'Information and support for finding help with postpartum depression.',
     url: 'https://www.womenshealth.gov/mental-health/postpartum-depression',
@@ -139,7 +139,7 @@ const List<AppExternalResource> kAppExternalResources = [
     id: '988',
     title: '988 Suicide & Crisis Lifeline',
     description:
-        'Free, confidential support by call, text, or chat — available 24/7.',
+        'Free, confidential support by call, text, or chat, available 24/7.',
     url: 'https://988lifeline.org/',
     category: AppResourceCategory.crisis,
     icon: Icons.emergency_rounded,
@@ -148,7 +148,7 @@ const List<AppExternalResource> kAppExternalResources = [
   ),
   AppExternalResource(
     id: '988_chat',
-    title: '988 — online chat',
+    title: '988: online chat',
     description: 'Chat with a trained counselor (external site).',
     url: 'https://988lifeline.org/chat/',
     category: AppResourceCategory.crisis,
@@ -160,7 +160,7 @@ const List<AppExternalResource> kAppExternalResources = [
     id: 'black_maternal_health_resources',
     title: 'Resources for new & pregnant moms',
     description:
-        'Black Maternal Health Caucus — maternal mental health hotline info, warning signs, and trusted support links.',
+        'Black Maternal Health Caucus: maternal mental health hotline info, warning signs, and trusted support links.',
     url:
         'https://blackmaternalhealthcaucus-underwood.house.gov/resources-new-and-pregnant-moms',
     category: AppResourceCategory.advocacy,
@@ -170,7 +170,7 @@ const List<AppExternalResource> kAppExternalResources = [
     id: 'cdc_hear_her',
     title: 'CDC Hear Her campaign',
     description:
-        'Urgent maternal warning signs during and after pregnancy — know when to get help.',
+        'Urgent maternal warning signs during and after pregnancy. Know when to get help.',
     url: 'https://www.cdc.gov/hearher/',
     category: AppResourceCategory.advocacy,
     icon: Icons.campaign_outlined,

@@ -5,19 +5,36 @@ import '../learning/notes_dialog.dart';
 
 /// Renders AI learning module text: sections, inline **bold**, bullets, and notes UX.
 ///
-/// When [selectionControls] is null, long-press selection shows a snackbar + [NotesDialog].
-/// When non-null (e.g. custom toolbar), that path handles "add note" instead.
+/// When [onAddNote] is set, the selection context menu (long-press on mobile)
+/// gets an "Add note" action, and [onSelectionTextChanged] reports the current
+/// selection so the host screen can offer its own "Add note" button (needed on
+/// web, where the browser's context menu replaces Flutter's).
+///
+/// Otherwise, when [selectionControls] is null, long-press selection shows a
+/// snackbar + [NotesDialog].
 class LearningModuleFormattedContent extends StatelessWidget {
   const LearningModuleFormattedContent({
     super.key,
     required this.content,
     required this.moduleTitle,
+    this.moduleId,
     this.selectionControls,
+    this.onAddNote,
+    this.onSelectionTextChanged,
   });
 
   final String content;
   final String moduleTitle;
+  final String? moduleId;
   final TextSelectionControls? selectionControls;
+
+  /// Called with the selected text when the user picks "Add note" from the
+  /// selection context menu.
+  final ValueChanged<String>? onAddNote;
+
+  /// Called with the selected text whenever the user changes a selection
+  /// (empty string when the selection collapses).
+  final ValueChanged<String>? onSelectionTextChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -123,11 +140,40 @@ class LearningModuleFormattedContent extends StatelessWidget {
       }
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widgets,
+    return _ModuleNotesScope(
+      moduleId: moduleId,
+      onAddNote: onAddNote,
+      onSelectionTextChanged: onSelectionTextChanged,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: widgets,
+      ),
     );
   }
+}
+
+/// Passes the note callbacks down to every selectable paragraph without
+/// threading them through each section widget.
+class _ModuleNotesScope extends InheritedWidget {
+  const _ModuleNotesScope({
+    required this.moduleId,
+    required this.onAddNote,
+    required this.onSelectionTextChanged,
+    required super.child,
+  });
+
+  final String? moduleId;
+  final ValueChanged<String>? onAddNote;
+  final ValueChanged<String>? onSelectionTextChanged;
+
+  static _ModuleNotesScope? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ModuleNotesScope>();
+
+  @override
+  bool updateShouldNotify(_ModuleNotesScope oldWidget) =>
+      moduleId != oldWidget.moduleId ||
+      onAddNote != oldWidget.onAddNote ||
+      onSelectionTextChanged != oldWidget.onSelectionTextChanged;
 }
 
 bool _isBoldWrappedSectionLine(String t) {
@@ -486,6 +532,47 @@ class _RichSelectableParagraph extends StatelessWidget {
   Widget build(BuildContext context) {
     final spans = _spans(text);
     final plain = _plain(text);
+    final notes = _ModuleNotesScope.of(context);
+    final onAddNote = notes?.onAddNote;
+
+    if (onAddNote != null) {
+      return SelectableText.rich(
+        TextSpan(children: spans),
+        onSelectionChanged: (selection, cause) {
+          // Only user-driven changes (long-press, drag, double-tap, tap to
+          // clear) are reported.
+          if (cause == null) return;
+          var selected = '';
+          if (selection.isValid && !selection.isCollapsed) {
+            final a = selection.start.clamp(0, plain.length);
+            final b = selection.end.clamp(0, plain.length);
+            if (a < b) selected = plain.substring(a, b).trim();
+          }
+          notes?.onSelectionTextChanged?.call(selected);
+        },
+        contextMenuBuilder: (context, editableTextState) {
+          final value = editableTextState.textEditingValue;
+          final selected = value.selection.isValid
+              ? value.selection.textInside(value.text).trim()
+              : '';
+          final items = <ContextMenuButtonItem>[
+            if (selected.isNotEmpty)
+              ContextMenuButtonItem(
+                label: 'Add note',
+                onPressed: () {
+                  editableTextState.hideToolbar();
+                  onAddNote(selected);
+                },
+              ),
+            ...editableTextState.contextMenuButtonItems,
+          ];
+          return AdaptiveTextSelectionToolbar.buttonItems(
+            anchors: editableTextState.contextMenuAnchors,
+            buttonItems: items,
+          );
+        },
+      );
+    }
 
     return SelectableText.rich(
       TextSpan(children: spans),
@@ -520,6 +607,7 @@ class _RichSelectableParagraph extends StatelessWidget {
                             builder: (context) => NotesDialog(
                               preFilledText: selectedText,
                               moduleTitle: moduleTitle,
+                              moduleId: notes?.moduleId,
                             ),
                           );
                         },

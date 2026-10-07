@@ -73,7 +73,7 @@ class EmotionalSupportEmergencyHubScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'These are free, confidential external resources — not counselors inside this app.',
+                        'These are free, confidential external resources, not counselors inside this app.',
                         style: TextStyle(
                           fontSize: 14,
                           color: AppTheme.textMuted,
@@ -95,7 +95,7 @@ class EmotionalSupportEmergencyHubScreen extends StatelessWidget {
                         onTap: () => openPregnancyLossPsi(context),
                       ),
                       _EmergencyResourceTile(
-                        label: '211 — local help',
+                        label: '211: local help',
                         subtitle: 'Food, housing, transportation, and more',
                         onTap: () => openAppResourceById(context, '211'),
                       ),
@@ -121,7 +121,7 @@ class EmotionalSupportEmergencyHubScreen extends StatelessWidget {
                       const SizedBox(height: 14),
                       _EmergencyResourceTile(
                         label: 'Private journal check-in',
-                        subtitle: 'Write what you feel — only you can see it',
+                        subtitle: 'Write what you feel. Only you can see it',
                         onTap: () async => openJournalTab(context),
                       ),
                       _EmergencyResourceTile(

@@ -202,7 +202,19 @@ class WellnessAccessStep extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Need Help with $resourceType?'),
+        // Wider dialog + smaller title so long words like "Transportation?"
+        // don't get split (leaving the "?" alone on its own line) at large
+        // text sizes on small phones.
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        title: Text(
+          'Need Help with $resourceType?',
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimary,
+            fontFamily: 'Primary',
+          ),
+        ),
         content: Text(
           'We can help connect you with resources for $resourceType. Would you like us to provide referrals?',
         ),

@@ -26,7 +26,7 @@ class AfterVisitPrivacyScreen extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'After-Visit Support is here to turn paperwork or notes into easier words. '
-              'It is not for diagnosis or treatment decisions — your care team does that.',
+              'It is not for diagnosis or treatment decisions. Your care team does that.',
               style: TextStyle(
                 fontSize: 15,
                 height: 1.5,
@@ -49,7 +49,7 @@ class AfterVisitPrivacyScreen extends StatelessWidget {
               lines: [
                 'Your content is tied to your login. Other users cannot see it.',
                 'We use industry-standard security on our servers (encryption in transit and at rest where supported).',
-                'Our team uses this information to run the feature — not to sell your data.',
+                'Our team uses this information to run the feature, not to sell your data.',
               ],
             ),
             const SizedBox(height: 16),

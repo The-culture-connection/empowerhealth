@@ -47,7 +47,7 @@ class _PostModuleRatingModalState extends State<PostModuleRatingModal> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Thanks — your responses were saved.'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Thanks! Your responses were saved.'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {

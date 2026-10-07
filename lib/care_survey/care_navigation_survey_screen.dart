@@ -166,6 +166,31 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
     }
   }
 
+  /// Opens an in-app destination *in place of* the check-in: [open] pushes the
+  /// destination (using the navigator's own context, which stays valid after
+  /// this screen is gone), then the survey route is removed from underneath
+  /// it. Closing the destination therefore returns to wherever the check-in
+  /// was opened from (Home), not back into the survey. Only this survey's own
+  /// route is removed, so nothing below it (the main tab scaffold, or the
+  /// auth route under it after login) is ever popped.
+  void _openInPlaceOfSurvey(void Function(BuildContext navContext) open) {
+    final navigator = Navigator.of(context);
+    final surveyRoute = ModalRoute.of(context);
+    open(navigator.context);
+    if (surveyRoute != null && surveyRoute.isActive && !surveyRoute.isFirst) {
+      navigator.removeRoute(surveyRoute);
+    }
+  }
+
+  /// Switches to a main tab when the tab scaffold is reachable; otherwise
+  /// opens the standalone [fallbackRoute] in place of the survey.
+  void _goToTabOrOpen(int tabIndex, String fallbackRoute) {
+    if (MainNavigationScope.goToTab(context, tabIndex)) return;
+    _openInPlaceOfSurvey(
+      (nav) => Navigator.pushNamed(nav, fallbackRoute),
+    );
+  }
+
   void _openSupportAction(CareSupportAction action) {
     if (!_openedSupportActionIds.contains(action.id)) {
       _openedSupportActionIds.add(action.id);
@@ -173,88 +198,93 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
     final prompt = action.assistantPrompt;
     switch (action.destination) {
       case CareSupportDestination.providers:
-        Navigator.pushNamed(context, Routes.providers);
+        _openInPlaceOfSurvey(
+          (nav) => Navigator.pushNamed(nav, Routes.providers),
+        );
         break;
       case CareSupportDestination.visitSummaries:
-        if (action.preferLatestVisitSummary) {
-          unawaited(openActiveVisitSummaryForPrepare(context));
-        } else {
-          unawaited(openVisitSummariesList(context));
-        }
+        _openInPlaceOfSurvey((nav) {
+          if (action.preferLatestVisitSummary) {
+            unawaited(openActiveVisitSummaryForPrepare(nav));
+          } else {
+            unawaited(openVisitSummariesList(nav));
+          }
+        });
         break;
       case CareSupportDestination.assistant:
-        Navigator.pushNamed(context, Routes.assistant, arguments: prompt);
+        _openInPlaceOfSurvey(
+          (nav) =>
+              Navigator.pushNamed(nav, Routes.assistant, arguments: prompt),
+        );
         break;
       case CareSupportDestination.pregnancyJourney:
-        Navigator.pushNamed(context, Routes.pregnancyJourney);
+        _openInPlaceOfSurvey(
+          (nav) => Navigator.pushNamed(nav, Routes.pregnancyJourney),
+        );
         break;
       case CareSupportDestination.birthPlans:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const BirthPlansListScreen()),
+        _openInPlaceOfSurvey(
+          (nav) => Navigator.push(
+            nav,
+            MaterialPageRoute(builder: (_) => const BirthPlansListScreen()),
+          ),
         );
         break;
       case CareSupportDestination.learnTab:
-        if (!MainNavigationScope.goToTab(
-          context,
-          MainNavigationScope.tabLearn,
-        )) {
-          Navigator.pushNamed(context, Routes.learning);
-        }
+        _goToTabOrOpen(MainNavigationScope.tabLearn, Routes.learning);
         break;
       case CareSupportDestination.rights:
-        Navigator.pushNamed(context, Routes.rights);
+        _openInPlaceOfSurvey(
+          (nav) => Navigator.pushNamed(nav, Routes.rights),
+        );
         break;
       case CareSupportDestination.externalUrl:
+        // Opens the browser; the check-in stays put so the user returns to it.
         final url = action.externalUrl;
         if (url != null && url.isNotEmpty) {
           unawaited(launchAppExternalUrl(context, url));
         }
         break;
       case CareSupportDestination.resources:
-        unawaited(
-          openAppResourcesScreen(
-            context,
-            highlightResourceId: action.resourceId,
-            categoryFilter:
-                appResourceCategoryForResourceId(action.resourceId),
+        _openInPlaceOfSurvey(
+          (nav) => unawaited(
+            openAppResourcesScreen(
+              nav,
+              highlightResourceId: action.resourceId,
+              categoryFilter:
+                  appResourceCategoryForResourceId(action.resourceId),
+            ),
           ),
         );
         break;
       case CareSupportDestination.birthLaborTopic:
-        openBirthLaborTopicById(
-          context,
-          action.birthLaborTopicId ?? 'labor-basics',
+        _openInPlaceOfSurvey(
+          (nav) => openBirthLaborTopicById(
+            nav,
+            action.birthLaborTopicId ?? 'labor-basics',
+          ),
         );
         break;
       case CareSupportDestination.generateLearningModule:
         final topic = action.learningModuleTopic ?? action.label;
         final description =
             action.learningModuleDescription ?? 'Created from your care check-in.';
-        unawaited(
-          generateAndOpenCareCheckinLearningModule(
-            context,
-            topic: topic,
-            description: description,
-            sourceActionId: action.id,
+        _openInPlaceOfSurvey(
+          (nav) => unawaited(
+            generateAndOpenCareCheckinLearningModule(
+              nav,
+              topic: topic,
+              description: description,
+              sourceActionId: action.id,
+            ),
           ),
         );
         break;
       case CareSupportDestination.journal:
-        if (!MainNavigationScope.goToTab(
-          context,
-          MainNavigationScope.tabJournal,
-        )) {
-          Navigator.pushNamed(context, Routes.journal);
-        }
+        _goToTabOrOpen(MainNavigationScope.tabJournal, Routes.journal);
         break;
       case CareSupportDestination.community:
-        if (!MainNavigationScope.goToTab(
-          context,
-          MainNavigationScope.tabCommunity,
-        )) {
-          Navigator.pushNamed(context, Routes.community);
-        }
+        _goToTabOrOpen(MainNavigationScope.tabCommunity, Routes.community);
         break;
     }
   }
@@ -636,7 +666,7 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'You’ve taken an important step. When you’re ready, you can explore providers, learning topics, or your visit summaries in the app — at your own pace.',
+                    'You’ve taken an important step. When you’re ready, you can explore providers, learning topics, or your visit summaries in the app, at your own pace.',
                     style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.textPrimary,

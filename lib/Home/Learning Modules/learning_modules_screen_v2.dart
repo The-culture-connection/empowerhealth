@@ -956,6 +956,29 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                           }
                         }
 
+                        // Reverses "Mark Done & Archive" / checkbox completion:
+                        // the item goes back to its active list.
+                        Future<void> onRestore() async {
+                          // Captured first: this card leaves the Archived list
+                          // as soon as the update lands.
+                          final messenger = ScaffoldMessenger.of(context);
+                          await doc.reference.update({
+                            'isCompleted': false,
+                            'isArchived': false,
+                          });
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isTodo
+                                    ? 'Moved back to your next steps'
+                                    : 'Moved back to your modules',
+                              ),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+
                         return Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           decoration: BoxDecoration(
@@ -1020,7 +1043,12 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                         Checkbox(
                                           value: isCompleted,
                                           visualDensity: VisualDensity.compact,
-                                          onChanged: isArchived ? null : onCheckboxChanged,
+                                          // Unchecking an archived item restores it.
+                                          onChanged: isArchived
+                                              ? (value) {
+                                                  if (value == false) onRestore();
+                                                }
+                                              : onCheckboxChanged,
                                           activeColor: const Color(0xFF663399),
                                         ),
                                         const SizedBox(width: 6),
@@ -1137,6 +1165,39 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                                     style: TextStyle(
                                                       fontSize: 12,
                                                       color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          if (isArchived)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 10),
+                                              child: Align(
+                                                alignment: Alignment.centerRight,
+                                                child: TextButton.icon(
+                                                  onPressed: onRestore,
+                                                  icon: const Icon(
+                                                    Icons.undo,
+                                                    size: 16,
+                                                    color: Color(0xFF663399),
+                                                  ),
+                                                  style: TextButton.styleFrom(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 4,
+                                                    ),
+                                                    minimumSize: const Size(0, 36),
+                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                  ),
+                                                  label: Text(
+                                                    isCompleted
+                                                        ? 'Mark not done'
+                                                        : 'Unarchive',
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: Color(0xFF663399),
+                                                      fontWeight: FontWeight.w600,
                                                     ),
                                                   ),
                                                 ),
@@ -1301,7 +1362,7 @@ class _LearningApproachCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'All our content is written at a 6th grade reading level. No confusing medical jargon—just clear, supportive guidance that helps you understand your care.',
+            'All our content is written at a 6th grade reading level. No confusing medical jargon, just clear, supportive guidance that helps you understand your care.',
             style: TextStyle(
               fontSize: 14,
               height: 1.55,

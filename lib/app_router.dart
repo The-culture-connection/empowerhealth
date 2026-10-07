@@ -62,7 +62,11 @@ class Routes {
 class AppRouter {
   static String get auth => Routes.auth;
 
-  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+  // Pages carry their RouteSettings so the route name is known to observers.
+  static Route<dynamic> onGenerateRoute(RouteSettings settings) =>
+      MaterialPageRoute(builder: (_) => _screen(settings), settings: settings);
+
+  static Widget _screen(RouteSettings settings) {
     switch (settings.name) {
       case Routes.auth:
         return _page(const AuthScreen());
@@ -138,5 +142,5 @@ class AppRouter {
     }
   }
 
-  static PageRoute _page(Widget child) => MaterialPageRoute(builder: (_) => child);
+  static Widget _page(Widget child) => child;
 }

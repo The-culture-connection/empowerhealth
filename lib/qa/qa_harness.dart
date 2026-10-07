@@ -8,11 +8,16 @@
 //   app → host: ready, metrics, log, error, nav, audit, inspect
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter/scheduler.dart';
+
+import '../cors/main_navigation_scope.dart';
 
 import 'layout_auditor.dart';
 import 'widget_index.g.dart';
@@ -94,11 +99,14 @@ class QaHarness {
 
   static final GlobalKey _appKey = GlobalKey(debugLabel: 'qa-app');
   static String _route = '/';
+  static const _tabNames = ['Home', 'Learn', 'Journal', 'Community', 'You'];
   static String _lastAuditSignature = '';
   static Timer? _auditTimer;
 
+  static final _QaNavigatorObserver _observer = _QaNavigatorObserver();
+
   static List<NavigatorObserver> get navigatorObservers =>
-      enabled ? [_QaNavigatorObserver()] : const [];
+      enabled ? [_observer] : const [];
 
   /// Runs [appMain] inside a zone that mirrors print/errors to the harness.
   static void run(Future<void> Function() appMain) {
@@ -167,6 +175,10 @@ class QaHarness {
         WidgetsBinding.instance.scheduleFrame();
       case 'audit':
         _runAudit(force: true);
+      case 'navigate':
+        _navigate(Map<String, dynamic>.from((m['target'] as Map?) ?? const {}));
+      case 'screenshot':
+        unawaited(_captureScreenshot(m['requestId']));
       case 'highlight':
         highlight.value = m['on'] == true;
         if (highlight.value) _runAudit(force: true);
@@ -260,13 +272,7 @@ class QaHarness {
       if (screenName.hasMatch(name) && !names.contains(name) && qaWidgetIndex.containsKey(name)) {
         names.add(name);
       }
-      if (w is IndexedStack) {
-        var i = 0;
-        e.visitChildElements((child) {
-          if (i++ == (w.index ?? 0)) visit(child);
-        });
-        return;
-      }
+      // IndexedStack hides unselected tabs with Visibility(visible: false).
       e.visitChildElements(visit);
     }
 
@@ -278,6 +284,11 @@ class QaHarness {
     for (final route in visible) {
       final context = route is ModalRoute ? route.subtreeContext : null;
       if (context is Element) visit(context);
+    }
+    // Name the bottom tab too, so gated or unnamed tab content is still identifiable.
+    final tab = _currentTab();
+    if (tab != null && tab < _tabNames.length && visible.isNotEmpty && visible.first == _QaNavigatorObserver.stack.first) {
+      names.insert(0, '${_tabNames[tab]} tab');
     }
     return names;
   }
@@ -297,6 +308,98 @@ class QaHarness {
         child: build(c.apply(MediaQuery.of(context))),
       ),
     );
+  }
+
+  /// The bottom-nav scope inside the main scaffold, if the user is signed in.
+  static MainNavigationScope? _tabScope() {
+    MainNavigationScope? found;
+    void visit(Element e) {
+      if (found != null) return;
+      final w = e.widget;
+      if (w is MainNavigationScope) {
+        found = w;
+        return;
+      }
+      e.visitChildElements(visit);
+    }
+
+    final root = WidgetsBinding.instance.rootElement;
+    if (root != null) visit(root);
+    return found;
+  }
+
+  /// Selected bottom-nav tab (0 Home … 4 You), or null outside the main scaffold.
+  static int? _currentTab() {
+    final root = WidgetsBinding.instance.rootElement;
+    if (root == null) return null;
+    int? index;
+    var insideScope = false;
+    void visit(Element e) {
+      if (index != null) return;
+      final w = e.widget;
+      if (w is MainNavigationScope) insideScope = true;
+      if (insideScope && w is IndexedStack) {
+        index = w.index;
+        return;
+      }
+      e.visitChildElements(visit);
+    }
+
+    visit(root);
+    return index;
+  }
+
+  /// Opens the screen a checklist item is about: back to the first route,
+  /// select [target]['tab'], then push the named [target]['route'].
+  static void _navigate(Map<String, dynamic> target) {
+    final navigator = _observer.navigator;
+    if (navigator == null) return;
+    navigator.popUntil((route) => route.isFirst);
+    final tab = target['tab'];
+    if (tab is num) {
+      final scope = _tabScope();
+      if (scope == null) {
+        qaPost({
+          'type': 'log',
+          'level': 'warn',
+          'message': 'Sign in or tap "Explore as Guest" first, then open the screen again.',
+        });
+        return;
+      }
+      scope.selectTab(tab.toInt());
+    }
+    final route = target['route'];
+    if (route is String && route.isNotEmpty && route != '/') {
+      SchedulerBinding.instance.addPostFrameCallback((_) => navigator.pushNamed(route));
+    }
+  }
+
+  /// PNG of the app as rendered (without the harness overlay), plus the
+  /// context needed to file a bug and reopen its screen.
+  static Future<void> _captureScreenshot(Object? requestId) async {
+    try {
+      final boundary = _appKey.currentContext?.findRenderObject();
+      if (boundary is! RenderRepaintBoundary) throw StateError('app not rendered yet');
+      final image = await boundary.toImage(pixelRatio: 2);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      final size = Size(image.width / 2, image.height / 2);
+      image.dispose();
+      if (bytes == null) throw StateError('could not encode PNG');
+      final top = _QaNavigatorObserver.stack.isEmpty ? null : _QaNavigatorObserver.stack.last;
+      qaPost({
+        'type': 'screenshot',
+        'requestId': requestId,
+        'png': base64Encode(bytes.buffer.asUint8List()),
+        'width': size.width,
+        'height': size.height,
+        'route': top?.settings.name,
+        'tab': _currentTab(),
+        'screens': _visibleScreens(),
+        'issues': issues.value.map((i) => i.toJson()).toList(),
+      });
+    } catch (e) {
+      qaPost({'type': 'screenshot', 'requestId': requestId, 'error': '$e'});
+    }
   }
 
   static void _inspectAt(Offset position) {

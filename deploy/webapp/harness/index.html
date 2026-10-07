@@ -10,6 +10,7 @@
     --brand: #663399; --brand-soft: #efe7f7; --p0: #d93036; --p0-soft: #fdecec;
     --p1: #b76e00; --p1-soft: #fff4e0; --p2: #4b5563; --p2-soft: #eef0f3;
     --pass: #1a7f4b; --pass-soft: #e5f5ec; --info: #2f6fdd; --info-soft: #e8f0fd;
+    --bug: #b4236c; --bug-soft: #fbe8f1;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --stage: #e9e6ef;
   }
@@ -26,13 +27,17 @@
   header .spacer { flex: 1; }
   .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 7px; padding: 5px 10px; white-space: nowrap; }
   .btn:hover { border-color: #c9c3d4; }
+  .btn:disabled { opacity: .55; cursor: default; }
   .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
   .btn.primary:hover { background: #57298a; }
+  .btn.bug { background: var(--bug); border-color: var(--bug); color: #fff; font-weight: 600; }
+  .btn.bug:hover { background: #9a1d5c; }
   .btn.on { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); font-weight: 600; }
-  .btn.small { padding: 2px 7px; font-size: 12px; border-radius: 6px; }
+  .btn.small { padding: 2px 8px; font-size: 12px; border-radius: 6px; }
+  .btn.danger { color: var(--p0); }
   a.link { color: var(--brand); text-decoration: none; white-space: nowrap; }
 
-  main { flex: 1; display: grid; grid-template-columns: 340px minmax(0, 1fr) 420px; min-height: 0; }
+  main { flex: 1; display: grid; grid-template-columns: 380px minmax(0, 1fr) 400px; min-height: 0; }
   section.panel { background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
   #todos { border-right: 1px solid var(--line); }
   #console { border-left: 1px solid var(--line); }
@@ -40,35 +45,63 @@
   .panel-head h2 { margin: 0; font-size: 13px; font-weight: 650; }
   .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .scroll { overflow: auto; flex: 1; min-height: 0; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .sync { font-size: 11.5px; color: var(--muted); }
+  .sync.err { color: var(--p0); }
 
   /* Checklist */
   .progress { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--p2-soft); }
   .progress > span { display: block; height: 100%; }
   .counts { color: var(--muted); font-size: 12px; }
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
-  .seg button { border: 0; background: none; padding: 3px 9px; font-size: 12px; }
+  .seg button { border: 0; background: none; padding: 3px 8px; font-size: 12px; }
   .seg button.on { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
-  input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; background: #fbfafc; }
-  .group h3 { position: sticky; top: 0; z-index: 1; margin: 0; padding: 7px 12px; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: #faf9fc; border-bottom: 1px solid var(--line); }
-  .todo { padding: 9px 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
-  .todo.fail { background: #fffafa; }
-  .todo.pass .ttext { color: var(--muted); }
-  .todo .top { display: flex; gap: 6px; align-items: flex-start; }
-  .chip { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; white-space: nowrap; line-height: 1.6; }
+  input[type=search], input[type=text], .field textarea, .field select { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; background: #fbfafc; }
+  .namebox { display: flex; align-items: center; gap: 6px; }
+  .namebox input { flex: 1; }
+  .group { border-bottom: 1px solid var(--line); }
+  .group-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; width: 100%; border: 0; text-align: left; padding: 8px 12px; background: #faf9fc; border-bottom: 1px solid var(--line); }
+  .group-head .gname { font-weight: 650; font-size: 12.5px; flex: 1; }
+  .group-head .gcount { font-size: 11.5px; color: var(--muted); }
+  .caret { display: inline-block; width: 10px; color: var(--muted); transition: transform .15s; }
+  .collapsed > .group-head .caret, .todo:not(.open) > .trow .caret { transform: rotate(-90deg); }
+  .todo { border-bottom: 1px solid #f0eef3; }
+  .todo:last-child { border-bottom: 0; }
+  .trow { display: flex; gap: 7px; align-items: flex-start; width: 100%; border: 0; background: none; text-align: left; padding: 8px 12px; }
+  .trow:hover { background: #faf8fd; }
+  .todo.open > .trow { background: #f7f3fc; }
+  .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; background: #cfcad8; }
+  .dot.pass { background: var(--pass); } .dot.fail { background: var(--p0); } .dot.na { background: #9a94a6; }
+  .ttitle { flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .todo.open .ttitle { display: block; }
+  .meta { flex: none; display: flex; gap: 6px; color: var(--muted); font-size: 11px; margin-top: 1px; }
+  .chip { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; white-space: nowrap; line-height: 1.6; flex: none; }
   .chip.P0 { background: var(--p0-soft); color: var(--p0); }
   .chip.P1 { background: var(--p1-soft); color: var(--p1); }
   .chip.P2 { background: var(--p2-soft); color: var(--p2); }
   .chip.tag { background: var(--info-soft); color: var(--info); }
-  .chip.pass { background: var(--pass-soft); color: var(--pass); }
-  .chip.fail { background: var(--p0-soft); color: var(--p0); }
-  .ttext { flex: 1; }
-  .hint { color: var(--muted); font-size: 12px; }
+  .chip.bugtag { background: var(--bug-soft); color: var(--bug); }
+  .tbody { padding: 4px 12px 12px 28px; display: flex; flex-direction: column; gap: 9px; background: #fdfcfe; }
+  .shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .shot { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; padding: 0; cursor: zoom-in; display: flex; flex-direction: column; }
+  .shot img { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; object-position: top; display: block; }
+  .shot span { font-size: 10.5px; color: var(--muted); padding: 3px 5px; text-align: left; line-height: 1.3; }
   .status { display: flex; gap: 4px; flex-wrap: wrap; }
-  .status button { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 1px 8px; font-size: 12px; }
+  .status button { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 2px 9px; font-size: 12px; }
   .status button.sel-pass { background: var(--pass-soft); border-color: var(--pass); color: var(--pass); font-weight: 600; }
   .status button.sel-fail { background: var(--p0-soft); border-color: var(--p0); color: var(--p0); font-weight: 600; }
   .status button.sel-na { background: var(--p2-soft); border-color: var(--p2); font-weight: 600; }
-  .todo textarea { width: 100%; min-height: 48px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font-size: 12px; background: #fbfafc; }
+  .byline { font-size: 11.5px; color: var(--muted); }
+  .bugbox { border-left: 3px solid var(--bug); padding: 6px 9px; background: var(--bug-soft); border-radius: 0 6px 6px 0; font-size: 12.5px; white-space: pre-wrap; }
+  .notes { display: flex; flex-direction: column; gap: 6px; }
+  .note { background: #fff; border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; font-size: 12.5px; }
+  .note .nh { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .note .nt { white-space: pre-wrap; word-break: break-word; }
+  .note .shot { width: 96px; margin-top: 6px; }
+  .note .del { border: 0; background: none; color: var(--muted); font-size: 11px; padding: 0; }
+  .addnote textarea { width: 100%; min-height: 54px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font-size: 12.5px; background: #fff; }
+  .addnote label { font-size: 12px; color: var(--muted); display: inline-flex; gap: 5px; align-items: center; }
+  .section-label { font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
 
   /* Stage */
   #stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--stage); }
@@ -78,19 +111,17 @@
   #viewport { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: flex-start; overflow: hidden; padding: 18px 0; position: relative; }
   #scaler { transform-origin: top center; }
   .device { position: relative; background: #111; border-radius: 46px; padding: 12px; box-shadow: 0 18px 50px rgba(30, 20, 50, .28); }
-  .device.flat { border-radius: 14px; padding: 8px; }
   .screen { position: relative; overflow: hidden; border-radius: 36px; background: #fff; }
-  .device.flat .screen { border-radius: 8px; }
   .screen iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
   .statusbar { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font: 600 14px system-ui, -apple-system, sans-serif; color: #111; pointer-events: none; z-index: 2; }
-  .island { position: absolute; left: 50%; transform: translateX(-50%); background: #000; border-radius: 20px; }
+  .island { position: absolute; left: 50%; transform: translateX(-50%); background: #000; border-radius: 20px; z-index: 2; }
   .homebar { position: absolute; left: 50%; bottom: 8px; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: rgba(0,0,0,.75); pointer-events: none; z-index: 3; }
   .keyboard { position: absolute; left: 0; right: 0; bottom: 0; background: #d1d3d9; z-index: 2; pointer-events: none; display: flex; flex-direction: column; gap: 9px; padding: 8px 4px; }
   .keyboard .sugg { height: 30px; border-bottom: 1px solid #bfc2c8; display: flex; justify-content: space-around; align-items: center; color: #555; font-size: 14px; }
   .keyboard .krow { display: flex; gap: 6px; justify-content: center; }
   .keyboard .k { flex: 0 0 8.6%; height: 40px; background: #fff; border-radius: 5px; box-shadow: 0 1px 0 #8a8d93; }
   .keyboard .k.wide { flex: 0 0 48%; }
-  .keyboard .note { position: absolute; top: 6px; right: 8px; font-size: 10px; color: #6b6e75; }
+  .keyboard .note { position: absolute; top: 6px; right: 8px; font-size: 10px; color: #6b6e75; border: 0; background: none; padding: 0; }
   .metrics { text-align: center; color: var(--muted); font-family: var(--mono); font-size: 11.5px; padding: 6px 12px; background: var(--panel); border-top: 1px solid var(--line); }
   .waiting { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; background: #fff; z-index: 4; text-align: center; padding: 20px; }
 
@@ -120,10 +151,26 @@
   table.anc th, table.anc td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
   table.anc td { font-family: var(--mono); }
   .nav { padding: 6px 12px; border-bottom: 1px solid #f1eff4; font-size: 12px; }
-  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1f1b2d; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 10; }
+
+  /* Dialogs */
+  .backdrop { position: fixed; inset: 0; background: rgba(25, 18, 40, .55); z-index: 20; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .dialog { background: var(--panel); border-radius: 12px; width: min(820px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,.3); }
+  .dialog header { border-radius: 12px 12px 0 0; }
+  .dialog .body { display: grid; grid-template-columns: 240px 1fr; gap: 16px; padding: 16px; overflow: auto; }
+  .dialog .preview { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #f6f5f8; align-self: start; }
+  .dialog .preview img { width: 100%; display: block; }
+  .dialog .preview .ph { padding: 60px 12px; text-align: center; color: var(--muted); }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .field > span { font-size: 12px; font-weight: 600; }
+  .field textarea { min-height: 110px; resize: vertical; }
+  .dialog footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+  .lightbox { position: fixed; inset: 0; background: rgba(15, 10, 25, .86); z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; cursor: zoom-out; }
+  .lightbox img { max-width: 100%; max-height: calc(100vh - 90px); border-radius: 8px; background: #fff; }
+  .lightbox .cap { color: #eee; font-size: 13px; text-align: center; max-width: 720px; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1f1b2d; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 40; }
   .toast.show { opacity: 1; }
 
-  @media (max-width: 1200px) { main { grid-template-columns: 290px minmax(0, 1fr) 340px; } }
+  @media (max-width: 1300px) { main { grid-template-columns: 330px minmax(0, 1fr) 340px; } }
 </style>
 </head>
 <body>
@@ -132,26 +179,28 @@
   <span class="build" id="build">loading build…</span>
   <span class="spacer"></span>
   <a class="link" id="openApp" href="/app/" target="_blank" rel="noopener">Open app alone ↗</a>
-  <button class="btn primary" id="copyClaude" title="Copy a report of failing checks, layout issues, errors and the inspected element, ready to paste into Claude">Copy for Claude</button>
+  <button class="btn bug" id="reportBug" title="Screenshot the app and add a bug to the checklist">🐞 Report bug</button>
+  <button class="btn primary" id="copyClaude" title="Copy a report of open bugs, failing checks, layout issues, errors and the inspected element, ready to paste into Claude">Copy for Claude</button>
 </header>
 
 <main>
   <!-- Left: checklist -->
   <section class="panel" id="todos">
     <div class="panel-head">
-      <div class="row" style="justify-content:space-between"><h2>Pre-launch checklist</h2><span class="counts" id="counts"></span></div>
+      <div class="row" style="justify-content:space-between"><h2>Checklist by screen</h2><span class="counts" id="counts"></span></div>
       <div class="progress" id="progress"></div>
-      <div class="row">
-        <div class="seg" id="todoFilter">
-          <button data-f="all" class="on">All</button><button data-f="open">Not tested</button><button data-f="fail">Failing</button><button data-f="pass">Passed</button>
-        </div>
+      <div class="seg" id="todoFilter">
+        <button data-f="all" class="on">All</button><button data-f="open">Not tested</button><button data-f="fail">Failing</button><button data-f="pass">Passed</button><button data-f="bugs">Bugs</button>
       </div>
-      <input type="search" id="todoSearch" placeholder="Search checks…">
+      <input type="search" id="todoSearch" placeholder="Search checks, bugs and notes…">
+      <div class="namebox"><span class="hint">You:</span><input type="text" id="tester" placeholder="Your name (shown on notes and results)"></div>
     </div>
     <div class="scroll" id="todoList"></div>
     <div class="panel-head" style="border-top:1px solid var(--line);border-bottom:0">
-      <div class="row"><button class="btn small" id="exportTodos">Export JSON</button><button class="btn small" id="importTodos">Import JSON</button><button class="btn small" id="resetTodos">Reset</button></div>
-      <span class="hint">Results are saved in this browser only. Export to share.</span>
+      <div class="row" style="justify-content:space-between">
+        <span class="sync" id="sync">connecting…</span>
+        <span class="row"><button class="btn small" id="expandAll">Expand all</button><button class="btn small" id="exportTodos">Export</button></span>
+      </div>
     </div>
   </section>
 
@@ -207,14 +256,37 @@
     </div>
   </section>
 </main>
+
+<!-- Report bug dialog -->
+<div class="backdrop" id="bugDialog" hidden>
+  <div class="dialog" role="dialog" aria-labelledby="bugTitleLabel">
+    <header><h1 id="bugTitleLabel">Report a bug</h1><span class="spacer"></span><span class="hint" id="bugContext"></span></header>
+    <div class="body">
+      <div>
+        <div class="preview" id="bugPreview"><div class="ph">Capturing the screen…</div></div>
+        <div class="row" style="margin-top:6px"><button class="btn small" id="bugRetake">Retake screenshot</button></div>
+      </div>
+      <div>
+        <label class="field"><span>Title</span><input type="text" id="bugTitle" maxlength="200" placeholder="e.g. Provider name wraps one letter per line"></label>
+        <label class="field"><span>What's wrong, and what should happen instead?</span><textarea id="bugComment" placeholder="Steps, what you expected, anything that helps the fix"></textarea></label>
+        <div class="row" style="gap:12px;align-items:flex-start">
+          <label class="field" style="flex:1"><span>Priority</span><select id="bugPri"><option value="P0">P0 — blocks launch</option><option value="P1" selected>P1 — fix before promotion</option><option value="P2">P2 — polish</option></select></label>
+          <label class="field" style="flex:1"><span>Screen</span><select id="bugGroup"></select></label>
+        </div>
+        <label class="hint" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="bugIssues" checked> <span id="bugIssuesLabel">Include layout findings on this screen</span></label>
+      </div>
+    </div>
+    <footer><button class="btn" id="bugCancel">Cancel</button><button class="btn bug" id="bugSubmit">Add to checklist</button></footer>
+  </div>
+</div>
+<div class="lightbox" id="lightbox" hidden><img id="lightImg" alt=""><div class="cap" id="lightCap"></div></div>
 <div class="toast" id="toast"></div>
-<input type="file" id="importFile" accept="application/json" hidden>
 
 <script>
 (() => {
-  // ---------- Data ----------
+  // ---------- Devices ----------
   const DEVICES = {
-    se:     { name: 'iPhone SE (3rd gen)', w: 375, h: 667, top: 20, bottom: 0, kb: 260, island: null, flat: false, platform: 'ios' },
+    se:     { name: 'iPhone SE (3rd gen)', w: 375, h: 667, top: 20, bottom: 0, kb: 260, island: null, platform: 'ios' },
     mini:   { name: 'iPhone 13 mini', w: 375, h: 812, top: 50, bottom: 34, kb: 336, island: { w: 126, h: 32, y: 6 }, platform: 'ios' },
     i15:    { name: 'iPhone 15', w: 393, h: 852, top: 59, bottom: 34, kb: 336, island: { w: 124, h: 36, y: 11 }, platform: 'ios' },
     promax: { name: 'iPhone 15 Pro Max', w: 430, h: 932, top: 59, bottom: 34, kb: 346, island: { w: 124, h: 36, y: 11 }, platform: 'ios' },
@@ -230,99 +302,163 @@
   ];
   const STRESS = { device: 'se', text: 'xxxl', bold: true };
 
-  // From the pre-launch developer review. `setup` = suggested harness settings.
+  // ---------- Screens ----------
+  // Checklist groups, and how to open each screen in the app.
+  const GROUPS = [
+    { name: 'Home', nav: { tab: 0 } },
+    { name: 'Learn', nav: { tab: 1 } },
+    { name: 'Journal', nav: { tab: 2 } },
+    { name: 'Community', nav: { tab: 3 } },
+    { name: 'You / Profile', nav: { tab: 4 } },
+    { name: 'AI Assistant / Support', nav: { route: '/assistant' } },
+    { name: 'Find Your Care', nav: { route: '/providers' } },
+    { name: 'All screens', nav: null },
+    { name: 'Other screens', nav: null },
+  ];
+  const groupNav = (name) => (GROUPS.find((g) => g.name === name) || {}).nav || null;
+  // Widget class of the visible screen -> checklist group.
+  function groupForScreens(screens, tab) {
+    const s = [...(screens || [])].reverse().join(' ');
+    if (/Provider|MamaApproved/.test(s)) return 'Find Your Care';
+    if (/Assistant|Support|Resource|CareNavigation|CareCheckin|Emotional/.test(s)) return 'AI Assistant / Support';
+    if (/Community|Post/.test(s)) return 'Community';
+    if (/Journal/.test(s)) return 'Journal';
+    if (/Learning|Module|Rights|PregnancyJourney/.test(s)) return 'Learn';
+    if (/EditProfile|Privacy|Consent/.test(s)) return 'You / Profile';
+    if (/Home|Appointment|Visit/.test(s)) return 'Home';
+    return ['Home', 'Learn', 'Journal', 'Community', 'You / Profile'][tab] || 'Other screens';
+  }
+
+  // Screenshots from the pre-launch review document (served from /review/).
+  const SHOT = {
+    home_top: ['image8.png', 'Home top: search placeholder cut off ("Search symptoms, t…")'],
+    home_space: ['image9.png', 'Your Space cards: "Summarie|s", "perso|nalized"; support button over the cards'],
+    home_guidance: ['image2.jpg', "Home: Today's Guidance"],
+    home_rights: ['image11.png', 'Know your rights / Find your care team: "Search providers by ZIP, city, an…"'],
+    home_learning: ['image5.png', 'Trimester banner and "EmpowerHealt|h Watch" community card'],
+    learn_center: ['image6.png', 'Learn: Learning Center'],
+    learn_rights: ['image3.png', 'Learn: Know Your Rights followed by Next Steps'],
+    learn_steps1: ['image10.png', 'Next Steps cards: description squeezed into a narrow right column'],
+    learn_steps2: ['image1.png', 'Next Steps examples, continued'],
+    journal_landing: ['image12.png', 'Journal landing'],
+    journal_checkin: ['image13.png', 'Journal: quick check-in'],
+    journal_reflections: ['image4.png', 'Journal: recent reflections'],
+    community_landing: ['image19.png', 'Community landing'],
+    community_posts: ['image16.png', 'Community post cards'],
+    profile_top: ['image18.png', 'Profile top: name renders one character per line; subtitle clipped'],
+    profile_meta: ['image21.png', 'Profile metadata: email and due date render vertically'],
+    profile_info: ['image15.png', 'Pregnancy / profile information'],
+    profile_sections: ['image20.png', 'Profile sections + Privacy & Settings'],
+    ai_history: ['image14.png', 'AI Assistant with prior conversation history'],
+    ai_support: ['image17.png', 'Support pathway from the AI Assistant: 211, WIC, Community Space'],
+    ai_reentry: ['image7.png', 'Re-entry: AI Assistant opens in the middle of a prior response'],
+  };
+
+  // From the pre-launch developer review: [pri, owner, text, hint, setup, shots, nav override]
   const TODOS = [
-    ['Shared components', [
-      ['P0','FE','Remove fixed or narrow text widths in shared card layouts so text uses the full mobile width. This is the root cause of the one-character-per-line bugs.','Run the layout audit on every tab at iPhone SE + xxxLarge + Bold: no "squeezed" issues.',STRESS],
-      ['P1','FE','Stop truncating essential titles, labels, dates and descriptions; wrap the text and let cards grow taller.','Audit shows no "truncated" issues on essential copy.',STRESS],
-      ['P1','FE','Prevent mid-word line breaks.','Audit shows no "mid-word" issues.',STRESS],
-      ['P2','FE','Position the floating support/heart button in the safe area so it never covers text, buttons, fields or the bottom nav.','Scroll every tab to the bottom on iPhone 15; nothing sits under the button.',{device:'i15'}],
-      ['P1','BE','Make AI-generated content speak in "you/your" instead of "The patient…" (the visit-summary prompt in functions/index.js).','Upload a visit summary after functions deploy; no "the patient" wording.',null],
+    ['All screens', [
+      ['P0','FE','Remove fixed or narrow text widths in shared card layouts so text uses the full mobile width. This is the root cause of the one-character-per-line bugs.','Run the layout audit on every tab at iPhone SE + xxxLarge + Bold: no "squeezed" issues.',STRESS,['profile_top','learn_steps1']],
+      ['P1','FE','Stop truncating essential titles, labels, dates and descriptions; wrap the text and let cards grow taller.','Audit shows no "truncated" issues on essential copy.',STRESS,['home_top','home_rights']],
+      ['P1','FE','Prevent mid-word line breaks.','Audit shows no "mid-word" issues.',STRESS,['home_space','home_learning']],
+      ['P2','FE','Position the floating support/heart button in the safe area so it never covers text, buttons, fields or the bottom nav.','Scroll every tab to the bottom on iPhone 15; nothing sits under the button.',{device:'i15'},['home_space'],{tab:0}],
+      ['P1','BE','Make AI-generated content speak in "you/your" instead of "The patient…" (the visit-summary prompt in functions/index.js).','Upload a visit summary after functions deploy; no "the patient" wording.',null,['learn_steps1'],{tab:1}],
+      ['P1','QA','One regression pass across all five tabs, provider search and the AI Assistant on one smaller and one larger iPhone.','Do it at iPhone SE and iPhone 15 Pro Max.',null,[]],
     ]],
     ['Home', [
-      ['P1','FE','"My Visits & What It Means" and "My Care Plan" cards: give the copy more width so "Summaries" and "personalized" don\'t break.','',STRESS],
-      ['P1','FE','Search placeholder is cut off ("Search symptoms, t…"): widen the field or shorten the placeholder.','',STRESS],
-      ['P1','FE','"Find your care team" supporting text is cut off: let it wrap.','',STRESS],
-      ['P1','FE','Community card: keep "EmpowerHealth Watch" on one line.','',STRESS],
-      ['P1','FE','Trimester learning card: render the full trimester heading and supporting copy.','',STRESS],
-      ['P1','FE','Trimester banner: link to the single trimester module in Learn instead of a duplicate copy of the content.','Tap the banner; Navigation tab should show the same screen as Learn\'s trimester card.',null],
-      ['P2','FE','Check that the support icon doesn\'t cover lower-right content in any Home state.','',{device:'se'}],
+      ['P1','FE','"My Visits & What It Means" and "My Care Plan" cards: give the copy more width so "Summaries" and "personalized" don\'t break.','',STRESS,['home_space']],
+      ['P1','FE','Search placeholder is cut off ("Search symptoms, t…"): widen the field or shorten the placeholder.','',STRESS,['home_top']],
+      ['P1','FE','"Find your care team" supporting text is cut off: let it wrap.','',STRESS,['home_rights']],
+      ['P1','FE','Community card: keep "EmpowerHealth Watch" on one line.','',STRESS,['home_learning']],
+      ['P1','FE','Trimester learning card: render the full trimester heading and supporting copy.','',STRESS,['home_learning']],
+      ['P1','FE','Trimester banner: link to the single trimester module in Learn instead of a duplicate copy of the content.','Tap the banner; the Navigation tab should show the same screen as Learn\'s trimester card.',null,['home_learning']],
+      ['P2','FE','Check that the support icon doesn\'t cover lower-right content in any Home state.','',{device:'se'},['home_space','home_top']],
     ]],
     ['Learn', [
-      ['P0','FE','"Your next steps" cards: let the title and description use the full card width, and move the checkbox/status badge to its own row.','',STRESS],
-      ['P1','FE','Module cards are clipped horizontally: fix carousel padding, card widths and viewport behavior.','',STRESS],
-      ['P1','FE','Trimester card truncates its title and subtitle ("Second trimes…" / "Week 18 of 40 · W…").','',STRESS],
-      ['P1','FE','Make the All / Modules / Archived filters show distinct content.','',null],
-      ['P1','FE','Archived with no items: show only the empty state, with no active modules underneath.','',null],
-      ['P1','FE','Long next-step cards: show a short summary first, with details behind an expand.','',null],
-      ['P2','FE','Know Your Rights followed by next steps: confirm the placement is intentional and add a section transition.','',null],
-      ['P1','BE','Have the AI prompt write a short plain-language summary per next step, in second person ("You were referred…").','',null],
+      ['P0','FE','"Your next steps" cards: let the title and description use the full card width, and move the checkbox/status badge to its own row.','',STRESS,['learn_steps1','learn_steps2']],
+      ['P1','FE','Module cards are clipped horizontally: fix carousel padding, card widths and viewport behavior.','',STRESS,['learn_center']],
+      ['P1','FE','Trimester card truncates its title and subtitle ("Second trimes…" / "Week 18 of 40 · W…").','',STRESS,['learn_center']],
+      ['P1','FE','Make the All / Modules / Archived filters show distinct content.','',null,['learn_center']],
+      ['P1','FE','Archived with no items: show only the empty state, with no active modules underneath.','',null,['learn_center']],
+      ['P1','FE','Long next-step cards: show a short summary first, with details behind an expand.','',null,['learn_steps1']],
+      ['P2','FE','Know Your Rights followed by next steps: confirm the placement is intentional and add a section transition.','',null,['learn_rights']],
+      ['P1','BE','Have the AI prompt write a short plain-language summary per next step, in second person ("You were referred…").','',null,['learn_steps2']],
     ]],
     ['Journal', [
-      ['P1','FE','Recent reflections: dates are cut off ("Septemb…"); use a short format like "Sep 26, 2026".','',STRESS],
-      ['P1','FE','Keep "Save check-in" on one line.','',STRESS],
-      ['P2','FE','Balance the Save and Cancel button sizes.','',null],
-      ['P2','FE','Check that the floating heart never covers notes, reflection cards or the save action.','',{device:'se'}],
+      ['P1','FE','Recent reflections: dates are cut off ("Septemb…"); use a short format like "Sep 26, 2026".','',STRESS,['journal_reflections']],
+      ['P1','FE','Keep "Save check-in" on one line.','',STRESS,['journal_checkin']],
+      ['P2','FE','Balance the Save and Cancel button sizes.','',null,['journal_checkin']],
+      ['P2','FE','Check that the floating heart never covers notes, reflection cards or the save action.','',{device:'se'},['journal_landing','journal_reflections']],
     ]],
     ['Community', [
-      ['P0','FE','Header: keep "Community" intact by moving or resizing the New post button.','',STRESS],
-      ['P1','FE','Category tabs: make the row deliberately scrollable with a visible edge cue, and confirm each tab shows only matching posts.','',{device:'se'}],
-      ['P1','FE','"Help Another Mama Choose Care" card: shorten the copy, left-align and widen the text, and reduce the height so the feed is visible. Keep the dismiss control.','',{device:'se'}],
-      ['P1','FE','"Share app feedback" button: separate app feedback from provider-experience feedback, or relabel it.','',null],
-      ['P1','FE','Create Post: keep the public-post warning, require a category, and show any anonymous-post option clearly before publishing.','',null],
-      ['P1','FE','Show the trash icon only on the user\'s own posts, or to moderators.','',null],
-      ['P2','FE','Post metadata (author, date, replies): improve contrast and spacing.','',null],
-      ['P1','BE','Enforce delete permissions in firestore.rules (owner or explicit moderator role only) and test them.','Covered by tests/firestore-rules (npm run test:emulator).',null],
-      ['P1','BE','Confirm a category is recorded on every post; the create rule doesn\'t currently require one.','',null],
+      ['P0','FE','Header: keep "Community" intact by moving or resizing the New post button.','',STRESS,['community_landing']],
+      ['P1','FE','Category tabs: make the row deliberately scrollable with a visible edge cue, and confirm each tab shows only matching posts.','',{device:'se'},['community_landing']],
+      ['P1','FE','"Help Another Mama Choose Care" card: shorten the copy, left-align and widen the text, and reduce the height so the feed is visible. Keep the dismiss control.','',{device:'se'},['community_landing']],
+      ['P1','FE','"Share app feedback" button: separate app feedback from provider-experience feedback, or relabel it.','',null,['community_landing']],
+      ['P1','FE','Create Post: keep the public-post warning, require a category, and show any anonymous-post option clearly before publishing.','Tap "New post" after the screen opens.',null,[]],
+      ['P1','FE','Show the trash icon only on the user\'s own posts, or to moderators.','',null,['community_posts']],
+      ['P2','FE','Post metadata (author, date, replies): improve contrast and spacing.','',null,['community_posts']],
+      ['P1','BE','Enforce delete permissions in firestore.rules (owner or explicit moderator role only) and test them.','Covered by tests/firestore-rules (npm run test:emulator).',null,['community_posts']],
+      ['P1','BE','Confirm a category is recorded on every post; the create rule doesn\'t currently require one.','',null,[]],
     ]],
     ['You / Profile', [
-      ['P0','FE','Rebuild the profile summary card with flexible rows; the name renders one character per line.','Try a long name too (Edit Profile).',STRESS],
-      ['P0','FE','Fix the "updated" date, which also renders vertically.','',STRESS],
-      ['P1','FE','Header subtitle ("Manage your information and pr…") is clipped: let it wrap.','',STRESS],
-      ['P1','FE','Put Edit Profile in its own stable row and test with long names.','',STRESS],
-      ['P1','FE','Privacy & Trust Center card: give the text the full width, with the icon and chevron in compact side columns.','',STRESS],
-      ['P2','FE','Standardize spacing and alignment across accordion rows ("Your support experience" wraps to two lines).','',STRESS],
+      ['P0','FE','Rebuild the profile summary card with flexible rows; the name renders one character per line.','Try a long name too (Edit Profile).',STRESS,['profile_top']],
+      ['P0','FE','Fix the "updated" date, which also renders vertically.','The vertical text was the email and due-date line.',STRESS,['profile_meta']],
+      ['P1','FE','Header subtitle ("Manage your information and pr…") is clipped: let it wrap.','',STRESS,['profile_top']],
+      ['P1','FE','Put Edit Profile in its own stable row and test with long names.','',STRESS,['profile_top']],
+      ['P1','FE','Privacy & Trust Center card: give the text the full width, with the icon and chevron in compact side columns.','',STRESS,['profile_sections']],
+      ['P2','FE','Standardize spacing and alignment across accordion rows ("Your support experience" wraps to two lines).','',STRESS,['profile_sections','profile_info']],
     ]],
     ['AI Assistant / Support', [
-      ['P1','FE','Keep the composer, typed text and send button visible above the iOS keyboard.','Turn on Keyboard: the composer must sit directly above it.',{device:'se', keyboard:true}],
-      ['P1','FE','Reopen at the bottom of the conversation with the composer visible, and/or add a "New question" action.','',null],
-      ['P1','FE','Make behavior identical from every entry point (Health Literacy, Support shortcut).','',null],
-      ['P1','FE','Support resource cards (CDC Hear Her, 211, WIC, others): check each opens the right destination and returns the user to the expected place.','',null],
+      ['P1','FE','Keep the composer, typed text and send button visible above the iOS keyboard.','Turn on Keyboard: the composer must sit directly above it.',{device:'se', keyboard:true},['ai_history']],
+      ['P1','FE','Reopen at the bottom of the conversation with the composer visible, and/or add a "New question" action.','Close the assistant and open it again.',null,['ai_reentry']],
+      ['P1','FE','Make behavior identical from every entry point (Health Literacy, Support shortcut).','',null,['ai_history']],
+      ['P1','FE','Support resource cards (CDC Hear Her, 211, WIC, others): check each opens the right destination and returns the user to the expected place.','',null,['ai_support'],{route:'/immediate-support'}],
     ]],
-    ['Find Your Care / Mama Approved', [
-      ['P0','FE','Provider card header: make the provider name readable and move the Mama Approved badge so it doesn\'t compete for width.','',STRESS],
-      ['P1','FE','Shorten the dense explanatory copy on provider search and Mama Approved.','',null],
-      ['P1','FE','Make empty and no-result states clear, and test provider detail and back navigation.','',null],
-      ['P1','BE','Make the Mama Approved badge match the stated rule (at least 3 reviews and a 4.0 average), test the boundary cases, and confirm counts update.','Unit tests: test/provider_mama_approved_test.dart.',null],
-      ['P1','BE','Test that standard and Expanded search return correct results for ZIP, radius and plan filters.','Needs live searches against the Ohio Medicaid directory.',null],
-    ]],
-    ['Final QA', [
-      ['P1','QA','One regression pass across all five tabs, provider search and the AI Assistant on one smaller and one larger iPhone.','Do it at iPhone SE and iPhone 15 Pro Max.',null],
+    ['Find Your Care', [
+      ['P0','FE','Provider card header: make the provider name readable and move the Mama Approved badge so it doesn\'t compete for width.','',STRESS,[]],
+      ['P1','FE','Shorten the dense explanatory copy on provider search and Mama Approved.','',null,[]],
+      ['P1','FE','Make empty and no-result states clear, and test provider detail and back navigation.','',null,[],{route:'/providers/search'}],
+      ['P1','BE','Make the Mama Approved badge match the stated rule (at least 3 reviews and a 4.0 average), test the boundary cases, and confirm counts update.','Unit tests: test/provider_mama_approved_test.dart.',null,[]],
+      ['P1','BE','Test that standard and Expanded search return correct results for ZIP, radius and plan filters.','Needs live searches against the Ohio Medicaid directory.',null,[],{route:'/providers/search'}],
     ]],
   ];
-  const items = [];
-  TODOS.forEach(([area, list]) => list.forEach(([pri, owner, text, hint, setup], i) => {
-    items.push({ id: area.toLowerCase().replace(/[^a-z]+/g, '-') + '-' + (i + 1), area, pri, owner, text, hint, setup });
+  // Stable ids from the text, so reordering the list keeps saved results.
+  const hashId = (s) => { let h = 5381; for (const c of s) h = ((h << 5) + h + c.charCodeAt(0)) >>> 0; return 'rv-' + h.toString(36); };
+  const builtins = [];
+  TODOS.forEach(([group, list]) => list.forEach(([pri, owner, text, hint, setup, shots, nav]) => {
+    builtins.push({
+      id: hashId(text), group, pri, owner, text, hint, setup,
+      nav: nav || groupNav(group),
+      shots: (shots || []).map((k) => ({ src: '/review/' + SHOT[k][0], caption: SHOT[k][1] })),
+    });
   }));
 
-  // ---------- Storage (per browser; may be unavailable) ----------
+  // ---------- Local preferences (per browser) ----------
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
   };
-  let results = store.get('eh-qa-v1-results', {});   // id -> { status, note, at }
   const settings = Object.assign({ device: 'se', text: 'l', bold: false, keyboard: false, platform: 'ios', zoom: 'fit' }, store.get('eh-qa-v1-settings', {}));
 
   // ---------- State ----------
   const $ = (id) => document.getElementById(id);
-  const state = { ready: false, metrics: null, issues: [], route: '/', screens: [], logs: [], errors: 0, nav: [], inspected: null, highlight: false, inspect: false, todoFilter: 'all', search: '' };
+  const state = {
+    ready: false, metrics: null, issues: [], route: '/', screens: [], logs: [], errors: 0, nav: [], inspected: null,
+    highlight: false, inspect: false, todoFilter: 'all', search: '',
+    server: { results: {}, notes: {}, bugs: [] }, online: false, lastJson: '',
+    expanded: new Set(), collapsedGroups: new Set(store.get('eh-qa-v1-collapsed', [])), drafts: {}, attach: {},
+    tester: store.get('eh-qa-v1-name', ''), pendingRender: false, build: '',
+  };
 
   // ---------- Helpers ----------
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const toast = (msg) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 1800); };
+  const toast = (msg) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200); };
   const time = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const when = (iso) => { try { return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch { return ''; } };
   const textSize = () => TEXT_SIZES.find((t) => t.id === settings.text) || TEXT_SIZES[1];
   const device = () => DEVICES[settings.device] || DEVICES.se;
+  const author = () => state.tester || 'Tester';
+  const abs = (src) => (src && src.startsWith('/') ? location.origin + src : src);
 
   function deviceConfig() {
     const d = device();
@@ -331,6 +467,58 @@
   function send(msg) {
     const w = $('app').contentWindow;
     if (w) w.postMessage(JSON.stringify({ ...msg, source: 'eh-qa-host' }), location.origin);
+  }
+
+  // ---------- Shared storage (server API) ----------
+  async function api(path, options = {}, retried = false) {
+    const res = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...options });
+    if (res.status === 401 && !retried) {
+      const code = prompt('This QA suite is protected. Enter the team passcode:');
+      if (code) { document.cookie = `qa_pass=${encodeURIComponent(code)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax; Secure`; return api(path, options, true); }
+    }
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    return res.json();
+  }
+  async function loadState() {
+    try {
+      const data = await api('/api/state');
+      state.online = true;
+      setSync(`Shared · synced ${time()}`);
+      const json = JSON.stringify(data);
+      if (json !== state.lastJson) { state.lastJson = json; state.server = data; requestRender(); }
+    } catch (e) {
+      state.online = false;
+      setSync('Shared storage unavailable — changes won\'t be saved', true);
+    }
+  }
+  function setSync(text, err) { const s = $('sync'); s.textContent = text; s.classList.toggle('err', !!err); }
+  async function mutate(fn, okMsg) {
+    try { await fn(); await loadState(); if (okMsg) toast(okMsg); } catch (e) { toast('Could not save: ' + e.message); }
+  }
+
+  // ---------- Screenshots from the app ----------
+  const shotRequests = new Map();
+  function captureApp() {
+    if (!state.ready) return Promise.reject(new Error('the app has not loaded yet'));
+    const requestId = Math.random().toString(36).slice(2);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { shotRequests.delete(requestId); reject(new Error('screenshot timed out')); }, 15000);
+      shotRequests.set(requestId, (m) => { clearTimeout(timer); m.error ? reject(new Error(m.error)) : resolve(m); });
+      send({ type: 'screenshot', requestId });
+    });
+  }
+  // PNG from Flutter -> JPEG (much smaller) for upload.
+  function toJpeg(pngBase64) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+        const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0);
+        resolve(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = () => reject(new Error('could not read screenshot'));
+      img.src = 'data:image/png;base64,' + pngBase64;
+    });
   }
 
   // ---------- Device ----------
@@ -346,24 +534,22 @@
     $('keyboard').onclick = () => { settings.keyboard = !settings.keyboard; applySettings(); };
     $('reload').onclick = () => loadApp();
   }
-
   function layoutDevice() {
     const d = device();
     const frame = $('deviceFrame'), screen = $('screen');
     screen.style.width = d.w + 'px'; screen.style.height = d.h + 'px';
-    screen.style.borderRadius = settings.device === 'se' ? '6px' : '';
-    frame.style.borderRadius = settings.device === 'se' ? '30px' : '';
-    frame.style.padding = settings.device === 'se' ? '56px 14px' : '';
-    const sb = $('statusbar'); sb.style.height = d.top + 'px';
-    sb.style.padding = settings.device === 'se' ? '0 10px' : '0 28px';
-    sb.style.fontSize = settings.device === 'se' ? '12px' : '14px';
+    const se = settings.device === 'se';
+    screen.style.borderRadius = se ? '6px' : '';
+    frame.style.borderRadius = se ? '30px' : '';
+    frame.style.padding = se ? '56px 14px' : '';
+    const sb = $('statusbar'); sb.style.height = d.top + 'px'; sb.style.padding = se ? '0 10px' : '0 28px'; sb.style.fontSize = se ? '12px' : '14px';
     const isl = $('island');
-    if (d.island) { isl.hidden = false; Object.assign(isl.style, { width: d.island.w + 'px', height: d.island.h + 'px', top: d.island.y + 'px', borderRadius: d.island.h / 2 + 'px' }); } else { isl.hidden = true; }
+    if (d.island) { isl.hidden = false; Object.assign(isl.style, { width: d.island.w + 'px', height: d.island.h + 'px', top: d.island.y + 'px', borderRadius: d.island.h / 2 + 'px' }); } else isl.hidden = true;
     $('homebar').hidden = d.bottom === 0 || settings.keyboard;
     const kbd = $('kbd');
     kbd.hidden = !settings.keyboard; kbd.style.height = d.kb + 'px';
     if (!kbd.childElementCount) {
-      kbd.innerHTML = '<div class="note">simulated keyboard</div><div class="sugg"><span>I</span><span>the</span><span>I\'m</span></div>' +
+      kbd.innerHTML = '<span class="note">simulated keyboard</span><div class="sugg"><span>I</span><span>the</span><span>I\'m</span></div>' +
         [10, 9, 9].map((n) => '<div class="krow">' + '<span class="k"></span>'.repeat(n) + '</div>').join('') +
         '<div class="krow"><span class="k"></span><span class="k wide"></span><span class="k"></span></div>';
     }
@@ -371,7 +557,6 @@
     $('keyboard').classList.toggle('on', settings.keyboard);
     fitZoom();
   }
-
   function fitZoom() {
     const vp = $('viewport'), scaler = $('scaler'), frame = $('deviceFrame');
     scaler.style.transform = 'none';
@@ -381,19 +566,16 @@
     scaler.style.transform = `scale(${s})`;
     scaler.style.height = fh * s + 'px';
   }
-
   function applySettings() {
     store.set('eh-qa-v1-settings', settings);
     layoutDevice();
     if (state.ready) send({ type: 'config', config: deviceConfig() });
   }
-
   function appUrl() {
     const c = deviceConfig();
     const q = new URLSearchParams({ device: c.device, ts: c.textScale, bold: c.boldText, top: c.safeTop, bottom: c.safeBottom, kb: c.keyboard, kbh: c.keyboardHeight, platform: c.platform });
     return '/app/?' + q.toString();
   }
-
   function loadApp() {
     state.ready = false;
     $('waiting').hidden = false;
@@ -401,6 +583,11 @@
     $('app').src = appUrl();
     clearInterval(loadApp._ping);
     loadApp._ping = setInterval(() => { if (state.ready) clearInterval(loadApp._ping); else send({ type: 'ping' }); }, 1000);
+  }
+  function openScreen(nav) {
+    if (!nav) return;
+    if (!state.ready) { toast('The app is still loading'); return; }
+    send({ type: 'navigate', target: nav });
   }
 
   // ---------- Messages from the app ----------
@@ -413,11 +600,12 @@
         if (!state.ready) { state.ready = true; $('waiting').hidden = true; addLog('info', 'App connected'); send({ type: 'config', config: deviceConfig() }); if (state.highlight) send({ type: 'highlight', on: true }); if (state.inspect) send({ type: 'inspect', on: true }); }
         break;
       case 'metrics': state.metrics = m; state.route = m.route || state.route; renderMetrics(); break;
-      case 'log': addLog(m.level === 'warn' ? 'warn' : 'log', m.message); break;
+      case 'log': addLog(m.level === 'warn' ? 'warn' : 'log', m.message); if (m.level === 'warn') toast(m.message); break;
       case 'error': addError(m); break;
       case 'nav': state.route = m.route; state.screens = m.screens || []; state.nav.unshift({ t: time(), ...m }); state.nav.length = Math.min(state.nav.length, 200); renderNav(); renderMetrics(); break;
-      case 'audit': state.issues = m.issues || []; state.route = m.route || state.route; state.screens = m.screens || state.screens; renderIssues(); break;
+      case 'audit': state.issues = m.issues || []; state.route = m.route || state.route; state.screens = m.screens || state.screens; renderIssues(); renderMetrics(); break;
       case 'inspect': state.inspected = { ...m.info, route: m.route }; renderInspector(); showTab('inspector'); break;
+      case 'screenshot': { const cb = shotRequests.get(m.requestId); if (cb) { shotRequests.delete(m.requestId); cb(m); } break; }
     }
   });
 
@@ -463,7 +651,7 @@
         <div class="row"><b>${n + 1}.</b><span class="chip ${esc(i.severity)}">${esc(i.severity)}</span><span class="chip tag">${esc(i.kind)}</span></div>
         <div class="msg">${esc(i.message)}</div>
         ${i.text ? `<div class="snippet">“${esc(i.text)}”</div>` : ''}
-        ${i.location ? `<div class="loc">${esc(i.location)}${i.widget ? ' · ' + esc(i.widget) : ''}</div>` : '<div class="hint">No source location (needs the debug build).</div>'}
+        ${i.location ? `<div class="loc">${esc(i.location)}${i.widget ? ' · ' + esc(i.widget) : ''}</div>` : '<div class="hint">No source location found.</div>'}
       </div>`).join('');
     pane.querySelectorAll('.issue').forEach((el) => el.onclick = () => send({ type: 'flash', rect: state.issues[Number(el.dataset.n)].rect }));
   }
@@ -487,7 +675,7 @@
     </table>`;
   }
   function renderNav() {
-    $('p-nav').innerHTML = state.nav.length ? state.nav.map((n) => `<div class="nav"><span class="t" style="color:#a59fb0;font-family:var(--mono)">${n.t}</span> <b>${esc(n.action)}</b> ${esc(n.route)}${n.screens && n.screens.length ? ` <span class="hint">· ${esc(n.screens.join(', '))}</span>` : ''}</div>`).join('') : '<div class="empty">Navigation events appear here.</div>';
+    $('p-nav').innerHTML = state.nav.length ? state.nav.map((n) => `<div class="nav"><span style="color:#a59fb0;font-family:var(--mono)">${n.t}</span> <b>${esc(n.action)}</b> ${esc(n.route)}${n.screens && n.screens.length ? ` <span class="hint">· ${esc(n.screens.join(', '))}</span>` : ''}</div>`).join('') : '<div class="empty">Navigation events appear here.</div>';
   }
   function showTab(t) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
@@ -504,57 +692,164 @@
   }
 
   // ---------- Checklist ----------
-  function saveResults() { store.set('eh-qa-v1-results', results); renderCounts(); }
-  function setStatus(id, status) {
-    const cur = results[id] || {};
-    results[id] = { ...cur, status: cur.status === status ? undefined : status, at: new Date().toISOString() };
-    saveResults(); renderTodos();
+  function allItems() {
+    const bugs = (state.server.bugs || []).map((b) => ({
+      id: b.id, group: b.group || 'Other screens', pri: b.pri, owner: 'Bug', bug: b, text: b.title, hint: '',
+      setup: null, nav: b.nav && (b.nav.tab != null || b.nav.route) ? b.nav : groupNav(b.group),
+      shots: b.shot ? [{ src: b.shot, caption: `Reported by ${b.author} · ${when(b.at)}` }] : [],
+    }));
+    return [...builtins, ...bugs];
   }
-  function renderCounts() {
+  const statusOf = (id) => state.server.results?.[id]?.status;
+  const notesOf = (id) => state.server.notes?.[id] || [];
+  function matches(item) {
+    const s = statusOf(item.id), f = state.todoFilter;
+    if (f === 'open' && s) return false;
+    if (f === 'fail' && s !== 'fail') return false;
+    if (f === 'pass' && s !== 'pass') return false;
+    if (f === 'bugs' && !item.bug) return false;
+    const q = state.search.trim().toLowerCase();
+    if (!q) return true;
+    const hay = [item.text, item.group, item.hint, item.bug?.comment, item.bug?.author, ...notesOf(item.id).map((n) => n.text + ' ' + n.author)].join(' ').toLowerCase();
+    return hay.includes(q);
+  }
+  function renderCounts(items) {
     const c = { pass: 0, fail: 0, na: 0 };
-    items.forEach((i) => { const s = results[i.id]?.status; if (s) c[s]++; });
+    items.forEach((i) => { const s = statusOf(i.id); if (s) c[s]++; });
     const open = items.length - c.pass - c.fail - c.na;
-    $('counts').textContent = `${c.pass} pass · ${c.fail} fail · ${open} not tested`;
-    const pct = (n) => (n / items.length * 100) + '%';
+    const bugs = items.filter((i) => i.bug).length;
+    $('counts').textContent = `${c.pass} pass · ${c.fail} fail · ${open} open${bugs ? ` · ${bugs} bug${bugs > 1 ? 's' : ''}` : ''}`;
+    const pct = (n) => (items.length ? n / items.length * 100 : 0) + '%';
     $('progress').innerHTML = `<span style="width:${pct(c.pass)};background:var(--pass)"></span><span style="width:${pct(c.fail)};background:var(--p0)"></span><span style="width:${pct(c.na)};background:#b9b3c4"></span>`;
   }
+  function requestRender() {
+    // Don't rebuild the list under someone who is typing a note.
+    const active = document.activeElement;
+    if (active && active.closest && active.closest('#todoList') && active.tagName === 'TEXTAREA') { state.pendingRender = true; return; }
+    renderTodos();
+  }
   function renderTodos() {
-    const f = state.todoFilter, q = state.search.toLowerCase();
-    const visible = items.filter((i) => {
-      const s = results[i.id]?.status;
-      if (f === 'open' && s) return false;
-      if (f === 'fail' && s !== 'fail') return false;
-      if (f === 'pass' && s !== 'pass') return false;
-      return !q || (i.text + ' ' + i.area + ' ' + (results[i.id]?.note || '')).toLowerCase().includes(q);
-    });
-    const areas = [...new Set(visible.map((i) => i.area))];
-    $('todoList').innerHTML = areas.length ? areas.map((a) => `<div class="group"><h3>${esc(a)}</h3>${visible.filter((i) => i.area === a).map(todoHtml).join('')}</div>`).join('') : '<div class="empty">Nothing matches.</div>';
-    $('todoList').querySelectorAll('[data-act]').forEach((el) => el.onclick = () => {
-      const id = el.closest('.todo').dataset.id, act = el.dataset.act;
-      if (act === 'setup') applySetup(items.find((i) => i.id === id));
-      else if (act === 'copy') copyText(itemReport(items.find((i) => i.id === id)), 'Check copied for Claude');
-      else setStatus(id, act);
-    });
-    $('todoList').querySelectorAll('textarea').forEach((ta) => ta.oninput = () => {
-      const id = ta.closest('.todo').dataset.id;
-      results[id] = { ...(results[id] || {}), note: ta.value };
-      saveResults();
-    });
+    state.pendingRender = false;
+    const items = allItems();
+    renderCounts(items);
+    const visible = items.filter(matches);
+    const scroll = $('todoList').scrollTop;
+    const html = GROUPS.map((g) => {
+      const list = visible.filter((i) => i.group === g.name);
+      if (!list.length) return '';
+      const all = items.filter((i) => i.group === g.name);
+      const fail = all.filter((i) => statusOf(i.id) === 'fail').length;
+      const open = all.filter((i) => !statusOf(i.id)).length;
+      const bugs = all.filter((i) => i.bug).length;
+      const counts = [fail && `${fail} fail`, open && `${open} open`, bugs && `${bugs} bug${bugs > 1 ? 's' : ''}`].filter(Boolean).join(' · ') || 'all done';
+      const collapsed = state.collapsedGroups.has(g.name);
+      return `<div class="group ${collapsed ? 'collapsed' : ''}" data-group="${esc(g.name)}">
+        <button class="group-head" data-act="group"><span class="caret">▾</span><span class="gname">${esc(g.name)}</span><span class="gcount">${counts}</span></button>
+        ${collapsed ? '' : list.map(todoHtml).join('')}
+      </div>`;
+    }).join('');
+    $('todoList').innerHTML = html || '<div class="empty">Nothing matches.</div>';
+    $('todoList').scrollTop = scroll;
+    bindTodos(items);
   }
   function todoHtml(i) {
-    const r = results[i.id] || {};
-    return `<div class="todo ${r.status || ''}" data-id="${i.id}">
-      <div class="top"><span class="chip ${i.pri}">${i.pri}</span><span class="chip tag">${i.owner}</span><span class="ttext">${esc(i.text)}</span></div>
-      ${i.hint ? `<div class="hint">${esc(i.hint)}</div>` : ''}
-      <div class="status">
-        <button data-act="pass" class="${r.status === 'pass' ? 'sel-pass' : ''}">✓ Pass</button>
-        <button data-act="fail" class="${r.status === 'fail' ? 'sel-fail' : ''}">✗ Fail</button>
-        <button data-act="na" class="${r.status === 'na' ? 'sel-na' : ''}">N/A</button>
-        ${i.setup ? '<button data-act="setup" title="Apply the suggested device settings">Apply test setup</button>' : ''}
-        <button data-act="copy" title="Copy this check plus current findings for Claude">Copy</button>
-      </div>
-      ${r.status === 'fail' || r.note ? `<textarea placeholder="What did you see? (screen, steps, device)">${esc(r.note || '')}</textarea>` : ''}
-    </div>`;
+    const r = state.server.results?.[i.id] || {};
+    const notes = notesOf(i.id);
+    const open = state.expanded.has(i.id);
+    const shotCount = i.shots.length + notes.filter((n) => n.shot).length;
+    const row = `<button class="trow" data-act="toggle" title="${i.nav ? 'Expand and open this screen in the app' : 'Expand'}">
+        <span class="caret" style="margin-top:2px">▾</span><span class="dot ${r.status || ''}"></span>
+        <span class="chip ${i.pri}">${i.pri}</span>${i.bug ? '<span class="chip bugtag">Bug</span>' : ''}
+        <span class="ttitle">${esc(i.text)}</span>
+        <span class="meta">${shotCount ? `<span title="screenshots">📷${shotCount}</span>` : ''}${notes.length ? `<span title="notes">💬${notes.length}</span>` : ''}</span>
+      </button>`;
+    if (!open) return `<div class="todo" data-id="${esc(i.id)}">${row}</div>`;
+    const b = i.bug;
+    const shots = [...i.shots, ...notes.filter((n) => n.shot).map((n) => ({ src: n.shot, caption: `Note by ${n.author} · ${when(n.at)}` }))];
+    return `<div class="todo open" data-id="${esc(i.id)}">${row}
+      <div class="tbody">
+        <div class="row"><span class="chip tag">${esc(i.owner)}</span>${i.hint ? `<span class="hint">${esc(i.hint)}</span>` : ''}</div>
+        ${b ? `<div class="byline">Reported by <b>${esc(b.author)}</b> · ${when(b.at)}${b.screens?.length ? ` · ${esc(b.screens.join(', '))}` : ''}${b.device?.device ? ` · ${esc(b.device.device)}, text ${b.device.textScale}×${b.device.boldText ? ', Bold' : ''}${b.device.keyboard ? ', keyboard' : ''}` : ''}</div>
+          ${b.comment ? `<div class="bugbox">${esc(b.comment)}</div>` : ''}
+          ${b.issues?.length ? `<div class="hint">Layout findings at capture: ${b.issues.slice(0, 4).map((x) => esc(`${x.severity} ${x.kind}: ${x.message}`)).join('; ')}${b.issues.length > 4 ? ` (+${b.issues.length - 4} more)` : ''}</div>` : ''}` : ''}
+        ${shots.length ? `<div><div class="section-label">Screenshots</div><div class="shots">${shots.map((s) => `<button class="shot" data-act="zoom" data-src="${esc(s.src)}" data-cap="${esc(s.caption)}"><img loading="lazy" src="${esc(s.src)}" alt=""><span>${esc(s.caption)}</span></button>`).join('')}</div></div>` : ''}
+        <div class="status">
+          <button data-act="pass" class="${r.status === 'pass' ? 'sel-pass' : ''}">✓ Pass</button>
+          <button data-act="fail" class="${r.status === 'fail' ? 'sel-fail' : ''}">✗ Fail</button>
+          <button data-act="na" class="${r.status === 'na' ? 'sel-na' : ''}">N/A</button>
+          ${i.nav ? '<button data-act="open">Open screen</button>' : ''}
+          ${i.setup ? '<button data-act="setup" title="Apply the suggested device settings">Apply test setup</button>' : ''}
+          <button data-act="copy" title="Copy this item for Claude">Copy for Claude</button>
+          ${b ? '<button data-act="delbug" class="danger" title="Remove this bug report">Delete</button>' : ''}
+        </div>
+        ${r.status ? `<div class="byline">Marked ${r.status === 'na' ? 'N/A' : r.status} by ${esc(r.by)} · ${when(r.at)}</div>` : ''}
+        <div class="notes">
+          ${notes.length ? '<div class="section-label">Notes</div>' : ''}
+          ${notes.map((n) => `<div class="note"><div class="nh"><span><b>${esc(n.author)}</b> · ${when(n.at)}</span><button class="del" data-act="delnote" data-note="${esc(n.id)}" title="Delete note">✕</button></div>${n.text ? `<div class="nt">${esc(n.text)}</div>` : ''}${n.shot ? `<button class="shot" data-act="zoom" data-src="${esc(n.shot)}" data-cap="${esc(`Note by ${n.author}`)}"><img loading="lazy" src="${esc(n.shot)}" alt=""></button>` : ''}</div>`).join('')}
+        </div>
+        <div class="addnote">
+          <textarea data-draft placeholder="Add a note: what you saw, steps, device…">${esc(state.drafts[i.id] || '')}</textarea>
+          <div class="row" style="justify-content:space-between;margin-top:4px">
+            <label><input type="checkbox" data-attach ${state.attach[i.id] ? 'checked' : ''}> Attach a screenshot of the current app screen</label>
+            <button class="btn small primary" data-act="note">Add note</button>
+          </div>
+        </div>
+      </div></div>`;
+  }
+  function bindTodos(items) {
+    const byId = new Map(items.map((i) => [i.id, i]));
+    $('todoList').querySelectorAll('[data-act]').forEach((el) => el.onclick = (ev) => {
+      const act = el.dataset.act;
+      if (act === 'group') {
+        const g = el.closest('.group').dataset.group;
+        state.collapsedGroups.has(g) ? state.collapsedGroups.delete(g) : state.collapsedGroups.add(g);
+        store.set('eh-qa-v1-collapsed', [...state.collapsedGroups]);
+        return renderTodos();
+      }
+      ev.stopPropagation();
+      const item = byId.get(el.closest('.todo').dataset.id);
+      if (!item) return;
+      switch (act) {
+        case 'toggle':
+          if (state.expanded.has(item.id)) state.expanded.delete(item.id);
+          else { state.expanded.add(item.id); openScreen(item.nav); }
+          return renderTodos();
+        case 'open': return openScreen(item.nav);
+        case 'setup': return applySetup(item);
+        case 'zoom': return showLightbox(el.dataset.src, el.dataset.cap);
+        case 'copy': return copyText(itemReport(item), 'Copied — paste it into Claude');
+        case 'pass': case 'fail': case 'na': {
+          const next = statusOf(item.id) === act ? null : act;
+          return mutate(() => api('/api/status', { method: 'POST', body: JSON.stringify({ id: item.id, status: next, author: author() }) }));
+        }
+        case 'note': return addNote(item);
+        case 'delnote':
+          if (!confirm('Delete this note for everyone?')) return;
+          return mutate(() => api(`/api/notes/${encodeURIComponent(item.id)}/${encodeURIComponent(el.dataset.note)}`, { method: 'DELETE' }), 'Note deleted');
+        case 'delbug':
+          if (!confirm('Delete this bug report, its notes and screenshot for everyone?')) return;
+          state.expanded.delete(item.id);
+          return mutate(() => api(`/api/bugs/${encodeURIComponent(item.id)}`, { method: 'DELETE' }), 'Bug report deleted');
+      }
+    });
+    $('todoList').querySelectorAll('textarea[data-draft]').forEach((ta) => {
+      ta.oninput = () => { state.drafts[ta.closest('.todo').dataset.id] = ta.value; };
+      ta.onblur = () => { if (state.pendingRender) setTimeout(() => { if (!document.activeElement || document.activeElement.tagName !== 'TEXTAREA') renderTodos(); }, 150); };
+    });
+    $('todoList').querySelectorAll('input[data-attach]').forEach((cb) => cb.onchange = () => { state.attach[cb.closest('.todo').dataset.id] = cb.checked; });
+  }
+  async function addNote(item) {
+    const text = (state.drafts[item.id] || '').trim();
+    const attach = !!state.attach[item.id];
+    if (!text && !attach) { toast('Write a note or attach a screenshot'); return; }
+    let shot = null;
+    if (attach) {
+      try { shot = await toJpeg((await captureApp()).png); } catch (e) { toast('Screenshot failed: ' + e.message); return; }
+    }
+    await mutate(async () => {
+      await api('/api/notes', { method: 'POST', body: JSON.stringify({ id: item.id, text, author: author(), shot }) });
+      state.drafts[item.id] = ''; state.attach[item.id] = false;
+    }, 'Note added');
   }
   function applySetup(item) {
     const s = item.setup || {};
@@ -573,19 +868,92 @@
       renderTodos();
     });
     $('todoSearch').oninput = (e) => { state.search = e.target.value; renderTodos(); };
+    $('tester').value = state.tester;
+    $('tester').oninput = (e) => { state.tester = e.target.value.trim(); store.set('eh-qa-v1-name', state.tester); };
+    $('expandAll').onclick = () => {
+      const visible = allItems().filter(matches);
+      const allOpen = visible.every((i) => state.expanded.has(i.id));
+      visible.forEach((i) => allOpen ? state.expanded.delete(i.id) : state.expanded.add(i.id));
+      state.collapsedGroups.clear();
+      $('expandAll').textContent = allOpen ? 'Expand all' : 'Collapse all';
+      renderTodos();
+    };
     $('exportTodos').onclick = () => {
-      const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), results }, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'empowerhealth-qa-results.json'; a.click(); URL.revokeObjectURL(a.href);
+      const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), checklist: builtins, ...state.server }, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'empowerhealth-qa-checklist.json'; a.click(); URL.revokeObjectURL(a.href);
     };
-    $('importTodos').onclick = () => $('importFile').click();
-    $('importFile').onchange = async (e) => {
-      const f = e.target.files[0]; if (!f) return;
-      try { const data = JSON.parse(await f.text()); results = data.results || data; saveResults(); renderTodos(); toast('Results imported'); } catch { toast('Could not read that file'); }
-      e.target.value = '';
-    };
-    $('resetTodos').onclick = () => { if (confirm('Clear all pass/fail results and notes in this browser?')) { results = {}; saveResults(); renderTodos(); } };
-    renderCounts(); renderTodos();
+    renderTodos();
   }
+
+  // ---------- Report bug ----------
+  const bug = { shot: null, capture: null };
+  function openBugDialog() {
+    if (!state.ready) { toast('Wait for the app to load first'); return; }
+    $('bugGroup').innerHTML = GROUPS.map((g) => `<option>${esc(g.name)}</option>`).join('');
+    $('bugTitle').value = ''; $('bugComment').value = ''; $('bugPri').value = 'P1';
+    $('bugDialog').hidden = false;
+    $('bugTitle').focus();
+    takeBugShot();
+  }
+  async function takeBugShot() {
+    bug.shot = null; bug.capture = null;
+    $('bugPreview').innerHTML = '<div class="ph">Capturing the screen…</div>';
+    $('bugSubmit').disabled = true;
+    try {
+      const cap = await captureApp();
+      bug.capture = cap;
+      bug.shot = await toJpeg(cap.png);
+      $('bugPreview').innerHTML = `<img src="${bug.shot}" alt="Screenshot of the app">`;
+      $('bugGroup').value = groupForScreens(cap.screens, cap.tab);
+      const n = (cap.issues || []).length;
+      $('bugIssuesLabel').textContent = n ? `Include the ${n} layout finding${n > 1 ? 's' : ''} on this screen` : 'No layout findings on this screen';
+      $('bugIssues').disabled = !n;
+      $('bugContext').textContent = `${(cap.screens || []).join(' › ') || cap.route || ''} · ${device().name}`;
+    } catch (e) {
+      $('bugPreview').innerHTML = `<div class="ph">Screenshot failed: ${esc(e.message)}. You can still file the bug.</div>`;
+    }
+    $('bugSubmit').disabled = false;
+  }
+  async function submitBug() {
+    const title = $('bugTitle').value.trim();
+    if (!title) { $('bugTitle').focus(); toast('Add a short title'); return; }
+    const cap = bug.capture || {};
+    const body = {
+      title, comment: $('bugComment').value.trim(), pri: $('bugPri').value, group: $('bugGroup').value,
+      screens: cap.screens || state.screens, nav: { tab: Number.isInteger(cap.tab) ? cap.tab : undefined, route: cap.route && cap.route !== '/' ? cap.route : undefined },
+      device: { ...deviceConfig(), width: cap.width, height: cap.height },
+      issues: $('bugIssues').checked ? (cap.issues || []) : [], author: author(), shot: bug.shot,
+    };
+    $('bugSubmit').disabled = true;
+    try {
+      const res = await api('/api/bugs', { method: 'POST', body: JSON.stringify(body) });
+      $('bugDialog').hidden = true;
+      state.expanded.add(res.bug.id);
+      state.collapsedGroups.delete(res.bug.group);
+      await loadState();
+      renderTodos();
+      const el = document.querySelector(`.todo[data-id="${CSS.escape(res.bug.id)}"]`);
+      if (el) el.scrollIntoView({ block: 'nearest' });
+      toast('Bug added to the checklist');
+    } catch (e) { toast('Could not save the bug: ' + e.message); }
+    $('bugSubmit').disabled = false;
+  }
+  function initBugDialog() {
+    $('reportBug').onclick = openBugDialog;
+    $('bugCancel').onclick = () => { $('bugDialog').hidden = true; };
+    $('bugRetake').onclick = takeBugShot;
+    $('bugSubmit').onclick = submitBug;
+    $('bugDialog').addEventListener('click', (e) => { if (e.target === $('bugDialog')) $('bugDialog').hidden = true; });
+  }
+
+  // ---------- Lightbox ----------
+  function showLightbox(src, cap) { $('lightImg').src = src; $('lightCap').textContent = cap || ''; $('lightbox').hidden = false; }
+  $('lightbox').onclick = () => { $('lightbox').hidden = true; };
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    $('lightbox').hidden = true;
+    $('bugDialog').hidden = true;
+  });
 
   // ---------- Copy for Claude ----------
   function contextLines() {
@@ -601,7 +969,7 @@
     return list.map((i, n) => `${n + 1}. **${i.severity} ${i.kind}** — ${i.message}` +
       (i.text ? `\n   Text: "${i.text}"` : '') +
       (i.location ? `\n   Source: \`${i.location}\`${i.widget ? ` (${i.widget})` : ''}` : '') +
-      `\n   Rect: x ${i.rect.x}, y ${i.rect.y}, ${i.rect.w}×${i.rect.h}`);
+      (i.rect ? `\n   Rect: x ${i.rect.x}, y ${i.rect.y}, ${i.rect.w}×${i.rect.h}` : ''));
   }
   function errorLines(limit) {
     return state.logs.filter((l) => l.level === 'error').slice(-limit).map((l) => {
@@ -619,16 +987,36 @@
       ...(i.ancestors || []).slice(0, 5).map((a) => `  - parent ${a.type} ${a.size} (${a.constraints})${a.location ? ` \`${a.location}\`` : ''}`),
     ].filter(Boolean);
   }
-  const PREAMBLE = 'Context: EmpowerHealth Watch is a Flutter app. These findings come from the web QA harness, which runs the debug web build in a phone-sized viewport with simulated iOS text size, Bold Text, safe areas and keyboard. Source paths are relative to the repo root. Please fix the failing checks and layout issues without redesigning the screens.';
+  // One checklist item, with screenshots, notes and any captured findings.
+  function itemBlock(i) {
+    const r = state.server.results?.[i.id] || {};
+    const b = i.bug;
+    const lines = [`### [${i.pri} · ${i.owner}] ${i.group} — ${i.text}`, `Status: ${r.status ? `${r.status} (by ${r.by})` : 'not tested'}`];
+    if (b) {
+      lines.push(`Reported by ${b.author} on ${when(b.at)}${b.screens?.length ? ` · screen ${b.screens.join(' › ')}` : ''}${b.nav?.route ? ` · route ${b.nav.route}` : ''}`);
+      if (b.device?.device) lines.push(`Device at report: ${b.device.device}, text ${b.device.textScale}×, Bold ${b.device.boldText ? 'on' : 'off'}, keyboard ${b.device.keyboard ? 'shown' : 'hidden'}`);
+      if (b.comment) lines.push('', b.comment);
+    }
+    if (i.hint) lines.push(`How to check: ${i.hint}`);
+    const shots = [...i.shots, ...notesOf(i.id).filter((n) => n.shot).map((n) => ({ src: n.shot, caption: `note by ${n.author}` }))];
+    if (shots.length) lines.push('Screenshots:', ...shots.map((s) => `- ${s.caption}: ${abs(s.src)}`));
+    const notes = notesOf(i.id).filter((n) => n.text);
+    if (notes.length) lines.push('Tester notes:', ...notes.map((n) => `- ${n.author} (${when(n.at)}): ${n.text}`));
+    if (b?.issues?.length) lines.push('Layout findings when reported:', ...issueLines(b.issues).map((l) => '  ' + l));
+    return lines.join('\n');
+  }
+  const PREAMBLE = 'Context: EmpowerHealth Watch is a Flutter app. These findings come from the web QA harness, which runs the debug web build in a phone-sized viewport with simulated iOS text size, Bold Text, safe areas and keyboard. Source paths are relative to the repo root; screenshot links need the QA suite to be reachable. Please fix the open bugs and failing checks without redesigning the screens.';
   function fullReport() {
-    const failing = items.filter((i) => results[i.id]?.status === 'fail');
-    const noted = items.filter((i) => results[i.id]?.note && results[i.id]?.status !== 'fail');
-    const c = { pass: 0, fail: 0, na: 0 }; items.forEach((i) => { const s = results[i.id]?.status; if (s) c[s]++; });
+    const items = allItems();
+    const openBugs = items.filter((i) => i.bug && !['pass', 'na'].includes(statusOf(i.id)));
+    const failing = items.filter((i) => !i.bug && statusOf(i.id) === 'fail');
+    const noted = items.filter((i) => !i.bug && statusOf(i.id) !== 'fail' && notesOf(i.id).some((n) => n.text));
+    const c = { pass: 0, fail: 0, na: 0 }; items.forEach((i) => { const s = statusOf(i.id); if (s) c[s]++; });
     const out = ['# EmpowerHealth Watch — web QA report', '', PREAMBLE, '', ...contextLines(),
-      `- Checklist: ${c.pass} pass · ${c.fail} fail · ${items.length - c.pass - c.fail - c.na} not tested`, ''];
-    out.push(`## Failing checks (${failing.length})`, '');
-    out.push(...(failing.length ? failing.map((i) => `- **[${i.pri} · ${i.owner}] ${i.area}** — ${i.text}${results[i.id].note ? `\n  Tester note: ${results[i.id].note}` : ''}`) : ['None marked as failing.']), '');
-    if (noted.length) out.push('## Other tester notes', '', ...noted.map((i) => `- ${i.area}: ${i.text}\n  Note: ${results[i.id].note}`), '');
+      `- Checklist: ${c.pass} pass · ${c.fail} fail · ${items.length - c.pass - c.fail - c.na} open · ${openBugs.length} open bug reports`, ''];
+    out.push(`## Open bug reports (${openBugs.length})`, '', ...(openBugs.length ? openBugs.map(itemBlock).join('\n\n').split('\n') : ['None.']), '');
+    out.push(`## Failing checks (${failing.length})`, '', ...(failing.length ? failing.map(itemBlock).join('\n\n').split('\n') : ['None marked as failing.']), '');
+    if (noted.length) out.push('## Other checks with notes', '', ...noted.map(itemBlock).join('\n\n').split('\n'), '');
     out.push(`## Layout issues on the visible screen (${state.issues.length})`, '', ...(state.issues.length ? issueLines(state.issues) : ['None found by the audit.']), '');
     const errs = errorLines(8);
     out.push(`## Recent errors (${errs.length})`, '', ...(errs.length ? errs : ['None.']), '');
@@ -637,9 +1025,7 @@
     return out.join('\n');
   }
   function itemReport(item) {
-    const r = results[item.id] || {};
-    const out = ['# EmpowerHealth Watch — QA check', '', PREAMBLE, '', `**[${item.pri} · ${item.owner}] ${item.area}** — ${item.text}`,
-      `Status: ${r.status || 'not tested'}${r.note ? `\nTester note: ${r.note}` : ''}`, '', ...contextLines(), ''];
+    const out = ['# EmpowerHealth Watch — QA item', '', PREAMBLE, '', itemBlock(item), '', '## Current harness state', ...contextLines(), ''];
     if (state.issues.length) out.push('## Layout issues on the visible screen', '', ...issueLines(state.issues), '');
     const ins = inspectedLines(); if (ins.length) out.push('## Inspected element', '', ...ins, '');
     return out.join('\n');
@@ -661,7 +1047,9 @@
     state.build = b && b.commit ? `${b.branch || '?'} @ ${String(b.commit).slice(0, 9)}` : 'local build';
     $('build').textContent = state.build;
   }).catch(() => { state.build = 'local build'; $('build').textContent = state.build; });
-  initToolbar(); initTodos(); initConsole(); layoutDevice(); loadApp();
+  initToolbar(); initTodos(); initConsole(); initBugDialog(); layoutDevice(); loadApp();
+  loadState();
+  setInterval(() => { if (document.visibilityState === 'visible') loadState(); }, 10000);
 })();
 </script>
 </body>

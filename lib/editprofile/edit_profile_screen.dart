@@ -113,6 +113,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     
     try {
       final profile = await _databaseService.getUserProfile(userId);
+      if (!mounted) return;
       if (profile != null) {
         setState(() {
           _userProfile = profile;
@@ -157,7 +158,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

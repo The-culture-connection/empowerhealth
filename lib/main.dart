@@ -16,8 +16,12 @@ import 'services/push_notification_service.dart';
 import 'services/database_service.dart';
 import 'services/analytics_service.dart';
 import 'providers/profile_creation_provider.dart';
+import 'qa/qa_harness.dart';
 
-void main() async {
+// QaHarness.run is a pass-through unless built with QA_HARNESS=true.
+void main() => QaHarness.run(_appMain);
+
+Future<void> _appMain() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   var firebaseReady = false;
@@ -91,10 +95,10 @@ class _AdvocacyAppState extends State<AdvocacyApp> {
         theme: AppTheme.light(),
         themeMode: ThemeMode.light,
         onGenerateRoute: AppRouter.onGenerateRoute,
+        navigatorObservers: QaHarness.navigatorObservers,
         // Bound the OS text-scale so accessibility font settings can't overflow
         // the app's fixed-size layouts, while still honoring moderate scaling.
-        builder: (context, child) {
-          final mq = MediaQuery.of(context);
+        builder: (context, child) => QaHarness.wrapApp(context, (mq) {
           return MediaQuery(
             data: mq.copyWith(
               textScaler: mq.textScaler.clamp(
@@ -104,7 +108,7 @@ class _AdvocacyAppState extends State<AdvocacyApp> {
             ),
             child: child ?? const SizedBox.shrink(),
           );
-        },
+        }),
         home: const _InitialAuthGate(),
       ),
     );

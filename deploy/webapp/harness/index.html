@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EmpowerHealth QA Harness</title>
+<style>
+  :root {
+    --bg: #f4f3f7; --panel: #ffffff; --line: #e4e1ea; --text: #1f1b2d; --muted: #6b6578;
+    --brand: #663399; --brand-soft: #efe7f7; --p0: #d93036; --p0-soft: #fdecec;
+    --p1: #b76e00; --p1-soft: #fff4e0; --p2: #4b5563; --p2-soft: #eef0f3;
+    --pass: #1a7f4b; --pass-soft: #e5f5ec; --info: #2f6fdd; --info-soft: #e8f0fd;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --stage: #e9e6ef;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; overflow: hidden; }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+
+  header { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--line); flex: none; }
+  header h1 { font-size: 14px; margin: 0; font-weight: 650; white-space: nowrap; }
+  header .build { color: var(--muted); font-family: var(--mono); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header .spacer { flex: 1; }
+  .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 7px; padding: 5px 10px; white-space: nowrap; }
+  .btn:hover { border-color: #c9c3d4; }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+  .btn.primary:hover { background: #57298a; }
+  .btn.on { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); font-weight: 600; }
+  .btn.small { padding: 2px 7px; font-size: 12px; border-radius: 6px; }
+  a.link { color: var(--brand); text-decoration: none; white-space: nowrap; }
+
+  main { flex: 1; display: grid; grid-template-columns: 340px minmax(0, 1fr) 420px; min-height: 0; }
+  section.panel { background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  #todos { border-right: 1px solid var(--line); }
+  #console { border-left: 1px solid var(--line); }
+  .panel-head { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; flex: none; }
+  .panel-head h2 { margin: 0; font-size: 13px; font-weight: 650; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .scroll { overflow: auto; flex: 1; min-height: 0; }
+
+  /* Checklist */
+  .progress { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--p2-soft); }
+  .progress > span { display: block; height: 100%; }
+  .counts { color: var(--muted); font-size: 12px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { border: 0; background: none; padding: 3px 9px; font-size: 12px; }
+  .seg button.on { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+  input[type=search] { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; background: #fbfafc; }
+  .group h3 { position: sticky; top: 0; z-index: 1; margin: 0; padding: 7px 12px; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: #faf9fc; border-bottom: 1px solid var(--line); }
+  .todo { padding: 9px 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+  .todo.fail { background: #fffafa; }
+  .todo.pass .ttext { color: var(--muted); }
+  .todo .top { display: flex; gap: 6px; align-items: flex-start; }
+  .chip { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; white-space: nowrap; line-height: 1.6; }
+  .chip.P0 { background: var(--p0-soft); color: var(--p0); }
+  .chip.P1 { background: var(--p1-soft); color: var(--p1); }
+  .chip.P2 { background: var(--p2-soft); color: var(--p2); }
+  .chip.tag { background: var(--info-soft); color: var(--info); }
+  .chip.pass { background: var(--pass-soft); color: var(--pass); }
+  .chip.fail { background: var(--p0-soft); color: var(--p0); }
+  .ttext { flex: 1; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .status { display: flex; gap: 4px; flex-wrap: wrap; }
+  .status button { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 1px 8px; font-size: 12px; }
+  .status button.sel-pass { background: var(--pass-soft); border-color: var(--pass); color: var(--pass); font-weight: 600; }
+  .status button.sel-fail { background: var(--p0-soft); border-color: var(--p0); color: var(--p0); font-weight: 600; }
+  .status button.sel-na { background: var(--p2-soft); border-color: var(--p2); font-weight: 600; }
+  .todo textarea { width: 100%; min-height: 48px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font-size: 12px; background: #fbfafc; }
+
+  /* Stage */
+  #stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--stage); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .toolbar label { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }
+  .toolbar select { border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px; background: #fff; color: var(--text); }
+  #viewport { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: flex-start; overflow: hidden; padding: 18px 0; position: relative; }
+  #scaler { transform-origin: top center; }
+  .device { position: relative; background: #111; border-radius: 46px; padding: 12px; box-shadow: 0 18px 50px rgba(30, 20, 50, .28); }
+  .device.flat { border-radius: 14px; padding: 8px; }
+  .screen { position: relative; overflow: hidden; border-radius: 36px; background: #fff; }
+  .device.flat .screen { border-radius: 8px; }
+  .screen iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+  .statusbar { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font: 600 14px system-ui, -apple-system, sans-serif; color: #111; pointer-events: none; z-index: 2; }
+  .island { position: absolute; left: 50%; transform: translateX(-50%); background: #000; border-radius: 20px; }
+  .homebar { position: absolute; left: 50%; bottom: 8px; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: rgba(0,0,0,.75); pointer-events: none; z-index: 3; }
+  .keyboard { position: absolute; left: 0; right: 0; bottom: 0; background: #d1d3d9; z-index: 2; pointer-events: none; display: flex; flex-direction: column; gap: 9px; padding: 8px 4px; }
+  .keyboard .sugg { height: 30px; border-bottom: 1px solid #bfc2c8; display: flex; justify-content: space-around; align-items: center; color: #555; font-size: 14px; }
+  .keyboard .krow { display: flex; gap: 6px; justify-content: center; }
+  .keyboard .k { flex: 0 0 8.6%; height: 40px; background: #fff; border-radius: 5px; box-shadow: 0 1px 0 #8a8d93; }
+  .keyboard .k.wide { flex: 0 0 48%; }
+  .keyboard .note { position: absolute; top: 6px; right: 8px; font-size: 10px; color: #6b6e75; }
+  .metrics { text-align: center; color: var(--muted); font-family: var(--mono); font-size: 11.5px; padding: 6px 12px; background: var(--panel); border-top: 1px solid var(--line); }
+  .waiting { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; background: #fff; z-index: 4; text-align: center; padding: 20px; }
+
+  /* Console */
+  .tabs { display: flex; border-bottom: 1px solid var(--line); flex: none; }
+  .tabs button { flex: 1; border: 0; background: none; padding: 8px 4px; font-size: 12.5px; color: var(--muted); border-bottom: 2px solid transparent; }
+  .tabs button.on { color: var(--brand); border-bottom-color: var(--brand); font-weight: 650; }
+  .badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--p2-soft); color: var(--p2); font-size: 11px; font-weight: 700; margin-left: 4px; }
+  .badge.err { background: var(--p0-soft); color: var(--p0); }
+  .pane { display: none; }
+  .pane.on { display: block; }
+  .issue { padding: 9px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .issue:hover { background: #faf8fd; }
+  .issue .msg { font-weight: 550; }
+  .loc { font-family: var(--mono); font-size: 11.5px; color: var(--brand); word-break: break-all; }
+  .snippet { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .empty { padding: 24px 16px; color: var(--muted); text-align: center; }
+  .log { padding: 4px 12px; border-bottom: 1px solid #f1eff4; font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; }
+  .log.error { background: #fff6f6; color: #9b1c20; cursor: pointer; }
+  .log.warn { background: #fffaf0; color: #7a4d00; }
+  .log .t { color: #a59fb0; margin-right: 6px; }
+  .log details pre { margin: 6px 0 2px; white-space: pre-wrap; color: #5d1114; font-size: 11px; }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; padding: 12px; font-size: 12.5px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; word-break: break-word; }
+  table.anc { width: calc(100% - 24px); margin: 0 12px 12px; border-collapse: collapse; font-size: 11.5px; }
+  table.anc th, table.anc td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.anc td { font-family: var(--mono); }
+  .nav { padding: 6px 12px; border-bottom: 1px solid #f1eff4; font-size: 12px; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1f1b2d; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 10; }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 1200px) { main { grid-template-columns: 290px minmax(0, 1fr) 340px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>EmpowerHealth Watch · QA harness</h1>
+  <span class="build" id="build">loading build…</span>
+  <span class="spacer"></span>
+  <a class="link" id="openApp" href="/app/" target="_blank" rel="noopener">Open app alone ↗</a>
+  <button class="btn primary" id="copyClaude" title="Copy a report of failing checks, layout issues, errors and the inspected element, ready to paste into Claude">Copy for Claude</button>
+</header>
+
+<main>
+  <!-- Left: checklist -->
+  <section class="panel" id="todos">
+    <div class="panel-head">
+      <div class="row" style="justify-content:space-between"><h2>Pre-launch checklist</h2><span class="counts" id="counts"></span></div>
+      <div class="progress" id="progress"></div>
+      <div class="row">
+        <div class="seg" id="todoFilter">
+          <button data-f="all" class="on">All</button><button data-f="open">Not tested</button><button data-f="fail">Failing</button><button data-f="pass">Passed</button>
+        </div>
+      </div>
+      <input type="search" id="todoSearch" placeholder="Search checks…">
+    </div>
+    <div class="scroll" id="todoList"></div>
+    <div class="panel-head" style="border-top:1px solid var(--line);border-bottom:0">
+      <div class="row"><button class="btn small" id="exportTodos">Export JSON</button><button class="btn small" id="importTodos">Import JSON</button><button class="btn small" id="resetTodos">Reset</button></div>
+      <span class="hint">Results are saved in this browser only. Export to share.</span>
+    </div>
+  </section>
+
+  <!-- Center: app -->
+  <section id="stage">
+    <div class="toolbar">
+      <label>Device <select id="device"></select></label>
+      <label>Text size <select id="textSize"></select></label>
+      <button class="btn small" id="bold" title="iOS Settings → Accessibility → Bold Text">Bold Text</button>
+      <button class="btn small" id="keyboard" title="Simulates the on-screen keyboard (viewInsets.bottom)">Keyboard</button>
+      <label>Platform <select id="platform"><option value="ios">iOS</option><option value="android">Android</option></select></label>
+      <label>Zoom <select id="zoom"><option value="fit">Fit</option><option value="1">100%</option><option value="0.75">75%</option></select></label>
+      <button class="btn small" id="reload">Reload app</button>
+    </div>
+    <div id="viewport">
+      <div id="scaler">
+        <div class="device" id="deviceFrame">
+          <div class="screen" id="screen">
+            <iframe id="app" title="EmpowerHealth Watch app"></iframe>
+            <div class="statusbar" id="statusbar"><span id="clock">9:41</span><span>●●● ▮</span></div>
+            <div class="island" id="island"></div>
+            <div class="keyboard" id="kbd" hidden></div>
+            <div class="homebar" id="homebar"></div>
+            <div class="waiting" id="waiting">Loading the app (debug build — first load can take 20–30s)…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="metrics" id="metrics">waiting for app…</div>
+  </section>
+
+  <!-- Right: console -->
+  <section class="panel" id="console">
+    <div class="panel-head">
+      <div class="row">
+        <button class="btn small" id="runAudit">Run layout audit</button>
+        <button class="btn small" id="highlight" title="Outline every issue on the device">Highlight issues</button>
+        <button class="btn small" id="inspect" title="Tap anything in the app to see its geometry and source location">Inspect</button>
+        <button class="btn small" id="clear">Clear</button>
+      </div>
+    </div>
+    <div class="tabs" id="tabs">
+      <button data-t="issues" class="on">Layout<span class="badge" id="bIssues">0</span></button>
+      <button data-t="logs">Console<span class="badge" id="bLogs">0</span></button>
+      <button data-t="inspector">Inspector</button>
+      <button data-t="nav">Navigation</button>
+    </div>
+    <div class="scroll">
+      <div class="pane on" id="p-issues"></div>
+      <div class="pane" id="p-logs"></div>
+      <div class="pane" id="p-inspector"><div class="empty">Turn on <b>Inspect</b>, then tap any text or control in the app.</div></div>
+      <div class="pane" id="p-nav"></div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+<input type="file" id="importFile" accept="application/json" hidden>
+
+<script>
+(() => {
+  // ---------- Data ----------
+  const DEVICES = {
+    se:     { name: 'iPhone SE (3rd gen)', w: 375, h: 667, top: 20, bottom: 0, kb: 260, island: null, flat: false, platform: 'ios' },
+    mini:   { name: 'iPhone 13 mini', w: 375, h: 812, top: 50, bottom: 34, kb: 336, island: { w: 126, h: 32, y: 6 }, platform: 'ios' },
+    i15:    { name: 'iPhone 15', w: 393, h: 852, top: 59, bottom: 34, kb: 336, island: { w: 124, h: 36, y: 11 }, platform: 'ios' },
+    promax: { name: 'iPhone 15 Pro Max', w: 430, h: 932, top: 59, bottom: 34, kb: 346, island: { w: 124, h: 36, y: 11 }, platform: 'ios' },
+    pixel:  { name: 'Pixel 7', w: 412, h: 915, top: 24, bottom: 24, kb: 320, island: { w: 12, h: 12, y: 8 }, platform: 'android' },
+  };
+  // iOS Dynamic Type steps relative to the default (Large = 17pt).
+  const TEXT_SIZES = [
+    { id: 'm', label: 'Medium (0.94×)', v: 0.94 },
+    { id: 'l', label: 'Large — default (1.0×)', v: 1.0 },
+    { id: 'xl', label: 'xLarge (1.12×)', v: 1.12 },
+    { id: 'xxl', label: 'xxLarge (1.24×)', v: 1.24 },
+    { id: 'xxxl', label: 'xxxLarge (1.35× → app caps 1.3×)', v: 1.35 },
+  ];
+  const STRESS = { device: 'se', text: 'xxxl', bold: true };
+
+  // From the pre-launch developer review. `setup` = suggested harness settings.
+  const TODOS = [
+    ['Shared components', [
+      ['P0','FE','Remove fixed or narrow text widths in shared card layouts so text uses the full mobile width. This is the root cause of the one-character-per-line bugs.','Run the layout audit on every tab at iPhone SE + xxxLarge + Bold: no "squeezed" issues.',STRESS],
+      ['P1','FE','Stop truncating essential titles, labels, dates and descriptions; wrap the text and let cards grow taller.','Audit shows no "truncated" issues on essential copy.',STRESS],
+      ['P1','FE','Prevent mid-word line breaks.','Audit shows no "mid-word" issues.',STRESS],
+      ['P2','FE','Position the floating support/heart button in the safe area so it never covers text, buttons, fields or the bottom nav.','Scroll every tab to the bottom on iPhone 15; nothing sits under the button.',{device:'i15'}],
+      ['P1','BE','Make AI-generated content speak in "you/your" instead of "The patient…" (the visit-summary prompt in functions/index.js).','Upload a visit summary after functions deploy; no "the patient" wording.',null],
+    ]],
+    ['Home', [
+      ['P1','FE','"My Visits & What It Means" and "My Care Plan" cards: give the copy more width so "Summaries" and "personalized" don\'t break.','',STRESS],
+      ['P1','FE','Search placeholder is cut off ("Search symptoms, t…"): widen the field or shorten the placeholder.','',STRESS],
+      ['P1','FE','"Find your care team" supporting text is cut off: let it wrap.','',STRESS],
+      ['P1','FE','Community card: keep "EmpowerHealth Watch" on one line.','',STRESS],
+      ['P1','FE','Trimester learning card: render the full trimester heading and supporting copy.','',STRESS],
+      ['P1','FE','Trimester banner: link to the single trimester module in Learn instead of a duplicate copy of the content.','Tap the banner; Navigation tab should show the same screen as Learn\'s trimester card.',null],
+      ['P2','FE','Check that the support icon doesn\'t cover lower-right content in any Home state.','',{device:'se'}],
+    ]],
+    ['Learn', [
+      ['P0','FE','"Your next steps" cards: let the title and description use the full card width, and move the checkbox/status badge to its own row.','',STRESS],
+      ['P1','FE','Module cards are clipped horizontally: fix carousel padding, card widths and viewport behavior.','',STRESS],
+      ['P1','FE','Trimester card truncates its title and subtitle ("Second trimes…" / "Week 18 of 40 · W…").','',STRESS],
+      ['P1','FE','Make the All / Modules / Archived filters show distinct content.','',null],
+      ['P1','FE','Archived with no items: show only the empty state, with no active modules underneath.','',null],
+      ['P1','FE','Long next-step cards: show a short summary first, with details behind an expand.','',null],
+      ['P2','FE','Know Your Rights followed by next steps: confirm the placement is intentional and add a section transition.','',null],
+      ['P1','BE','Have the AI prompt write a short plain-language summary per next step, in second person ("You were referred…").','',null],
+    ]],
+    ['Journal', [
+      ['P1','FE','Recent reflections: dates are cut off ("Septemb…"); use a short format like "Sep 26, 2026".','',STRESS],
+      ['P1','FE','Keep "Save check-in" on one line.','',STRESS],
+      ['P2','FE','Balance the Save and Cancel button sizes.','',null],
+      ['P2','FE','Check that the floating heart never covers notes, reflection cards or the save action.','',{device:'se'}],
+    ]],
+    ['Community', [
+      ['P0','FE','Header: keep "Community" intact by moving or resizing the New post button.','',STRESS],
+      ['P1','FE','Category tabs: make the row deliberately scrollable with a visible edge cue, and confirm each tab shows only matching posts.','',{device:'se'}],
+      ['P1','FE','"Help Another Mama Choose Care" card: shorten the copy, left-align and widen the text, and reduce the height so the feed is visible. Keep the dismiss control.','',{device:'se'}],
+      ['P1','FE','"Share app feedback" button: separate app feedback from provider-experience feedback, or relabel it.','',null],
+      ['P1','FE','Create Post: keep the public-post warning, require a category, and show any anonymous-post option clearly before publishing.','',null],
+      ['P1','FE','Show the trash icon only on the user\'s own posts, or to moderators.','',null],
+      ['P2','FE','Post metadata (author, date, replies): improve contrast and spacing.','',null],
+      ['P1','BE','Enforce delete permissions in firestore.rules (owner or explicit moderator role only) and test them.','Covered by tests/firestore-rules (npm run test:emulator).',null],
+      ['P1','BE','Confirm a category is recorded on every post; the create rule doesn\'t currently require one.','',null],
+    ]],
+    ['You / Profile', [
+      ['P0','FE','Rebuild the profile summary card with flexible rows; the name renders one character per line.','Try a long name too (Edit Profile).',STRESS],
+      ['P0','FE','Fix the "updated" date, which also renders vertically.','',STRESS],
+      ['P1','FE','Header subtitle ("Manage your information and pr…") is clipped: let it wrap.','',STRESS],
+      ['P1','FE','Put Edit Profile in its own stable row and test with long names.','',STRESS],
+      ['P1','FE','Privacy & Trust Center card: give the text the full width, with the icon and chevron in compact side columns.','',STRESS],
+      ['P2','FE','Standardize spacing and alignment across accordion rows ("Your support experience" wraps to two lines).','',STRESS],
+    ]],
+    ['AI Assistant / Support', [
+      ['P1','FE','Keep the composer, typed text and send button visible above the iOS keyboard.','Turn on Keyboard: the composer must sit directly above it.',{device:'se', keyboard:true}],
+      ['P1','FE','Reopen at the bottom of the conversation with the composer visible, and/or add a "New question" action.','',null],
+      ['P1','FE','Make behavior identical from every entry point (Health Literacy, Support shortcut).','',null],
+      ['P1','FE','Support resource cards (CDC Hear Her, 211, WIC, others): check each opens the right destination and returns the user to the expected place.','',null],
+    ]],
+    ['Find Your Care / Mama Approved', [
+      ['P0','FE','Provider card header: make the provider name readable and move the Mama Approved badge so it doesn\'t compete for width.','',STRESS],
+      ['P1','FE','Shorten the dense explanatory copy on provider search and Mama Approved.','',null],
+      ['P1','FE','Make empty and no-result states clear, and test provider detail and back navigation.','',null],
+      ['P1','BE','Make the Mama Approved badge match the stated rule (at least 3 reviews and a 4.0 average), test the boundary cases, and confirm counts update.','Unit tests: test/provider_mama_approved_test.dart.',null],
+      ['P1','BE','Test that standard and Expanded search return correct results for ZIP, radius and plan filters.','Needs live searches against the Ohio Medicaid directory.',null],
+    ]],
+    ['Final QA', [
+      ['P1','QA','One regression pass across all five tabs, provider search and the AI Assistant on one smaller and one larger iPhone.','Do it at iPhone SE and iPhone 15 Pro Max.',null],
+    ]],
+  ];
+  const items = [];
+  TODOS.forEach(([area, list]) => list.forEach(([pri, owner, text, hint, setup], i) => {
+    items.push({ id: area.toLowerCase().replace(/[^a-z]+/g, '-') + '-' + (i + 1), area, pri, owner, text, hint, setup });
+  }));
+
+  // ---------- Storage (per browser; may be unavailable) ----------
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  };
+  let results = store.get('eh-qa-v1-results', {});   // id -> { status, note, at }
+  const settings = Object.assign({ device: 'se', text: 'l', bold: false, keyboard: false, platform: 'ios', zoom: 'fit' }, store.get('eh-qa-v1-settings', {}));
+
+  // ---------- State ----------
+  const $ = (id) => document.getElementById(id);
+  const state = { ready: false, metrics: null, issues: [], route: '/', screens: [], logs: [], errors: 0, nav: [], inspected: null, highlight: false, inspect: false, todoFilter: 'all', search: '' };
+
+  // ---------- Helpers ----------
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const toast = (msg) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 1800); };
+  const time = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const textSize = () => TEXT_SIZES.find((t) => t.id === settings.text) || TEXT_SIZES[1];
+  const device = () => DEVICES[settings.device] || DEVICES.se;
+
+  function deviceConfig() {
+    const d = device();
+    return { device: d.name, textScale: textSize().v, boldText: settings.bold, safeTop: d.top, safeBottom: d.bottom, keyboard: settings.keyboard, keyboardHeight: d.kb, platform: settings.platform };
+  }
+  function send(msg) {
+    const w = $('app').contentWindow;
+    if (w) w.postMessage(JSON.stringify({ ...msg, source: 'eh-qa-host' }), location.origin);
+  }
+
+  // ---------- Device ----------
+  function initToolbar() {
+    $('device').innerHTML = Object.entries(DEVICES).map(([k, d]) => `<option value="${k}">${esc(d.name)} · ${d.w}×${d.h}</option>`).join('');
+    $('textSize').innerHTML = TEXT_SIZES.map((t) => `<option value="${t.id}">${esc(t.label)}</option>`).join('');
+    $('device').value = settings.device; $('textSize').value = settings.text; $('platform').value = settings.platform; $('zoom').value = settings.zoom;
+    $('device').onchange = (e) => { settings.device = e.target.value; settings.platform = device().platform; $('platform').value = settings.platform; applySettings(); };
+    $('textSize').onchange = (e) => { settings.text = e.target.value; applySettings(); };
+    $('platform').onchange = (e) => { settings.platform = e.target.value; applySettings(); };
+    $('zoom').onchange = (e) => { settings.zoom = e.target.value; applySettings(); };
+    $('bold').onclick = () => { settings.bold = !settings.bold; applySettings(); };
+    $('keyboard').onclick = () => { settings.keyboard = !settings.keyboard; applySettings(); };
+    $('reload').onclick = () => loadApp();
+  }
+
+  function layoutDevice() {
+    const d = device();
+    const frame = $('deviceFrame'), screen = $('screen');
+    screen.style.width = d.w + 'px'; screen.style.height = d.h + 'px';
+    screen.style.borderRadius = settings.device === 'se' ? '6px' : '';
+    frame.style.borderRadius = settings.device === 'se' ? '30px' : '';
+    frame.style.padding = settings.device === 'se' ? '56px 14px' : '';
+    const sb = $('statusbar'); sb.style.height = d.top + 'px';
+    sb.style.padding = settings.device === 'se' ? '0 10px' : '0 28px';
+    sb.style.fontSize = settings.device === 'se' ? '12px' : '14px';
+    const isl = $('island');
+    if (d.island) { isl.hidden = false; Object.assign(isl.style, { width: d.island.w + 'px', height: d.island.h + 'px', top: d.island.y + 'px', borderRadius: d.island.h / 2 + 'px' }); } else { isl.hidden = true; }
+    $('homebar').hidden = d.bottom === 0 || settings.keyboard;
+    const kbd = $('kbd');
+    kbd.hidden = !settings.keyboard; kbd.style.height = d.kb + 'px';
+    if (!kbd.childElementCount) {
+      kbd.innerHTML = '<div class="note">simulated keyboard</div><div class="sugg"><span>I</span><span>the</span><span>I\'m</span></div>' +
+        [10, 9, 9].map((n) => '<div class="krow">' + '<span class="k"></span>'.repeat(n) + '</div>').join('') +
+        '<div class="krow"><span class="k"></span><span class="k wide"></span><span class="k"></span></div>';
+    }
+    $('bold').classList.toggle('on', settings.bold);
+    $('keyboard').classList.toggle('on', settings.keyboard);
+    fitZoom();
+  }
+
+  function fitZoom() {
+    const vp = $('viewport'), scaler = $('scaler'), frame = $('deviceFrame');
+    scaler.style.transform = 'none';
+    const fw = frame.offsetWidth, fh = frame.offsetHeight;
+    let s = settings.zoom === 'fit' ? Math.min(1, (vp.clientHeight - 36) / fh, (vp.clientWidth - 24) / fw) : Number(settings.zoom);
+    s = Math.max(0.3, s);
+    scaler.style.transform = `scale(${s})`;
+    scaler.style.height = fh * s + 'px';
+  }
+
+  function applySettings() {
+    store.set('eh-qa-v1-settings', settings);
+    layoutDevice();
+    if (state.ready) send({ type: 'config', config: deviceConfig() });
+  }
+
+  function appUrl() {
+    const c = deviceConfig();
+    const q = new URLSearchParams({ device: c.device, ts: c.textScale, bold: c.boldText, top: c.safeTop, bottom: c.safeBottom, kb: c.keyboard, kbh: c.keyboardHeight, platform: c.platform });
+    return '/app/?' + q.toString();
+  }
+
+  function loadApp() {
+    state.ready = false;
+    $('waiting').hidden = false;
+    $('metrics').textContent = 'waiting for app…';
+    $('app').src = appUrl();
+    clearInterval(loadApp._ping);
+    loadApp._ping = setInterval(() => { if (state.ready) clearInterval(loadApp._ping); else send({ type: 'ping' }); }, 1000);
+  }
+
+  // ---------- Messages from the app ----------
+  window.addEventListener('message', (e) => {
+    if (e.source !== $('app').contentWindow || typeof e.data !== 'string') return;
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    if (m.source !== 'eh-qa') return;
+    switch (m.type) {
+      case 'ready':
+        if (!state.ready) { state.ready = true; $('waiting').hidden = true; addLog('info', 'App connected'); send({ type: 'config', config: deviceConfig() }); if (state.highlight) send({ type: 'highlight', on: true }); if (state.inspect) send({ type: 'inspect', on: true }); }
+        break;
+      case 'metrics': state.metrics = m; state.route = m.route || state.route; renderMetrics(); break;
+      case 'log': addLog(m.level === 'warn' ? 'warn' : 'log', m.message); break;
+      case 'error': addError(m); break;
+      case 'nav': state.route = m.route; state.screens = m.screens || []; state.nav.unshift({ t: time(), ...m }); state.nav.length = Math.min(state.nav.length, 200); renderNav(); renderMetrics(); break;
+      case 'audit': state.issues = m.issues || []; state.route = m.route || state.route; state.screens = m.screens || state.screens; renderIssues(); break;
+      case 'inspect': state.inspected = { ...m.info, route: m.route }; renderInspector(); showTab('inspector'); break;
+    }
+  });
+
+  function renderMetrics() {
+    const m = state.metrics; if (!m) return;
+    const eff = Number(m.textScaleEffective).toFixed(2), req = Number(m.textScale).toFixed(2);
+    $('metrics').textContent = `${Math.round(m.width)}×${Math.round(m.height)} logical px · text ${req}×${req !== eff ? ` → ${eff}× (app clamp)` : ''} · Bold ${m.boldText ? 'on' : 'off'} · safe area ${m.safeTop}/${m.safeBottom}` +
+      `${m.keyboard ? ` · keyboard ${m.keyboard}px` : ''} · ${m.platform === 'android' ? 'Android' : 'iOS'} mode · browser DPR ${Number(m.dpr).toFixed(2)} (phone is 3×; layout is unaffected)` +
+      ` · screen: ${state.screens.join(', ') || state.route}`;
+  }
+
+  // ---------- Console panes ----------
+  function addLog(level, message) {
+    state.logs.push({ t: time(), level, message: String(message) });
+    if (state.logs.length > 800) state.logs.shift();
+    renderLogs();
+  }
+  function addError(m) {
+    state.errors++;
+    state.logs.push({ t: time(), level: 'error', message: m.summary, detail: m.detail, route: m.route });
+    if (state.logs.length > 800) state.logs.shift();
+    renderLogs();
+  }
+  function renderLogs() {
+    $('bLogs').textContent = state.errors || state.logs.length;
+    $('bLogs').classList.toggle('err', state.errors > 0);
+    const pane = $('p-logs');
+    if (!pane.classList.contains('on')) return;
+    if (!state.logs.length) { pane.innerHTML = '<div class="empty">No console output yet.</div>'; return; }
+    pane.innerHTML = state.logs.slice(-400).map((l) => l.level === 'error'
+      ? `<div class="log error"><details><summary><span class="t">${l.t}</span>${esc(l.message)}</summary><pre>${esc(l.detail || '')}</pre></details></div>`
+      : `<div class="log ${l.level === 'warn' ? 'warn' : ''}"><span class="t">${l.t}</span>${esc(l.message)}</div>`).join('');
+    pane.parentElement.scrollTop = pane.parentElement.scrollHeight;
+  }
+  function renderIssues() {
+    $('bIssues').textContent = state.issues.length;
+    $('bIssues').classList.toggle('err', state.issues.some((i) => i.severity === 'P0'));
+    const pane = $('p-issues');
+    const head = `<div class="hint" style="padding:8px 12px;border-bottom:1px solid var(--line)">Visible screen: <b>${esc(state.screens.join(', ') || state.route)}</b> · re-checked automatically after the screen settles.</div>`;
+    if (!state.issues.length) { pane.innerHTML = head + '<div class="empty">No layout issues on the visible screen. Try iPhone SE + xxxLarge + Bold Text.</div>'; return; }
+    pane.innerHTML = head + state.issues.map((i, n) => `
+      <div class="issue" data-n="${n}">
+        <div class="row"><b>${n + 1}.</b><span class="chip ${esc(i.severity)}">${esc(i.severity)}</span><span class="chip tag">${esc(i.kind)}</span></div>
+        <div class="msg">${esc(i.message)}</div>
+        ${i.text ? `<div class="snippet">“${esc(i.text)}”</div>` : ''}
+        ${i.location ? `<div class="loc">${esc(i.location)}${i.widget ? ' · ' + esc(i.widget) : ''}</div>` : '<div class="hint">No source location (needs the debug build).</div>'}
+      </div>`).join('');
+    pane.querySelectorAll('.issue').forEach((el) => el.onclick = () => send({ type: 'flash', rect: state.issues[Number(el.dataset.n)].rect }));
+  }
+  function renderInspector() {
+    const i = state.inspected; if (!i) return;
+    const r = i.rect || {};
+    const row = (k, v) => v === undefined || v === null || v === '' ? '' : `<dt>${k}</dt><dd>${v}</dd>`;
+    $('p-inspector').innerHTML = `<dl class="kv">
+      ${row('Element', esc(i.type))}
+      ${row('Text', i.text ? '“' + esc(i.text) + '”' : '')}
+      ${row('Source', i.location ? `<span class="loc">${esc(i.location)}</span>${i.widget ? ' · ' + esc(i.widget) : ''}` : '<span class="hint">not available</span>')}
+      ${row('Position', `x ${r.x}, y ${r.y}`)}
+      ${row('Size', `${r.w} × ${r.h}`)}
+      ${row('Constraints', esc(i.constraints))}
+      ${row('Font', i.fontSize ? esc(`${i.fontSize}${i.fontWeight ? ' · ' + i.fontWeight : ''}${i.fontFamily ? ' · ' + i.fontFamily : ''}`) : '')}
+      ${row('Lines', i.lines != null ? `${i.lines}${i.maxLines ? ' (maxLines ' + i.maxLines + ')' : ''}${i.truncated ? ' · <b style="color:var(--p0)">truncated</b>' : ''}` : '')}
+      ${row('Issues', i.issues && i.issues.length ? i.issues.map(esc).join('<br>') : (i.text ? 'none' : ''))}
+    </dl>
+    <table class="anc"><tr><th>Parent</th><th>Size</th><th>Constraints</th></tr>
+      ${(i.ancestors || []).map((a) => `<tr><td>${esc(a.type)}${a.location ? `<div class="loc">${esc(a.location)}</div>` : ''}</td><td>${esc(a.size)}</td><td>${esc(a.constraints)}</td></tr>`).join('')}
+    </table>`;
+  }
+  function renderNav() {
+    $('p-nav').innerHTML = state.nav.length ? state.nav.map((n) => `<div class="nav"><span class="t" style="color:#a59fb0;font-family:var(--mono)">${n.t}</span> <b>${esc(n.action)}</b> ${esc(n.route)}${n.screens && n.screens.length ? ` <span class="hint">· ${esc(n.screens.join(', '))}</span>` : ''}</div>`).join('') : '<div class="empty">Navigation events appear here.</div>';
+  }
+  function showTab(t) {
+    document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+    document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('on', p.id === 'p-' + t));
+    if (t === 'logs') renderLogs();
+  }
+  function initConsole() {
+    document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => showTab(b.dataset.t));
+    $('runAudit').onclick = () => { send({ type: 'audit' }); toast('Layout audit requested'); };
+    $('highlight').onclick = () => { state.highlight = !state.highlight; $('highlight').classList.toggle('on', state.highlight); send({ type: 'highlight', on: state.highlight }); };
+    $('inspect').onclick = () => { state.inspect = !state.inspect; $('inspect').classList.toggle('on', state.inspect); send({ type: 'inspect', on: state.inspect }); if (state.inspect) showTab('inspector'); };
+    $('clear').onclick = () => { state.logs = []; state.errors = 0; state.nav = []; renderLogs(); renderNav(); };
+    renderIssues(); renderNav();
+  }
+
+  // ---------- Checklist ----------
+  function saveResults() { store.set('eh-qa-v1-results', results); renderCounts(); }
+  function setStatus(id, status) {
+    const cur = results[id] || {};
+    results[id] = { ...cur, status: cur.status === status ? undefined : status, at: new Date().toISOString() };
+    saveResults(); renderTodos();
+  }
+  function renderCounts() {
+    const c = { pass: 0, fail: 0, na: 0 };
+    items.forEach((i) => { const s = results[i.id]?.status; if (s) c[s]++; });
+    const open = items.length - c.pass - c.fail - c.na;
+    $('counts').textContent = `${c.pass} pass · ${c.fail} fail · ${open} not tested`;
+    const pct = (n) => (n / items.length * 100) + '%';
+    $('progress').innerHTML = `<span style="width:${pct(c.pass)};background:var(--pass)"></span><span style="width:${pct(c.fail)};background:var(--p0)"></span><span style="width:${pct(c.na)};background:#b9b3c4"></span>`;
+  }
+  function renderTodos() {
+    const f = state.todoFilter, q = state.search.toLowerCase();
+    const visible = items.filter((i) => {
+      const s = results[i.id]?.status;
+      if (f === 'open' && s) return false;
+      if (f === 'fail' && s !== 'fail') return false;
+      if (f === 'pass' && s !== 'pass') return false;
+      return !q || (i.text + ' ' + i.area + ' ' + (results[i.id]?.note || '')).toLowerCase().includes(q);
+    });
+    const areas = [...new Set(visible.map((i) => i.area))];
+    $('todoList').innerHTML = areas.length ? areas.map((a) => `<div class="group"><h3>${esc(a)}</h3>${visible.filter((i) => i.area === a).map(todoHtml).join('')}</div>`).join('') : '<div class="empty">Nothing matches.</div>';
+    $('todoList').querySelectorAll('[data-act]').forEach((el) => el.onclick = () => {
+      const id = el.closest('.todo').dataset.id, act = el.dataset.act;
+      if (act === 'setup') applySetup(items.find((i) => i.id === id));
+      else if (act === 'copy') copyText(itemReport(items.find((i) => i.id === id)), 'Check copied for Claude');
+      else setStatus(id, act);
+    });
+    $('todoList').querySelectorAll('textarea').forEach((ta) => ta.oninput = () => {
+      const id = ta.closest('.todo').dataset.id;
+      results[id] = { ...(results[id] || {}), note: ta.value };
+      saveResults();
+    });
+  }
+  function todoHtml(i) {
+    const r = results[i.id] || {};
+    return `<div class="todo ${r.status || ''}" data-id="${i.id}">
+      <div class="top"><span class="chip ${i.pri}">${i.pri}</span><span class="chip tag">${i.owner}</span><span class="ttext">${esc(i.text)}</span></div>
+      ${i.hint ? `<div class="hint">${esc(i.hint)}</div>` : ''}
+      <div class="status">
+        <button data-act="pass" class="${r.status === 'pass' ? 'sel-pass' : ''}">✓ Pass</button>
+        <button data-act="fail" class="${r.status === 'fail' ? 'sel-fail' : ''}">✗ Fail</button>
+        <button data-act="na" class="${r.status === 'na' ? 'sel-na' : ''}">N/A</button>
+        ${i.setup ? '<button data-act="setup" title="Apply the suggested device settings">Apply test setup</button>' : ''}
+        <button data-act="copy" title="Copy this check plus current findings for Claude">Copy</button>
+      </div>
+      ${r.status === 'fail' || r.note ? `<textarea placeholder="What did you see? (screen, steps, device)">${esc(r.note || '')}</textarea>` : ''}
+    </div>`;
+  }
+  function applySetup(item) {
+    const s = item.setup || {};
+    if (s.device) { settings.device = s.device; settings.platform = DEVICES[s.device].platform; }
+    if (s.text) settings.text = s.text;
+    if ('bold' in s) settings.bold = s.bold;
+    settings.keyboard = !!s.keyboard;
+    $('device').value = settings.device; $('textSize').value = settings.text; $('platform').value = settings.platform;
+    applySettings();
+    toast(`Applied: ${device().name}, ${textSize().label}${settings.bold ? ', Bold Text' : ''}${settings.keyboard ? ', keyboard' : ''}`);
+  }
+  function initTodos() {
+    document.querySelectorAll('#todoFilter button').forEach((b) => b.onclick = () => {
+      state.todoFilter = b.dataset.f;
+      document.querySelectorAll('#todoFilter button').forEach((x) => x.classList.toggle('on', x === b));
+      renderTodos();
+    });
+    $('todoSearch').oninput = (e) => { state.search = e.target.value; renderTodos(); };
+    $('exportTodos').onclick = () => {
+      const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), results }, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'empowerhealth-qa-results.json'; a.click(); URL.revokeObjectURL(a.href);
+    };
+    $('importTodos').onclick = () => $('importFile').click();
+    $('importFile').onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try { const data = JSON.parse(await f.text()); results = data.results || data; saveResults(); renderTodos(); toast('Results imported'); } catch { toast('Could not read that file'); }
+      e.target.value = '';
+    };
+    $('resetTodos').onclick = () => { if (confirm('Clear all pass/fail results and notes in this browser?')) { results = {}; saveResults(); renderTodos(); } };
+    renderCounts(); renderTodos();
+  }
+
+  // ---------- Copy for Claude ----------
+  function contextLines() {
+    const m = state.metrics, c = deviceConfig();
+    return [
+      `- Build: ${state.build || 'unknown'} · ${location.origin}/app/`,
+      `- Device: ${c.device} (${device().w}×${device().h} logical px), safe area top ${c.safeTop} / bottom ${c.safeBottom}, ${c.platform === 'android' ? 'Android' : 'iOS'} mode`,
+      `- Text size: ${textSize().label}${m ? `, effective ${Number(m.textScaleEffective).toFixed(2)}× after the app's clamp` : ''} · Bold Text ${c.boldText ? 'on' : 'off'} · keyboard ${c.keyboard ? `shown (${c.keyboardHeight}px)` : 'hidden'}`,
+      `- Visible screen: ${state.screens.join(', ') || state.route} (route ${state.route})`,
+    ];
+  }
+  function issueLines(list) {
+    return list.map((i, n) => `${n + 1}. **${i.severity} ${i.kind}** — ${i.message}` +
+      (i.text ? `\n   Text: "${i.text}"` : '') +
+      (i.location ? `\n   Source: \`${i.location}\`${i.widget ? ` (${i.widget})` : ''}` : '') +
+      `\n   Rect: x ${i.rect.x}, y ${i.rect.y}, ${i.rect.w}×${i.rect.h}`);
+  }
+  function errorLines(limit) {
+    return state.logs.filter((l) => l.level === 'error').slice(-limit).map((l) => {
+      const detail = (l.detail || '').split('\n').filter(Boolean).slice(0, 14).join('\n');
+      return `- ${l.message}${l.route ? ` (route ${l.route})` : ''}\n\n\`\`\`text\n${detail}\n\`\`\``;
+    });
+  }
+  function inspectedLines() {
+    const i = state.inspected; if (!i) return [];
+    return [
+      `- ${i.type}${i.text ? ` "${i.text.slice(0, 120)}"` : ''}`,
+      i.location ? `- Source: \`${i.location}\`${i.widget ? ` (${i.widget})` : ''}` : null,
+      `- Rect: x ${i.rect.x}, y ${i.rect.y}, ${i.rect.w}×${i.rect.h} · constraints ${i.constraints}`,
+      i.fontSize ? `- Font: ${i.fontSize}${i.fontWeight ? ', ' + i.fontWeight : ''}${i.lines != null ? ` · ${i.lines} lines` : ''}${i.truncated ? ' · truncated' : ''}` : null,
+      ...(i.ancestors || []).slice(0, 5).map((a) => `  - parent ${a.type} ${a.size} (${a.constraints})${a.location ? ` \`${a.location}\`` : ''}`),
+    ].filter(Boolean);
+  }
+  const PREAMBLE = 'Context: EmpowerHealth Watch is a Flutter app. These findings come from the web QA harness, which runs the debug web build in a phone-sized viewport with simulated iOS text size, Bold Text, safe areas and keyboard. Source paths are relative to the repo root. Please fix the failing checks and layout issues without redesigning the screens.';
+  function fullReport() {
+    const failing = items.filter((i) => results[i.id]?.status === 'fail');
+    const noted = items.filter((i) => results[i.id]?.note && results[i.id]?.status !== 'fail');
+    const c = { pass: 0, fail: 0, na: 0 }; items.forEach((i) => { const s = results[i.id]?.status; if (s) c[s]++; });
+    const out = ['# EmpowerHealth Watch — web QA report', '', PREAMBLE, '', ...contextLines(),
+      `- Checklist: ${c.pass} pass · ${c.fail} fail · ${items.length - c.pass - c.fail - c.na} not tested`, ''];
+    out.push(`## Failing checks (${failing.length})`, '');
+    out.push(...(failing.length ? failing.map((i) => `- **[${i.pri} · ${i.owner}] ${i.area}** — ${i.text}${results[i.id].note ? `\n  Tester note: ${results[i.id].note}` : ''}`) : ['None marked as failing.']), '');
+    if (noted.length) out.push('## Other tester notes', '', ...noted.map((i) => `- ${i.area}: ${i.text}\n  Note: ${results[i.id].note}`), '');
+    out.push(`## Layout issues on the visible screen (${state.issues.length})`, '', ...(state.issues.length ? issueLines(state.issues) : ['None found by the audit.']), '');
+    const errs = errorLines(8);
+    out.push(`## Recent errors (${errs.length})`, '', ...(errs.length ? errs : ['None.']), '');
+    const ins = inspectedLines();
+    if (ins.length) out.push('## Inspected element', '', ...ins, '');
+    return out.join('\n');
+  }
+  function itemReport(item) {
+    const r = results[item.id] || {};
+    const out = ['# EmpowerHealth Watch — QA check', '', PREAMBLE, '', `**[${item.pri} · ${item.owner}] ${item.area}** — ${item.text}`,
+      `Status: ${r.status || 'not tested'}${r.note ? `\nTester note: ${r.note}` : ''}`, '', ...contextLines(), ''];
+    if (state.issues.length) out.push('## Layout issues on the visible screen', '', ...issueLines(state.issues), '');
+    const ins = inspectedLines(); if (ins.length) out.push('## Inspected element', '', ...ins, '');
+    return out.join('\n');
+  }
+  async function copyText(text, done) {
+    try { await navigator.clipboard.writeText(text); }
+    catch {
+      const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch {} ta.remove();
+    }
+    toast(done);
+  }
+
+  // ---------- Boot ----------
+  $('copyClaude').onclick = () => copyText(fullReport(), 'Report copied — paste it into Claude');
+  setInterval(() => { const d = new Date(); $('clock').textContent = `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`; }, 15000);
+  window.addEventListener('resize', fitZoom);
+  fetch('/build.json', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((b) => {
+    state.build = b && b.commit ? `${b.branch || '?'} @ ${String(b.commit).slice(0, 9)}` : 'local build';
+    $('build').textContent = state.build;
+  }).catch(() => { state.build = 'local build'; $('build').textContent = state.build; });
+  initToolbar(); initTodos(); initConsole(); layoutDevice(); loadApp();
+})();
+</script>
+</body>
+</html>

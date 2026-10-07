@@ -37,6 +37,33 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   void initState() {
     super.initState();
     _selectedCategory = _categories.first;
+    _loadAuthorName();
+  }
+
+  /// Name shown on the post. Resolved up front so the user sees exactly how
+  /// the post will be attributed before publishing.
+  String? _authorName;
+
+  static String _displayNameFrom(Map<String, dynamic>? userData) {
+    for (final key in const ['username', 'name']) {
+      final v = userData?[key];
+      if (v is String && v.trim().isNotEmpty) return v.trim();
+    }
+    return 'Anonymous';
+  }
+
+  Future<void> _loadAuthorName() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      if (mounted) setState(() => _authorName = _displayNameFrom(doc.data()));
+    } catch (_) {
+      // Non-blocking: the name is resolved again on submit.
+    }
   }
 
   @override
@@ -98,7 +125,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           .doc(userId)
           .get();
       final userData = userDoc.data();
-      final authorName = userData?['username'] ?? 'Anonymous';
+      final authorName = _displayNameFrom(userData);
 
       final postData = <String, dynamic>{
         'userId': userId,
@@ -310,7 +337,32 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 20),
+
+                // Attribution summary so the user knows how the post will
+                // appear before publishing (there is no anonymous mode; posts
+                // always show the profile display name).
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.person_outline,
+                        size: 16, color: AppTheme.textMuted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _authorName == null
+                            ? 'Your post will show your profile display name in “$_selectedCategory”.'
+                            : 'Posting publicly as $_authorName in “$_selectedCategory”.',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
                 // Submit Button
                 SizedBox(

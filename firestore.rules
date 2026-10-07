@@ -568,19 +568,31 @@ service cloud.firestore {
                     request.resource.data.keys().hasAll(['userId', 'content', 'createdAt']) &&
                     // Limit content length
                     request.resource.data.content is string &&
-                    request.resource.data.content.size() <= 5000;
+                    request.resource.data.content.size() <= 5000 &&
+                    // Every post must be filed under a real category ("All" is only a filter)
+                    request.resource.data.category is string &&
+                    request.resource.data.category.size() > 0 &&
+                    request.resource.data.category.size() <= 80 &&
+                    request.resource.data.category != 'All';
 
-      // Post owners can update/delete their posts
-      // Any authenticated (non-banned) user can update posts to add replies or toggle likes
+      // Owners can edit their own post but never reassign it to someone else.
+      // Everyone else (not banned) may only like or reply; this also stops a
+      // non-owner from rewriting userId to themselves and then deleting the post.
       allow update: if isAuthenticated() && !isBanned() && (
-        resource.data.userId == request.auth.uid ||
-        // Allow updates for adding replies or toggling likes
-        true
+        (resource.data.userId == request.auth.uid &&
+         request.resource.data.userId == resource.data.userId) ||
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['likes', 'replies', 'updatedAt'])
       );
       
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Owners can delete their own posts; moderators (ADMIN / COMMUNITY_MANAGERS
+      // role docs) can remove posts that break community guidelines.
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin() || isCommunityManager()
+      );
     }
-    
+
     // Post reports - users can create reports, admins can read
     match /post_reports/{reportId} {
       // Users can create reports

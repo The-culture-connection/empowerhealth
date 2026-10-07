@@ -1,0 +1,27 @@
+# Docker build context for deploy/webapp/Dockerfile (Flutter web app).
+# The build only needs lib/, web/, assets/, pubspec.* and deploy/webapp/.
+.git
+.dart_tool
+build
+android
+android-release
+ios
+linux
+macos
+windows
+admindash
+functions
+tests
+test
+docs
+scripts
+**/node_modules
+NewUI
+Wireframe
+UI design
+Flutter UIdesign
+*.docx
+*.pdf
+*.xlsx
+*.log
+*.md

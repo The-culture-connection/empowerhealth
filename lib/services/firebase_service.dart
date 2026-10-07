@@ -37,7 +37,18 @@ class FirebaseService {
   static FirebaseOptions get firebaseOptions => _getFirebaseOptions();
 
   static FirebaseOptions _getFirebaseOptions() {
-    if (defaultTargetPlatform == TargetPlatform.android) {
+    // Check web first: on web, defaultTargetPlatform reports the browser's OS.
+    if (kIsWeb) {
+      return const FirebaseOptions(
+        apiKey: 'AIzaSyAJOFoEdlGoWsq1JIzQs-xjIQSmupvbz2o',
+        appId: '1:725364003316:web:1293b4d6fea35b698229a1',
+        messagingSenderId: '725364003316',
+        projectId: 'empower-health-watch',
+        authDomain: 'empower-health-watch.firebaseapp.com',
+        storageBucket: 'empower-health-watch.firebasestorage.app',
+        measurementId: 'G-P8XBZG6SRY',
+      );
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
       return const FirebaseOptions(
         apiKey: 'AIzaSyA2arGVVaRoFBJ8Bhpq6oPuvIbM8d5gzhM',
         appId: '1:725364003316:android:1411a89c67dc93338229a1',

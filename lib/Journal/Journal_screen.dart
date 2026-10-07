@@ -452,7 +452,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       foregroundColor: AppTheme.brandWhite,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
@@ -466,27 +466,28 @@ class _JournalScreenState extends State<JournalScreen> {
                               color: AppTheme.brandWhite,
                             ),
                           )
-                        : const Text(
-                            'Save check-in',
-                            style: TextStyle(fontWeight: FontWeight.w300),
-                          ),
+                        : const _OneLineButtonLabel('Save check-in'),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              OutlinedButton(
-                onPressed: _isSaving ? null : _resetToHub,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.textMuted,
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
+              // Equal-width controls so Save and Cancel are balanced; labels
+              // stay on one line (scaled down if needed at large text sizes).
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isSaving ? null : _resetToHub,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textMuted,
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    side: BorderSide(
+                      color: AppTheme.borderLighter.withOpacity(0.5),
+                    ),
                   ),
-                  side: BorderSide(
-                    color: AppTheme.borderLighter.withOpacity(0.5),
-                  ),
+                  child: const _OneLineButtonLabel('Cancel'),
                 ),
-                child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w300)),
               ),
             ],
           ),
@@ -623,7 +624,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       foregroundColor: AppTheme.brandWhite,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
@@ -637,27 +638,26 @@ class _JournalScreenState extends State<JournalScreen> {
                               valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
                             ),
                           )
-                        : const Text(
-                            'Save entry',
-                            style: TextStyle(fontWeight: FontWeight.w300),
-                          ),
+                        : const _OneLineButtonLabel('Save entry'),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              OutlinedButton(
-                onPressed: _isSaving ? null : _resetToHub,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.textLight,
-                  side: BorderSide(
-                    color: AppTheme.borderLighter.withOpacity(0.5),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isSaving ? null : _resetToHub,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textLight,
+                    side: BorderSide(
+                      color: AppTheme.borderLighter.withOpacity(0.5),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
+                  child: const _OneLineButtonLabel('Cancel'),
                 ),
-                child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w300)),
               ),
             ],
           ),
@@ -713,6 +713,13 @@ class _JournalScreenState extends State<JournalScreen> {
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     final embeddedInMainNav = MainNavigationScope.maybeOf(context) != null;
+    // With the shell's extendBody, padding.bottom = nav bar height while
+    // viewPadding.bottom is only the home-indicator inset the nested
+    // Scaffold already respects for FAB placement.
+    final mq = MediaQuery.of(context);
+    final fabNavLift = embeddedInMainNav
+        ? (mq.padding.bottom - mq.viewPadding.bottom).clamp(0.0, 200.0)
+        : 0.0;
 
     final content = SafeArea(
           child: Column(
@@ -823,8 +830,10 @@ class _JournalScreenState extends State<JournalScreen> {
                               );
                             }).toList(),
                           
-                          const SizedBox(height: 24),
-                          const SizedBox(height: 100), // Space for FABs
+                          // Clear the floating quick check-in / write buttons
+                          // (2 x 56 + gap + margin) so the last reflection card
+                          // and any save actions can scroll fully above them.
+                          const SizedBox(height: 160),
                         ],
                       ),
                     );
@@ -847,7 +856,16 @@ class _JournalScreenState extends State<JournalScreen> {
                 content,
               ],
             ),
-      floatingActionButton: Column(
+      // Shortcuts are only shown on the hub: inside the check-in / write cards
+      // they duplicate the current mode and could cover Save / Cancel.
+      floatingActionButton: _entryMode != _JournalEntryMode.hub
+          ? null
+          : Padding(
+        // This nested Scaffold does not know about the shell's translucent
+        // bottom nav (extendBody), so lift the buttons above it instead of
+        // letting them sit on top of the tab bar.
+        padding: EdgeInsets.only(bottom: fabNavLift),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
@@ -905,6 +923,28 @@ class _JournalScreenState extends State<JournalScreen> {
             ),
           ),
         ],
+      ),
+      ),
+    );
+  }
+}
+
+/// Single-line button label that scales down rather than wrapping at large
+/// Dynamic Type / Bold Text sizes.
+class _OneLineButtonLabel extends StatelessWidget {
+  const _OneLineButtonLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        label,
+        maxLines: 1,
+        softWrap: false,
+        style: const TextStyle(fontWeight: FontWeight.w300),
       ),
     );
   }
@@ -1128,25 +1168,33 @@ class _EntryCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  // Compact date ("Sep 26, 2026") + tag in a Wrap so the tag
+                  // drops to the next line instead of truncating the date
+                  // under Bold Text / larger Dynamic Type.
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Icon(Icons.calendar_today, size: 14, color: Colors.grey[400]),
-                      const SizedBox(width: 4),
-                      if (createdAt != null)
-                        Flexible(
-                          child: Text(
-                            DateFormat('MMMM d, yyyy').format(createdAt!),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textLightest,
-                              fontWeight: FontWeight.w300,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_today,
+                              size: 14, color: Colors.grey[400]),
+                          if (createdAt != null) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              DateFormat.yMMMd().format(createdAt!),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textLight,
+                                fontWeight: FontWeight.w300,
+                              ),
                             ),
-                          ),
-                        ),
-                      if (isFeelingPrompt && prompt != null) ...[
-                        const SizedBox(width: 8),
+                          ],
+                        ],
+                      ),
+                      if (isFeelingPrompt && prompt != null)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
@@ -1161,7 +1209,6 @@ class _EntryCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      ],
                     ],
                   ),
                   const SizedBox(height: 8),

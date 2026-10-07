@@ -74,8 +74,6 @@ class ImmediateSupportHomeCard extends StatelessWidget {
                   Flexible(
                     child: Text(
                       ctaText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w400,

@@ -106,12 +106,15 @@ class Provider {
   static const int mamaApprovedMinReviewCount = 3;
   static const double mamaApprovedMinAverageRating = 4.0;
 
-  /// Minimum average affirm-rate across the experience questions
-  /// (felt heard / felt respected / explained clearly) to earn the badge.
-  static const double mamaApprovedMinExperienceRate = 0.6;
+  /// One-sentence, user-facing explanation of the badge threshold. Keep in
+  /// sync with [qualifiesForMamaApproved].
+  static const String mamaApprovedCriteriaText =
+      'Mama Approved™ providers have 3+ reviews averaging 4 stars or higher '
+      'from moms in our community.';
 
   /// Average affirm-rate across the three experience questions, or null when
-  /// none of them have review data yet.
+  /// none of them have review data yet. Shown as trust indicators on the
+  /// profile; not part of the badge threshold.
   double? get experienceTrustRate {
     final rates = [feltHeardRate, feltRespectedRate, explainedClearlyRate]
         .whereType<double>()
@@ -120,20 +123,37 @@ class Provider {
     return rates.reduce((a, b) => a + b) / rates.length;
   }
 
-  /// Mama Approved™ in the app: earned from **community reviews** only —
-  /// 3+ reviews, average ≥ 4★, and (when review data exists) a majority of
-  /// reviewers affirming they felt heard, felt respected, and that things were
-  /// explained clearly. Not the legacy Firestore `mamaApproved` flag.
-  bool get showsMamaApprovedBadge {
-    final r = rating;
-    if (r == null || r < mamaApprovedMinAverageRating) return false;
+  /// Single source of truth for the Mama Approved™ threshold:
+  /// at least [mamaApprovedMinReviewCount] published reviews AND an average
+  /// rating of at least [mamaApprovedMinAverageRating].
+  ///
+  /// Averages are computed as sum / count, so a true 4.0 can come back as
+  /// 3.9999999999; a tiny epsilon absorbs that without ever letting a real
+  /// 3.99 qualify.
+  static bool qualifiesForMamaApproved({
+    required int? reviewCount,
+    required double? averageRating,
+  }) {
     if ((reviewCount ?? 0) < mamaApprovedMinReviewCount) return false;
-    // Experience questions must show majority-positive sentiment when we have
-    // the data; providers without it fall back to the rating + count rule.
-    final exp = experienceTrustRate;
-    if (exp != null && exp < mamaApprovedMinExperienceRate) return false;
-    return true;
+    if (averageRating == null || averageRating.isNaN) return false;
+    return averageRating + 1e-9 >= mamaApprovedMinAverageRating;
   }
+
+  /// Average rating for display, truncated (not rounded) to one decimal so a
+  /// 3.96 average reads "3.9" — never "4.0" next to a provider that has not
+  /// reached the 4.0 Mama Approved™ threshold.
+  static String formatAverageRating(double rating) {
+    final truncated = (rating * 10 + 1e-9).floorToDouble() / 10;
+    return truncated.toStringAsFixed(1);
+  }
+
+  /// Mama Approved™ in the app: earned from **community reviews** only and
+  /// derived from the current review count + average at display time (never
+  /// from the legacy, possibly stale Firestore `mamaApproved` flag).
+  bool get showsMamaApprovedBadge => qualifiesForMamaApproved(
+        reviewCount: reviewCount,
+        averageRating: rating,
+      );
 
   factory Provider.fromMap(Map<String, dynamic> map, {String? id}) {
     final rawName = (map['name'] as String?)?.trim() ?? '';
@@ -175,7 +195,7 @@ class Provider {
       acceptsNewborns: map['acceptsNewborns'] as bool?,
       telehealth: map['telehealth'] as bool?,
       rating: map['rating']?.toDouble(),
-      reviewCount: map['reviewCount'] as int?,
+      reviewCount: (map['reviewCount'] as num?)?.toInt(),
       feltHeardRate: (map['feltHeardRate'] as num?)?.toDouble(),
       feltRespectedRate: (map['feltRespectedRate'] as num?)?.toDouble(),
       explainedClearlyRate: (map['explainedClearlyRate'] as num?)?.toDouble(),

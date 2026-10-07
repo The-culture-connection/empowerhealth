@@ -104,58 +104,88 @@ class _CommunityScreenState extends State<CommunityScreen> {
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
         sliver: SliverToBoxAdapter(
-          child: Row(
+          // Title row: the title gets all remaining width and never breaks
+          // mid-word ("Communit" / "y") under Bold Text + large Dynamic Type;
+          // the compact New post button keeps its intrinsic size.
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _isPregnancyLossSpace
-                          ? 'Pregnancy Loss Support Space'
-                          : 'Community',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w400,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _isPregnancyLossSpace
-                          ? 'A gentle space for support, reflection, and connection at your own pace.'
-                          : 'EmpowerHealth Watch',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              FilledButton.tonal(
-                onPressed: _openCreatePost,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: _isPregnancyLossSpace
+                        ? Text(
+                            'Pregnancy Loss Support Space',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w400,
+                              color: AppTheme.textPrimary,
+                            ),
+                          )
+                        : FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Community',
+                              maxLines: 1,
+                              softWrap: false,
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w400,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ),
                   ),
+                  const SizedBox(width: 12),
+                  FilledButton.tonalIcon(
+                    onPressed: _openCreatePost,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      minimumSize: const Size(0, 44),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('New post', maxLines: 1, softWrap: false),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _isPregnancyLossSpace
+                    ? 'A gentle space for support, reflection, and connection at your own pace.'
+                    : 'EmpowerHealth Watch',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppTheme.textMuted,
+                  fontWeight: FontWeight.w300,
+                  height: 1.45,
                 ),
-                child: const Text('New post'),
               ),
             ],
           ),
         ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: 8)),
-      SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        sliver: SliverToBoxAdapter(
+      // Deliberate horizontally scrollable tab row: full-bleed so chips are
+      // never clipped mid-label at the 24px gutter, with a right-edge fade as
+      // the "more tabs" affordance.
+      SliverToBoxAdapter(
+        child: ShaderMask(
+          shaderCallback: (rect) => const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [Colors.white, Colors.white, Colors.transparent],
+            stops: [0.0, 0.86, 1.0],
+          ).createShader(rect),
+          blendMode: BlendMode.dstIn,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(24, 4, 48, 8),
             child: Row(
               children: [
                 for (var i = 0; i < _categories.length; i++) ...[
@@ -440,7 +470,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                           category,
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppTheme.textLight,
+                            color: AppTheme.textMuted,
                             fontWeight: FontWeight.w300,
                           ),
                         ),
@@ -460,17 +490,20 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
+                  // Metadata: textMuted (~6:1 on surfaceCard) and Wrap with
+                  // roomier spacing so items flow to new lines instead of
+                  // crowding under large Dynamic Type.
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
+                    spacing: 12,
+                    runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        authorName,
+                        isOwnPost ? '$authorName (you)' : '$authorName',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textLightest,
-                          fontWeight: FontWeight.w300,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w400,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -481,14 +514,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
                           Icon(
                             Icons.message,
                             size: 14,
-                            color: AppTheme.textBarelyVisible,
+                            color: AppTheme.textMuted,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '${replies.length} replies',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppTheme.textLightest,
+                              color: AppTheme.textMuted,
                               fontWeight: FontWeight.w300,
                             ),
                           ),
@@ -500,14 +533,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
                           Icon(
                             Icons.favorite,
                             size: 14,
-                            color: AppTheme.textBarelyVisible,
+                            color: AppTheme.textMuted,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '${likes.length}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppTheme.textLightest,
+                              color: AppTheme.textMuted,
                               fontWeight: FontWeight.w300,
                             ),
                           ),
@@ -518,7 +551,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                           _formatDate(createdAt),
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppTheme.textLightest,
+                            color: AppTheme.textMuted,
                             fontWeight: FontWeight.w300,
                           ),
                         ),
@@ -535,7 +568,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
             if (isOwnPost)
               IconButton(
                 icon: Icon(Icons.delete_outline, color: AppTheme.textMuted),
-                tooltip: 'Delete post',
+                tooltip: 'Delete your post',
                 onPressed: () => _confirmDeletePostFromFeed(doc.id, '$title'),
               ),
           ],
@@ -624,7 +657,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) =>
@@ -670,7 +703,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 feed,
               ],
             ),
-      floatingActionButton: Container(
+      // Inside the main tab shell the header "New post" button is the create
+      // action; the extra FAB sat on top of the translucent tab bar ("You").
+      floatingActionButton: embeddedInMainNav
+          ? null
+          : Container(
         width: 56,
         height: 56,
         decoration: BoxDecoration(
@@ -735,7 +772,7 @@ class _CategoryChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           gradient: isSelected
               ? LinearGradient(
@@ -764,6 +801,8 @@ class _CategoryChip extends StatelessWidget {
         ),
         child: Text(
           label,
+          maxLines: 1,
+          softWrap: false,
           style: TextStyle(
             color: isSelected ? AppTheme.textPrimary : AppTheme.textMuted,
             fontWeight: FontWeight.w400,

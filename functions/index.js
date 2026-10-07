@@ -114,6 +114,109 @@ function parseJsonFromOpenAIContent(raw) {
   }
 }
 
+// ============================================================================
+// VOICE CONSISTENCY (second person, woman-facing content)
+// ============================================================================
+
+/**
+ * Shared prompt rule: all woman-facing generated content speaks directly to
+ * the mother in second person ("you/your"), never "the patient".
+ */
+const SECOND_PERSON_VOICE_RULE = `VOICE (required): Speak directly to the mother using second person ("you" / "your") in plain language. Never refer to her as "the patient", "the mother", "the client", or "she/her". Examples: write "Your next annual exam is in one year" (not "The patient's next annual exam..."), "You were referred to a specialist" (not "The patient has been referred..."), "Your blood pressure was normal" (not "The patient's blood pressure was normal"). Keep all clinical facts, numbers, medication names, doses, and instructions exactly accurate — change only who the sentence is addressed to. If you must quote the provider's notes word for word, introduce the quote for her, e.g. "Your provider's note says: '...'". Use third person only when it is clinically necessary (for example, describing the baby or another person).`;
+
+// Nouns that follow "the patient" in normal phrases we must not rewrite
+// (e.g. "the patient portal", "the patient advocate").
+const PATIENT_COMPOUND_NOUNS = [
+  "portal", "portals", "advocate", "advocates", "advocacy", "navigator", "navigators",
+  "education", "educator", "rights", "bill", "handbook", "experience", "services",
+  "relations", "representative", "liaison", "safety", "center", "line", "access",
+  "ID", "id", "number", "record", "records", "chart", "information", "instructions",
+  "summary", "survey", "form", "forms", "account", "app", "care", "support", "guide",
+];
+const PATIENT_NOUN_GUARD = `(?!\\s+(?:${PATIENT_COMPOUND_NOUNS.join("|")})\\b)`;
+
+// Third-person verbs that commonly follow "the patient" → second-person form.
+const PATIENT_VERB_MAP = {
+  "has": "have", "is": "are", "was": "were", "does": "do", "needs": "need",
+  "wants": "want", "reports": "report", "reported": "reported", "states": "state",
+  "denies": "deny", "plans": "plan", "requires": "require", "takes": "take",
+  "continues": "continue", "presents": "present", "understands": "understand",
+  "agrees": "agree", "prefers": "prefer", "feels": "feel", "appears": "appear",
+  "remains": "remain", "declines": "decline", "receives": "receive",
+  "should": "should", "will": "will", "can": "can", "may": "may", "must": "must",
+  "would": "would", "could": "could",
+};
+
+/**
+ * Conservative safety net: rewrite common third-person clinical phrasings
+ * ("The patient's...", "The patient has been referred...") into second person.
+ * Only matches "the patient" with the article, so "outpatient", "inpatient",
+ * "patients", "patient portal", and "patient advocate" are left untouched.
+ */
+function toSecondPerson(text) {
+  if (!text || typeof text !== "string" || !/\bthe patient\b/i.test(text)) {
+    return text;
+  }
+  let out = text;
+
+  // Possessive: "The patient's" → "Your", "the patient's" → "your"
+  out = out.replace(/\bThe patient(?:'|’)s\b/g, "Your");
+  out = out.replace(/\bthe patient(?:'|’)s\b/g, "your");
+
+  // Subject + verb: "The patient has" → "You have", "the patient is" → "you are"
+  const verbs = Object.keys(PATIENT_VERB_MAP).join("|");
+  out = out.replace(new RegExp(`\\b(T|t)he patient\\s+(${verbs})\\b`, "g"), (match, t, verb) => {
+    const pronoun = t === "T" ? "You" : "you";
+    return `${pronoun} ${PATIENT_VERB_MAP[verb]}`;
+  });
+
+  // Remaining "The patient" / "the patient" (not followed by a compound noun)
+  out = out.replace(new RegExp(`\\bThe patient\\b(?!(?:'|’))${PATIENT_NOUN_GUARD}`, "g"), "You");
+  out = out.replace(new RegExp(`\\bthe patient\\b(?!(?:'|’))${PATIENT_NOUN_GUARD}`, "g"), "you");
+
+  return out;
+}
+
+// Keys whose values are names/labels (medical terms, drug names, enums) — never rewritten.
+const SECOND_PERSON_SKIP_KEYS = new Set(["term", "name", "diagnosis", "category", "type"]);
+
+/** Recursively apply toSecondPerson to all strings in an AI JSON value. */
+function toSecondPersonDeep(value, key = null) {
+  if (key && SECOND_PERSON_SKIP_KEYS.has(key)) return value;
+  if (typeof value === "string") return toSecondPerson(value);
+  if (Array.isArray(value)) return value.map((v) => toSecondPersonDeep(v));
+  if (value && typeof value === "object") {
+    const out = {};
+    Object.keys(value).forEach((k) => {
+      out[k] = toSecondPersonDeep(value[k], k);
+    });
+    return out;
+  }
+  return value;
+}
+
+/**
+ * Normalize woman-facing fields of a visit-summary AI response (summary text,
+ * todos/next steps, learning modules, red-flag descriptions) to second person
+ * before it is formatted, saved to Firestore, or returned to the app.
+ */
+function applySecondPersonToVisitAnalysis(parsed) {
+  if (!parsed || typeof parsed !== "object") return parsed;
+  if (parsed.summary && typeof parsed.summary === "object") {
+    parsed.summary = toSecondPersonDeep(parsed.summary);
+  }
+  if (Array.isArray(parsed.todos)) {
+    parsed.todos = parsed.todos.map((todo) => toSecondPersonDeep(todo));
+  }
+  if (Array.isArray(parsed.learningModules)) {
+    parsed.learningModules = parsed.learningModules.map((mod) => toSecondPersonDeep(mod));
+  }
+  if (Array.isArray(parsed.redFlags)) {
+    parsed.redFlags = parsed.redFlags.map((flag) => toSecondPersonDeep(flag));
+  }
+  return parsed;
+}
+
 // Helper function to simplify text to 6th grade level
 async function simplifyTo6thGrade(text, context = "") {
   try {
@@ -126,7 +229,9 @@ async function simplifyTo6thGrade(text, context = "") {
           content: `You are a medical communication expert who translates complex medical information 
 into simple, clear language appropriate for a 6th grade reading level. Use short sentences, 
 common words, and avoid medical jargon. When medical terms are necessary, explain them simply. 
-Focus on what the person needs to know and do.`,
+Focus on what the person needs to know and do.
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
@@ -207,7 +312,9 @@ exports.generateLearningContent = onCall(
       messages = [
         {
           role: "system",
-          content: `You are a culturally affirming, trauma-informed maternal health educator creating personalized content for EmpowerHealth Watch. Create detailed, comprehensive learning modules that are warm, supportive, and empowering. Use plain language at a ${readingLevel} reading level. Emphasize: Your rights, Your choices, Your voice. Brand voice: "Your Health. Your Voice. Your Empowerment."`,
+          content: `You are a culturally affirming, trauma-informed maternal health educator creating personalized content for EmpowerHealth Watch. Create detailed, comprehensive learning modules that are warm, supportive, and empowering. Use plain language at a ${readingLevel} reading level. Emphasize: Your rights, Your choices, Your voice. Brand voice: "Your Health. Your Voice. Your Empowerment."
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
@@ -231,7 +338,7 @@ The ten sections (use these exact titles after ## and the number):
 1. What This Is (Simple Explanation) — clear, plain-language explanation of what this is
 2. Why It Matters for Your Health — why this matters, what happens if ignored; be specific
 3. What to Expect — step-by-step, concrete guidance
-4. What You Can Ask or Say — at least 3 advocacy prompts she can use (can be bullet lines)
+4. What You Can Ask or Say — at least 3 advocacy prompts you can use, written in your own voice (e.g. "Can you explain why this test is needed?") (can be bullet lines)
 5. Risks, Options, and Alternatives — balanced, non-alarming
 6. When to Seek Medical Help — when to call or seek emergency care
 7. How This Connects to Your Empowerment — self-advocacy and informed choice
@@ -241,6 +348,7 @@ The ten sections (use these exact titles after ## and the number):
 
 TONE & VOICE REQUIREMENTS:
 - Warm, supportive, nonjudgmental language
+- Speak directly to her as "you/your" throughout — never "the patient" or "the mother"
 - Sound like: "Here's what this test means and why it matters. You deserve clear explanations and the chance to ask questions."
 - Trauma-informed: Acknowledge possible fears, past negative experiences, pressure. Use supportive language that reassures and centers safety.
 - Cultural responsiveness: Reflect realities Black mothers may face (bias, being dismissed, rushed). Use validating, empowering language.
@@ -259,7 +367,8 @@ Keep everything at ${readingLevel} reading level. Make it personally relevant ba
       max_tokens: 1500,
     });
 
-    const content = response.choices[0].message.content;
+    // Safety net: keep woman-facing module text in second person ("you/your")
+    const content = toSecondPerson(response.choices[0].message.content);
 
     // Save to Firestore
     await admin.firestore().collection("learning_modules").add({
@@ -303,11 +412,13 @@ exports.summarizeVisitNotes = onCall(
           content: `You are a medical interpreter helping pregnant women understand their medical visits. 
 Translate medical information into clear, accessible language at a 6th grade reading level. 
 Use professional, clinical language. Avoid casual terms like "momma". 
-Be supportive and factual. Organize information clearly with headers.`,
+Be supportive and factual. Organize information clearly with headers.
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
-          content: `Create a visit summary that a 6th grader could understand:
+          content: `Create a visit summary that a 6th grader could understand, written directly to her as "you/your" (e.g. "You were referred to...", "Your next visit is..."), never "the patient":
 
 Visit Notes: ${visitNotes || "None provided"}
 
@@ -340,7 +451,8 @@ Format as:
       max_tokens: 2000,
     });
 
-    const summary = response.choices[0].message.content;
+    // Safety net: keep woman-facing summary text in second person ("you/your")
+    const summary = toSecondPerson(response.choices[0].message.content);
 
     // Note: The app code saves the summary to Firestore with the correct appointmentDate
     // We only generate and return the summary here to avoid duplicate saves
@@ -372,8 +484,10 @@ exports.generateBirthPlan = onCall(
         {
           role: "system",
           content: `You are a birth planning specialist helping create personalized birth plans. Create a comprehensive 
-yet accessible birth plan that respects the patient's wishes while being medically informed. 
-Use professional, clinical language and a 6th grade reading level. Avoid casual terms like "momma".`,
+yet accessible birth plan that respects the mother's wishes while being medically informed. 
+Use professional, clinical language and a 6th grade reading level. Avoid casual terms like "momma".
+
+VOICE (required): The plan belongs to her and is shared with her care team, so write each preference in her own first-person voice (e.g. "I would like to move freely during labor", "My support person is..."). Any notes or explanations addressed to her use "you/your". Never refer to her as "the patient" or "the mother". Keep all clinical details accurate.`,
         },
         {
           role: "user",
@@ -439,7 +553,9 @@ exports.generateAppointmentChecklist = onCall(
           role: "system",
           content: `You are a healthcare coordinator helping pregnant women prepare for medical appointments. 
 Create clear, actionable checklists at a 6th grade reading level. Use professional clinical language. 
-Avoid casual terms like "momma". Be supportive and thorough.`,
+Avoid casual terms like "momma". Be supportive and thorough.
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
@@ -447,7 +563,7 @@ Avoid casual terms like "momma". Be supportive and thorough.`,
 
 Appointment Type: ${appointmentType}
 Trimester: ${trimester}
-Patient Concerns: ${concerns || "None specified"}
+Her Concerns: ${concerns || "None specified"}
 Last Visit Notes: ${lastVisit || "First visit"}
 
 Include:
@@ -464,7 +580,7 @@ Keep language simple and actionable.`,
       max_tokens: 1500,
     });
 
-    const checklist = response.choices[0].message.content;
+    const checklist = toSecondPerson(response.choices[0].message.content);
 
     return {success: true, checklist};
   } catch (error) {
@@ -494,7 +610,9 @@ exports.analyzeEmotionalContent = onCall(
           role: "system",
           content: `You are a healthcare advocate. Analyze text for emotional content, 
 confusion, concerns, or distress. Identify moments that might need follow-up or support. 
-Use professional, clinical language. Avoid casual terms. Provide clear, supportive recommendations.`,
+Use professional, clinical language. Avoid casual terms. Provide clear, supportive recommendations.
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
@@ -551,7 +669,9 @@ exports.generateRightsContent = onCall(
           role: "system",
           content: `You are a patient rights advocate specializing in maternal healthcare. 
 Explain patient rights clearly and empoweringly at a 6th grade reading level. 
-Be specific, actionable, and encouraging.`,
+Be specific, actionable, and encouraging.
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
@@ -571,7 +691,7 @@ Keep language simple, clear, and empowering.`,
       max_tokens: 1500,
     });
 
-    const content = response.choices[0].message.content;
+    const content = toSecondPerson(response.choices[0].message.content);
 
     return {success: true, content};
   } catch (error) {
@@ -595,10 +715,14 @@ exports.simplifyText = onCall(
       
       // If context is provided, use it as a custom system prompt for general AI assistant
       // Otherwise, use the default text simplification prompt
-      const systemPrompt = textContext || `You are a medical communication expert who translates complex medical information 
+      const systemPrompt = textContext ? `${textContext}
+
+${SECOND_PERSON_VOICE_RULE}` : `You are a medical communication expert who translates complex medical information 
 into simple, clear language appropriate for a 6th grade reading level. Use short sentences, 
 common words, and avoid medical jargon. When medical terms are necessary, explain them simply. 
-Focus on what the person needs to know and do.`;
+Focus on what the person needs to know and do.
+
+${SECOND_PERSON_VOICE_RULE}`;
 
       const userPrompt = textContext 
         ? text 
@@ -620,7 +744,7 @@ Focus on what the person needs to know and do.`;
         max_tokens: 1000,
       });
 
-      const simplified = response.choices[0].message.content;
+      const simplified = toSecondPerson(response.choices[0].message.content);
       return {success: true, simplified};
     } catch (error) {
       console.error("Error simplifying text:", error);
@@ -963,7 +1087,11 @@ You do NOT diagnose, treat, or interpret clinical findings as medical truth. You
 
 Accept and work from: after-visit summaries, discharge instructions, provider or nurse notes, printed visit recaps, and similar documents — even if the text is partial or informal.
 
-Avoid casual terms like "momma". Your entire reply must be one JSON object only — no apologies, no "It seems…", no markdown fences, no text before or after the JSON.`,
+Avoid casual terms like "momma".
+
+${SECOND_PERSON_VOICE_RULE} This applies to every string value in the JSON (summary fields, todos, learning modules, notes, tips).
+
+Your entire reply must be one JSON object only — no apologies, no "It seems…", no markdown fences, no text before or after the JSON.`,
           },
           {
             role: "user",
@@ -987,10 +1115,10 @@ User Context:
 Return a JSON object with the following structure:
 {
   "summary": {
-    "whatThisMeans": "1–3 short paragraphs at ${readingLevel} level: in plain words, what this visit or document is mainly about (literacy support only — not a diagnosis)",
-    "importantNextSteps": "Plain language: what to do next, follow-ups, scheduling — separate from medication list",
+    "whatThisMeans": "1–3 short paragraphs at ${readingLevel} level, written to you: in plain words, what this visit or document is mainly about (literacy support only — not a diagnosis)",
+    "importantNextSteps": "Plain language, written to you: what you need to do next, follow-ups, scheduling — separate from medication list (e.g. \"You were referred to a specialist. Call to schedule within 2 weeks.\")",
     "howBabyIsDoing": "If applicable: brief plain-language note on fetal/baby-related content; else empty string",
-    "howYouAreDoing": "If applicable: brief plain-language note on your health topics mentioned; else empty string",
+    "howYouAreDoing": "If applicable: brief plain-language note on your health topics mentioned, written to you; else empty string",
     "keyMedicalTerms": [
       {"term": "term name", "explanation": "plain language explanation for tap-to-read"}
     ],
@@ -1001,7 +1129,7 @@ Return a JSON object with the following structure:
     ],
     "visitNotes": [
       "Short affirming reminder or takeaway from this visit (1–2 sentences)",
-      "Another supportive note the mother may want to remember"
+      "Another supportive note for you to remember (e.g. \"You asked clear questions about your care today.\")"
     ],
     "empowermentTips": [
       "Advocacy tip 1",
@@ -1016,18 +1144,18 @@ Return a JSON object with the following structure:
     "medications": [
       {"name": "medication name", "purpose": "why prescribed", "instructions": "how to take"}
     ],
-    "followUpInstructions": "Instructions for follow-up care",
+    "followUpInstructions": "Follow-up care instructions written to you (e.g. \"You were referred to a specialist. Your next annual exam is in one year.\")",
     "providerCommunicationStyle": "Description of communication style if flagged (rushed, unclear, dismissive, etc.)",
     "emotionalMarkers": ["confused", "scared", "unsure", etc. if detected],
-    "advocacyMoments": ["Provider said XYZ without explanation", etc.],
+    "advocacyMoments": ["Your provider mentioned XYZ without explaining it", etc.],
     "contradictions": ["Any contradictions or missing explanations"]
   },
   "todos": [
-    {"title": "Todo title", "description": "Todo description", "category": "advocacy|followup|medication|test"},
+    {"title": "Schedule your follow-up ultrasound", "description": "Your provider wants to check your baby's growth in 4 weeks. Call the office to book it.", "category": "advocacy|followup|medication|test"},
     ...
   ],
   "learningModules": [
-    {"title": "Module title", "description": "Why this is relevant", "reason": "Based on visit content"},
+    {"title": "Module title", "description": "Why this matters for you", "reason": "Based on what came up at your visit"},
     ...
   ],
   "redFlags": [
@@ -1049,7 +1177,7 @@ CRITICAL REQUIREMENTS:
 10. Follow-up instructions - turn into todos
 11. Provider communication style (e.g., rushed, unclear, dismissive — if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
 12. Emotional markers (mom tapped "confused," "scared," or "unsure") - add to emotionalMarkers
-13. Advocacy moments (e.g., "provider said XYZ without explanation") - add to advocacyMoments
+13. Advocacy moments (e.g., "Your provider mentioned XYZ without explaining it") - add to advocacyMoments
 14. Any contradictions or missing explanations - add to contradictions AND create learning modules to bridge gap
 
 TODOS: Create todos for:
@@ -1057,6 +1185,7 @@ TODOS: Create todos for:
 - Follow-up instructions (category: "followup")
 - Medications to take (category: "medication")
 - Tests to schedule (category: "test")
+Each todo is a short plain-language next step written to her as "you": "title" is a short action that starts with a verb (8 words or fewer); "description" is a 1-2 sentence summary under 30 words saying what to do and why (e.g. "You were referred to a heart specialist. Call to book a visit in the next 2 weeks."). Keep extra clinical detail out of todos; it belongs in the summary or learning modules.
 
 LEARNING MODULES: Create DETAILED, comprehensive learning modules (not high-level) for new diagnoses, tests/procedures discussed, medications, provider communication issues, contradictions/missing explanations.
 
@@ -1064,7 +1193,7 @@ Each learning module MUST follow this structure and be DETAILED:
 1. **What This Is (Simple Explanation)** - Clear, plain-language explanation
 2. **Why It Matters for Your Health** - Explain the "why" behind the "what" - why this matters, why it's important, what happens if ignored. Be detailed and specific.
 3. **What to Expect** - Step-by-step, detailed guidance on what will happen
-4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts the mother can use
+4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts you can use (written in her own voice, e.g. "Can you explain why I need this?")
 5. **Risks, Options, and Alternatives** - Balanced, non-fearful information
 6. **When to Seek Medical Help** - Clear guidance on when to call provider
 7. **How This Connects to Your Empowerment** - How this topic relates to self-advocacy and empowerment
@@ -1107,6 +1236,10 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
       if (!parsedResponse.summary || typeof parsedResponse.summary !== "object" || Array.isArray(parsedResponse.summary)) {
         throw new Error("AI JSON must include a \"summary\" object");
       }
+
+      // Safety net: rewrite any third-person "the patient" phrasing in woman-facing
+      // fields (summary, todos/next steps, learning modules) to second person.
+      applySecondPersonToVisitAnalysis(parsedResponse);
 
   // Same **calendar** date as the picker (YYYY-MM-DD from client). Store noon UTC so US TZs don't show prior day.
       console.log(`🟢 [DEBUG] Helper: Starting duplicate check`);
@@ -1493,7 +1626,9 @@ exports.analyzeVisitSummaryPDF = onCall(
       console.log(`🤖 Creating OpenAI assistant...`);
       const assistant = await openai.beta.assistants.create({
         name: "Visit Summary Analyzer",
-        instructions: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. Analyze the uploaded PDF visit summary and generate a comprehensive, plain-language summary at a ${readingLevel} reading level using professional clinical language. Avoid casual terms like "momma".`,
+        instructions: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. Analyze the uploaded PDF visit summary and generate a comprehensive, plain-language summary at a ${readingLevel} reading level using professional clinical language. Avoid casual terms like "momma".
+
+${SECOND_PERSON_VOICE_RULE} This applies to every string value in the JSON you return.`,
         model: "gpt-4o", // Use stable model name
         tools: [{ type: "code_interpreter" }],
       });
@@ -1506,7 +1641,7 @@ exports.analyzeVisitSummaryPDF = onCall(
       console.log(`📝 Adding message with file attachment...`);
       await openai.beta.threads.messages.create(thread.id, {
         role: "user",
-        content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary PDF. Explain medical terms clearly, outline next steps, offer advocacy questions the mother can ask, and provide supportive, trauma-informed language. Tailor the content to her trimester (${trimester}), stated concerns (${JSON.stringify(concerns)}), and birth preferences (${JSON.stringify(birthPlanPreferences)}). Include a short explanation, what to expect, questions to ask, and when to seek help.
+        content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary PDF. Explain medical terms clearly, outline next steps, offer advocacy questions she can ask, and provide supportive, trauma-informed language. Tailor the content to her trimester (${trimester}), stated concerns (${JSON.stringify(concerns)}), and birth preferences (${JSON.stringify(birthPlanPreferences)}). Include a short explanation, what to expect, questions to ask, and when to seek help. Write every string directly to her as "you/your" (e.g. "Your next annual exam is in one year", "You were referred to..."), never "the patient".
 
 User Context:
 - Trimester: ${trimester}
@@ -1519,30 +1654,30 @@ User Context:
 Return a JSON object with this exact structure:
 {
   "summary": {
-    "howBabyIsDoing": "Brief summary of fetal health, measurements, heartbeat, movements, development",
-    "howYouAreDoing": "Brief summary of maternal health, vitals, symptoms, concerns addressed",
+    "howBabyIsDoing": "Brief summary of your baby's health, measurements, heartbeat, movements, development, written to you (e.g. \"Your baby's heartbeat was 145 beats per minute, which is normal.\")",
+    "howYouAreDoing": "Brief summary of your health, vitals, symptoms, and concerns addressed, written to you (e.g. \"Your blood pressure was 118/76, which is normal.\")",
     "keyMedicalTerms": [{"term": "term name", "explanation": "plain language explanation"}],
-    "nextSteps": "Plain language breakdown of next steps",
+    "nextSteps": "Plain language breakdown of your next steps, written to you (e.g. \"Your next annual exam is in one year.\")",
     "questionsToAsk": ["Question 1", "Question 2"],
     "visitNotes": ["Affirming reminder from this visit", "Another supportive note for the Notes card"],
     "empowermentTips": ["Advocacy tip 1", "Advocacy tip 2"],
     "newDiagnoses": [{"diagnosis": "name", "explanation": "plain language explanation"}],
     "testsProcedures": [{"name": "test/procedure name", "explanation": "what to expect", "whyNeeded": "reason"}],
     "medications": [{"name": "medication name", "purpose": "why prescribed", "instructions": "how to take"}],
-    "followUpInstructions": "Instructions for follow-up care",
+    "followUpInstructions": "Follow-up care instructions written to you (e.g. \"You were referred to a specialist. Your next annual exam is in one year.\")",
     "providerCommunicationStyle": "Description of communication style if flagged (rushed, unclear, dismissive, etc.)",
     "emotionalMarkers": ["confused", "scared", "unsure", etc. if detected],
-    "advocacyMoments": ["Provider said XYZ without explanation", etc.],
+    "advocacyMoments": ["Your provider mentioned XYZ without explaining it", etc.],
     "contradictions": ["Any contradictions or missing explanations"]
   },
   "todos": [
-    {"title": "Todo title", "description": "Todo description", "category": "advocacy|followup|medication|test"}
+    {"title": "Schedule your follow-up ultrasound", "description": "Your provider wants to check your baby's growth in 4 weeks. Call the office to book it.", "category": "advocacy|followup|medication|test"}
   ],
   "learningModules": [
     {
       "title": "Module title",
-      "description": "Why this is relevant",
-      "reason": "Based on visit content",
+      "description": "Why this matters for you",
+      "reason": "Based on what came up at your visit",
       "content": {
         "whatThisIs": "Simple explanation of what this is",
         "whyItMatters": "Why this matters for your health - explain the 'why' behind the 'what' in detail",
@@ -1575,10 +1710,11 @@ CRITICAL REQUIREMENTS:
 10. Follow-up instructions - turn into todos
 11. Provider communication style (e.g., rushed, unclear, dismissive — if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
 12. Emotional markers (mom tapped "confused," "scared," or "unsure") - add to emotionalMarkers
-13. Advocacy moments (e.g., "provider said XYZ without explanation") - add to advocacyMoments
+13. Advocacy moments (e.g., "Your provider mentioned XYZ without explaining it") - add to advocacyMoments
 14. Any contradictions or missing explanations - add to contradictions AND create learning modules to bridge gap
 
 TODOS: Create todos for empowerment/advocacy tips (category: "advocacy"), follow-up instructions (category: "followup"), medications to take (category: "medication"), tests to schedule (category: "test").
+Each todo is a short plain-language next step written to her as "you": "title" is a short action that starts with a verb (8 words or fewer); "description" is a 1-2 sentence summary under 30 words saying what to do and why (e.g. "You were referred to a heart specialist. Call to book a visit in the next 2 weeks."). Keep extra clinical detail out of todos; it belongs in the summary or learning modules.
 
 LEARNING MODULES: Create DETAILED, comprehensive learning modules (not high-level) for new diagnoses, tests/procedures discussed, medications, provider communication issues, contradictions/missing explanations.
 
@@ -1586,7 +1722,7 @@ Each learning module MUST follow this structure and be DETAILED:
 1. **What This Is (Simple Explanation)** - Clear, plain-language explanation
 2. **Why It Matters for Your Health** - Explain the "why" behind the "what" - why this matters, why it's important, what happens if ignored. Be detailed and specific.
 3. **What to Expect** - Step-by-step, detailed guidance on what will happen
-4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts the mother can use
+4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts you can use (written in her own voice, e.g. "Can you explain why I need this?")
 5. **Risks, Options, and Alternatives** - Balanced, non-fearful information
 6. **When to Seek Medical Help** - Clear guidance on when to call provider
 7. **How This Connects to Your Empowerment** - How this topic relates to self-advocacy and empowerment
@@ -1666,6 +1802,10 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
       if (!parsedResponse.summary || typeof parsedResponse.summary !== "object" || Array.isArray(parsedResponse.summary)) {
         throw new HttpsError("internal", "AI response missing a valid \"summary\" object. Please try again.");
       }
+
+      // Safety net: rewrite any third-person "the patient" phrasing in woman-facing
+      // fields (summary, todos/next steps, learning modules) to second person.
+      applySecondPersonToVisitAnalysis(parsedResponse);
 
       // Clean up uploaded file and assistant
       try {
@@ -5057,7 +5197,8 @@ async function enrichProvidersWithFirestore(providers) {
             .get();
           
           if (!reviewsQuery.empty) {
-            const reviews = reviewsQuery.docs.map((doc) => doc.data());
+            const reviews = reviewsQuery.docs.map((doc) => doc.data())
+              .filter((r) => (r.status || "published") === "published");
             if (reviews.length > 0) {
               const totalRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
               rating = totalRating / reviews.length;
@@ -5090,7 +5231,8 @@ async function enrichProvidersWithFirestore(providers) {
               .get();
 
             if (!reviewsQuery.empty) {
-              const reviews = reviewsQuery.docs.map((d) => d.data());
+              const reviews = reviewsQuery.docs.map((d) => d.data())
+              .filter((r) => (r.status || "published") === "published");
               if (reviews.length > 0) {
                 const totalRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
                 rating = totalRating / reviews.length;
@@ -5117,7 +5259,8 @@ async function enrichProvidersWithFirestore(providers) {
             .get();
           
           if (!reviewsQuery.empty) {
-            const reviews = reviewsQuery.docs.map((doc) => doc.data());
+            const reviews = reviewsQuery.docs.map((doc) => doc.data())
+              .filter((r) => (r.status || "published") === "published");
             if (reviews.length > 0) {
               const totalRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
               rating = totalRating / reviews.length;

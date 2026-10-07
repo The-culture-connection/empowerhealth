@@ -20,6 +20,7 @@ PREFER:
 - Specific explanations, practical examples, plain-language education
 - Preparation tools, provider communication guidance, concrete next steps
 - Clear organization with short sections
+- Speak directly to the reader as "you/your" in plain language (e.g. "Your provider may suggest...", "You may be offered...") — never "the patient" or "the mother"; keep clinical facts accurate
 
 Each module MUST include these section headings (##) where relevant:
 - What to expect
@@ -38,7 +39,7 @@ FORMATTING:
 - Do NOT use: try again, at least, everything happens for a reason`;
 
 function pregnancyLossLearningUserMessage(topic, personalContext = "") {
-  return `Write a detailed learning module about "${topic}" for someone after pregnancy loss.
+  return `Write a detailed learning module about "${topic}" for someone after pregnancy loss. Address her directly as "you/your" throughout.
 
 ${personalContext}
 

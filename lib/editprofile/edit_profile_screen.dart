@@ -398,31 +398,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  // Header — full-width column so the subtitle wraps within
+                  // the viewport instead of overflowing at large text sizes.
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Your profile',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w400,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Manage your information and preferences',
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: AppTheme.textMuted,
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Your profile',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w400,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Manage your information and preferences',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w300,
+                        ),
                       ),
                     ],
                   ),
@@ -457,62 +453,71 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                       ],
                     ),
-                    child: Row(
+                    // Avatar + name/metadata share one row (text Expanded);
+                    // the Edit Profile button sits on its own row beneath so
+                    // it never steals width from the name at large text sizes.
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(24),
-                            color: Colors.white.withOpacity(0.45),
-                          ),
-                          child: Text(
-                            _getInitials(userName),
-                            style: const TextStyle(
-                              color: AppTheme.gradientPurpleEnd,
-                              fontSize: 26,
-                              fontWeight: FontWeight.w500,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 64,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(24),
+                                color: Colors.white.withOpacity(0.45),
+                              ),
+                              child: Text(
+                                _getInitials(userName),
+                                style: const TextStyle(
+                                  color: AppTheme.gradientPurpleEnd,
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                userName,
-                                style: const TextStyle(
-                                  color: AppTheme.textPrimary,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                user?.email ?? '',
-                                style: const TextStyle(
-                                  color: AppTheme.textMuted,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w300,
-                                ),
-                              ),
-                              if (dueDate != null) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Due date: ${DateFormat('MMMM d, yyyy').format(dueDate)}',
-                                  style: const TextStyle(
-                                    color: AppTheme.textLighter,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w300,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    userName,
+                                    style: const TextStyle(
+                                      color: AppTheme.textPrimary,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w400,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ],
-                          ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    user?.email ?? '',
+                                    style: const TextStyle(
+                                      color: AppTheme.textMuted,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w300,
+                                    ),
+                                  ),
+                                  if (dueDate != null) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Due date: ${DateFormat('MMMM d, yyyy').format(dueDate)}',
+                                      style: const TextStyle(
+                                        color: AppTheme.textLighter,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w300,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 16),
                         FilledButton.icon(
                           onPressed: () => _enterEditMode(
                             scrollTo: _basicInfoKey,
@@ -539,12 +544,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Pregnancy Details',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
+                        const Expanded(
+                          child: Text(
+                            'Pregnancy Details',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
                           ),
                         ),
                         TextButton.icon(
@@ -1018,14 +1025,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ListTile(
-                      leading: const Icon(Icons.lock_outline, color: AppTheme.brandPurple),
-                      title: const Text('Privacy & Trust Center'),
-                      subtitle: const Text('Manage your privacy settings and data'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    // Custom row instead of ListTile so the title/supporting
+                    // copy gets the full card width; icon and chevron stay in
+                    // compact side columns.
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
                       onTap: () {
                         Navigator.of(context).pushNamed(Routes.privacyCenter);
                       },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lock_outline, color: AppTheme.brandPurple),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Privacy & Trust Center',
+                                    style: Theme.of(context).textTheme.bodyLarge,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Manage your privacy settings and data',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(color: AppTheme.textMuted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward_ios, size: 16),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1112,8 +1149,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildSection(String title, List<Widget> children) {
+    // Consistent padding/alignment for every section row so titles that wrap
+    // at large text sizes (e.g. "Your support experience") line up with
+    // their single-line neighbours.
     return ExpansionTile(
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.bold, height: 1.25),
+      ),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       initiallyExpanded: false,
       children: [
         const SizedBox(height: 8),

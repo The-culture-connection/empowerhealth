@@ -562,7 +562,15 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                   const SizedBox(height: 8),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Mama Approved only'),
+                    title: const Text('Mama Approved™ only'),
+                    subtitle: Text(
+                      '3+ reviews averaging 4 stars or higher from moms in our community.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w300,
+                      ),
+                    ),
                     value: _mamaApprovedOnly,
                     activeTrackColor: AppTheme.brandPurple.withValues(alpha: 0.45),
                     activeThumbColor: AppTheme.brandPurple,

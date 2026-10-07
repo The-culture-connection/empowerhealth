@@ -74,7 +74,11 @@ class AssistantScreen extends StatefulWidget {
 class _AssistantScreenState extends State<AssistantScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  // keepScrollOffset: false — never restore a stale mid-thread offset on re-entry.
+  // The chat list is reversed, so offset 0 is always the latest message.
+  final ScrollController _scrollController =
+      ScrollController(keepScrollOffset: false);
+  final FocusNode _composerFocus = FocusNode();
   final FirebaseFunctionsService _functionsService = FirebaseFunctionsService();
   final DatabaseService _databaseService = DatabaseService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -88,6 +92,15 @@ class _AssistantScreenState extends State<AssistantScreen>
   static const _introPrefsKey = 'assistant_intro_dismissed_v1';
   bool _introDismissed = false;
 
+  /// "New conversation" marker (per user, on this device). Messages created
+  /// before it stay saved in Firestore but are hidden from the visible thread
+  /// unless the user taps "Show earlier messages".
+  static const _conversationStartPrefsPrefix =
+      'assistant_conversation_started_at_v1_';
+  bool _conversationPrefsLoaded = false;
+  DateTime? _conversationStartedAt;
+  bool _showEarlierMessages = false;
+
   @override
   void initState() {
     super.initState();
@@ -100,6 +113,97 @@ class _AssistantScreenState extends State<AssistantScreen>
       duration: const Duration(milliseconds: 1400),
     )..repeat();
     _loadIntroDismissed();
+    _loadConversationStart();
+    _composerFocus.addListener(_onComposerFocusChanged);
+  }
+
+  void _onComposerFocusChanged() {
+    if (!_composerFocus.hasFocus) return;
+    // Keep the latest message visible once the keyboard has animated in.
+    _scheduleScrollToBottom();
+    Future<void>.delayed(const Duration(milliseconds: 350), () {
+      if (mounted && _composerFocus.hasFocus) _scheduleScrollToBottom();
+    });
+  }
+
+  String? get _conversationStartPrefsKey {
+    final uid = _auth.currentUser?.uid;
+    return uid == null ? null : '$_conversationStartPrefsPrefix$uid';
+  }
+
+  Future<void> _loadConversationStart() async {
+    DateTime? startedAt;
+    try {
+      final key = _conversationStartPrefsKey;
+      if (key != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final ms = prefs.getInt(key);
+        if (ms != null) {
+          startedAt = DateTime.fromMillisecondsSinceEpoch(ms);
+        }
+      }
+    } catch (_) {
+      // Non-fatal: show the full thread.
+    }
+    if (!mounted) return;
+    setState(() {
+      _conversationStartedAt = startedAt;
+      _conversationPrefsLoaded = true;
+    });
+  }
+
+  Future<void> _confirmNewConversation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Start a new conversation?'),
+        content: const Text(
+          'This clears the chat on screen so you can start fresh. '
+          'Your earlier messages stay saved to your account. Tap '
+          '"Show earlier messages" any time to see them.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Start new'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final now = DateTime.now();
+    setState(() {
+      _conversationStartedAt = now;
+      _showEarlierMessages = false;
+    });
+    try {
+      final key = _conversationStartPrefsKey;
+      if (key != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(key, now.millisecondsSinceEpoch);
+      }
+    } catch (_) {
+      // Non-fatal: the fresh thread still applies for this session.
+    }
+  }
+
+  Query<Map<String, dynamic>> _messagesQuery(String userId) {
+    Query<Map<String, dynamic>> q = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection(_kAssistantMessages);
+    final startedAt = _conversationStartedAt;
+    if (startedAt != null && !_showEarlierMessages) {
+      q = q.where(
+        'createdAt',
+        isGreaterThan: Timestamp.fromDate(startedAt),
+      );
+    }
+    return q.orderBy('createdAt', descending: false).limit(200);
   }
 
   Future<void> _loadIntroDismissed() async {
@@ -124,12 +228,12 @@ class _AssistantScreenState extends State<AssistantScreen>
     }
   }
 
+  /// The chat list is reversed, so the latest message lives at offset 0.
   void _scheduleScrollToBottom() {
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
-      final max = _scrollController.position.maxScrollExtent;
       _scrollController.animateTo(
-        max,
+        0,
         duration: const Duration(milliseconds: 280),
         curve: Curves.easeOutCubic,
       );
@@ -255,6 +359,8 @@ class _AssistantScreenState extends State<AssistantScreen>
   @override
   void dispose() {
     _dotController.dispose();
+    _composerFocus.removeListener(_onComposerFocusChanged);
+    _composerFocus.dispose();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -263,8 +369,12 @@ class _AssistantScreenState extends State<AssistantScreen>
   @override
   Widget build(BuildContext context) {
     final userId = _auth.currentUser?.uid;
-    final viewInsets = MediaQuery.viewInsetsOf(context);
-    final bottomPad = 20.0 + viewInsets.bottom;
+    // The Scaffold below already resizes its body for the keyboard
+    // (resizeToAvoidBottomInset), so the composer must NOT add viewInsets
+    // again — doing so double-counted the keyboard and pushed the composer
+    // off-screen with Bold Text / larger Dynamic Type.
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final bottomPad = keyboardOpen ? 10.0 : 20.0;
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
@@ -290,15 +400,15 @@ class _AssistantScreenState extends State<AssistantScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'AI Assistant',
                             style: TextStyle(
-                              fontSize: 24,
+                              fontSize: keyboardOpen ? 18 : 24,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.textPrimary,
                             ),
                           ),
-                          if (!_introDismissed) ...[
+                          if (!_introDismissed && !keyboardOpen) ...[
                             const SizedBox(height: 4),
                             Text(
                               'Ask me anything about your care or what to do next',
@@ -320,7 +430,7 @@ class _AssistantScreenState extends State<AssistantScreen>
                         ],
                       ),
                     ),
-                    if (!_introDismissed)
+                    if (!_introDismissed && !keyboardOpen)
                       IconButton(
                         icon: const Icon(Icons.close, size: 18),
                         tooltip: 'Dismiss intro',
@@ -374,19 +484,61 @@ class _AssistantScreenState extends State<AssistantScreen>
                 ),
               ),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: const AIDisclaimerBanner(
-                  customMessage: 'This assistant helps you understand your care.',
-                  customSubMessage: 'It does not replace your provider.',
+              // Full disclaimer when there is room; a compact one-line
+              // version while typing so the composer + latest message stay
+              // visible above the keyboard. The disclaimer is never hidden.
+              if (keyboardOpen)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 6),
+                  child: _CompactAssistantDisclaimer(),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: const AIDisclaimerBanner(
+                    customMessage:
+                        'This assistant helps you understand your care.',
+                    customSubMessage: 'It does not replace your provider.',
+                  ),
                 ),
-              ),
-              if (!_introDismissed)
+              if (!_introDismissed && !keyboardOpen)
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: _AssistantSourcesBar(),
                 ),
-              const SizedBox(height: 8),
+              if (userId != null && !keyboardOpen)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (_conversationStartedAt != null &&
+                          !_showEarlierMessages)
+                        TextButton.icon(
+                          onPressed: () =>
+                              setState(() => _showEarlierMessages = true),
+                          icon: const Icon(Icons.history, size: 18),
+                          label: const Text('Show earlier messages'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.textMuted,
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      TextButton.icon(
+                        onPressed: _isLoading ? null : _confirmNewConversation,
+                        icon: const Icon(Icons.add_comment_outlined, size: 18),
+                        label: const Text('New conversation'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.brandPurple,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                const SizedBox(height: 8),
 
               Expanded(
                 child: userId == null
@@ -403,14 +555,16 @@ class _AssistantScreenState extends State<AssistantScreen>
                           ),
                         ),
                       )
-                    : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                        stream: FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(userId)
-                            .collection(_kAssistantMessages)
-                            .orderBy('createdAt', descending: false)
-                            .limit(200)
-                            .snapshots(),
+                    : !_conversationPrefsLoaded
+                        ? const Center(child: CircularProgressIndicator())
+                        : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        // Keyed by the conversation window so "New
+                        // conversation" / "Show earlier" get a fresh stream.
+                        key: ValueKey(
+                          '${_conversationStartedAt?.millisecondsSinceEpoch}'
+                          '_$_showEarlierMessages',
+                        ),
+                        stream: _messagesQuery(userId).snapshots(),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                                   ConnectionState.waiting &&
@@ -427,9 +581,12 @@ class _AssistantScreenState extends State<AssistantScreen>
 
                           if (!hasMessages) {
                             return Center(
-                              child: Padding(
+                              // Scrollable so the empty state never overflows
+                              // the short space left above the keyboard.
+                              child: SingleChildScrollView(
                                 padding: const EdgeInsets.all(24.0),
                                 child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Container(
@@ -499,6 +656,8 @@ class _AssistantScreenState extends State<AssistantScreen>
                         ),
                         child: TextField(
                           controller: _messageController,
+                          focusNode: _composerFocus,
+                          onTap: _scheduleScrollToBottom,
                           decoration: InputDecoration(
                             hintText: 'Ask me anything...',
                             border: InputBorder.none,
@@ -578,7 +737,12 @@ class _AssistantChatListState extends State<_AssistantChatList> {
   @override
   void initState() {
     super.initState();
-    _scrollAfterFrame();
+    // Always open on the latest message (offset 0 of the reversed list).
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final c = widget.scrollController;
+      if (c.hasClients) c.jumpTo(0);
+    });
   }
 
   @override
@@ -596,7 +760,7 @@ class _AssistantChatListState extends State<_AssistantChatList> {
       final c = widget.scrollController;
       if (!c.hasClients) return;
       c.animateTo(
-        c.position.maxScrollExtent,
+        0,
         duration: const Duration(milliseconds: 280),
         curve: Curves.easeOutCubic,
       );
@@ -607,41 +771,89 @@ class _AssistantChatListState extends State<_AssistantChatList> {
   Widget build(BuildContext context) {
     final totalItems = widget.entries.length + (widget.isLoading ? 1 : 0);
 
-    return ListView.builder(
-      controller: widget.scrollController,
-      padding: const EdgeInsets.only(
-        left: 20,
-        right: 20,
-        bottom: 12,
+    // Reversed list: item 0 is the newest entry and the list is anchored to
+    // the bottom, so re-entry and keyboard resizes always show the latest
+    // message (no reliance on a lazily-estimated maxScrollExtent, which made
+    // re-entry land mid-response). shrinkWrap + topCenter keeps short threads
+    // top-aligned as before.
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ListView.builder(
+        controller: widget.scrollController,
+        reverse: true,
+        shrinkWrap: true,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.only(
+          left: 20,
+          right: 20,
+          bottom: 12,
+        ),
+        itemCount: totalItems,
+        itemBuilder: (context, reversedIndex) {
+          final index = totalItems - 1 - reversedIndex;
+          return _buildEntry(index);
+        },
       ),
-      itemCount: totalItems,
-      itemBuilder: (context, index) {
-        if (widget.isLoading && index == widget.entries.length) {
-          return _AssistantAcknowledgementBubble(
-            message: widget.pendingAckLine,
-            dotAnimation: widget.dotAnimation,
-          );
-        }
+    );
+  }
 
-        final entry = widget.entries[index];
-        if (entry.isDateHeader) {
-          return _DateDivider(day: entry.day!);
-        }
+  Widget _buildEntry(int index) {
+    if (widget.isLoading && index == widget.entries.length) {
+      return _AssistantAcknowledgementBubble(
+        message: widget.pendingAckLine,
+        dotAnimation: widget.dotAnimation,
+      );
+    }
 
-        final doc = entry.doc!;
-        final data = doc.data();
-        final role = data['role'] as String? ?? 'assistant';
-        final text = data['text'] as String? ?? '';
-        final isUser = role == 'user';
+    final entry = widget.entries[index];
+    if (entry.isDateHeader) {
+      return _DateDivider(day: entry.day!);
+    }
 
-        return Align(
-          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-          child: _MessageBubble(
-            text: text,
-            isUser: isUser,
+    final doc = entry.doc!;
+    final data = doc.data();
+    final role = data['role'] as String? ?? 'assistant';
+    final text = data['text'] as String? ?? '';
+    final isUser = role == 'user';
+
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: _MessageBubble(
+        text: text,
+        isUser: isUser,
+      ),
+    );
+  }
+}
+
+/// One-line disclaimer shown while the keyboard is open (full banner otherwise).
+class _CompactAssistantDisclaimer extends StatelessWidget {
+  const _CompactAssistantDisclaimer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(Icons.favorite, size: 14, color: AppTheme.brandPurple),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            'This assistant helps you understand your care. '
+            'It does not replace your provider.',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.35,
+              color: AppTheme.textSecondary,
+            ),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
@@ -747,7 +959,12 @@ class _AssistantSourcesBarState extends State<_AssistantSourcesBar> {
   bool _expanded = false;
 
   Future<void> _open(MedicalSource source) async {
-    final ok = await launchMedicalSource(source);
+    bool ok;
+    try {
+      ok = await launchMedicalSource(source);
+    } catch (_) {
+      ok = false;
+    }
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

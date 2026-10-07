@@ -197,7 +197,16 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     
     final userId = _auth.currentUser?.uid;
     if (userId == null) return;
-    
+
+    // Values passed in via [ProviderSearchPrefill] (from quick search or the
+    // Find Your Care hub) are the user's current choices — profile autofill
+    // must not silently overwrite them.
+    final p = widget.prefill;
+    final prefilledPlan = p?.healthPlan != null && p!.healthPlan!.isNotEmpty;
+    final prefilledTypes = p?.providerTypeDisplayNames?.isNotEmpty == true;
+    final prefilledTags = p?.identityTagLabels?.isNotEmpty == true;
+    final prefilledLanguages = p?.languages?.isNotEmpty == true;
+
     try {
       final profile = await _databaseService.getUserProfile(userId);
       if (profile != null && mounted) {
@@ -214,17 +223,19 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           
           // Map insurance type to health plan (overrides default "All plans" when known)
           final mappedPlan = _mapInsuranceToHealthPlan(profile.insuranceType);
-          if (mappedPlan.isNotEmpty) {
+          if (mappedPlan.isNotEmpty && !prefilledPlan) {
             _healthPlan = mappedPlan;
           }
           
           // Map provider preferences to identity tags
-          if (profile.providerPreferences.isNotEmpty) {
+          if (profile.providerPreferences.isNotEmpty && !prefilledTags) {
             _selectedIdentityTags = _mapPreferencesToIdentityTags(profile.providerPreferences);
           }
           
           // Map language preference to languages
-          if (profile.languagePreference != null && profile.languagePreference!.isNotEmpty) {
+          if (!prefilledLanguages &&
+              profile.languagePreference != null &&
+              profile.languagePreference!.isNotEmpty) {
             final mappedLanguage = _mapLanguagePreference(profile.languagePreference!);
             if (mappedLanguage != null && !_selectedLanguages.contains(mappedLanguage)) {
               _selectedLanguages = [mappedLanguage];
@@ -232,7 +243,9 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           }
           
           // Map birth preference to provider types
-          if (profile.birthPreference != null && profile.birthPreference!.isNotEmpty) {
+          if (!prefilledTypes &&
+              profile.birthPreference != null &&
+              profile.birthPreference!.isNotEmpty) {
             final providerTypes = _mapBirthPreferenceToProviderTypes(profile.birthPreference!);
             if (providerTypes.isNotEmpty) {
               _selectedProviderTypes = providerTypes;
@@ -657,7 +670,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            'Include providers from NPI directory',
+                                            'Include the national provider list (NPI)',
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w400,
@@ -666,7 +679,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            'Adds all providers if no Medicaid match is found',
+                                            'Adds more providers beyond the Ohio Medicaid directory',
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: AppTheme.textMuted,
@@ -690,7 +703,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                           title: 'Provider Type (Optional)',
                           child: _buildTypingMultiSelect(
                             helperText:
-                                'Optional — leave blank to search all types, or type part of a name (for example midwife, hospital, doula) then tap to add.',
+                                'Optional. Leave blank for all types, or type a word like midwife or doula and tap to add.',
                             hintText: 'Type to filter provider types…',
                             queryController: _providerTypeQueryController,
                             allOptions: () {
@@ -781,8 +794,8 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                               ],
                             ),
                             subtitle: Text(
-                              'Providers other mothers rated highly and felt '
-                              'heard, respected, and clearly informed by.',
+                              '3+ reviews averaging 4 stars or higher from '
+                              'moms in our community.',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w300,
@@ -1192,7 +1205,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
             runSpacing: 8,
             children: selected.map((item) {
               return Chip(
-                label: Text(item, maxLines: 2, overflow: TextOverflow.ellipsis),
+                label: Text(item),
                 backgroundColor: chipColor.withOpacity(0.12),
                 deleteIcon: Icon(Icons.close, size: 18, color: chipColor),
                 onDeleted: () => onToggleItem(item),

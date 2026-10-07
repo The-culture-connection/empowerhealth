@@ -4,24 +4,44 @@ import 'package:url_launcher/url_launcher.dart';
 import 'app_external_resources.dart';
 import 'app_resources_screen.dart';
 
+/// Tries [launchUrl] directly (no `canLaunchUrl` pre-check: on iOS that
+/// returns false for schemes not listed in LSApplicationQueriesSchemes, which
+/// blocked valid links / `tel:`). Never navigates — the user returns to the
+/// same screen. Shows a SnackBar on failure.
+Future<bool> _tryLaunch(
+  BuildContext context,
+  Uri? uri, {
+  required LaunchMode mode,
+  required String errorMessage,
+}) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  var ok = false;
+  if (uri != null) {
+    try {
+      ok = await launchUrl(uri, mode: mode);
+    } catch (_) {
+      ok = false;
+    }
+  }
+  if (!ok) {
+    messenger?.showSnackBar(SnackBar(content: Text(errorMessage)));
+  }
+  return ok;
+}
+
 Future<void> launchAppExternalUrl(
   BuildContext context,
   String url, {
   String? errorMessage,
 }) async {
-  final uri = Uri.tryParse(url);
-  if (uri == null) return;
-  if (!await canLaunchUrl(uri)) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage ?? 'Could not open this link.'),
-        ),
-      );
-    }
-    return;
-  }
-  await launchUrl(uri, mode: LaunchMode.externalApplication);
+  // Safari (external) keeps the app's navigation stack intact; users return
+  // to the same screen via the iOS back-to-app control or app switcher.
+  await _tryLaunch(
+    context,
+    Uri.tryParse(url),
+    mode: LaunchMode.externalApplication,
+    errorMessage: errorMessage ?? 'Could not open this link.',
+  );
 }
 
 Future<void> launchAppExternalPhone(
@@ -29,19 +49,12 @@ Future<void> launchAppExternalPhone(
   String phoneTelUri, {
   String? errorMessage,
 }) async {
-  final uri = Uri.tryParse(phoneTelUri);
-  if (uri == null) return;
-  if (!await canLaunchUrl(uri)) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage ?? 'Could not start a phone call.'),
-        ),
-      );
-    }
-    return;
-  }
-  await launchUrl(uri);
+  await _tryLaunch(
+    context,
+    Uri.tryParse(phoneTelUri),
+    mode: LaunchMode.platformDefault,
+    errorMessage: errorMessage ?? 'Could not start a phone call.',
+  );
 }
 
 /// Opens in-app resources directory, optionally scrolled to [highlightResourceId].

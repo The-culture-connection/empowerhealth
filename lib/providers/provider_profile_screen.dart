@@ -436,11 +436,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
+          // Name gets the full card width; the Mama Approved™ badge sits on
+          // its own line below so it never squeezes the name at large text.
+          Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -485,22 +483,22 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         ],
                       ),
                     ],
+                    if (_provider!.showsMamaApprovedBadge) ...[
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _showMamaApprovedInfo = !_showMamaApprovedInfo;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(18),
+                        child: const MamaApprovedCommunityBadge(
+                          onDarkBackground: true,
+                          showInfoAffordance: true,
+                        ),
+                      ),
+                    ],
                   ],
-                ),
-              ),
-              if (_provider!.showsMamaApprovedBadge)
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      _showMamaApprovedInfo = !_showMamaApprovedInfo;
-                    });
-                  },
-                  child: const MamaApprovedCommunityBadge(
-                    onDarkBackground: true,
-                    showInfoAffordance: true,
-                  ),
-                ),
-            ],
           ),
           if (_showMamaApprovedInfo) ...[
             const SizedBox(height: 16),
@@ -515,7 +513,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'This label appears when at least three parents rated this provider 4 stars or higher on average AND most reviewers said they felt heard, felt respected, and that things were explained clearly. It comes from community reviews only — not from a hospital, insurer, or medical board.',
+                    '${Provider.mamaApprovedCriteriaText} It reflects community reviews only — not a hospital, insurer, or medical board.',
                     style: TextStyle(
                       fontSize: 14,
                       height: 1.4,
@@ -534,12 +532,13 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               const SizedBox(width: 4),
               Text(
                 _provider!.rating != null && _provider!.rating! > 0
-                    ? _provider!.rating!.toStringAsFixed(1)
+                    ? Provider.formatAverageRating(_provider!.rating!)
                     : _publishedReviews.isNotEmpty
-                    ? (_publishedReviews.fold<double>(
-                            0.0, (sum, r) => sum + r.rating) /
-                          _publishedReviews.length)
-                          .toStringAsFixed(1)
+                    ? Provider.formatAverageRating(
+                        _publishedReviews.fold<double>(
+                              0.0, (sum, r) => sum + r.rating) /
+                            _publishedReviews.length,
+                      )
                     : 'N/A',
                 style: const TextStyle(
                   fontSize: 18,
@@ -549,7 +548,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                '(${_publishedReviews.length} reviews)',
+                '(${_publishedReviews.length} review${_publishedReviews.length == 1 ? '' : 's'})',
                 style: TextStyle(
                   fontSize: 14,
                   color: AppTheme.brandWhite.withOpacity(0.8),
@@ -773,7 +772,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   child: Text(
                     _provider!.email!,
                     overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                    maxLines: 2,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.brandPurple,
@@ -809,7 +808,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   child: Text(
                     _provider!.website!,
                     overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                    maxLines: 2,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.brandPurple,
@@ -1084,7 +1083,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   /// Community trust indicators from the experience questions — the same
-  /// signals that feed the Mama Approved™ score.
+  /// trust indicators shown alongside (not part of) the Mama Approved™ rule.
   Widget _buildExperienceTrustSummary() {
     final reviews = _publishedReviews;
     if (reviews.isEmpty) return const SizedBox.shrink();

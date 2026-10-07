@@ -92,8 +92,8 @@ const List<AppExternalResource> kAppExternalResources = [
         'https://mchb.hrsa.gov/programs-impact/national-maternal-mental-health-hotline',
     category: AppResourceCategory.mentalHealth,
     icon: Icons.support_agent_rounded,
-    phoneDisplay: '1-833-TLC-MAMA (1-833-853-6262)',
-    phoneTelUri: 'tel:+18338536262',
+    phoneDisplay: '1-833-TLC-MAMA (1-833-852-6262)',
+    phoneTelUri: 'tel:+18338526262',
   ),
   AppExternalResource(
     id: 'hrsa_healthy_start',
@@ -171,7 +171,7 @@ const List<AppExternalResource> kAppExternalResources = [
     title: 'CDC Hear Her campaign',
     description:
         'Urgent maternal warning signs during and after pregnancy — know when to get help.',
-    url: 'https://www.cdc.gov/hearher/index.html',
+    url: 'https://www.cdc.gov/hearher/',
     category: AppResourceCategory.advocacy,
     icon: Icons.campaign_outlined,
   ),

@@ -14,6 +14,7 @@ import '../services/firebase_functions_service.dart';
 import '../utils/pregnancy_utils.dart';
 import 'learning_todo_widget.dart';
 import 'Learning Modules/learning_module_detail_screen.dart';
+import 'Learning Modules/learning_modules_screen_v2.dart' show openTrimesterJourney;
 import '../widgets/ai_disclaimer_banner.dart';
 import '../models/user_profile.dart';
 import 'widgets/home_milestone_bell.dart';
@@ -31,6 +32,9 @@ const String _kAssistantPromptTestMeaning =
     "I have a test or result I don't understand. Can you explain it in simple terms?";
 const String _kAssistantPromptIsThisNormal =
     "I'm wondering if something I'm feeling is normal. Can you help me understand?";
+
+/// Non-breaking space: keeps short labels (e.g. "Second trimester") on one line.
+final String _kNbsp = String.fromCharCode(0x00A0);
 
 class HomeScreenV2 extends StatefulWidget {
   const HomeScreenV2({super.key});
@@ -310,7 +314,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
       body: SafeArea(
         child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(24, 48, 24, inLossMode ? 80 : 120),
+              // Bottom inset keeps the last card clear of the floating support
+              // button and bottom nav (SafeArea adds the nav/safe-area inset).
+              padding: const EdgeInsets.fromLTRB(24, 48, 24, 120),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -371,8 +377,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                         fontWeight: FontWeight.w300,
                                       ),
                                       decoration: InputDecoration(
-                                        hintText:
-                                            'Search symptoms, tests, or what to ask your doctor',
+                                        hintText: 'Search symptoms or topics',
+                                        hintMaxLines: 2,
                                         hintStyle: TextStyle(
                                           color: const Color(0xFFB5A8C2),
                                           fontWeight: FontWeight.w300,
@@ -431,10 +437,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _CareToolCard(
+                      _CareToolPair(
+                            first: _CareToolCard(
                               icon: Icons.article_outlined,
                               iconGradient: const [
                                 Color(0xFFE8E0F0),
@@ -453,10 +457,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                 );
                               },
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _CareToolCard(
+                            second: _CareToolCard(
                               icon: Icons.favorite_border,
                               iconGradient: const [
                                 Color(0xFFF5EEE0),
@@ -468,8 +469,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                               onTap: () => Navigator.pushNamed(
                                   context, Routes.journal),
                             ),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 16),
                       if (inLossMode)
@@ -488,10 +487,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                           ),
                         )
                       else
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _CareToolCard(
+                        _CareToolPair(
+                              first: _CareToolCard(
                                 icon: Icons.description_outlined,
                                 iconGradient: const [
                                   Color(0xFFE8E0F0),
@@ -510,10 +507,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                   );
                                 },
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _CareToolCard(
+                              second: _CareToolCard(
                                 icon: Icons.menu_book_outlined,
                                 iconGradient: const [
                                   Color(0xFFE8E0F0),
@@ -527,8 +521,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                   Routes.learning,
                                 ),
                               ),
-                            ),
-                          ],
                         ),
                     ],
                   ),
@@ -680,12 +672,14 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                         const SizedBox(height: 12),
                                         Row(
                                           children: [
-                                            Text(
-                                              'Start check-in',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w400,
-                                                color: AppTheme.brandPurple,
+                                            Flexible(
+                                              child: Text(
+                                                'Start check-in',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w400,
+                                                  color: AppTheme.brandPurple,
+                                                ),
                                               ),
                                             ),
                                             const SizedBox(width: 4),
@@ -823,10 +817,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                               Navigator.pushNamed(context, Routes.providers),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _CareToolCard(
+                        _CareToolPair(
+                              first: _CareToolCard(
                                 icon: Icons.science_outlined,
                                 iconGradient: const [
                                   Color(0xFFE8E0F0),
@@ -845,10 +837,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _CareToolCard(
+                              second: _CareToolCard(
                                 icon: Icons.help_outline_rounded,
                                 iconGradient: const [
                                   Color(0xFFF5EEE0),
@@ -879,25 +868,21 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                   }
                                 },
                               ),
-                            ),
-                          ],
                         ),
                       ],
                     ),
                   ),
 
                   if (!inLossMode) ...[
-                  // Week / trimester journey card → Learn tab (trimester modules)
+                  // Week / trimester journey card → the same trimester module the
+                  // Learning Center banner opens (single source of truth).
                   if (showWeekJourneyCard) ...[
                     Padding(
                       padding: const EdgeInsets.only(bottom: 40),
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: () => Navigator.pushNamed(
-                            context,
-                            Routes.learning,
-                          ),
+                          onTap: () => openTrimesterJourney(context),
                           borderRadius: BorderRadius.circular(24),
                           child: Ink(
                             decoration: BoxDecoration(
@@ -948,7 +933,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Week $displayWeek • ${PregnancyUtils.trimesterDisplayTitle(trimester)}',
+                                          // Non-breaking spaces keep "Week N" and
+                                          // the full trimester label together.
+                                          'Week$_kNbsp$displayWeek • ${PregnancyUtils.trimesterDisplayTitle(trimester).replaceAll(' ', _kNbsp)}',
                                           style: const TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w500,
@@ -970,12 +957,14 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: const [
-                                            Text(
-                                              'Open Learning Center',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                                color: Color(0xFFF5F0F7),
+                                            Flexible(
+                                              child: Text(
+                                                'Open your trimester guide',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Color(0xFFF5F0F7),
+                                                ),
                                               ),
                                             ),
                                             SizedBox(width: 4),
@@ -1100,12 +1089,30 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              'Welcome to EmpowerHealth Watch',
+                                              'Welcome to',
                                               style: TextStyle(
                                                 fontSize: 17,
                                                 fontWeight: FontWeight.w400,
                                                 letterSpacing: -0.085,
                                                 color: AppTheme.textPrimary,
+                                              ),
+                                            ),
+                                            // Product name kept on one line so
+                                            // it never breaks mid-word at large
+                                            // text sizes.
+                                            FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                'EmpowerHealth Watch',
+                                                maxLines: 1,
+                                                softWrap: false,
+                                                style: TextStyle(
+                                                  fontSize: 17,
+                                                  fontWeight: FontWeight.w400,
+                                                  letterSpacing: -0.085,
+                                                  color: AppTheme.textPrimary,
+                                                ),
                                               ),
                                             ),
                                             const SizedBox(height: 8),
@@ -1126,13 +1133,15 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                   const SizedBox(height: 16),
                                   Row(
                                     children: [
-                                      Text(
-                                        'Explore community',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w300,
-                                          color: AppTheme.textMuted
-                                              .withOpacity(0.85),
+                                      Flexible(
+                                        child: Text(
+                                          'Explore community',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w300,
+                                            color: AppTheme.textMuted
+                                                .withOpacity(0.85),
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 4),
@@ -1558,12 +1567,14 @@ class _AppointmentCard extends StatelessWidget {
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                            Text(
-                              durationLabel!,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w300,
-                                color: AppTheme.textMuted.withOpacity(0.85),
+                            Flexible(
+                              child: Text(
+                                durationLabel!,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w300,
+                                  color: AppTheme.textMuted.withOpacity(0.85),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 4),
@@ -1596,6 +1607,51 @@ class _AppointmentCard extends StatelessWidget {
   }
 }
 
+/// Two [_CareToolCard]s side by side; stacks them full-width when the user's
+/// text size (Dynamic Type / Bold Text) or a narrow screen would leave too
+/// little room for card copy and force mid-word line breaks.
+class _CareToolPair extends StatelessWidget {
+  final Widget first;
+  final Widget second;
+
+  const _CareToolPair({required this.first, required this.second});
+
+  static const double _gap = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final boldText = MediaQuery.boldTextOf(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = (constraints.maxWidth - _gap) / 2;
+        // Usable copy width per card shrinks as text grows; stack when the
+        // longest words ("personalized", "Summaries") would no longer fit.
+        final effectiveScale = textScale * (boldText ? 1.08 : 1.0);
+        final stack = effectiveScale >= 1.15 || cardWidth < 140;
+        if (stack) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              first,
+              const SizedBox(height: _gap),
+              second,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: first),
+            const SizedBox(width: _gap),
+            Expanded(child: second),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _CareToolCard extends StatelessWidget {
   final IconData icon;
   final List<Color> iconGradient;
@@ -1621,7 +1677,7 @@ class _CareToolCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           gradient: borderColor != null
               ? LinearGradient(

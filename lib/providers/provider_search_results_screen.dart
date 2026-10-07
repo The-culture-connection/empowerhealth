@@ -29,7 +29,9 @@ class _ProviderSearchResultsScreenState
   List<Provider> _providers = [];
   bool _isLoading = true;
   String? _error;
-  String _sortBy = 'Highest rated';
+  // Results arrive ranked by filter match, then Mama Approved™, then rating —
+  // label the dropdown accordingly so it matches what is on screen.
+  String _sortBy = 'Most relevant';
   Map<String, Map<String, dynamic>> _providerMatchInfo =
       {}; // Store match scores and filters
   List<String> _searchProviderTypeIds =
@@ -145,7 +147,9 @@ class _ProviderSearchResultsScreenState
       }
 
       if (reviewProviderId != null && reviewProviderId.isNotEmpty) {
-        final reviews = await _repository.getProviderReviews(reviewProviderId);
+        final reviews = ProviderRepository.publishedOnly(
+          await _repository.getProviderReviews(reviewProviderId),
+        );
         if (reviews.isNotEmpty && mounted) {
           final totalRating = reviews.fold<double>(
             0.0,
@@ -624,7 +628,9 @@ class _ProviderSearchResultsScreenState
                                   ),
                                   const SizedBox(height: 8), // mb-2
                                   Text(
-                                    '${_providers.length} providers found near you',
+                                    _providers.length == 1
+                                        ? '1 provider found near you'
+                                        : '${_providers.length} providers found near you',
                                     style: TextStyle(
                                       fontSize: 14, // text-sm
                                       color: Color(
@@ -662,7 +668,8 @@ class _ProviderSearchResultsScreenState
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'Error loading providers',
+                                'We couldn\'t load providers right now',
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: AppTheme.textMuted,
                                   fontWeight: FontWeight.w400,
@@ -670,7 +677,7 @@ class _ProviderSearchResultsScreenState
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                _error!,
+                                'Check your internet connection and try again. If it keeps happening, go back and adjust your search.',
                                 style: TextStyle(
                                   color: AppTheme.textLight,
                                   fontSize: 12,
@@ -788,14 +795,17 @@ class _ProviderSearchResultsScreenState
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(
-                                          'Sorted by distance',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Color(0xFF8B7A95),
-                                            fontWeight: FontWeight.w300,
+                                        Flexible(
+                                          child: Text(
+                                            'Sort by',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Color(0xFF8B7A95),
+                                              fontWeight: FontWeight.w300,
+                                            ),
                                           ),
                                         ),
+                                        const SizedBox(width: 12),
                                         Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 16,
@@ -822,6 +832,10 @@ class _ProviderSearchResultsScreenState
                                               fontWeight: FontWeight.w300,
                                             ),
                                             items: const [
+                                              DropdownMenuItem(
+                                                value: 'Most relevant',
+                                                child: Text('Most relevant'),
+                                              ),
                                               DropdownMenuItem(
                                                 value: 'Nearest',
                                                 child: Text('Nearest first'),
@@ -1160,8 +1174,9 @@ class _ProviderSearchResultsScreenState
         true;
     final includeNPI = widget.searchParams['includeNPI'] as bool? ?? false;
     final currentRadius = widget.searchParams['radius'] as int? ?? 10;
-    final providerTypeIds =
-        widget.searchParams['providerTypeIds'] as List<String>? ?? [];
+    final mamaApprovedOnly = widget.searchParams['mamaApprovedOnly'] == true;
+    final hasIdentityTags =
+        (widget.searchParams['identityTags'] as List?)?.isNotEmpty == true;
 
     return Center(
       child: SingleChildScrollView(
@@ -1172,8 +1187,21 @@ class _ProviderSearchResultsScreenState
             Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             const Text(
-              'No providers found',
+              'No providers matched this search',
+              textAlign: TextAlign.center,
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              mamaApprovedOnly
+                  ? 'You searched for Mama Approved™ providers only. Few providers have enough reviews yet, so try turning that filter off.'
+                  : 'That doesn\'t mean there is no care near you. A small change usually helps.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                color: Colors.grey[700],
+              ),
             ),
             const SizedBox(height: 16),
             Container(
@@ -1187,28 +1215,23 @@ class _ProviderSearchResultsScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Try these suggestions:',
+                    'What to try next:',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
+                  if (mamaApprovedOnly)
+                    _buildSuggestion('Turn off "Mama Approved™ only"'),
                   _buildSuggestion(
-                    'Widen your search radius (currently ${currentRadius} miles)',
+                    'Widen your search radius (now $currentRadius miles)',
                   ),
-                  if (!providerTypeIds.contains('01'))
-                    _buildSuggestion('Add "Hospital" (01) to provider types'),
-                  if (!providerTypeIds.contains('20') &&
-                      !providerTypeIds.contains('09'))
+                  if (!includeNPI)
                     _buildSuggestion(
-                      'Add "Physician / Osteopath Individual" (20) or "OB-GYN" (09)',
+                      'Use Expanded search and include the national provider list',
                     ),
-                  if (!includeNPI && hasSpecialty)
-                    _buildSuggestion(
-                      'Enable NPI fallback to search additional providers',
-                    ),
-                  if (includeNPI && !hasSpecialty)
-                    _buildSuggestion('Select a specialty to enable NPI search'),
-                  _buildSuggestion('Try a different health plan'),
-                  _buildSuggestion('Search in a nearby city'),
+                  _buildSuggestion('Choose "All plans" or a different health plan'),
+                  if (hasSpecialty || hasIdentityTags)
+                    _buildSuggestion('Remove a specialty or identity filter'),
+                  _buildSuggestion('Try a nearby city or ZIP code'),
                 ],
               ),
             ),
@@ -1222,8 +1245,8 @@ class _ProviderSearchResultsScreenState
                   onPressed: () {
                     Navigator.pop(context); // Go back to search
                   },
-                  icon: const Icon(Icons.edit, size: 20),
-                  label: const Text('Edit Search'),
+                  icon: const Icon(Icons.tune, size: 20),
+                  label: const Text('Adjust search'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.brandPurple,
                     foregroundColor: AppTheme.brandWhite,
@@ -1491,8 +1514,7 @@ class _ProviderCard extends StatelessWidget {
                               children: [
                                 Text(
                                   provider.primaryDisplayName,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
                                   style: TextStyle(
                                     fontSize: 18, // text-lg
                                     fontWeight: FontWeight.w400, // font-normal
@@ -1583,6 +1605,19 @@ class _ProviderCard extends StatelessWidget {
                               ],
                             ),
                           ),
+                        ],
+                      ),
+                      // Provider Type Tags and Match Indicators. Status chips
+                      // (Mama Approved™, Accepting) live here — below the name —
+                      // so they never squeeze the name at large text sizes.
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (provider.showsMamaApprovedBadge)
+                            const MamaApprovedCommunityBadge(),
+
                           if (provider.acceptingNewPatients ?? false)
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -1597,7 +1632,7 @@ class _ProviderCard extends StatelessWidget {
                                 ),
                               ),
                               child: Text(
-                                '✓ Accepting',
+                                '✓ Accepting new patients',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFF6B9688),
@@ -1605,14 +1640,7 @@ class _ProviderCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                        ],
-                      ),
-                      // Provider Type Tags and Match Indicators
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
+
                           // Provider Type Tags (only show types with display names)
                           ...provider.providerTypes
                               .where(
@@ -1679,23 +1707,22 @@ class _ProviderCard extends StatelessWidget {
                                           color: Color(0xFF4CAF50),
                                         ),
                                       if (isMatched) const SizedBox(width: 4),
-                                      Text(
-                                        typeName,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: isMatched
-                                              ? Color(0xFF2E7D32)
-                                              : Color(0xFF6B5C75),
-                                          fontWeight: FontWeight.w400,
+                                      Flexible(
+                                        child: Text(
+                                          typeName,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isMatched
+                                                ? Color(0xFF2E7D32)
+                                                : Color(0xFF6B5C75),
+                                            fontWeight: FontWeight.w400,
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
                                 );
                               }),
-
-                          if (provider.showsMamaApprovedBadge)
-                            const MamaApprovedCommunityBadge(),
 
                           // Identity Tags (including BIPOC)
                           ...provider.identityTags.map((tag) {
@@ -1750,7 +1777,8 @@ class _ProviderCard extends StatelessWidget {
                                     ),
                                   if (isVerified || isBipoc)
                                     const SizedBox(width: 4),
-                                  Text(
+                                  Flexible(
+                                    child: Text(
                                     tag.name,
                                     style: TextStyle(
                                       fontSize: 12,
@@ -1768,6 +1796,7 @@ class _ProviderCard extends StatelessWidget {
                                       fontWeight: FontWeight
                                           .w500, // Slightly bolder for visibility
                                     ),
+                                  ),
                                   ),
                                 ],
                               ),
@@ -1825,7 +1854,7 @@ class _ProviderCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text(
                             provider.rating != null && provider.rating! > 0
-                                ? provider.rating!.toStringAsFixed(1)
+                                ? Provider.formatAverageRating(provider.rating!)
                                 : 'N/A',
                             style: TextStyle(
                               fontSize: 18, // text-lg
@@ -1837,7 +1866,7 @@ class _ProviderCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        '(${provider.reviewCount ?? 0} reviews)',
+                        '(${provider.reviewCount ?? 0} review${(provider.reviewCount ?? 0) == 1 ? '' : 's'})',
                         style: TextStyle(
                           fontSize: 14, // text-sm
                           color: Color(0xFFA89CB5), // text-[#a89cb5]

@@ -1,0 +1,15 @@
+{
+	admin off
+}
+
+:{$PORT:8080} {
+	root * /srv
+	encode gzip zstd
+
+	# Always fetch the newest app shell so users pick up new builds.
+	@shell path / /index.html /flutter_bootstrap.js /flutter_service_worker.js /version.json /manifest.json
+	header @shell Cache-Control "no-cache"
+
+	try_files {path} /index.html
+	file_server
+}

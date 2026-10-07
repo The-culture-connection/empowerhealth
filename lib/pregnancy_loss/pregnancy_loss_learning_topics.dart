@@ -126,7 +126,7 @@ If mood symptoms are severe, persistent, or include thoughts of self-harm, that 
 ## Types of support you can ask for
 - Screening questions about mood at an OB, primary care, or emergency visit
 - Referral to therapy, psychiatry, or a support group
-- Information about the National Maternal Mental Health Hotline (call or text 1-833-TLC-MAMA / 1-833-853-6262) or Postpartum Support International
+- Information about the National Maternal Mental Health Hotline (call or text 1-833-TLC-MAMA / 1-833-852-6262) or Postpartum Support International
 - Work or school accommodation letters if you request them
 
 ## Gentle steps that help some people

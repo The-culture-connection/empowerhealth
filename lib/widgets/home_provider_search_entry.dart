@@ -71,8 +71,6 @@ class HomeProviderSearchEntry extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: compact ? 14 : 16,
                           fontWeight: FontWeight.w400,
@@ -82,8 +80,6 @@ class HomeProviderSearchEntry extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: compact ? 12 : 14,
                           fontWeight: FontWeight.w300,

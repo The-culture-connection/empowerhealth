@@ -9,12 +9,21 @@ import '../../services/database_service.dart';
 import '../../services/research/research_firestore_service.dart';
 import '../../cors/ui_theme.dart';
 import '../../utils/pregnancy_utils.dart';
+import '../../utils/second_person.dart';
 import 'learning_module_detail_screen.dart';
 import 'module_survey_dialog.dart';
 import 'rights_screen.dart';
 import 'birth_labor_education_topics.dart';
 import '../../pregnancy_loss/pregnancy_loss_learning_screen.dart';
 import '../../support_stage/support_stage.dart';
+
+/// Single entry point for the user's current-trimester content.
+///
+/// Both the Learning Center trimester card and Home's trimester banner should
+/// call this so they always open the same screen ([Routes.pregnancyJourney]).
+void openTrimesterJourney(BuildContext context) {
+  Navigator.pushNamed(context, Routes.pregnancyJourney);
+}
 
 class LearningModulesScreenV2 extends StatefulWidget {
   const LearningModulesScreenV2({super.key});
@@ -218,17 +227,34 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
     return 'Health made simple';
   }
 
-  Widget _sectionHeader(String label) {
+  Widget _sectionHeader(String label, {String? subtitle}) {
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 10),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
-          color: AppTheme.textSecondary,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.6,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                fontWeight: FontWeight.w300,
+                color: AppTheme.textMuted,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -264,7 +290,18 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
     }
 
     if (todos.isNotEmpty) {
-      rows.add('Your next steps');
+      final hasBirthPlanTodos = todos.any(
+        (d) => (d.data() as Map<String, dynamic>)['birthPlanId'] != null,
+      );
+      final hasVisitTodos = todos.any(
+        (d) => (d.data() as Map<String, dynamic>)['birthPlanId'] == null,
+      );
+      final source = hasBirthPlanTodos && hasVisitTodos
+          ? 'From your visit summaries and birth preferences'
+          : hasBirthPlanTodos
+              ? 'From your birth preferences'
+              : 'From your visit summaries';
+      rows.add(_SectionHeading('Your next steps', subtitle: source));
       rows.addAll(todos);
     }
     for (final section in _topicSectionOrder) {
@@ -287,11 +324,22 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
   }
 
   List<Widget> _learningScrollHeaderSlivers() {
-    // Long two-line titles + subtitle need room; scale with system text size.
+    // Long titles (up to 3 lines) + 2-line subtitle need room; derive the strip
+    // height from the actual text metrics so it grows with Dynamic Type.
     final textScale =
         MediaQuery.textScalerOf(context).scale(14) / 14.0;
+    // 24 vertical padding + 22 icon + 12 min gap, then scaled text:
+    // title 3 × (14 × 1.2) + 4 gap + subtitle 2 × (12 × 1.25).
     final birthStripHeight =
-        (148.0 * textScale).clamp(148.0, 210.0);
+        (58.0 + textScale * (3 * 14 * 1.2 + 4 + 2 * 12 * 1.25) + 8)
+            .clamp(148.0, 260.0);
+    // Deliberate carousel: card is ~80% of the content width so the next card
+    // peeks in from the screen edge (strip is full-bleed, not clipped at the
+    // 24pt gutter).
+    final contentWidth = MediaQuery.sizeOf(context).width - 48;
+    final birthCardWidth = (contentWidth * 0.8).clamp(216.0, 340.0);
+    // Archived shows only archived items — hide static modules/cards.
+    final showStaticContent = _filterType != 'archived';
 
     return [
       SliverToBoxAdapter(
@@ -330,9 +378,10 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
       ),
       SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          padding: const EdgeInsets.only(top: 20),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
               children: [
                 _FilterChip(
@@ -358,19 +407,21 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
         ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      if (showStaticContent) ...[
       SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
+        child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Birth & hospital basics',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.6,
-                  color: AppTheme.textSecondary,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Birth & hospital basics',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.6,
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -378,12 +429,13 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                 height: birthStripHeight,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   itemCount: birthLaborEducationTopics.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
                   itemBuilder: (context, i) {
                     final t = birthLaborEducationTopics[i];
                     return SizedBox(
-                      width: 216,
+                      width: birthCardWidth,
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
@@ -419,7 +471,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                     children: [
                                       Text(
                                         t.title,
-                                        maxLines: 2,
+                                        maxLines: 3,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
                                           fontSize: 14,
@@ -431,7 +483,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                       const SizedBox(height: 4),
                                       Text(
                                         t.subtitle,
-                                        maxLines: 1,
+                                        maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontSize: 12,
@@ -454,7 +506,6 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
               ),
             ],
           ),
-        ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: 20)),
       SliverToBoxAdapter(
@@ -526,6 +577,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
         ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      ],
     ];
   }
 
@@ -562,7 +614,9 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                       );
                     }
 
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    final noDocs =
+                        !snapshot.hasData || snapshot.data!.docs.isEmpty;
+                    if (noDocs && _filterType != 'archived') {
                       return CustomScrollView(
                         slivers: [
                           ..._learningScrollHeaderSlivers(),
@@ -611,7 +665,9 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                       );
                     }
 
-                    final tasks = snapshot.data!.docs.where((doc) {
+                    final tasks = (snapshot.data?.docs ??
+                            const <QueryDocumentSnapshot>[])
+                        .where((doc) {
                       final data = doc.data() as Map<String, dynamic>;
                       final isArchived = data['isArchived'] ?? false;
                       final content = data['content'];
@@ -627,12 +683,11 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                     data['birthPlanId'] != null ||
                                     (moduleType == null && !hasContent);
                       
-                      // Determine if it's a learning module (has content and moduleType or visitSummaryId)
-                      final isModule = hasContent && 
-                                      (moduleType != null || 
-                                       data['visitSummaryId'] != null ||
-                                       data['trimester'] != null);
-                      
+                      // A learning module is anything with content that is not a todo.
+                      // Must mirror _buildGroupedRows so "Modules" shows exactly the
+                      // module cards that "All" groups into topic sections.
+                      final isModule = hasContent && !isTodo;
+
                       // Apply filters
                       if (_filterType == 'archived') {
                         return isArchived == true;
@@ -683,6 +738,9 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                             delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         if (index == rows.length) {
+                          if (_filterType == 'archived') {
+                            return const SizedBox.shrink();
+                          }
                           return Padding(
                             padding: const EdgeInsets.only(top: 8, bottom: 24),
                             child: _LearningApproachCard(),
@@ -691,6 +749,9 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                         final row = rows[index];
                         if (row is String) {
                           return _sectionHeader(row);
+                        }
+                        if (row is _SectionHeading) {
+                          return _sectionHeader(row.label, subtitle: row.subtitle);
                         }
                         final doc = row as QueryDocumentSnapshot;
                         final data = doc.data() as Map<String, dynamic>;
@@ -717,6 +778,184 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                       (data['moduleType'] == null && !hasContent);
                         final isBirthPlanTodo = data['birthPlanId'] != null;
 
+                        // Display-only: convert stored "The patient…" phrasing to second person.
+                        final displayTitle = SecondPerson.convert(title);
+                        final displayDescription = description.isNotEmpty
+                            ? SecondPerson.convert(description)
+                            : (isTodo ? 'Next step on your path' : 'Learning module');
+
+                        Future<void> onCheckboxChanged(bool? value) async {
+                          if (value == true) {
+                            // For learning modules (not todos), check if survey is completed
+                            if (!isTodo) {
+                              final userId = _auth.currentUser?.uid;
+                              if (userId != null) {
+                                final surveyQuery = await FirebaseFirestore.instance
+                                    .collection('ModuleFeedback')
+                                    .where('userId', isEqualTo: userId)
+                                    .where('taskId', isEqualTo: taskId)
+                                    .limit(1)
+                                    .get();
+
+                                if (surveyQuery.docs.isEmpty) {
+                                  // Survey not completed, show popup
+                                  if (mounted) {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => ModuleSurveyDialog(
+                                        moduleTitle: title,
+                                        taskId: taskId,
+                                        onSurveyCompleted: () async {
+                                          // After survey is completed, archive the module
+                                          await doc.reference.update({
+                                            'isCompleted': true,
+                                            'isArchived': true,
+                                          });
+                                          await _logLearningModuleCompleted(
+                                            moduleId: taskId,
+                                            moduleTitle: title,
+                                          );
+                                        },
+                                      ),
+                                    );
+                                  }
+                                  return; // Don't archive yet
+                                }
+                              }
+                            }
+                            // Survey completed or it's a todo, proceed with archiving
+                            await doc.reference.update({
+                              'isCompleted': true,
+                              'isArchived': true,
+                            });
+                            if (!isTodo) {
+                              await _logLearningModuleCompleted(
+                                moduleId: taskId,
+                                moduleTitle: title,
+                              );
+                              await _maybePromptPostModuleMicroMeasure(
+                                context: context,
+                                taskId: taskId,
+                                moduleTitle: title,
+                              );
+                            }
+                          } else {
+                            // When unchecked, unmark as completed and unarchive
+                            await doc.reference.update({
+                              'isCompleted': false,
+                              'isArchived': false,
+                            });
+                          }
+                        }
+
+                        Future<void> onMarkDoneAndArchive() async {
+                          // For learning modules (not todos), check if survey is completed
+                          if (!isTodo) {
+                            final userId = _auth.currentUser?.uid;
+                            if (userId != null) {
+                              final surveyQuery = await FirebaseFirestore.instance
+                                  .collection('module_surveys')
+                                  .where('userId', isEqualTo: userId)
+                                  .where('taskId', isEqualTo: taskId)
+                                  .limit(1)
+                                  .get();
+
+                              if (surveyQuery.docs.isEmpty) {
+                                // Survey not completed, show popup
+                                if (mounted) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => ModuleSurveyDialog(
+                                      moduleTitle: title,
+                                      taskId: taskId,
+                                      onSurveyCompleted: () async {
+                                        // After survey is completed, archive the module
+                                        await doc.reference.update({
+                                          'isCompleted': true,
+                                          'isArchived': true,
+                                        });
+                                        await _logLearningModuleCompleted(
+                                          moduleId: taskId,
+                                          moduleTitle: title,
+                                        );
+                                      },
+                                    ),
+                                  );
+                                }
+                                return; // Don't archive yet
+                              }
+                            }
+                          }
+                          // Survey completed or it's a todo, proceed with archiving
+                          await doc.reference.update({
+                            'isCompleted': true,
+                            'isArchived': true,
+                          });
+                          if (!isTodo) {
+                            await _logLearningModuleCompleted(
+                              moduleId: taskId,
+                              moduleTitle: title,
+                            );
+                            await _maybePromptPostModuleMicroMeasure(
+                              context: context,
+                              taskId: taskId,
+                              moduleTitle: title,
+                            );
+                          }
+                        }
+
+                        Future<void> onArchiveCompleted() async {
+                          // For learning modules (not todos), check if survey is completed
+                          if (!isTodo) {
+                            final userId = _auth.currentUser?.uid;
+                            if (userId != null) {
+                              final surveyQuery = await FirebaseFirestore.instance
+                                  .collection('module_surveys')
+                                  .where('userId', isEqualTo: userId)
+                                  .where('taskId', isEqualTo: taskId)
+                                  .limit(1)
+                                  .get();
+
+                              if (surveyQuery.docs.isEmpty) {
+                                // Survey not completed, show popup
+                                if (mounted) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => ModuleSurveyDialog(
+                                      moduleTitle: title,
+                                      taskId: taskId,
+                                      onSurveyCompleted: () async {
+                                        // After survey is completed, archive the module
+                                        await doc.reference.update({
+                                          'isArchived': true,
+                                        });
+                                        await _logLearningModuleCompleted(
+                                          moduleId: taskId,
+                                          moduleTitle: title,
+                                        );
+                                      },
+                                    ),
+                                  );
+                                }
+                                return; // Don't archive yet
+                              }
+                            }
+                          }
+                          // Survey completed or it's a todo, proceed with archiving
+                          await doc.reference.update({'isArchived': true});
+                          if (!isTodo) {
+                            await _logLearningModuleCompleted(
+                              moduleId: taskId,
+                              moduleTitle: title,
+                            );
+                            await _maybePromptPostModuleMicroMeasure(
+                              context: context,
+                              taskId: taskId,
+                              moduleTitle: title,
+                            );
+                          }
+                        }
+
                         return Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           decoration: BoxDecoration(
@@ -742,7 +981,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                     // Already handled in detail screen
                                     formattedContent = contentString;
                                   }
-                                  
+
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -759,7 +998,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        isBirthPlanTodo 
+                                        isBirthPlanTodo
                                             ? 'This is a birth plan action item. Complete it in your birth plan.'
                                             : 'This is a todo item. Mark it as done when completed.',
                                       ),
@@ -768,221 +1007,103 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                   );
                                 }
                               },
+                              // Mobile-first layout: compact status row on top, then title
+                              // and description at full card width (no narrow side column).
                               child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Row(
+                                padding: const EdgeInsets.fromLTRB(10, 8, 14, 14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Checkbox - show for all items (todos and learning modules)
-                                    Checkbox(
-                                      value: isCompleted,
-                                      onChanged: isArchived ? null : (value) async {
-                                        if (value == true) {
-                                          // For learning modules (not todos), check if survey is completed
-                                          if (!isTodo && taskId != null) {
-                                            final userId = _auth.currentUser?.uid;
-                                            if (userId != null) {
-                                              final surveyQuery = await FirebaseFirestore.instance
-                                                  .collection('ModuleFeedback')
-                                                  .where('userId', isEqualTo: userId)
-                                                  .where('taskId', isEqualTo: taskId)
-                                                  .limit(1)
-                                                  .get();
-                                              
-                                              if (surveyQuery.docs.isEmpty) {
-                                                // Survey not completed, show popup
-                                                if (mounted) {
-                                                  showDialog(
-                                                    context: context,
-                                                    builder: (context) => ModuleSurveyDialog(
-                                                      moduleTitle: title,
-                                                      taskId: taskId,
-                                                      onSurveyCompleted: () async {
-                                                        // After survey is completed, archive the module
-                                                        await doc.reference.update({
-                                                          'isCompleted': true,
-                                                          'isArchived': true,
-                                                        });
-                                                        await _logLearningModuleCompleted(
-                                                          moduleId: taskId,
-                                                          moduleTitle: title,
-                                                        );
-                                                      },
-                                                    ),
-                                                  );
-                                                }
-                                                return; // Don't archive yet
-                                              }
-                                            }
-                                          }
-                                          // Survey completed or it's a todo, proceed with archiving
-                                          await doc.reference.update({
-                                            'isCompleted': true,
-                                            'isArchived': true,
-                                          });
-                                          if (!isTodo) {
-                                            await _logLearningModuleCompleted(
-                                              moduleId: taskId,
-                                              moduleTitle: title,
-                                            );
-                                            await _maybePromptPostModuleMicroMeasure(
-                                              context: context,
-                                              taskId: taskId,
-                                              moduleTitle: title,
-                                            );
-                                          }
-                                        } else {
-                                          // When unchecked, unmark as completed and unarchive
-                                          await doc.reference.update({
-                                            'isCompleted': false,
-                                            'isArchived': false,
-                                          });
-                                        }
-                                      },
-                                      activeColor: const Color(0xFF663399),
+                                    Row(
+                                      children: [
+                                        // Checkbox - show for all items (todos and learning modules)
+                                        Checkbox(
+                                          value: isCompleted,
+                                          visualDensity: VisualDensity.compact,
+                                          onChanged: isArchived ? null : onCheckboxChanged,
+                                          activeColor: const Color(0xFF663399),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        // Icon box for learning modules, status badge for todos
+                                        if (!isTodo)
+                                          Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: BoxDecoration(
+                                              color: colors['bg']!,
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Icon(
+                                              icon,
+                                              color: colors['icon']!,
+                                              size: 20,
+                                            ),
+                                          )
+                                        else
+                                          Flexible(
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: isBirthPlanTodo
+                                                    ? Colors.orange.shade100
+                                                    : Colors.blue.shade100,
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                isBirthPlanTodo
+                                                    ? 'Birth preferences'
+                                                    : 'Next step',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isBirthPlanTodo
+                                                      ? Colors.orange.shade700
+                                                      : Colors.blue.shade700,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        const Spacer(),
+                                        if (isArchived)
+                                          const Icon(
+                                            Icons.archive,
+                                            size: 16,
+                                            color: Colors.grey,
+                                          ),
+                                        if (contentString.isNotEmpty && !isTodo)
+                                          Icon(Icons.chevron_right, color: Colors.grey[400]),
+                                      ],
                                     ),
-                                    const SizedBox(width: 12),
-                                    // Icon box - only show for learning modules, not todos
-                                    if (!isTodo) ...[
-                                      Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: colors['bg']!,
-                                          borderRadius: BorderRadius.circular(14),
-                                        ),
-                                        child: Icon(
-                                          icon,
-                                          color: colors['icon']!,
-                                          size: 22,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                    ],
-                                    Expanded(
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 4, top: 6),
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  title,
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isArchived ? Colors.grey[500] : Colors.black87,
-                                                  ),
-                                                ),
-                                              ),
-                                              if (isArchived)
-                                                const Icon(
-                                                  Icons.archive,
-                                                  size: 16,
-                                                  color: Colors.grey,
-                                                ),
-                                            ],
+                                          Text(
+                                            displayTitle,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: isArchived ? Colors.grey[500] : Colors.black87,
+                                            ),
                                           ),
                                           const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              if (isTodo) ...[
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: isBirthPlanTodo 
-                                                        ? Colors.orange.shade100 
-                                                        : Colors.blue.shade100,
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                  child: Text(
-                                                    isBirthPlanTodo
-                                                        ? 'Birth preferences'
-                                                        : 'Next step',
-                                                    style: TextStyle(
-                                                      fontSize: 10,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: isBirthPlanTodo 
-                                                          ? Colors.orange.shade700 
-                                                          : Colors.blue.shade700,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 6),
-                                              ],
-                                              Expanded(
-                                                child: Text(
-                                                  description.isNotEmpty 
-                                                      ? description 
-                                                      : (isTodo ? 'Next step on your path' : 'Learning module'),
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    color: isArchived ? Colors.grey[400] : Colors.grey[600],
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
+                                          _ExpandableDescription(
+                                            key: ValueKey('desc_$taskId'),
+                                            text: displayDescription,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              height: 1.4,
+                                              color: isArchived ? Colors.grey[400] : Colors.grey[600],
+                                            ),
                                           ),
                                           if (!isArchived && !isCompleted)
                                             Padding(
-                                              padding: const EdgeInsets.only(top: 8),
+                                              padding: const EdgeInsets.only(top: 10),
                                               child: Align(
                                                 alignment: Alignment.centerRight,
                                                 child: TextButton(
-                                                  onPressed: () async {
-                                                    // For learning modules (not todos), check if survey is completed
-                                                    if (!isTodo && taskId != null) {
-                                                      final userId = _auth.currentUser?.uid;
-                                                      if (userId != null) {
-                                                        final surveyQuery = await FirebaseFirestore.instance
-                                                            .collection('module_surveys')
-                                                            .where('userId', isEqualTo: userId)
-                                                            .where('taskId', isEqualTo: taskId)
-                                                            .limit(1)
-                                                            .get();
-                                                        
-                                                        if (surveyQuery.docs.isEmpty) {
-                                                          // Survey not completed, show popup
-                                                          if (mounted) {
-                                                            showDialog(
-                                                              context: context,
-                                                              builder: (context) => ModuleSurveyDialog(
-                                                                moduleTitle: title,
-                                                                taskId: taskId,
-                                                                onSurveyCompleted: () async {
-                                                                  // After survey is completed, archive the module
-                                                                  await doc.reference.update({
-                                                                    'isCompleted': true,
-                                                                    'isArchived': true,
-                                                                  });
-                                                                  await _logLearningModuleCompleted(
-                                                                    moduleId: taskId,
-                                                                    moduleTitle: title,
-                                                                  );
-                                                                },
-                                                              ),
-                                                            );
-                                                          }
-                                                          return; // Don't archive yet
-                                                        }
-                                                      }
-                                                    }
-                                                    // Survey completed or it's a todo, proceed with archiving
-                                                    await doc.reference.update({
-                                                      'isCompleted': true,
-                                                      'isArchived': true,
-                                                    });
-                                                    if (!isTodo) {
-                                                      await _logLearningModuleCompleted(
-                                                        moduleId: taskId,
-                                                        moduleTitle: title,
-                                                      );
-                                                      await _maybePromptPostModuleMicroMeasure(
-                                                        context: context,
-                                                        taskId: taskId,
-                                                        moduleTitle: title,
-                                                      );
-                                                    }
-                                                  },
+                                                  onPressed: onMarkDoneAndArchive,
                                                   style: TextButton.styleFrom(
                                                     padding: EdgeInsets.zero,
                                                     minimumSize: Size.zero,
@@ -1001,61 +1122,11 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                             ),
                                           if (isCompleted && !isArchived)
                                             Padding(
-                                              padding: const EdgeInsets.only(top: 8),
+                                              padding: const EdgeInsets.only(top: 10),
                                               child: Align(
                                                 alignment: Alignment.centerRight,
                                                 child: TextButton(
-                                                  onPressed: () async {
-                                                    // For learning modules (not todos), check if survey is completed
-                                                    if (!isTodo && taskId != null) {
-                                                      final userId = _auth.currentUser?.uid;
-                                                      if (userId != null) {
-                                                        final surveyQuery = await FirebaseFirestore.instance
-                                                            .collection('module_surveys')
-                                                            .where('userId', isEqualTo: userId)
-                                                            .where('taskId', isEqualTo: taskId)
-                                                            .limit(1)
-                                                            .get();
-                                                        
-                                                        if (surveyQuery.docs.isEmpty) {
-                                                          // Survey not completed, show popup
-                                                          if (mounted) {
-                                                            showDialog(
-                                                              context: context,
-                                                              builder: (context) => ModuleSurveyDialog(
-                                                                moduleTitle: title,
-                                                                taskId: taskId,
-                                                                onSurveyCompleted: () async {
-                                                                  // After survey is completed, archive the module
-                                                                  await doc.reference.update({
-                                                                    'isArchived': true,
-                                                                  });
-                                                                  await _logLearningModuleCompleted(
-                                                                    moduleId: taskId,
-                                                                    moduleTitle: title,
-                                                                  );
-                                                                },
-                                                              ),
-                                                            );
-                                                          }
-                                                          return; // Don't archive yet
-                                                        }
-                                                      }
-                                                    }
-                                                    // Survey completed or it's a todo, proceed with archiving
-                                                    await doc.reference.update({'isArchived': true});
-                                                    if (!isTodo) {
-                                                      await _logLearningModuleCompleted(
-                                                        moduleId: taskId,
-                                                        moduleTitle: title,
-                                                      );
-                                                      await _maybePromptPostModuleMicroMeasure(
-                                                        context: context,
-                                                        taskId: taskId,
-                                                        moduleTitle: title,
-                                                      );
-                                                    }
-                                                  },
+                                                  onPressed: onArchiveCompleted,
                                                   style: TextButton.styleFrom(
                                                     padding: EdgeInsets.zero,
                                                     minimumSize: Size.zero,
@@ -1074,8 +1145,6 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                         ],
                                       ),
                                     ),
-                                    if (contentString.isNotEmpty && !isTodo)
-                                      Icon(Icons.chevron_right, color: Colors.grey[400]),
                                   ],
                                 ),
                               ),
@@ -1121,7 +1190,7 @@ class _LearningWeekContinueCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => Navigator.pushNamed(context, Routes.pregnancyJourney),
+        onTap: () => openTrimesterJourney(context),
         borderRadius: BorderRadius.circular(20),
         child: Ink(
           decoration: BoxDecoration(
@@ -1159,10 +1228,10 @@ class _LearningWeekContinueCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Full title + week info wrap rather than ellipsize
+                      // (Bold Text / larger Dynamic Type).
                       Text(
                         title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
@@ -1172,8 +1241,6 @@ class _LearningWeekContinueCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w300,
@@ -1244,6 +1311,87 @@ class _LearningApproachCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Section heading row with an optional one-line context explaining its source.
+class _SectionHeading {
+  const _SectionHeading(this.label, {this.subtitle});
+
+  final String label;
+  final String? subtitle;
+}
+
+/// Shows a concise summary (up to 3 lines) with a
+/// "Show more" / "Show less" toggle when the text is longer.
+class _ExpandableDescription extends StatefulWidget {
+  const _ExpandableDescription({
+    super.key,
+    required this.text,
+    required this.style,
+  });
+
+  final String text;
+  final TextStyle style;
+  static const int collapsedLines = 3;
+
+  @override
+  State<_ExpandableDescription> createState() => _ExpandableDescriptionState();
+}
+
+class _ExpandableDescriptionState extends State<_ExpandableDescription> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: widget.text,
+            style: DefaultTextStyle.of(context).style.merge(widget.style),
+          ),
+          maxLines: _ExpandableDescription.collapsedLines,
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout(maxWidth: constraints.maxWidth);
+        final overflows = painter.didExceedMaxLines;
+        painter.dispose();
+        final collapsed = overflows && !_expanded;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.text,
+              style: widget.style,
+              maxLines: collapsed ? _ExpandableDescription.collapsedLines : null,
+              overflow: collapsed ? TextOverflow.ellipsis : null,
+            ),
+            if (overflows)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: TextButton(
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    _expanded ? 'Show less' : 'Show more',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF663399),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

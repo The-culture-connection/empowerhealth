@@ -253,8 +253,16 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
       child: Scaffold(
       extendBody: true,
       backgroundColor: AppTheme.backgroundWarm,
-      // Floating AI assistant — Home tab only.
-      floatingActionButton: _index == 0 ? const _AssistantFab() : null,
+      // Floating AI assistant — Home tab only. The Scaffold positions it above
+      // the bottom nav bar (incl. its SafeArea inset); hide it while the
+      // keyboard is open so it never sits on top of text fields/content.
+      floatingActionButton:
+          _index == 0 && MediaQuery.viewInsetsOf(context).bottom == 0
+              ? const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: _AssistantFab(),
+                )
+              : null,
       body: Stack(
         fit: StackFit.expand,
         children: [

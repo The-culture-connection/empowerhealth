@@ -103,10 +103,19 @@ class _MamaApprovedProvidersScreenState
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _error!,
+                        'Check your internet connection, then pull down to try again.',
                         style: TextStyle(
                           fontSize: 13,
                           color: AppTheme.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: _load,
+                          icon: const Icon(Icons.refresh, size: 18),
+                          label: const Text('Try again'),
                         ),
                       ),
                     ],
@@ -125,7 +134,7 @@ class _MamaApprovedProvidersScreenState
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'When providers have at least 3 reviews and a 4★ or higher average, they appear here.',
+                            '${Provider.mamaApprovedCriteriaText} Share your own provider experience to help other moms.',
                             style: TextStyle(
                               fontSize: 14,
                               color: AppTheme.textMuted,
@@ -138,10 +147,22 @@ class _MamaApprovedProvidersScreenState
                     : ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                        itemCount: _providers.length,
+                        // Index 0 is a one-sentence explainer of the badge.
+                        itemCount: _providers.length + 1,
                         separatorBuilder: (_, __) => const SizedBox(height: 16),
-                        itemBuilder: (context, i) {
-                          final p = _providers[i];
+                        itemBuilder: (context, index) {
+                          if (index == 0) {
+                            return Text(
+                              Provider.mamaApprovedCriteriaText,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textMuted,
+                                fontWeight: FontWeight.w300,
+                                height: 1.35,
+                              ),
+                            );
+                          }
+                          final p = _providers[index - 1];
                           final location = p.locations.isNotEmpty
                               ? p.locations.first
                               : null;
@@ -181,26 +202,22 @@ class _MamaApprovedProvidersScreenState
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            p.primaryDisplayName,
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w400,
-                                              color: AppTheme.textPrimary,
-                                            ),
-                                          ),
-                                        ),
-                                        const MamaApprovedCommunityBadge(
-                                          compact: true,
-                                        ),
-                                      ],
+                                    // Name gets the full card width; the
+                                    // badge sits on its own line below so it
+                                    // never squeezes the name at large text.
+                                    Text(
+                                      p.primaryDisplayName,
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w400,
+                                        color: AppTheme.textPrimary,
+                                      ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    const SizedBox(height: 6),
+                                    const MamaApprovedCommunityBadge(
+                                      compact: true,
+                                    ),
+                                    const SizedBox(height: 8),
                                     Text(
                                       p.specialty ?? 'Provider',
                                       style: TextStyle(
@@ -222,7 +239,7 @@ class _MamaApprovedProvidersScreenState
                                         (p.reviewCount ?? 0) > 0) ...[
                                       const SizedBox(height: 6),
                                       Text(
-                                        '${p.rating?.toStringAsFixed(1) ?? '—'} ★ · ${p.reviewCount ?? 0} reviews',
+                                        '${p.rating != null ? Provider.formatAverageRating(p.rating!) : '—'} ★ · ${p.reviewCount ?? 0} reviews',
                                         style: TextStyle(
                                           fontSize: 13,
                                           color: AppTheme.textMuted,

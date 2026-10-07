@@ -129,7 +129,7 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
         try {
           final data = doc.data() as Map<String, dynamic>;
           if (data['directoryHidden'] == true) continue;
-          final reviewCount = data['reviewCount'] as int? ?? 0;
+          final reviewCount = (data['reviewCount'] as num?)?.toInt() ?? 0;
           
           if (reviewCount > 0) {
             final provider = Provider.fromMap(data, id: doc.id);
@@ -413,7 +413,7 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  'Mama Approved™ on this list',
+                                                  'See Mama Approved™ providers',
                                                   style: TextStyle(
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w500,
@@ -422,7 +422,7 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
-                                                  'Tap to see all Mama Approved™ providers. Badges appear when other parents left at least 3 reviews, the average is 4★ or higher, and most reviewers felt heard, respected, and clearly informed — real experiences, not a medical seal.',
+                                                  Provider.mamaApprovedCriteriaText,
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     color: AppTheme.textMuted,
@@ -669,27 +669,20 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                provider.primaryDisplayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 18, // text-lg
-                                  fontWeight: FontWeight.w400,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                            ),
-                            if (provider.showsMamaApprovedBadge)
-                              const Padding(
-                                padding: EdgeInsets.only(left: 8),
-                                child: MamaApprovedCommunityBadge(compact: true),
-                              ),
-                          ],
+                        // Name uses the full width; the badge sits on its own
+                        // line below so it never squeezes the name.
+                        Text(
+                          provider.primaryDisplayName,
+                          style: TextStyle(
+                            fontSize: 18, // text-lg
+                            fontWeight: FontWeight.w400,
+                            color: AppTheme.textPrimary,
+                          ),
                         ),
+                        if (provider.showsMamaApprovedBadge) ...[
+                          const SizedBox(height: 6),
+                          const MamaApprovedCommunityBadge(compact: true),
+                        ],
                         const SizedBox(height: 4),
                         Text(
                           provider.specialty ?? 'Provider',
@@ -772,7 +765,9 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                   Icon(Icons.star, size: 16, color: Colors.amber),
                   const SizedBox(width: 4),
                   Text(
-                    provider.rating?.toStringAsFixed(1) ?? 'N/A',
+                    provider.rating != null
+                        ? Provider.formatAverageRating(provider.rating!)
+                        : 'N/A',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
@@ -798,7 +793,7 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                         color: AppTheme.textMuted,
                         fontWeight: FontWeight.w300,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

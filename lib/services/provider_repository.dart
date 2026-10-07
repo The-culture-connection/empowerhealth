@@ -263,7 +263,7 @@ class ProviderRepository {
           if (calculatedRating == null || calculatedRating == 0) {
             // Try to calculate from reviews
             try {
-              final reviews = await getProviderReviews(firestoreProvider.id ?? '');
+              final reviews = publishedOnly(await getProviderReviews(firestoreProvider.id ?? ''));
               if (reviews.isNotEmpty) {
                 final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
                 calculatedRating = totalRating / reviews.length;
@@ -290,7 +290,7 @@ class ProviderRepository {
           // New provider - try to calculate rating from reviews if provider has an ID
           if (provider.id != null && provider.id!.isNotEmpty) {
             try {
-              final reviews = await getProviderReviews(provider.id!);
+              final reviews = publishedOnly(await getProviderReviews(provider.id!));
               if (reviews.isNotEmpty) {
                 final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
                 final calculatedRating = totalRating / reviews.length;
@@ -498,7 +498,7 @@ class ProviderRepository {
       
       // Fetch reviews using the provider ID
       if (reviewProviderId != null && reviewProviderId.isNotEmpty) {
-        final reviews = await getProviderReviews(reviewProviderId);
+        final reviews = publishedOnly(await getProviderReviews(reviewProviderId));
         if (reviews.isNotEmpty) {
           final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
           final averageRating = totalRating / reviews.length;
@@ -537,6 +537,12 @@ class ProviderRepository {
       return provider; // Return original provider on error
     }
   }
+
+  /// Only reviews visible to the community count toward rating, review count,
+  /// and the Mama Approved™ threshold (matches [_updateProviderReviewCount]
+  /// and what the profile displays).
+  static List<ProviderReview> publishedOnly(List<ProviderReview> reviews) =>
+      reviews.where((r) => r.status == 'published').toList();
 
   /// Get reviews for a provider
   /// Can search by Firestore ID, NPI (with 'npi_' prefix), or composite API ID

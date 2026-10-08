@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../models/provider.dart';
 import '../services/provider_repository.dart';
 import '../widgets/mama_approved_community_badge.dart';
@@ -69,30 +70,20 @@ class _ShareProviderExperienceScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: AppTheme.textPrimary,
-        title: const Text('Share Provider Experience'),
-      ),
+      backgroundColor: AppTheme.ground,
       body: SafeArea(
-        top: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const HearthPushedHeader(title: 'Share Provider Experience'),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Help Another Mama Choose Care\u00A0💜',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textPrimary,
-                    ),
+                    'Help Another Mama Choose Care\u00A0',
+                    style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -100,54 +91,28 @@ class _ShareProviderExperienceScreenState
                     'share your experience. Your feedback helps other mothers find '
                     'care where they feel heard, respected, and supported, and '
                     'helps providers earn Mama Approved™.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.45,
-                      fontWeight: FontWeight.w300,
-                      color: AppTheme.textMuted,
-                    ),
+                    style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _searchController,
                     textInputAction: TextInputAction.search,
                     onSubmitted: (_) => _runSearch(),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'Search by provider or practice name',
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: AppTheme.surfaceCard,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: AppTheme.borderLight),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: AppTheme.borderLight),
-                      ),
+                      prefixIcon: Icon(Icons.search, color: AppTheme.brandPurple),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _isSearching ? null : _runSearch,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.brandPurple,
-                        foregroundColor: AppTheme.brandWhite,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      icon: const Icon(Icons.search, size: 20),
-                      label: const Text('Find provider'),
-                    ),
+                  HearthButton.primary(
+                    onPressed: _isSearching ? null : _runSearch,
+                    icon: Icons.search,
+                    label: 'Find provider',
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Expanded(child: _buildResults()),
           ],
         ),
@@ -166,7 +131,7 @@ class _ShareProviderExperienceScreenState
       return _buildNoResults();
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       itemCount: _results.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, i) => _ProviderResultCard(
@@ -186,64 +151,39 @@ class _ShareProviderExperienceScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off, size: 48, color: AppTheme.textMuted),
+            const HearthIconChip(Icons.search_off, size: 64, iconSize: 30),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               "We couldn't find that provider yet",
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
+              style: hearthCardTitleStyle,
             ),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'Try a different spelling, search the full directory, or add them '
               'so you (and other mamas) can share reviews.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.5,
-                fontWeight: FontWeight.w300,
-                color: AppTheme.textMuted,
-              ),
+              style: hearthCardBodyStyle,
             ),
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: AppTheme.brandWhite,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+            HearthButton.primary(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ProviderQuickSearchScreen(),
                 ),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ProviderQuickSearchScreen(),
-                  ),
-                ),
-                icon: const Icon(Icons.search, size: 20),
-                label: const Text('Search the full directory'),
               ),
+              icon: Icons.search,
+              label: 'Search the full directory',
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.brandPurple,
-                  side: BorderSide(color: AppTheme.brandPurple),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+            HearthButton.secondary(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const AddProviderScreen(),
                 ),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const AddProviderScreen(),
-                  ),
-                ),
-                icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-                label: const Text('Add a provider'),
               ),
+              icon: Icons.person_add_alt_1_outlined,
+              label: 'Add a provider',
             ),
           ],
         ),
@@ -258,12 +198,7 @@ class _ShareProviderExperienceScreenState
         child: Text(
           message,
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            height: 1.5,
-            fontWeight: FontWeight.w300,
-            color: AppTheme.textMuted,
-          ),
+          style: hearthCardBodyStyle.copyWith(color: AppTheme.textMuted),
         ),
       ),
     );
@@ -285,57 +220,36 @@ class _ProviderResultCard extends StatelessWidget {
       if (location != null) '${location.city}, ${location.state}',
     ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' • ');
 
-    return Material(
-      color: AppTheme.surfaceCard,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            provider.primaryDisplayName,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                        ),
-                        if (provider.showsMamaApprovedBadge) ...[
-                          const SizedBox(width: 8),
-                          const MamaApprovedCommunityBadge(compact: true),
-                        ],
-                      ],
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w300,
-                          color: AppTheme.textMuted,
-                        ),
-                      ),
-                    ],
-                  ],
+    return HearthCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  provider.primaryDisplayName,
+                  style: hearthCardTitleStyle,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(Icons.chevron_right, color: AppTheme.textMuted),
-            ],
+                // Badge on its own line so long names never squeeze it.
+                if (provider.showsMamaApprovedBadge) ...[
+                  const SizedBox(height: 6),
+                  const MamaApprovedCommunityBadge(compact: true),
+                ],
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: hearthCaptionStyle.copyWith(fontSize: 14),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+        ],
       ),
     );
   }

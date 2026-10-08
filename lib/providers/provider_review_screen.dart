@@ -8,6 +8,7 @@ import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../constants/reviewer_self_report_tags.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../auth/guest_guard.dart';
 import '../utils/content_filter.dart';
 
@@ -64,7 +65,6 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select a rating'),
-          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -74,7 +74,6 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Cannot submit review: Provider ID is missing'),
-          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -90,7 +89,6 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(filterError),
-          backgroundColor: AppTheme.brandPurple,
         ),
       );
       return;
@@ -139,9 +137,7 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
       if (widget.provider != null) {
         firestoreProviderId =
             await _repository.saveProviderOnReview(widget.provider!);
-        print(
-          '✅ [ProviderReview] Provider saved with Firestore ID: $firestoreProviderId',
-        );
+        print('✅ [ProviderReview] Provider saved with Firestore ID: $firestoreProviderId');
       }
       
       // Submit review
@@ -171,8 +167,7 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Thank you for your review!'),
-            backgroundColor: Colors.green,
+            content: Text('Thank you for your review!'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -185,7 +180,6 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error submitting review: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -194,380 +188,216 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      appBar: AppTheme.newUiAppBar(context, title: 'Write a Review'),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppTheme.surfaceCard, AppTheme.backgroundWarm],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Provider Name
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceCard,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.person, color: AppTheme.brandPurple),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            widget.providerName,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const HearthPushedHeader(title: 'Write a Review'),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Provider Name
+                      HearthCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.person_outline, color: AppTheme.brandPurple),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                widget.providerName,
+                                style: hearthCardTitleStyle,
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Rating
-                  const Text(
-                    'Overall Rating *',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (index) {
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _rating = index + 1;
-                          });
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Icon(
-                            Icons.star,
-                            size: 48,
-                            color: index < _rating
-                                ? Colors.amber
-                                : Colors.grey[300],
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 24),
-
-                  const Text(
-                    'How was your visit?',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'These help other parents beyond stars alone.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceCard,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Column(
-                      children: [
-                        CheckboxListTile(
-                          value: _feltHeard,
-                          onChanged: (v) =>
-                              setState(() => _feltHeard = v ?? false),
-                          activeColor: AppTheme.brandPurple,
-                          title: const Text(
-                            'I felt heard',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          controlAffinity: ListTileControlAffinity.leading,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        CheckboxListTile(
-                          value: _feltRespected,
-                          onChanged: (v) =>
-                              setState(() => _feltRespected = v ?? false),
-                          activeColor: AppTheme.brandPurple,
-                          title: const Text(
-                            'I felt respected',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          controlAffinity: ListTileControlAffinity.leading,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        CheckboxListTile(
-                          value: _explainedClearly,
-                          onChanged: (v) =>
-                              setState(() => _explainedClearly = v ?? false),
-                          activeColor: AppTheme.brandPurple,
-                          title: const Text(
-                            'Things were explained clearly',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          controlAffinity: ListTileControlAffinity.leading,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  const Text(
-                    'About you (optional)',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Helps others find perspectives like theirs. You can skip any section.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Race / ethnicity',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondary,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ReviewerSelfReportTags.raceEthnicity.map((label) {
-                      final sel = _raceEthnicity.contains(label);
-                      return FilterChip(
-                        label: Text(label, style: const TextStyle(fontSize: 12)),
-                        selected: sel,
-                        onSelected: (v) => setState(() {
-                          if (v) {
-                            _raceEthnicity.add(label);
-                          } else {
-                            _raceEthnicity.remove(label);
-                          }
-                        }),
-                        selectedColor:
-                            AppTheme.brandPurple.withValues(alpha: 0.2),
-                        checkmarkColor: AppTheme.brandPurple,
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Language',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ReviewerSelfReportTags.languages.map((label) {
-                      final sel = _reviewLanguages.contains(label);
-                      return FilterChip(
-                        label: Text(label, style: const TextStyle(fontSize: 12)),
-                        selected: sel,
-                        onSelected: (v) => setState(() {
-                          if (v) {
-                            _reviewLanguages.add(label);
-                          } else {
-                            _reviewLanguages.remove(label);
-                          }
-                        }),
-                        selectedColor:
-                            AppTheme.brandPurple.withValues(alpha: 0.2),
-                        checkmarkColor: AppTheme.brandPurple,
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Cultural / community tags',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ReviewerSelfReportTags.culturalTags.map((label) {
-                      final sel = _culturalTags.contains(label);
-                      return FilterChip(
-                        label: Text(label, style: const TextStyle(fontSize: 12)),
-                        selected: sel,
-                        onSelected: (v) => setState(() {
-                          if (v) {
-                            _culturalTags.add(label);
-                          } else {
-                            _culturalTags.remove(label);
-                          }
-                        }),
-                        selectedColor:
-                            AppTheme.brandPurple.withValues(alpha: 0.2),
-                        checkmarkColor: AppTheme.brandPurple,
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                  const Text(
-                    'What did they do especially well?',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _whatWentWellController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      hintText: 'Optional. For example: listened without rushing…',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      filled: true,
-                      fillColor: AppTheme.surfaceInput,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Review Text
-                  const Text(
-                    'Anything else about your experience?',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _reviewController,
-                    maxLines: 6,
-                    decoration: InputDecoration(
-                      hintText: 'Share your experience with this provider...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      filled: true,
-                      fillColor: AppTheme.surfaceInput,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Would Recommend
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceCard,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Checkbox(
-                          value: _wouldRecommend,
-                          onChanged: (value) {
-                            setState(() {
-                              _wouldRecommend = value ?? false;
-                            });
-                          },
-                          activeColor: AppTheme.brandPurple,
+                      // Rating
+                      const HearthSectionHeading('Overall Rating *'),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: HearthStarRating(
+                          value: _rating,
+                          onChanged: (star) => setState(() => _rating = star),
                         ),
-                        const Expanded(
-                          child: Text(
-                            'I would recommend this provider',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Submit Button
-                  ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submitReview,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.brandPurple,
-                      foregroundColor: AppTheme.brandWhite,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
                       ),
-                    ),
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
+                      const SizedBox(height: 24),
+
+                      const HearthSectionHeading('How was your visit?'),
+                      const SizedBox(height: 4),
+                      Text(
+                        'These help other parents beyond stars alone.',
+                        style: textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 12),
+                      HearthCard(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        child: Column(
+                          children: [
+                            _visitCheck(
+                              'I felt heard',
+                              _feltHeard,
+                              (v) => setState(() => _feltHeard = v ?? false),
                             ),
-                          )
-                        : const Text(
-                            'Submit Review',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                            _visitCheck(
+                              'I felt respected',
+                              _feltRespected,
+                              (v) => setState(() => _feltRespected = v ?? false),
                             ),
-                          ),
+                            _visitCheck(
+                              'Things were explained clearly',
+                              _explainedClearly,
+                              (v) => setState(() => _explainedClearly = v ?? false),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      const HearthSectionHeading('About you (optional)'),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Helps others find perspectives like theirs. You can skip any section.',
+                        style: textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 16),
+                      _tagGroupLabel('Race / ethnicity'),
+                      const SizedBox(height: 8),
+                      _tagWrap(ReviewerSelfReportTags.raceEthnicity, _raceEthnicity),
+                      const SizedBox(height: 16),
+                      _tagGroupLabel('Language'),
+                      const SizedBox(height: 8),
+                      _tagWrap(ReviewerSelfReportTags.languages, _reviewLanguages),
+                      const SizedBox(height: 16),
+                      _tagGroupLabel('Cultural / community tags'),
+                      const SizedBox(height: 8),
+                      _tagWrap(ReviewerSelfReportTags.culturalTags, _culturalTags),
+                      const SizedBox(height: 24),
+
+                      const HearthSectionHeading('What did they do especially well?'),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _whatWentWellController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          hintText: 'Optional. For example: listened without rushing…',
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Review Text
+                      const HearthSectionHeading('Anything else about your experience?'),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _reviewController,
+                        maxLines: 6,
+                        decoration: const InputDecoration(
+                          hintText: 'Share your experience with this provider...',
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Would Recommend
+                      HearthCard(
+                        color: _wouldRecommend ? AppTheme.tintWarm : AppTheme.surface,
+                        borderColor:
+                            _wouldRecommend ? AppTheme.brandPurple : AppTheme.borderWarm,
+                        borderWidth: _wouldRecommend ? 2 : 1,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Row(
+                          children: [
+                            Checkbox(
+                              value: _wouldRecommend,
+                              onChanged: (value) {
+                                setState(() {
+                                  _wouldRecommend = value ?? false;
+                                });
+                              },
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'I would recommend this provider',
+                                style: hearthCardBodyStyle.copyWith(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.ink,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Submit Button
+                      HearthButton.primary(
+                        label: 'Submit Review',
+                        onPressed: _isSubmitting ? null : _submitReview,
+                        loading: _isSubmitting,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _visitCheck(String label, bool value, ValueChanged<bool?> onChanged) {
+    return CheckboxListTile(
+      value: value,
+      onChanged: onChanged,
+      title: Text(
+        label,
+        style: hearthCardBodyStyle.copyWith(fontSize: 15, color: AppTheme.ink),
+      ),
+      controlAffinity: ListTileControlAffinity.leading,
+      contentPadding: EdgeInsets.zero,
+    );
+  }
+
+  Widget _tagGroupLabel(String text) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: AppTheme.textSecondary,
+          ),
+    );
+  }
+
+  Widget _tagWrap(List<String> labels, List<String> selected) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: labels.map((label) {
+        final sel = selected.contains(label);
+        return HearthChoiceChip(
+          label: label,
+          selected: sel,
+          icon: sel ? Icons.check : null,
+          onSelected: () => setState(() {
+            if (!sel) {
+              selected.add(label);
+            } else {
+              selected.remove(label);
+            }
+          }),
+        );
+      }).toList(),
     );
   }
 }

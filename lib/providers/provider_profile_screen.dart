@@ -7,6 +7,7 @@ import '../services/provider_repository.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../widgets/mama_approved_community_badge.dart';
 import 'provider_report_sheet.dart';
 import 'provider_review_screen.dart';
@@ -203,9 +204,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       return;
     }
 
-    print(
-      '🔍 [ProviderProfile] Loading reviews for provider: ${_provider!.name}',
-    );
+    print('🔍 [ProviderProfile] Loading reviews for provider: ${_provider!.name}');
 
     try {
       // Use the repository method to enrich provider with reviews
@@ -259,68 +258,42 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        backgroundColor: AppTheme.backgroundWarm,
-        body: const Center(child: CircularProgressIndicator()),
+      return const Scaffold(
+        backgroundColor: AppTheme.ground,
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_provider == null) {
-      return Scaffold(
-        backgroundColor: AppTheme.backgroundWarm,
-        appBar: AppTheme.newUiAppBar(context, title: 'Provider Not Found'),
-        body: const Center(child: Text('Provider not found')),
+      return const Scaffold(
+        backgroundColor: AppTheme.ground,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              HearthPushedHeader(title: 'Provider Not Found'),
+              Expanded(child: Center(child: Text('Provider not found'))),
+            ],
+          ),
+        ),
       );
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppTheme.surfaceCard, AppTheme.backgroundWarm],
-          ),
-        ),
-        child: SafeArea(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header (matching NewUI)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  border: Border(
-                    bottom: BorderSide(color: AppTheme.borderLight),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.arrow_back, color: AppTheme.textMuted),
-                      onPressed: () => Navigator.pop(context, _reviewSubmitted),
-                    ),
-                    Expanded(
-                      child: Text(
-                        'Back to results',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        _isSaved ? Icons.bookmark : Icons.bookmark_border,
-                        color: _isSaved
-                            ? AppTheme.brandPurple
-                            : AppTheme.textBarelyVisible,
-                      ),
+              HearthPushedHeader(
+                backLabel: 'Back to results',
+                onBack: () => Navigator.pop(context, _reviewSubmitted),
+                actions: [
+                    HearthCircleButton(
+                      icon: _isSaved ? Icons.bookmark : Icons.bookmark_border,
+                      iconColor: _isSaved
+                          ? AppTheme.brandPurple
+                          : AppTheme.textMuted,
                       onPressed: () async {
                         final becameSaved = !_isSaved;
                         setState(() {
@@ -347,27 +320,23 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         }
                       },
                     ),
-                  ],
-                ),
+                ],
               ),
 
-              // Content (matching NewUI)
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 20,
-                  ), // px-5 py-5
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildProviderHeader(),
-                      const SizedBox(height: 16), // mb-4
+                      const SizedBox(height: 16),
                       _buildQuickActions(),
                       if (_provider != null) ...[
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 4),
                         Align(
                           alignment: Alignment.center,
+                          // Reporting is a quiet action: ink-muted, never red.
                           child: TextButton.icon(
                             onPressed: () {
                               showProviderReportSheet(
@@ -376,31 +345,31 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                 providerName: _provider!.primaryDisplayName,
                               );
                             },
-                            icon: Icon(
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(0, 44),
+                              foregroundColor: AppTheme.textMuted,
+                            ),
+                            icon: const Icon(
                               Icons.flag_outlined,
                               size: 18,
                               color: AppTheme.textMuted,
                             ),
-                            label: Text(
+                            label: const Text(
                               'Report inaccurate or harmful info',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textMuted,
-                                fontWeight: FontWeight.w400,
-                              ),
+                              style: hearthCaptionStyle,
                             ),
                           ),
                         ),
                       ],
-                      const SizedBox(height: 16), // mb-4
+                      const SizedBox(height: 12),
                       _buildContactInfo(),
-                      const SizedBox(height: 16), // mb-4
+                      const SizedBox(height: 16),
                       _buildIdentityTags(),
-                      const SizedBox(height: 16), // mb-4
+                      const SizedBox(height: 16),
                       _buildAbout(),
-                      const SizedBox(height: 16), // mb-4
+                      const SizedBox(height: 16),
                       _buildReviews(),
-                      const SizedBox(height: 16), // mb-4
+                      const SizedBox(height: 16),
                       _buildCommunityNote(),
                       const SizedBox(height: 100), // Space for bottom nav
                     ],
@@ -410,29 +379,19 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             ],
           ),
         ),
-      ),
     );
   }
 
   Widget _buildProviderHeader() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16), // mb-4
-      padding: const EdgeInsets.all(24), // p-6
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF663399), Color(0xFF8855BB)],
-        ),
-        borderRadius: BorderRadius.circular(24), // rounded-3xl
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    const onPurpleBody = TextStyle(
+      fontFamily: AppTheme.sansFamily,
+      fontSize: 15,
+      height: 22 / 15,
+      color: AppTheme.onPurpleSecondary,
+    );
+    return HearthFeatureCard(
+      tone: HearthTone.purple,
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -443,48 +402,41 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   children: [
                     Text(
                       _provider!.primaryDisplayName,
-                      style: const TextStyle(
-                        fontSize: 24, // text-2xl
-                        fontWeight: FontWeight.w400, // font-normal
-                        color: AppTheme.brandWhite,
-                      ),
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                            color: AppTheme.onPurple,
+                          ),
                     ),
-                    const SizedBox(height: 4), // mb-1
+                    const SizedBox(height: 4),
                     if (_provider!.specialty != null)
                       Text(
                         _provider!.specialty!,
-                        style: TextStyle(
-                          fontSize: 14, // text-sm
-                          color: AppTheme.brandWhite.withOpacity(0.9),
-                          fontWeight: FontWeight.w300,
-                        ),
+                        style: onPurpleBody,
                       ),
                     if (_provider!.healthCoverageLabel != null) ...[
                       const SizedBox(height: 8),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.health_and_safety_outlined,
-                            size: 18,
-                            color: AppTheme.brandWhite.withOpacity(0.88),
+                          const Padding(
+                            padding: EdgeInsets.only(top: 2),
+                            child: Icon(
+                              Icons.health_and_safety_outlined,
+                              size: 18,
+                              color: AppTheme.onPurpleSecondary,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Accepted health: ${_provider!.healthCoverageLabel}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppTheme.brandWhite.withOpacity(0.9),
-                                fontWeight: FontWeight.w300,
-                              ),
+                              style: onPurpleBody,
                             ),
                           ),
                         ],
                       ),
                     ],
                     if (_provider!.showsMamaApprovedBadge) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 4),
                       InkWell(
                         onTap: () {
                           setState(() {
@@ -492,44 +444,50 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           });
                         },
                         borderRadius: BorderRadius.circular(18),
-                        child: const MamaApprovedCommunityBadge(
-                          onDarkBackground: true,
-                          showInfoAffordance: true,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          child: const Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            widthFactor: 1,
+                            child: MamaApprovedCommunityBadge(
+                              onDarkBackground: true,
+                              showInfoAffordance: true,
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ],
           ),
           if (_showMamaApprovedInfo) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.brandWhite.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.brandWhite.withOpacity(0.2)),
+                color: AppTheme.onPurple.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(18),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     '${Provider.mamaApprovedCriteriaText} It reflects community reviews only, not a hospital, insurer, or medical board.',
-                    style: TextStyle(
+                    style: const TextStyle(
+                      fontFamily: AppTheme.sansFamily,
                       fontSize: 14,
-                      height: 1.4,
-                      color: AppTheme.brandWhite.withOpacity(0.92),
-                      fontWeight: FontWeight.w400,
+                      height: 21 / 14,
+                      color: AppTheme.onPurple,
                     ),
                   ),
                 ],
               ),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             children: [
-              const Icon(Icons.star, color: AppTheme.brandWhite, size: 20),
-              const SizedBox(width: 4),
+              const Icon(Icons.star_rounded, color: AppTheme.brandGold, size: 22),
+              const SizedBox(width: 6),
               Text(
                 _provider!.rating != null && _provider!.rating! > 0
                     ? Provider.formatAverageRating(_provider!.rating!)
@@ -541,17 +499,23 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       )
                     : 'N/A',
                 style: const TextStyle(
+                  fontFamily: AppTheme.sansFamily,
                   fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.brandWhite,
+                  height: 24 / 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.onPurple,
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                '(${_publishedReviews.length} review${_publishedReviews.length == 1 ? '' : 's'})',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.brandWhite.withOpacity(0.8),
+              Flexible(
+                child: Text(
+                  '(${_publishedReviews.length} review${_publishedReviews.length == 1 ? '' : 's'})',
+                  style: const TextStyle(
+                    fontFamily: AppTheme.sansFamily,
+                    fontSize: 14,
+                    height: 20 / 14,
+                    color: AppTheme.onPurpleSecondary,
+                  ),
                 ),
               ),
             ],
@@ -562,26 +526,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Widget _buildQuickActions() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16), // mb-4
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                ),
-                borderRadius: BorderRadius.circular(24), // rounded-2xl
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0xFF663399).withOpacity(0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ElevatedButton.icon(
+    return HearthButton.primary(
                 onPressed: _provider!.phone != null
                     ? () async {
                         // Track provider contact click
@@ -608,38 +553,74 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         }
                       }
                     : null,
-                icon: const Icon(Icons.phone, size: 18),
-                label: const Text('Call Now'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  foregroundColor: AppTheme.brandWhite,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-              ),
-            ),
+                icon: Icons.phone_outlined,
+                label: 'Call Now',
+    );
+  }
+
+  /// Contact link row: 52px tall with a warm rule above it, like the mockup.
+  Widget _contactLinkRow({
+    required IconData icon,
+    required Widget label,
+    required VoidCallback onTap,
+    required bool ruleAbove,
+  }) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: ruleAbove
+            ? const Border(top: BorderSide(color: AppTheme.borderWarm))
+            : null,
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
+          child: Row(
+            children: [
+              Icon(icon, color: AppTheme.brandPurple, size: 20),
+              const SizedBox(width: 12),
+              Expanded(child: label),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
+
+  static const TextStyle _contactLinkStyle = TextStyle(
+    fontFamily: AppTheme.sansFamily,
+    fontSize: 14,
+    height: 21 / 14,
+    fontWeight: FontWeight.w600,
+    color: AppTheme.brandPurple,
+  );
 
   Widget _buildContactInfo() {
     final location = _provider!.locations.isNotEmpty
         ? _provider!.locations.first
         : null;
+    final hasLinks = _provider!.phone != null ||
+        _provider!.email != null ||
+        _provider!.website != null;
     return _buildSection(
       title: 'Contact & Location',
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (location != null) ...[
-            Row(
+            Padding(
+              padding: EdgeInsets.only(bottom: hasLinks ? 16 : 0),
+              child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.location_on, color: AppTheme.brandPurple, size: 20),
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(
+                    Icons.location_on_outlined,
+                    color: AppTheme.brandPurple,
+                    size: 20,
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -648,35 +629,24 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       if (_provider!.practiceName != null)
                         Text(
                           _provider!.practiceName!,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            color: AppTheme.textSecondary,
+                          style: const TextStyle(
+                            fontFamily: AppTheme.sansFamily,
+                            fontSize: 15,
+                            height: 22 / 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.ink,
                           ),
                         ),
                       const SizedBox(height: 4),
                       ...location.addressLines.map(
-                        (line) => Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Text(
-                            line,
-                            style: TextStyle(
-                              fontSize: 14,
-                              height: 1.35,
-                              color: AppTheme.textMuted,
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
-                        ),
+                        (line) => Text(line, style: hearthCardBodyStyle),
                       ),
                       if (location.distance != null) ...[
                         const SizedBox(height: 4),
                         Text(
                           '${location.distance!.toStringAsFixed(1)} mi from search',
-                          style: TextStyle(
-                            fontSize: 12,
+                          style: hearthCaptionStyle.copyWith(
                             color: AppTheme.brandPurple,
-                            fontWeight: FontWeight.w300,
                           ),
                         ),
                       ],
@@ -685,18 +655,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 ),
               ],
             ),
-            Container(
-              height: 1,
-              color: AppTheme.borderLight,
-              margin: const EdgeInsets.symmetric(vertical: 16),
             ),
           ],
           if (_provider!.phone != null) ...[
-            Row(
-              children: [
-                Icon(Icons.phone, color: AppTheme.brandPurple, size: 20),
-                const SizedBox(width: 12),
-                InkWell(
+            _contactLinkRow(
+                  icon: Icons.phone_outlined,
+                  ruleAbove: location != null,
+                  label: Text(
+                    _provider!.phoneDisplay ?? _provider!.phone!,
+                    style: _contactLinkStyle,
+                  ),
                   onTap: () async {
                     // Track provider contact click
                     try {
@@ -721,30 +689,18 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       await launchUrl(uri);
                     }
                   },
-                  child: Text(
-                    _provider!.phoneDisplay ?? _provider!.phone!,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.brandPurple,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Container(
-              height: 1,
-              color: AppTheme.borderLight,
-              margin: const EdgeInsets.symmetric(vertical: 16),
             ),
           ],
           if (_provider!.email != null) ...[
-            Row(
-              children: [
-                Icon(Icons.email, color: AppTheme.brandPurple, size: 20),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: InkWell(
+            _contactLinkRow(
+                  icon: Icons.mail_outline,
+                  ruleAbove: location != null || _provider!.phone != null,
+                  label: Text(
+                    _provider!.email!,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                    style: _contactLinkStyle,
+                  ),
                   onTap: () async {
                     // Track provider contact click
                     try {
@@ -769,33 +725,20 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       await launchUrl(uri);
                     }
                   },
-                  child: Text(
-                    _provider!.email!,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.brandPurple,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                ),
-                ),
-              ],
-            ),
-            Container(
-              height: 1,
-              color: AppTheme.borderLight,
-              margin: const EdgeInsets.symmetric(vertical: 16),
             ),
           ],
           if (_provider!.website != null) ...[
-            Row(
-              children: [
-                Icon(Icons.language, color: AppTheme.brandPurple, size: 20),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: InkWell(
+            _contactLinkRow(
+                  icon: Icons.language,
+                  ruleAbove: location != null ||
+                      _provider!.phone != null ||
+                      _provider!.email != null,
+                  label: Text(
+                    _provider!.website!,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                    style: _contactLinkStyle,
+                  ),
                   onTap: () async {
                     final uri = Uri.parse(_provider!.website!);
                     if (await canLaunchUrl(uri)) {
@@ -805,19 +748,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       );
                     }
                   },
-                  child: Text(
-                    _provider!.website!,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.brandPurple,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                ),
-                ),
-              ],
             ),
           ],
         ],
@@ -867,37 +797,58 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxTagW),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.purple.shade50,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.purple.shade100),
+      child: DecoratedBox(
+        decoration: const ShapeDecoration(
+          color: AppTheme.tintWarm,
+          shape: StadiumBorder(),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                tag.name,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.brandPurple,
-                  fontWeight: FontWeight.w300,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  tag.name,
+                  style: _tagTextStyle,
+                  softWrap: true,
                 ),
-                softWrap: true,
               ),
-            ),
-            if (verified) ...[
-              const SizedBox(width: 6),
-              Icon(Icons.check_circle, size: 14, color: AppTheme.brandPurple),
+              if (verified) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.check, size: 14, color: AppTheme.brandPurple),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
+
+  // Same text as HearthTag, so verified identity tags match the plain ones.
+  static const TextStyle _tagTextStyle = TextStyle(
+    fontFamily: AppTheme.sansFamily,
+    fontSize: 12,
+    height: 18 / 12,
+    fontWeight: FontWeight.w700,
+    color: AppTheme.textSecondary,
+  );
+
+  static const TextStyle _subheadingStyle = TextStyle(
+    fontFamily: AppTheme.sansFamily,
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w600,
+    color: AppTheme.textSecondary,
+  );
+
+  static const TextStyle _reviewLabelStyle = TextStyle(
+    fontFamily: AppTheme.sansFamily,
+    fontSize: 12,
+    height: 18 / 12,
+    fontWeight: FontWeight.w700,
+    color: AppTheme.textMuted,
+  );
 
   Widget _buildIdentityTags() {
     if (_provider!.identityTags.isEmpty) return const SizedBox.shrink();
@@ -931,74 +882,40 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   _showTagInfo = !_showTagInfo;
                 });
               },
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'About these tags',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w400,
+              borderRadius: BorderRadius.circular(12),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Text('About these tags', style: hearthCaptionStyle),
+                      SizedBox(width: 6),
+                      Icon(
+                        Icons.info_outline,
+                        size: 18,
+                        color: AppTheme.brandPurple,
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.info_outline,
-                      size: 18,
-                      color: AppTheme.brandPurple,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
           if (_showTagInfo) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3ECFA),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.purple.shade100),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'About identity tags',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'These help you find culturally concordant care. Tags may come from the community or from visit experiences; verified tags show a checkmark.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 8),
+            const HearthNote(
+              title: 'About identity tags',
+              text:
+                  'These help you find culturally concordant care. Tags may come from the community or from visit experiences; verified tags show a checkmark.',
             ),
           ],
           const SizedBox(height: 12),
           for (final cat in categories) ...[
             Text(
               _identityCategoryTitle(cat),
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: AppTheme.textSecondary,
-              ),
+              style: _subheadingStyle,
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -1022,41 +939,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_provider!.specialties.isNotEmpty) ...[
-            Text(
-              'Specialties',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: AppTheme.textSecondary,
-              ),
-            ),
+            const Text('Specialties', style: _subheadingStyle),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: _provider!.specialties.map((specialty) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.purple.shade100),
-                  ),
-                  child: Text(
-                    specialty,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.brandPurple,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                );
+                return HearthTag(specialty);
               }).toList(),
             ),
-            const SizedBox(height: 16),
           ],
         ],
       ),
@@ -1064,22 +955,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Widget _experienceReviewChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3E5F5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE1BEE7)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          color: AppTheme.brandPurple,
-          fontWeight: FontWeight.w400,
-        ),
-      ),
-    );
+    return HearthTag(label);
   }
 
   /// Community trust indicators from the experience questions — the same
@@ -1097,32 +973,28 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF6ECFA), Color(0xFFFBF6FF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.brandPurple.withOpacity(0.15)),
+        color: AppTheme.tintWarm,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'WHAT MOTHERS SAID',
+          const Text(
+            'What mothers said',
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
+              fontFamily: AppTheme.sansFamily,
+              fontSize: 14,
+              height: 20 / 14,
+              fontWeight: FontWeight.w700,
               color: AppTheme.brandPurple,
             ),
           ),
           const SizedBox(height: 12),
-          _trustRow(Icons.hearing_rounded, '$feltHeard% felt heard'),
-          const SizedBox(height: 8),
-          _trustRow(Icons.volunteer_activism_rounded,
+          _trustRow(Icons.hearing, '$feltHeard% felt heard'),
+          const SizedBox(height: 10),
+          _trustRow(Icons.volunteer_activism_outlined,
               '$feltRespected% felt respected'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           _trustRow(Icons.chat_bubble_outline_rounded,
               '$explained% said things were explained clearly'),
         ],
@@ -1132,17 +1004,17 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   Widget _trustRow(IconData icon, String label) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: AppTheme.brandPurple),
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Icon(icon, size: 18, color: AppTheme.brandPurple),
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: AppTheme.textPrimary,
-            ),
+            style: hearthCardBodyStyle.copyWith(color: AppTheme.ink),
           ),
         ),
       ],
@@ -1160,13 +1032,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
           if (_publishedReviews.isNotEmpty) _buildExperienceTrustSummary(),
           if (_publishedReviews.isNotEmpty) ...[
             ..._publishedReviews.take(3).map((review) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 16),
+              return HearthCard(
+                margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                color: AppTheme.ground,
+                radius: BorderRadius.circular(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1177,54 +1047,27 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       children: [
                         Text(
                           review.userName ?? 'Anonymous',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            color: AppTheme.textSecondary,
+                          style: const TextStyle(
+                            fontFamily: AppTheme.sansFamily,
+                            fontSize: 15,
+                            height: 22 / 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.ink,
                           ),
                         ),
                         if (review.wouldRecommend)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.green.shade200),
-                            ),
-                            child: Text(
-                              '✓ Would recommend',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.green.shade700,
-                                fontWeight: FontWeight.w300,
-                              ),
-                            ),
-                          ),
+                          const HearthTag('✓ Would recommend'),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        ...List.generate(5, (index) {
-                          return Icon(
-                            Icons.star,
-                            size: 14,
-                            color: index < review.rating
-                                ? Colors.amber
-                                : Colors.grey[300],
-                          );
-                        }),
-                        const SizedBox(width: 8),
+                        HearthStarRating(value: review.rating, size: 16),
                         Text(
                           review.createdAt.toString().split(' ')[0],
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textLight,
-                            fontWeight: FontWeight.w300,
-                          ),
+                          style: hearthCaptionStyle,
                         ),
                       ],
                     ),
@@ -1232,13 +1075,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         review.feltRespected ||
                         review.explainedClearly) ...[
                       const SizedBox(height: 10),
-                      Text(
+                      const Text(
                         'How was your visit?',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textMuted,
-                        ),
+                        style: _reviewLabelStyle,
                       ),
                       const SizedBox(height: 6),
                       Wrap(
@@ -1259,21 +1098,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       const SizedBox(height: 10),
                       Text(
                         'What went well',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textMuted,
-                        ),
+                        style: _reviewLabelStyle,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         review.whatWentWell!.trim(),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
-                          height: 1.4,
-                        ),
+                        style: hearthCardBodyStyle,
                       ),
                     ],
                     if (review.reviewerRaceEthnicity.isNotEmpty ||
@@ -1283,11 +1113,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       if (review.reviewerRaceEthnicity.isNotEmpty) ...[
                         Text(
                           'Race / ethnicity',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textMuted,
-                          ),
+                          style: _reviewLabelStyle,
                         ),
                         const SizedBox(height: 6),
                         Wrap(
@@ -1302,11 +1128,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       if (review.reviewerLanguages.isNotEmpty) ...[
                         Text(
                           'Language',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textMuted,
-                          ),
+                          style: _reviewLabelStyle,
                         ),
                         const SizedBox(height: 6),
                         Wrap(
@@ -1321,11 +1143,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       if (review.reviewerCulturalTags.isNotEmpty) ...[
                         Text(
                           'Cultural tags',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textMuted,
-                          ),
+                          style: _reviewLabelStyle,
                         ),
                         const SizedBox(height: 6),
                         Wrap(
@@ -1341,11 +1159,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       const SizedBox(height: 8),
                       Text(
                         '${review.helpfulCount} found this helpful',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
-                        ),
+                        style: hearthCaptionStyle,
                       ),
                     ],
                     if (review.experienceFields != null &&
@@ -1353,46 +1167,28 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       const SizedBox(height: 8),
                       Text(
                         'Additional notes',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textMuted,
-                        ),
+                        style: _reviewLabelStyle,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         review.experienceFields!.entries
                             .map((e) => '${e.key}: ${e.value}')
                             .join('\n'),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
-                          height: 1.35,
-                        ),
+                        style: hearthCardBodyStyle,
                       ),
                     ],
                     if (review.updatedAt != null) ...[
                       const SizedBox(height: 6),
                       Text(
                         'Updated ${review.updatedAt!.toLocal().toString().split('.').first}',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: AppTheme.textLight,
-                          fontWeight: FontWeight.w300,
-                        ),
+                        style: hearthCaptionStyle.copyWith(fontSize: 12),
                       ),
                     ],
                     if (review.reviewText != null) ...[
                       const SizedBox(height: 12),
                       Text(
                         review.reviewText!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
-                          height: 1.5,
-                        ),
+                        style: hearthCardBodyStyle,
                       ),
                     ],
                   ],
@@ -1400,12 +1196,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               );
             }),
           ] else
-            Text(
+            const Text(
               'No reviews yet. Be the first to review!',
-              style: TextStyle(
-                color: AppTheme.textMuted,
-                fontWeight: FontWeight.w300,
-              ),
+              style: hearthCardBodyStyle,
             ),
         ],
       ),
@@ -1413,60 +1206,32 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Widget _buildCommunityNote() {
-    return Container(
-      padding: const EdgeInsets.all(20), // p-5
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFFE3F2FD), // from-blue-50
-            Color(0xFFF3E5F5), // to-purple-50
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24), // rounded-3xl
-        border: Border.all(color: Colors.blue.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    return HearthFeatureCard(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40, // w-10
-            height: 40, // h-10
-            decoration: BoxDecoration(
-              color: AppTheme.brandPurple,
-              borderRadius: BorderRadius.circular(16), // rounded-2xl
-            ),
-            child: const Icon(Icons.favorite, color: AppTheme.brandWhite, size: 20),
-          ),
-          const SizedBox(width: 12),
+          const HearthIconChip(Icons.favorite_border, tone: HearthChipTone.surface),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Help Other Mothers',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w400,
-                    color: AppTheme.textSecondary,
-                  ),
+                  style: hearthFeatureTitleStyle(),
                 ),
-                const SizedBox(height: 8), // mb-2
-                Text(
+                const SizedBox(height: 6),
+                const Text(
                   'Your experience matters. Share your story to help other mothers make informed decisions about their care.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                  ),
+                  style: hearthCardBodyStyle,
                 ),
-                const SizedBox(height: 12), // mb-3
+                const SizedBox(height: 4),
                 TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 0),
+                    minimumSize: const Size(0, 44),
+                    foregroundColor: AppTheme.brandPurple,
+                  ),
                   onPressed: () async {
                     // Use NPI if available, otherwise use Firestore ID, otherwise use name+location as composite ID
                     String? reviewProviderId = _provider!.id;
@@ -1510,7 +1275,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             content: Text(
                               'Cannot submit review: Provider identifier is missing',
                             ),
-                            backgroundColor: Colors.orange,
                           ),
                         );
                         return;
@@ -1530,9 +1294,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     if (result != null && mounted) {
                       // Mark that a review was submitted
                       _reviewSubmitted = true;
-                      print(
-                        '✅ [ProviderProfile] Review submitted, result: $result',
-                      );
+                      print('✅ [ProviderProfile] Review submitted, result: $result');
 
                       // Result is the Firestore provider ID (or original providerId if no Firestore ID)
                       final returnedProviderId = result is String
@@ -1551,9 +1313,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             id: returnedProviderId,
                           );
                         });
-                        print(
-                          '✅ [ProviderProfile] Updated provider with Firestore ID from review: $returnedProviderId',
-                        );
+                        print('✅ [ProviderProfile] Updated provider with Firestore ID from review: $returnedProviderId');
                       }
 
                       // Wait a moment for Firestore to index the new review
@@ -1564,13 +1324,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           _provider?.id ??
                           returnedProviderId ??
                           reviewProviderId;
-                      print(
-                        '🔄 [ProviderProfile] Reloading reviews with providerId: $reviewIdToUse',
-                      );
+                      print('🔄 [ProviderProfile] Reloading reviews with providerId: $reviewIdToUse');
                       await _loadReviews();
-                      print(
-                        '✅ [ProviderProfile] Reviews reloaded: ${_reviews.length} reviews',
-                      );
+                      print('✅ [ProviderProfile] Reviews reloaded: ${_reviews.length} reviews');
 
                       // Also reload provider to get updated review count from Firestore
                       // Use the Firestore ID if available (either from returnedProviderId or _provider.id)
@@ -1582,9 +1338,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           !providerIdToReload.startsWith('name_') &&
                           !providerIdToReload.startsWith('npi_')) {
                         try {
-                          print(
-                            '🔄 [ProviderProfile] Reloading provider from Firestore with ID: $providerIdToReload',
-                          );
+                          print('🔄 [ProviderProfile] Reloading provider from Firestore with ID: $providerIdToReload');
                           final updatedProvider = await _repository.getProvider(
                             providerIdToReload,
                           );
@@ -1601,14 +1355,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                 reviewCount: _publishedReviews.length,
                               );
                             });
-                            print(
-                              '✅ [ProviderProfile] Provider updated: rating=${_provider!.rating}, reviewCount=${_provider!.reviewCount}',
-                            );
+                            print('✅ [ProviderProfile] Provider updated: rating=${_provider!.rating}, reviewCount=${_provider!.reviewCount}');
                           }
                         } catch (e) {
-                          print(
-                            '⚠️ [ProviderProfile] Could not reload provider: $e',
-                          );
+                          print('⚠️ [ProviderProfile] Could not reload provider: $e');
                           // Still update with current review count
                           if (_provider != null && mounted) {
                             setState(() {
@@ -1639,17 +1389,17 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                 : null,
                           );
                         });
-                        print(
-                          '✅ [ProviderProfile] Provider updated (no Firestore ID): rating=${_provider!.rating}, reviewCount=${_provider!.reviewCount}',
-                        );
+                        print('✅ [ProviderProfile] Provider updated (no Firestore ID): rating=${_provider!.rating}, reviewCount=${_provider!.reviewCount}');
                       }
                     }
                   },
-                  child: Text(
+                  child: const Text(
                     'Write a review →',
                     style: TextStyle(
+                      fontFamily: AppTheme.sansFamily,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                       color: AppTheme.brandPurple,
-                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ),
@@ -1662,33 +1412,13 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Widget _buildSection({required String title, required Widget child}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16), // mb-4
-      padding: const EdgeInsets.all(20), // p-5
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24), // rounded-3xl
-        border: Border.all(color: AppTheme.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    return HearthCard(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w400,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 16), // mb-4
+          HearthSectionHeading(title),
+          const SizedBox(height: 16),
           child,
         ],
       ),

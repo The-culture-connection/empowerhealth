@@ -6,6 +6,7 @@ import '../services/provider_repository.dart';
 import '../services/firebase_functions_service.dart';
 import '../constants/provider_types.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 
 class AddProviderScreen extends StatefulWidget {
   final bool isMamaApproved;
@@ -172,7 +173,6 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error submitting provider: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -186,113 +186,65 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppTheme.surfaceCard, AppTheme.backgroundWarm],
-          ),
-        ),
-        child: SafeArea(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
           child: Column(
             children: [
               // Header
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade100),
+              HearthPushedHeader(
+                backLabel: 'Cancel',
+                onBack: () => Navigator.pop(context),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                actions: [
+                  ElevatedButton(
+                    onPressed: _canSubmit && !_isSubmitting ? _handleSubmit : null,
+                    // Compact header button; the theme supplies colours and the stadium shape.
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.onPurple),
+                            ),
+                          )
+                        : const Text('Submit'),
                   ),
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const Expanded(
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: _canSubmit && !_isSubmitting ? _handleSubmit : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _canSubmit && !_isSubmitting 
-                            ? AppTheme.brandPurple 
-                            : Colors.grey,
-                        foregroundColor: AppTheme.brandWhite,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
-                              ),
-                            )
-                          : const Text('Submit'),
-                    ),
-                  ],
-                ),
+                ],
               ),
 
               // Form Content
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
                   child: Form(
                     key: _formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         // Intro
-                        Container(
+                        HearthFeatureCard(
+                          tone: HearthTone.purple,
                           padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Add a Provider',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.brandWhite,
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .displaySmall
+                                    ?.copyWith(color: AppTheme.onPurple),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Can\'t find your provider? Help other mothers by adding them to our community directory. We\'ll review and publish soon.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.brandWhite.withOpacity(0.9),
+                                style: hearthCardBodyStyle.copyWith(
+                                  color: AppTheme.onPurpleSecondary,
                                 ),
                               ),
                             ],
@@ -302,49 +254,27 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                         const SizedBox(height: 16),
 
                         // Info Notice
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFE3F2FD), Color(0xFFF3E5F5)],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.blue.shade100),
-                          ),
-                          child: Row(
+                        HearthNote(
+                          icon: Icons.info_outline,
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.info_outline, color: Colors.blue.shade600, size: 20),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Before you add:',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    const Text(
-                                      'Search carefully to avoid duplicates. Our team will verify the information before publishing.',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'All submissions go through a moderation process to ensure accuracy and safety.',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
+                              Text(
+                                'Before you add:',
+                                style: hearthCardBodyStyle.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.ink,
                                 ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Search carefully to avoid duplicates. Our team will verify the information before publishing.',
+                                style: hearthCardBodyStyle,
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'All submissions go through a moderation process to ensure accuracy and safety.',
+                                style: hearthCardBodyStyle,
                               ),
                             ],
                           ),
@@ -446,11 +376,11 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                           title: 'Contact Information (Optional)',
                           child: Column(
                             children: [
-                              const Text(
-                                'Help others contact this provider',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
+                              const Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: Text(
+                                  'Help others contact this provider',
+                                  style: hearthCaptionStyle,
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -488,32 +418,15 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                             children: [
                               const Text(
                                 'Share anything that might be helpful for other mothers',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
+                                style: hearthCaptionStyle,
                               ),
                               const SizedBox(height: 12),
                               TextField(
                                 controller: _notesController,
                                 maxLines: 4,
-                                decoration: InputDecoration(
+                                decoration: const InputDecoration(
                                   hintText: 'Example: Accepts Medicaid, Spanish-speaking staff, evening appointments available...',
-                                  filled: true,
-                                  fillColor: Colors.grey.shade50,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide(color: Colors.grey.shade200),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: const BorderSide(color: Color(0xFF663399), width: 2),
-                                  ),
-                                  contentPadding: const EdgeInsets.all(16),
+                                  contentPadding: EdgeInsets.all(16),
                                 ),
                               ),
                             ],
@@ -523,20 +436,13 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                         const SizedBox(height: 16),
 
                         // Moderation Notice
-                        Container(
+                        HearthFeatureCard(
                           padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFFF3E0), Color(0xFFFFE0B2)],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.orange.shade100),
-                          ),
-                          child: const Text(
+                          child: Text(
                             'Moderation process: All provider submissions are reviewed by our team to ensure accuracy and prevent spam. This usually takes 1-2 business days.',
-                            style: TextStyle(
-                              fontSize: 14,
+                            style: hearthCardBodyStyle.copyWith(
                               fontWeight: FontWeight.w500,
+                              color: AppTheme.ink,
                             ),
                           ),
                         ),
@@ -544,24 +450,9 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                         const SizedBox(height: 24),
 
                         // Submit Button
-                        ElevatedButton(
+                        HearthButton.primary(
+                          label: 'Submit for Review',
                           onPressed: _canSubmit && !_isSubmitting ? _handleSubmit : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.brandPurple,
-                            foregroundColor: AppTheme.brandWhite,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            elevation: 2,
-                          ),
-                          child: const Text(
-                            'Submit for Review',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
                         ),
 
                         const SizedBox(height: 24),
@@ -572,47 +463,20 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
               ),
             ],
           ),
-        ),
       ),
     );
   }
 
   Widget _buildSuccessScreen() {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppTheme.surfaceCard, AppTheme.backgroundWarm],
-          ),
-        ),
-        child: SafeArea(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
           child: Column(
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade100),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const Expanded(
-                      child: Text(
-                        'Back to search',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                    ),
-                  ],
-                ),
+              HearthPushedHeader(
+                backLabel: 'Back to search',
+                onBack: () => Navigator.pop(context),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               ),
               Expanded(
                 child: LayoutBuilder(
@@ -631,53 +495,32 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade100,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.check_circle,
-                                size: 32,
-                                color: Colors.green.shade600,
-                              ),
+                            const HearthIconChip(
+                              Icons.check,
+                              size: 64,
+                              iconSize: 32,
                             ),
                             const SizedBox(height: 24),
-                            const Text(
+                            Text(
                               'Thank you!',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: Theme.of(context).textTheme.displaySmall,
+                              textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 12),
                             Text(
                               'We\'ve received your provider submission. Our team will review the information and publish it to help other mothers in the community.',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[700],
-                              ),
+                              style: Theme.of(context).textTheme.bodyLarge,
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 24),
-                            Container(
-                              width: double.infinity,
+                            HearthCard(
                               padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: AppTheme.surfaceCard,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
                                     'What happens next?',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: hearthCardTitleStyle,
                                   ),
                                   const SizedBox(height: 12),
                                   _buildNextStepItem('Our team reviews the information (usually 1-2 business days)'),
@@ -688,23 +531,14 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                               ),
                             ),
                             const SizedBox(height: 24),
-                            ElevatedButton(
+                            HearthButton.primary(
+                              label: 'Back to search',
+                              expand: false,
                               onPressed: () => Navigator.pop(context),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.brandPurple,
-                                foregroundColor: AppTheme.brandWhite,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 32,
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              child: const Text('Back to search'),
                             ),
                             const SizedBox(height: 12),
-                            TextButton(
+                            HearthButton.text(
+                              label: 'Add another provider',
                               onPressed: () {
                                 setState(() {
                                   _submitted = false;
@@ -722,7 +556,6 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
                                   _selectedSpecialty = '';
                                 });
                               },
-                              child: const Text('Add another provider'),
                             ),
                             const SizedBox(height: 8),
                           ],
@@ -734,7 +567,6 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
               ),
             ],
           ),
-        ),
       ),
     );
   }
@@ -745,11 +577,21 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('• ', style: TextStyle(fontSize: 14)),
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Text(
+              '• ',
+              style: hearthCardBodyStyle.copyWith(
+                fontSize: 15,
+                height: 22 / 15,
+                color: AppTheme.brandPurple,
+              ),
+            ),
+          ),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 14),
+              style: hearthCardBodyStyle.copyWith(fontSize: 15, height: 22 / 15),
             ),
           ),
         ],
@@ -761,34 +603,41 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
     required String title,
     required Widget child,
   }) {
-    return Container(
+    return HearthCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 16),
           child,
         ],
       ),
+    );
+  }
+
+  /// Field label with the purple required marker.
+  Widget _buildFieldLabel(String label, bool required) {
+    return Text.rich(
+      TextSpan(
+        text: label,
+        children: [
+          if (required)
+            const TextSpan(
+              text: ' ',
+              children: [
+                TextSpan(
+                  text: '*',
+                  style: TextStyle(color: AppTheme.brandPurple),
+                ),
+              ],
+            ),
+        ],
+      ),
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.ink),
     );
   }
 
@@ -805,24 +654,7 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (required) ...[
-              const SizedBox(width: 4),
-              const Text(
-                '*',
-                style: TextStyle(color: Colors.red),
-              ),
-            ],
-          ],
-        ),
+        _buildFieldLabel(label, required),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -830,23 +662,11 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
           maxLength: maxLength,
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
+          style: enabled ? null : const TextStyle(color: AppTheme.textMuted),
           decoration: InputDecoration(
             hintText: hintText,
-            filled: true,
-            fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade100,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF663399), width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            // The fixed State field sits on the warm tint so it reads as locked.
+            fillColor: enabled ? null : AppTheme.tintWarm,
             counterText: '',
           ),
         ),
@@ -865,45 +685,16 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (required) ...[
-              const SizedBox(width: 4),
-              const Text(
-                '*',
-                style: TextStyle(color: Colors.red),
-              ),
-            ],
-          ],
-        ),
+        _buildFieldLabel(label, required),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: value.isEmpty ? null : value,
           isExpanded: true, // Prevents overflow
+          icon: const Icon(Icons.expand_more, color: AppTheme.brandPurple),
+          borderRadius: BorderRadius.circular(AppTheme.fieldRadius),
+          dropdownColor: AppTheme.surface,
           decoration: InputDecoration(
             hintText: hint ?? 'Select $label',
-            filled: true,
-            fillColor: Colors.grey.shade50,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF663399), width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
           items: items.map((item) {
             return DropdownMenuItem(

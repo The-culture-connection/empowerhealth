@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../models/provider_report.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
@@ -12,10 +12,9 @@ Future<void> showProviderReportSheet(
   required String providerId,
   required String providerName,
 }) async {
-  await showModalBottomSheet<void>(
+  // The Hearth sheet supplies the ground fill, handle, padding and keyboard inset.
+  await showHearthSheet<void>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
     builder: (ctx) {
       return _ProviderReportSheetBody(
         providerId: providerId,
@@ -58,7 +57,6 @@ class _ProviderReportSheetBodyState extends State<_ProviderReportSheetBody> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Sign in to submit a report'),
-            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -90,7 +88,6 @@ class _ProviderReportSheetBodyState extends State<_ProviderReportSheetBody> {
       messenger?.showSnackBar(
         const SnackBar(
           content: Text('Thank you. We received your report and will review it.'),
-          backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
@@ -98,7 +95,6 @@ class _ProviderReportSheetBodyState extends State<_ProviderReportSheetBody> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Could not send report: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -109,121 +105,52 @@ class _ProviderReportSheetBodyState extends State<_ProviderReportSheetBody> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.paddingOf(context).bottom;
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: AppTheme.borderLight,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Text(
-              'Report this listing',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'If something looks inaccurate or harmful, tell us. This is not for medical emergencies.',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppTheme.textMuted,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              widget.providerName,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Reason',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...ProviderReportReason.options.map((e) {
-              return RadioListTile<String>(
-                title: Text(
-                  e.value,
-                  style: const TextStyle(fontSize: 14),
-                ),
-                value: e.key,
-                groupValue: _reason,
-                onChanged: _submitting
+    final textTheme = Theme.of(context).textTheme;
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Report this listing', style: textTheme.headlineMedium),
+          const SizedBox(height: 8),
+          const Text(
+            'If something looks inaccurate or harmful, tell us. This is not for medical emergencies.',
+            style: hearthCardBodyStyle,
+          ),
+          const SizedBox(height: 16),
+          Text(widget.providerName, style: hearthCardTitleStyle),
+          const SizedBox(height: 16),
+          Text('Reason', style: textTheme.labelMedium),
+          const SizedBox(height: 8),
+          ...ProviderReportReason.options.map((e) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: HearthOptionRow(
+                label: e.value,
+                selected: _reason == e.key,
+                onTap: _submitting
                     ? null
-                    : (v) {
-                        if (v != null) setState(() => _reason = v);
-                      },
-                contentPadding: EdgeInsets.zero,
-                activeColor: AppTheme.brandPurple,
-              );
-            }),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _detailsController,
-              maxLines: 4,
-              enabled: !_submitting,
-              decoration: InputDecoration(
-                labelText: 'Details (optional)',
-                hintText: 'What should we know?',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: AppTheme.surfaceInput,
+                    : () => setState(() => _reason = e.key),
               ),
+            );
+          }),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _detailsController,
+            maxLines: 4,
+            enabled: !_submitting,
+            decoration: const InputDecoration(
+              labelText: 'Details (optional)',
+              hintText: 'What should we know?',
             ),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: _submitting ? null : _submit,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.brandPurple,
-                foregroundColor: AppTheme.brandWhite,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: _submitting
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.brandWhite,
-                      ),
-                    )
-                  : const Text('Submit report'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 20),
+          HearthButton.primary(
+            label: 'Submit report',
+            onPressed: _submitting ? null : _submit,
+            loading: _submitting,
+          ),
+        ],
       ),
     );
   }

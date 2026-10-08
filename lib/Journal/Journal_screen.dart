@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../widgets/ambient_background.dart';
 import '../widgets/step_scroll.dart';
 import '../services/analytics_service.dart';
@@ -49,9 +50,35 @@ bool _matchesReflectionFilter(_ReflectionKind kind, _ReflectionFilter filter) {
   }
 }
 
-/// Mood picker emojis. Also laid out offstage on web (see build) so CanvasKit
-/// fetches its color-emoji fallback font before the picker is shown.
-const String _moodEmojiWarmup = '😊😌😐😟😢';
+/// Quick check-in moods, in picker order. The picker shows the nature icon;
+/// the emoji is still saved at the start of the entry so stored check-ins
+/// keep the same format.
+const List<({String emoji, String label, IconData icon})> _moods = [
+  (emoji: '\u{1F60A}', label: 'Joyful', icon: Icons.wb_sunny_outlined),
+  (emoji: '\u{1F60C}', label: 'Calm', icon: Icons.eco_outlined),
+  (emoji: '\u{1F610}', label: 'Okay', icon: Icons.waves),
+  (emoji: '\u{1F61F}', label: 'Worried', icon: Icons.cloud_outlined),
+  (emoji: '\u{1F622}', label: 'Tearful', icon: Icons.water_drop_outlined),
+];
+
+/// The mood a saved check-in starts with (`emoji label`), if any.
+({String emoji, String label, IconData icon})? _moodOf(String content) {
+  for (final mood in _moods) {
+    if (content.startsWith('${mood.emoji} ${mood.label}')) return mood;
+  }
+  return null;
+}
+
+/// Saved text without the leading mood emoji; the app shows moods as icons.
+String _withoutMoodEmoji(String content) {
+  final mood = _moodOf(content);
+  return mood == null ? content : content.substring(mood.emoji.length + 1);
+}
+
+/// Mood emojis that saved check-ins open with. Laid out offstage on web (see
+/// build) so CanvasKit fetches its color-emoji fallback font before an entry
+/// that contains one is opened.
+const String _moodEmojiWarmup = '\u{1F60A}\u{1F60C}\u{1F610}\u{1F61F}\u{1F622}';
 
 /// Recent reflections shown under "All"; a type filter shows every match
 /// among the most recent [_reflectionFetchLimit] notes.
@@ -126,8 +153,7 @@ class _JournalScreenState extends State<JournalScreen> {
     if (_entryController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('📝 Please enter some text before saving'),
-          backgroundColor: AppTheme.brandGold,
+          content: Text('Please enter some text before saving'),
         ),
       );
       return;
@@ -177,8 +203,7 @@ class _JournalScreenState extends State<JournalScreen> {
         setState(() => _entryMode = _JournalEntryMode.hub);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Entry saved to journal!'),
-            backgroundColor: AppTheme.brandTurquoise,
+            content: Text('Entry saved to journal!'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -187,8 +212,7 @@ class _JournalScreenState extends State<JournalScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Error saving entry: ${e.toString()}'),
-            backgroundColor: AppTheme.brandPurple,
+            content: Text('Error saving entry: ${e.toString()}'),
           ),
         );
       }
@@ -255,8 +279,8 @@ class _JournalScreenState extends State<JournalScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ Feeling entry saved: $emoji $label'),
-            backgroundColor: AppTheme.brandTurquoise,
+            // The emoji is saved with the entry but never shown.
+            content: Text('Feeling entry saved: $emoji $label'.replaceFirst('$emoji ', '')),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -265,8 +289,7 @@ class _JournalScreenState extends State<JournalScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Error saving feeling: ${e.toString()}'),
-            backgroundColor: AppTheme.brandPurple,
+            content: Text('Error saving feeling: ${e.toString()}'),
           ),
         );
       }
@@ -282,7 +305,6 @@ class _JournalScreenState extends State<JournalScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Tap a mood to save your check-in'),
-          backgroundColor: AppTheme.brandGold,
         ),
       );
       return;
@@ -319,19 +341,17 @@ class _JournalScreenState extends State<JournalScreen> {
       children: [
         Text(
           'Choose how you\'d like to journal:',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-          ),
+          style: Theme.of(context).textTheme.headlineMedium,
         ),
-        const SizedBox(height: 12),
-        Row(
+        const SizedBox(height: 14),
+        // Equal-height tiles so the two choices line up when one subtitle wraps.
+        IntrinsicHeight(
+          child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
               child: _EntryMethodTile(
-                icon: Icons.sentiment_satisfied_alt_outlined,
-                iconGradient: const [Color(0xFFD4A574), Color(0xFFE0B589)],
+                icon: Icons.favorite_border,
                 title: 'Quick check-in',
                 subtitle: 'Mood + optional note',
                 onTap: () => setState(() => _entryMode = _JournalEntryMode.quick),
@@ -341,204 +361,109 @@ class _JournalScreenState extends State<JournalScreen> {
             Expanded(
               child: _EntryMethodTile(
                 icon: Icons.edit_outlined,
-                iconGradient: const [Color(0xFF663399), Color(0xFF8855BB)],
                 title: 'Write',
                 subtitle: 'Longer reflection',
                 onTap: _openWriteMode,
               ),
             ),
           ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Save + Cancel pair shared by the check-in and write cards.
+  Widget _buildSaveCancelRow({
+    required String saveLabel,
+    required VoidCallback onSave,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton(
+            onPressed: _isSaving ? null : onSave,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.brandGold,
+              foregroundColor: AppTheme.ink,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: _isSaving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.ink,
+                    ),
+                  )
+                : _OneLineButtonLabel(saveLabel),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Equal-width controls so Save and Cancel are balanced; labels
+        // stay on one line (scaled down if needed at large text sizes).
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _isSaving ? null : _resetToHub,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: const _OneLineButtonLabel('Cancel'),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildQuickCheckInCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFAF7FB), Color(0xFFF9F5FB)],
-        ),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppTheme.borderLightest.withOpacity(0.5)),
-        boxShadow: AppTheme.shadowSoft(opacity: 0.06, blur: 18, y: 4),
-      ),
+    final textTheme = Theme.of(context).textTheme;
+    return HearthCard(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('Quick check-in', style: textTheme.headlineMedium),
+          const SizedBox(height: 6),
+          Text('How are you feeling right now?', style: textTheme.bodyLarge),
+          const SizedBox(height: 18),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.sentiment_satisfied_alt_outlined,
-                  color: AppTheme.brandGold, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Quick check-in',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
+              for (final mood in _moods)
+                Expanded(
+                  child: _SelectableMoodChip(
+                    icon: mood.icon,
+                    label: mood.label,
+                    selected: _quickMoodLabel == mood.label,
+                    onTap: () => setState(() {
+                      _quickMoodEmoji = mood.emoji;
+                      _quickMoodLabel = mood.label;
+                    }),
+                  ),
                 ),
-              ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'How are you feeling right now?',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w300,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              _SelectableMoodChip(
-                emoji: '😊',
-                label: 'Joyful',
-                selected: _quickMoodLabel == 'Joyful',
-                onTap: () => setState(() {
-                  _quickMoodEmoji = '😊';
-                  _quickMoodLabel = 'Joyful';
-                }),
-              ),
-              _SelectableMoodChip(
-                emoji: '😌',
-                label: 'Calm',
-                selected: _quickMoodLabel == 'Calm',
-                onTap: () => setState(() {
-                  _quickMoodEmoji = '😌';
-                  _quickMoodLabel = 'Calm';
-                }),
-              ),
-              _SelectableMoodChip(
-                emoji: '😐',
-                label: 'Okay',
-                selected: _quickMoodLabel == 'Okay',
-                onTap: () => setState(() {
-                  _quickMoodEmoji = '😐';
-                  _quickMoodLabel = 'Okay';
-                }),
-              ),
-              _SelectableMoodChip(
-                emoji: '😟',
-                label: 'Worried',
-                selected: _quickMoodLabel == 'Worried',
-                onTap: () => setState(() {
-                  _quickMoodEmoji = '😟';
-                  _quickMoodLabel = 'Worried';
-                }),
-              ),
-              _SelectableMoodChip(
-                emoji: '😢',
-                label: 'Tearful',
-                selected: _quickMoodLabel == 'Tearful',
-                onTap: () => setState(() {
-                  _quickMoodEmoji = '😢';
-                  _quickMoodLabel = 'Tearful';
-                }),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Text(
             'Add a note (optional)',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w300,
-            ),
+            style: textTheme.labelMedium?.copyWith(color: AppTheme.ink),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _quickNoteController,
             maxLines: 3,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w300,
-            ),
-            decoration: InputDecoration(
+            style: textTheme.bodyLarge?.copyWith(color: AppTheme.ink),
+            decoration: const InputDecoration(
               hintText: 'Anything you\'d like to remember…',
-              hintStyle: TextStyle(color: AppTheme.textBarelyVisible),
-              filled: true,
-              fillColor: AppTheme.surfaceCard,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide(color: AppTheme.borderLighter.withOpacity(0.5)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide(color: AppTheme.borderLighter.withOpacity(0.5)),
-              ),
-              contentPadding: const EdgeInsets.all(16),
+              // Inset fill so the field reads as a well inside the card.
+              fillColor: AppTheme.surfaceInset,
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFD4A574), Color(0xFFE0B589)],
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFD4A574).withOpacity(0.3),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _isSaving ? null : _submitQuickCheckIn,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      foregroundColor: AppTheme.brandWhite,
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.brandWhite,
-                            ),
-                          )
-                        : const _OneLineButtonLabel('Save check-in'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Equal-width controls so Save and Cancel are balanced; labels
-              // stay on one line (scaled down if needed at large text sizes).
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _isSaving ? null : _resetToHub,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textMuted,
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    side: BorderSide(
-                      color: AppTheme.borderLighter.withOpacity(0.5),
-                    ),
-                  ),
-                  child: const _OneLineButtonLabel('Cancel'),
-                ),
-              ),
-            ],
+          const SizedBox(height: 18),
+          _buildSaveCancelRow(
+            saveLabel: 'Save check-in',
+            onSave: _submitQuickCheckIn,
           ),
         ],
       ),
@@ -546,61 +471,32 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Widget _buildWriteCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFAF7FB), Color(0xFFF9F5FB)],
-        ),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppTheme.borderLightest.withOpacity(0.5)),
-        boxShadow: AppTheme.shadowSoft(opacity: 0.06, blur: 18, y: 4),
-      ),
+    final textTheme = Theme.of(context).textTheme;
+    return HearthCard(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.edit_outlined, color: AppTheme.brandPurple, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Write',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
+          Text('Write', style: textTheme.headlineMedium),
+          const SizedBox(height: 6),
           Text(
             'Start from a gentle prompt or write freely.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w300,
-            ),
+            style: textTheme.bodyLarge,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: _writePrompts.map((p) {
               final sel = _writePrompt == p;
-              return FilterChip(
-                label: Text(
-                  p,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w300,
-                    color: sel ? AppTheme.brandWhite : AppTheme.textMuted,
-                  ),
-                ),
+              return HearthChoiceChip(
+                label: p,
                 selected: sel,
-                showCheckmark: false,
-                onSelected: (value) {
-                  if (!value) return;
+                // Re-tapping the chosen prompt does nothing, so it never
+                // wipes what has been written under it.
+                onSelected: sel
+                    ? null
+                    : () {
                   setState(() {
                     _writePrompt = p;
                     _entryController.text = '$p\n\n';
@@ -609,151 +505,49 @@ class _JournalScreenState extends State<JournalScreen> {
                     );
                   });
                 },
-                selectedColor: const Color(0xFF663399),
-                backgroundColor: AppTheme.surfaceCard,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  side: BorderSide(
-                    color: sel
-                        ? const Color(0xFF663399)
-                        : AppTheme.borderLighter.withOpacity(0.5),
-                  ),
-                ),
               );
             }).toList(),
           ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceCard,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: AppTheme.borderLighter.withOpacity(0.5),
-              ),
-            ),
-            child: TextField(
-              controller: _entryController,
-              maxLines: 8,
-              style: const TextStyle(
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.w300,
-              ),
-              decoration: InputDecoration(
-                hintText: 'How are you feeling today? Add whatever feels right…',
-                hintStyle: TextStyle(
-                  color: AppTheme.textBarelyVisible,
-                  fontWeight: FontWeight.w300,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.all(20),
-              ),
+          const SizedBox(height: 18),
+          TextField(
+            controller: _entryController,
+            maxLines: 8,
+            style: textTheme.bodyLarge?.copyWith(color: AppTheme.ink),
+            decoration: const InputDecoration(
+              hintText: 'How are you feeling today? Add whatever feels right…',
+              // Inset fill so the field reads as a well inside the card.
+              fillColor: AppTheme.surfaceInset,
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.gradientBeigeStart, AppTheme.textLightest],
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.textLightest.withOpacity(0.25),
-                        blurRadius: 20,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _isSaving ? null : _saveEntry,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      foregroundColor: AppTheme.brandWhite,
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
-                            ),
-                          )
-                        : const _OneLineButtonLabel('Save entry'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _isSaving ? null : _resetToHub,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textLight,
-                    side: BorderSide(
-                      color: AppTheme.borderLighter.withOpacity(0.5),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                  ),
-                  child: const _OneLineButtonLabel('Cancel'),
-                ),
-              ),
-            ],
-          ),
+          const SizedBox(height: 18),
+          _buildSaveCancelRow(saveLabel: 'Save entry', onSave: _saveEntry),
         ],
       ),
     );
   }
 
   Widget _buildWarmEmptyReflections() {
-    return Container(
-      width: double.infinity,
+    return HearthCard(
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFEBE4F3).withOpacity(0.45),
-            const Color(0xFFF5F0F8).withOpacity(0.9),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppTheme.borderLighter.withOpacity(0.45)),
-      ),
-      child: Column(
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
         children: [
-          Icon(Icons.favorite_border, size: 36, color: AppTheme.textLightest),
+          const HearthIconChip(Icons.favorite_border),
           const SizedBox(height: 12),
           Text(
             'Your reflections will show up here',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.textSecondary,
-            ),
+            style: hearthCardTitleStyle,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'There\'s no rush. Try a quick check-in above, or write a few words when you\'re ready.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w300,
-              height: 1.45,
-            ),
+            style: Theme.of(context).textTheme.bodyLarge,
           ),
         ],
+        ),
       ),
     );
   }
@@ -791,31 +585,13 @@ class _JournalScreenState extends State<JournalScreen> {
       runSpacing: 8,
       children: options.entries.map((option) {
         final sel = _reflectionFilter == option.key;
-        return ChoiceChip(
-          label: Text(
-            option.value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: sel ? AppTheme.brandWhite : AppTheme.textMuted,
-            ),
-          ),
+        return HearthChoiceChip(
+          label: option.value,
           selected: sel,
-          showCheckmark: false,
-          onSelected: (value) {
-            if (!value) return;
-            setState(() => _reflectionFilter = option.key);
-          },
-          selectedColor: const Color(0xFF663399),
-          backgroundColor: AppTheme.surfaceCard,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: BorderSide(
-              color: sel
-                  ? const Color(0xFF663399)
-                  : AppTheme.borderLighter.withOpacity(0.5),
-            ),
-          ),
+          primary: true,
+          onSelected: sel
+              ? null
+              : () => setState(() => _reflectionFilter = option.key),
         );
       }).toList(),
     );
@@ -835,12 +611,7 @@ class _JournalScreenState extends State<JournalScreen> {
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Text(
         message,
-        style: TextStyle(
-          fontSize: 14,
-          color: AppTheme.textMuted,
-          fontWeight: FontWeight.w300,
-          height: 1.45,
-        ),
+        style: Theme.of(context).textTheme.bodyMedium,
       ),
     );
   }
@@ -863,31 +634,10 @@ class _JournalScreenState extends State<JournalScreen> {
     final content = SafeArea(
           child: Column(
             children: [
-              // Header (matching NewUI)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Your journal',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w400,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'A private space for how you feel',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
-                      ),
-                    ),
-                  ],
-                ),
+              const HearthTabHeader(
+                title: 'Your journal',
+                subtitle: 'A private space for how you feel',
+                padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
               ),
 
               // Content
@@ -918,27 +668,16 @@ class _JournalScreenState extends State<JournalScreen> {
 
                     return SingleChildScrollView(
                       controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           // Compact privacy indicator (replaces the large card).
-                          Row(
-                            children: [
-                              Icon(Icons.lock_outline,
-                                  size: 15, color: AppTheme.textMuted),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Private to you',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppTheme.textMuted,
-                                  fontWeight: FontWeight.w300,
-                                ),
-                              ),
-                            ],
+                          const Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: _PrivatePill(label: 'Private to you'),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
                           if (_entryMode == _JournalEntryMode.hub) ...[
                             _buildEntryMethodGrid(),
                           ] else if (_entryMode == _JournalEntryMode.quick) ...[
@@ -948,17 +687,8 @@ class _JournalScreenState extends State<JournalScreen> {
                           ],
                           const SizedBox(height: 28),
 
-                          // Recent Reflections Section (matching NewUI)
-                          const Text(
-                            'Recent reflections',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                              color: AppTheme.textMuted,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
+                          const HearthSectionHeading('Recent reflections'),
+                          const SizedBox(height: 14),
 
                           if (entries.isEmpty)
                             _buildWarmEmptyReflections()
@@ -1013,7 +743,7 @@ class _JournalScreenState extends State<JournalScreen> {
       // font the first time an emoji is laid out, showing a tofu box until
       // it arrives. This screen is built eagerly in the main-nav
       // IndexedStack, so laying the mood emojis out offstage here starts
-      // that download at app launch instead of when the picker opens.
+      // that download at app launch instead of when a saved check-in opens.
       // iOS/Android use the system emoji font, so this is web-only.
       body = Stack(
         fit: StackFit.expand,
@@ -1026,7 +756,7 @@ class _JournalScreenState extends State<JournalScreen> {
 
     return Scaffold(
       backgroundColor:
-          embeddedInMainNav ? Colors.transparent : AppTheme.backgroundWarm,
+          embeddedInMainNav ? Colors.transparent : AppTheme.ground,
       body: body,
       // Shortcuts are only shown on the hub: inside the check-in / write cards
       // they duplicate the current mode and could cover Save / Cancel.
@@ -1040,59 +770,16 @@ class _JournalScreenState extends State<JournalScreen> {
         child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.brandPurple.withOpacity(0.8),
-                  AppTheme.gradientPurpleEnd.withOpacity(0.8),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.brandPurple.withOpacity(0.3),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(28),
-                onTap: () => setState(() => _entryMode = _JournalEntryMode.quick),
-                child: const Icon(Icons.favorite, color: AppTheme.brandWhite, size: 24),
-              ),
-            ),
+          _JournalShortcutButton(
+            icon: Icons.favorite_border,
+            color: AppTheme.brandPurpleMid,
+            onTap: () => setState(() => _entryMode = _JournalEntryMode.quick),
           ),
-          const SizedBox(height: 8),
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppTheme.gradientPurpleStart, AppTheme.gradientPurpleEnd],
-              ),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.brandPurple.withOpacity(0.3),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(28),
-                onTap: _openWriteMode,
-                child: const Icon(Icons.add, color: AppTheme.brandWhite, size: 24),
-              ),
-            ),
+          const SizedBox(height: 10),
+          _JournalShortcutButton(
+            icon: Icons.add,
+            color: AppTheme.brandPurple,
+            onTap: _openWriteMode,
           ),
         ],
       ),
@@ -1116,7 +803,79 @@ class _OneLineButtonLabel extends StatelessWidget {
         label,
         maxLines: 1,
         softWrap: false,
-        style: const TextStyle(fontWeight: FontWeight.w300),
+      ),
+    );
+  }
+}
+
+/// "Private to you" pill under the journal header.
+class _PrivatePill extends StatelessWidget {
+  const _PrivatePill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const ShapeDecoration(
+        color: AppTheme.surface,
+        shape: StadiumBorder(side: BorderSide(color: AppTheme.borderWarm)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lock_outline, size: 15, color: AppTheme.textSecondary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: AppTheme.sansFamily,
+                  fontSize: 13,
+                  height: 18 / 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Round floating shortcut on the hub (quick check-in / write). The ground
+/// ring separates it from cards it floats over; Hearth keeps shadows for the
+/// Support button only.
+class _JournalShortcutButton extends StatelessWidget {
+  const _JournalShortcutButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color,
+      shape: const CircleBorder(
+        side: BorderSide(color: AppTheme.ground, width: 3),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 56,
+          height: 56,
+          child: Icon(icon, color: AppTheme.onPurple, size: 24),
+        ),
       ),
     );
   }
@@ -1124,14 +883,12 @@ class _OneLineButtonLabel extends StatelessWidget {
 
 class _EntryMethodTile extends StatelessWidget {
   final IconData icon;
-  final List<Color> iconGradient;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
 
   const _EntryMethodTile({
     required this.icon,
-    required this.iconGradient,
     required this.title,
     required this.subtitle,
     required this.onTap,
@@ -1139,82 +896,33 @@ class _EntryMethodTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Ink(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: const Color(0xFFE8E0F0).withOpacity(0.4),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF663399).withOpacity(0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(colors: iconGradient),
-                  boxShadow: [
-                    BoxShadow(
-                      color: iconGradient[0].withOpacity(0.35),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Icon(icon, color: AppTheme.brandWhite, size: 26),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
-                  height: 1.3,
-                ),
-              ),
-            ],
-          ),
-        ),
+    return HearthCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          HearthIconChip(icon),
+          const SizedBox(height: 14),
+          Text(title, style: hearthCardTitleStyle),
+          const SizedBox(height: 4),
+          Text(subtitle, style: hearthCaptionStyle),
+        ],
       ),
     );
   }
 }
 
+/// One mood in the quick check-in picker: a nature icon in a circle over its
+/// label. Selected moods get the warm tint and a purple ring.
 class _SelectableMoodChip extends StatelessWidget {
-  final String emoji;
+  final IconData icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
   const _SelectableMoodChip({
-    required this.emoji,
+    required this.icon,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -1222,49 +930,53 @@ class _SelectableMoodChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: selected
-              ? const LinearGradient(
-                  colors: [Color(0xFFD4A574), Color(0xFFE0B589)],
-                )
-              : null,
-          color: selected ? null : AppTheme.surfaceCard.withOpacity(0.9),
-          border: Border.all(
-            color: selected
-                ? Colors.transparent
-                : AppTheme.borderLighter.withOpacity(0.5),
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFD4A574).withOpacity(0.35),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+    final color = selected ? AppTheme.brandPurple : AppTheme.textSecondary;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? AppTheme.tintWarm : AppTheme.ground,
+                  border: Border.all(
+                    color: selected ? AppTheme.brandPurple : AppTheme.borderWarm,
+                    width: selected ? 2 : 1,
                   ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 28)),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w300,
-                color: selected ? AppTheme.brandWhite : AppTheme.textMuted,
+                ),
+                child: Icon(icon, size: 24, color: color),
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              // Five moods share one row, so long labels shrink rather than wrap.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontFamily: AppTheme.sansFamily,
+                    fontSize: 12,
+                    height: 16 / 12,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1298,176 +1010,132 @@ class _EntryCard extends StatelessWidget {
 
   bool get _isLearningNote => kind == _ReflectionKind.learningNote;
 
-  IconData get _kindIcon {
+  IconData _kindIcon(
+    ({String emoji, String label, IconData icon})? mood,
+  ) {
     switch (kind) {
       case _ReflectionKind.checkIn:
-        return Icons.favorite;
+        return mood?.icon ?? Icons.favorite_border;
       case _ReflectionKind.writing:
-        return Icons.edit;
+        return Icons.edit_outlined;
       case _ReflectionKind.learningNote:
-        return Icons.school;
+        return Icons.menu_book_outlined;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final title = moduleTitle?.trim();
+    // Check-ins show their mood as the nature icon, so the saved emoji is
+    // left out of the preview and the full entry.
+    final mood = kind == _ReflectionKind.checkIn ? _moodOf(content) : null;
     // Learning notes preview what the user wrote; fall back to the
     // highlighted passage when the note body is empty.
-    final preview = content.trim().isEmpty && highlightedText != null
-        ? highlightedText!
-        : content;
+    final preview = mood != null
+        ? content.substring(mood.emoji.length + 1)
+        : content.trim().isEmpty && highlightedText != null
+            ? highlightedText!
+            : content;
 
     // Whole card is the tap target (incl. padding) and opens the full entry;
     // the preview below is clamped to keep the timeline scannable.
-    return Container(
+    return HearthCard(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _showEntryDetail(context),
-          borderRadius: BorderRadius.circular(28),
-          child: Ink(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceCard,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: AppTheme.borderLighter.withOpacity(0.5),
-              ),
-            ),
-            child: Row(
+      onTap: () => _showEntryDetail(context),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, _isLearningNote ? 6 : 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          HearthIconChip(_kindIcon(mood)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.gradientBeigeStart, AppTheme.gradientBeigeEnd],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Icon(_kindIcon, color: AppTheme.brandWhite, size: 20),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // Compact date ("Sep 26, 2026") + tag in a Wrap so the tag
+                // drops to the next line instead of truncating the date
+                // under Bold Text / larger Dynamic Type.
+                SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      // Compact date ("Sep 26, 2026") + tag in a Wrap so the tag
-                      // drops to the next line instead of truncating the date
-                      // under Bold Text / larger Dynamic Type.
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.calendar_today,
-                                  size: 14, color: Colors.grey[400]),
-                              if (createdAt != null) ...[
-                                const SizedBox(width: 4),
-                                Text(
-                                  DateFormat.yMMMd().format(createdAt!),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.textLight,
-                                    fontWeight: FontWeight.w300,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          if (isFeelingPrompt && prompt != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.purple.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'feeling',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.purple.shade700,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      if (_isLearningNote && title != null && title.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.only(top: 2),
-                              child: Icon(Icons.menu_book_outlined,
-                                  size: 14, color: Color(0xFF663399)),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF663399),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                          const Icon(Icons.calendar_today_outlined,
+                              size: 14, color: AppTheme.textMuted),
+                          if (createdAt != null) ...[
+                            const SizedBox(width: 5),
+                            Text(
+                              DateFormat.yMMMd().format(createdAt!),
+                              style: hearthCaptionStyle,
                             ),
                           ],
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      Text(
-                        preview,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
-                          height: 1.5,
-                        ),
+                        ],
                       ),
-                      if (_isLearningNote)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: _OpenLessonButton(
-                            moduleId: moduleId,
-                            moduleTitle: title,
-                          ),
-                        ),
+                      if (isFeelingPrompt && prompt != null)
+                        const HearthTag('feeling'),
                     ],
                   ),
                 ),
+                if (_isLearningNote && title != null && title.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(Icons.menu_book_outlined,
+                            size: 14, color: AppTheme.brandPurple),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: hearthCaptionStyle.copyWith(
+                            color: AppTheme.brandPurple,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Text(
+                  preview,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  // Check-ins and writings lead with the mood or prompt, so
+                  // they read as the card title; lesson notes read as body.
+                  style: _isLearningNote
+                      ? hearthCardBodyStyle
+                      : const TextStyle(
+                          fontFamily: AppTheme.sansFamily,
+                          fontSize: 15,
+                          height: 22 / 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.ink,
+                        ),
+                ),
+                if (_isLearningNote)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: _OpenLessonButton(
+                      moduleId: moduleId,
+                      moduleTitle: title,
+                    ),
+                  ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1477,7 +1145,7 @@ class _EntryCard extends StatelessWidget {
       context: context,
       builder: (context) => _EntryDetailDialog(
         entryId: entryId,
-        content: content,
+        content: _withoutMoodEmoji(content),
         tag: tag,
         moduleTitle: moduleTitle,
         isLearningNote: _isLearningNote,
@@ -1539,8 +1207,9 @@ class _OpenLessonButtonState extends State<_OpenLessonButton> {
     return TextButton.icon(
       onPressed: _opening ? null : _open,
       style: TextButton.styleFrom(
-        foregroundColor: const Color(0xFF663399),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        foregroundColor: AppTheme.brandPurple,
+        // Flush with the text above it, as in the card layout.
+        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
         minimumSize: const Size(44, 44),
         tapTargetSize: MaterialTapTargetSize.padded,
       ),
@@ -1550,13 +1219,17 @@ class _OpenLessonButtonState extends State<_OpenLessonButton> {
               height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0xFF663399),
+                color: AppTheme.brandPurple,
               ),
             )
           : const Icon(Icons.arrow_forward, size: 18),
       label: const Text(
         'Open lesson',
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        style: TextStyle(
+          fontFamily: AppTheme.sansFamily,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1590,7 +1263,7 @@ class _EntryDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      clipBehavior: Clip.antiAlias,
       child: Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.8,
@@ -1598,88 +1271,48 @@ class _EntryDetailDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryActionGradient,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Text(
-                    'Journal Entry',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.brandWhite,
+            ColoredBox(
+              color: AppTheme.brandPurple,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 12, 12),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Journal Entry',
+                        style: TextStyle(
+                          fontFamily: AppTheme.serifFamily,
+                          fontSize: 22,
+                          height: 28 / 22,
+                          color: AppTheme.onPurple,
+                        ),
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: AppTheme.brandWhite),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+                    IconButton(
+                      icon: const Icon(Icons.close, color: AppTheme.onPurple),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
               ),
             ),
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (isFeelingPrompt && prompt != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.pink.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.psychology, size: 16, color: Colors.pink.shade600),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                prompt!,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.pink.shade700,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      _DialogTintRow(
+                        icon: Icons.psychology_outlined,
+                        text: prompt!,
                       ),
                       const SizedBox(height: 16),
                     ],
                     if (moduleTitle != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF663399).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.school, size: 16, color: Color(0xFF663399)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'From: $moduleTitle',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF663399),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      _DialogTintRow(
+                        icon: Icons.menu_book_outlined,
+                        text: 'From: $moduleTitle',
                       ),
                       if (isLearningNote && onOpenLesson != null)
                         Padding(
@@ -1694,26 +1327,22 @@ class _EntryDetailDialog extends StatelessWidget {
                       const SizedBox(height: 16),
                     ],
                     if (highlightedText != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.yellow.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.yellow.shade200),
-                        ),
+                      HearthCard(
+                        radius: BorderRadius.circular(AppTheme.fieldRadius),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.format_quote, size: 16, color: AppTheme.brandGold),
+                                const Icon(Icons.format_quote,
+                                    size: 18, color: AppTheme.brandPurple),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Highlighted Text:',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.brandTerracotta,
+                                  style: hearthCaptionStyle.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textSecondary,
                                   ),
                                 ),
                               ],
@@ -1721,10 +1350,9 @@ class _EntryDetailDialog extends StatelessWidget {
                             const SizedBox(height: 8),
                             Text(
                               highlightedText!,
-                              style: const TextStyle(
-                                fontSize: 14,
+                              style: hearthCardBodyStyle.copyWith(
                                 fontStyle: FontStyle.italic,
-                                color: Colors.black87,
+                                color: AppTheme.ink,
                               ),
                             ),
                           ],
@@ -1732,33 +1360,70 @@ class _EntryDetailDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                     ],
-                    const Text(
-                      'Your Notes:',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    const Text('Your Notes:', style: hearthCardTitleStyle),
                     const SizedBox(height: 8),
                     Text(
                       content,
                       style: const TextStyle(
+                        fontFamily: AppTheme.sansFamily,
                         fontSize: 15,
-                        height: 1.6,
+                        height: 24 / 15,
+                        color: AppTheme.ink,
                       ),
                     ),
                     if (createdAt != null) ...[
                       const SizedBox(height: 16),
                       Text(
                         'Created: ${_formatJournalCreatedAt(createdAt!)}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[700],
+                        style: hearthCaptionStyle.copyWith(
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Warm-tint label row at the top of the entry dialog (prompt, source lesson).
+class _DialogTintRow extends StatelessWidget {
+  const _DialogTintRow({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.tintWarm,
+        borderRadius: BorderRadius.circular(AppTheme.fieldRadius),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(icon, size: 18, color: AppTheme.brandPurple),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontFamily: AppTheme.sansFamily,
+                  fontSize: 14,
+                  height: 20 / 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.brandPurple,
                 ),
               ),
             ),

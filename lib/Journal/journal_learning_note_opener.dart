@@ -77,7 +77,9 @@ Future<void> openLearningNoteModule(
               builder: (_) => LearningModuleDetailScreen(
                 title: (data['title'] ?? title ?? 'Lesson').toString(),
                 content: content,
-                icon: '📚',
+                // Same books emoji as before, escaped: the detail screen
+                // still receives it as its icon value.
+                icon: '\u{1F4DA}',
                 taskId: match!.id,
               ),
             ),

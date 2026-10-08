@@ -55,12 +55,12 @@ Fill in one row per mockup as you finish it. "Match" = the running screen at 390
 | 7 | Learn-Rating | no | not checked | |
 | 7 | Learn-Rights | yes (/rights) | yes | |
 | 7 | Learn-RightsDetail | no | not checked | |
-| 8 | Journal-Hub | | | |
-| 8 | Journal-CheckIn | | | |
-| 8 | Journal-Write | | | |
-| 8 | Journal-LearningNotes | | | |
-| 8 | Journal-Entry | | | |
-| 8 | Journal-Empty | | | |
+| 8 | Journal-Hub | no (guest has no entries; saving one writes data) | not checked | Same header and chooser as Journal-Empty |
+| 8 | Journal-CheckIn | no (opening is fine but saving writes data; not opened) | not checked | Moods use nature icons; saved text format unchanged |
+| 8 | Journal-Write | no (as above) | not checked | |
+| 8 | Journal-LearningNotes | no (needs saved notes) | not checked | |
+| 8 | Journal-Entry | no (needs a saved entry) | not checked | Mood emoji is no longer shown in the entry dialog or the save snackbar |
+| 8 | Journal-Empty | yes (Journal tab, guest) | yes | Floating shortcuts have the ground ring but no shadow (lint) |
 | 9 | Community-Feed | | | |
 | 9 | Community-NewPost | | | |
 | 9 | Community-Post | | | |
@@ -173,6 +173,12 @@ Fill in one row per mockup as you finish it. "Match" = the running screen at 390
 | Learn-Survey | Mockup stars have per-star screen-reader labels | Not added (no new copy) |
 | Learn-ModuleExit | Quick-feedback emoji faces | Icons: favorite_border, eco_outlined, cloud_outlined, wb_sunny_outlined |
 | Learn-Rating | Submit is a compact right-aligned pill | HearthButton.primary(expand: false) |
+| Journal-Hub / Empty / LearningNotes | Mockup shortcut buttons have a drop shadow | Ground ring only (only the Support FAB may have a shadow) |
+| Journal-CheckIn / Write | Code had a face / pencil icon beside the card titles | Removed (decorative); serif titles |
+| Journal-Hub / CheckIn / Entry | Saved check-ins start with a mood emoji | Shown as the mood's nature icon; the emoji stays in stored data only |
+| Journal-Write | Unselected prompt chips are ground-filled at 14px | HearthChoiceChip (surface, 15px) |
+| Journal-Hub | "Private to you" pill sits in the header in the mockup | First item of the scroll list, as the code had it |
+| Journal-Entry | Prompt and "From:" boxes | Warm-tint rows with psychology_outlined / menu_book_outlined |
 
 ## Screens with no mockup (restyled from the nearest pattern)
 

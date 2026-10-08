@@ -245,5 +245,12 @@ Fill in one row per mockup as you finish it. "Match" = the running screen at 390
 | lib/providers/provider_search_results_screen.dart (error state) | Same as the empty state |
 | lib/appointments/upload_visit_summary_screen.dart ("AI Features Disabled" dialog) | Theme AlertDialog |
 | lib/privacy/privacy_center_screen.dart ("Sign in to manage blocked users") | Centred bodyLarge |
+| lib/Home/home_screen.dart (legacy, reachable via Routes.home) | HearthTabHeader, HearthCard nav tiles with icon chips, HearthSectionHeading, Hearth notification cards |
+| lib/Home/learning_todo_widget.dart | HearthSectionHeading, lavender progress card (AI generation), HearthCard task rows, purple AI marker |
+| lib/learning/module_detail_screen.dart | HearthPushedHeader, icon-chip error state, HearthTag, HearthStarRating survey, primary Submit |
+| lib/Home/Messages/Messages_screen.dart | HearthPushedHeader, HearthRowCard tiles, ink 20% photo wash |
+| lib/care_survey/care_checkin_learning_module.dart | Theme snackbar; unused emoji icon value cleared |
+| lib/emotional_support/* (hub screens, constants, unused home card) | Emoji removed from the validation title (trimmed at use); unused card's shadow removed |
+| lib/pregnancy_loss/pregnancy_loss_theme.dart (now unused) | Re-pointed to Hearth tokens |
 
 Note: the local harness's iPhone 15 preset is 393×852, 3px wider than the 390×844 mockups; screens were compared at that size.

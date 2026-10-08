@@ -6,6 +6,7 @@ import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import 'module_notes.dart';
 import 'notes_dialog.dart';
 import '../widgets/ai_disclaimer_banner.dart';
@@ -156,19 +157,27 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
         if (!didPop) _confirmExit();
       },
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundWarm,
-        appBar: AppTheme.newUiAppBar(
-          context,
-          title: widget.title,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.note_add),
-              tooltip: 'Add Note',
-              onPressed: () => _openNotesDialog(),
-            ),
-          ],
+        backgroundColor: AppTheme.ground,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Back goes through maybePop so PopScope still shows the exit sheet.
+              HearthPushedHeader(
+                title: widget.title,
+                actions: [
+                  HearthCircleButton(
+                    icon: Icons.note_add_outlined,
+                    tooltip: 'Add Note',
+                    onPressed: () => _openNotesDialog(),
+                  ),
+                ],
+              ),
+              Expanded(child: _buildBody()),
+            ],
+          ),
         ),
-        body: _buildBody(),
       ),
     );
   }
@@ -179,9 +188,9 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
+            CircularProgressIndicator(color: AppTheme.brandPurple),
             SizedBox(height: 16),
-            Text('Loading content...'),
+            Text('Loading content...', style: hearthCardBodyStyle),
           ],
         ),
       );
@@ -194,18 +203,19 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const HearthIconChip(Icons.info_outline, size: 64, iconSize: 30),
               const SizedBox(height: 16),
               Text(
                 'Error loading content',
-                style: Theme.of(context).textTheme.titleLarge,
+                style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 8),
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              ElevatedButton(
+              Text(_error!, textAlign: TextAlign.center, style: hearthCardBodyStyle),
+              const SizedBox(height: 20),
+              HearthButton.primary(
+                label: 'Try Again',
                 onPressed: _loadContent,
-                child: const Text('Try Again'),
+                expand: false,
               ),
             ],
           ),
@@ -214,30 +224,20 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     }
 
     if (_content == null) {
-      return const Center(child: Text('No content available'));
+      return const Center(child: Text('No content available', style: hearthCardBodyStyle));
     }
 
     return Stack(
       children: [
         SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Trimester badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.brandPurple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${widget.trimester} Trimester',
-                  style: const TextStyle(
-                    color: AppTheme.brandPurple,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              HearthTag(
+                '${widget.trimester} Trimester',
+                tone: HearthTagTone.tintPurple,
               ),
               const SizedBox(height: 16),
               
@@ -337,7 +337,6 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please answer all questions'),
-          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -397,8 +396,7 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Thank you for your feedback!'),
-            backgroundColor: Colors.green,
+            content: Text('Thank you for your feedback!'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -409,7 +407,6 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error submitting survey: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -422,43 +419,23 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          style: Theme.of(context).textTheme.labelMedium,
         ),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(5, (index) {
-            return GestureDetector(
-              onTap: () {
-                onRatingChanged(index + 1);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(
-                  index < rating ? Icons.star : Icons.star_border,
-                  size: 40,
-                  color: index < rating 
-                      ? Colors.amber 
-                      : Colors.grey,
-                ),
-              ),
-            );
-          }),
+        Center(
+          child: HearthStarRating(
+            value: rating,
+            size: 40,
+            onChanged: (star) => onRatingChanged(star),
+          ),
         ),
         const SizedBox(height: 8),
         Center(
           child: Text(
-            rating == 0 
+            rating == 0
                 ? 'Tap stars to rate'
                 : '$rating out of 5 stars',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
+            style: hearthCaptionStyle,
           ),
         ),
       ],
@@ -468,25 +445,16 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
   @override
   Widget build(BuildContext context) {
     if (_hasSubmitted) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green.withOpacity(0.3)),
-        ),
-        child: const Row(
+      return const HearthCard(
+        padding: EdgeInsets.all(16),
+        child: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.green),
+            Icon(Icons.check_circle_outline, color: AppTheme.brandPurple),
             SizedBox(width: 12),
             Expanded(
               child: Text(
                 'Thank you for completing the survey!',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.green,
-                ),
+                style: hearthCardTitleStyle,
               ),
             ),
           ],
@@ -497,21 +465,11 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Module Survey',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.brandPurple,
-          ),
-        ),
+        const HearthSectionHeading('Module Survey'),
         const SizedBox(height: 8),
         const Text(
           'Please rate your experience with this module:',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey,
-          ),
+          style: hearthCardBodyStyle,
         ),
         const SizedBox(height: 24),
         _buildStarRating(
@@ -538,53 +496,25 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
           },
         ),
         const SizedBox(height: 32),
-        const Text(
+        Text(
           'General Comments (Optional)',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          style: Theme.of(context).textTheme.labelMedium,
         ),
         const SizedBox(height: 12),
+        // Border and fill come from the Hearth input theme.
         TextField(
           controller: _commentsController,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Share any additional thoughts or feedback...',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppTheme.brandPurple, width: 2),
-            ),
           ),
           maxLines: 4,
           minLines: 3,
         ),
         const SizedBox(height: 32),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _isSubmitting ? null : _submitSurvey,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.brandPurple,
-              foregroundColor: AppTheme.brandWhite,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
-                    ),
-                  )
-                : const Text(
-                    'Submit Survey',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-          ),
+        HearthButton.primary(
+          label: 'Submit Survey',
+          onPressed: _isSubmitting ? null : _submitSurvey,
+          loading: _isSubmitting,
         ),
       ],
     );
@@ -619,25 +549,19 @@ class _SelectableMarkdownWidgetState extends State<_SelectableMarkdownWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Selectable text for highlighting (removed duplicate markdown display)
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
+        HearthCard(
+          padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.highlight, size: 18, color: AppTheme.brandPurple),
+                  const Icon(Icons.edit_outlined, size: 18, color: AppTheme.brandPurple),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Long-press text below to highlight and add a note',
-                      style: TextStyle(
-                        fontSize: 13,
+                      style: hearthCaptionStyle.copyWith(
                         fontWeight: FontWeight.w600,
                         color: AppTheme.brandPurple,
                       ),

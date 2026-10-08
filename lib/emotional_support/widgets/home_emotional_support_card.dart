@@ -83,11 +83,6 @@ class HomeEmotionalSupportCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: AppTheme.brandWhite.withValues(alpha: 0.85),
                             shape: BoxShape.circle,
-                            boxShadow: AppTheme.shadowSoft(
-                              opacity: 0.08,
-                              blur: 12,
-                              y: 4,
-                            ),
                           ),
                           child: Icon(
                             Icons.volunteer_activism_rounded,

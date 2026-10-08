@@ -35,8 +35,6 @@ class AppTheme {
   static const Color scrim = Color(0x732D2733);
 
   // Brand palette (re-pointed to Hearth roles)
-  @Deprecated('Hearth: use brandPurple')
-  static const Color brandTurquoise = Color(0xFF663399);
   static const Color brandPurple = Color(0xFF663399);
   static const Color brandPurpleMid = Color(0xFF7744AA);
   static const Color brandPurpleLight = Color(0xFF8855BB);
@@ -70,47 +68,9 @@ class AppTheme {
   static const Color borderLightest = borderWarm;
   static const Color borderSubtlePurple = borderWarm;
 
-  @Deprecated('Hearth: use lavender (AI notes only) or ground')
-  static const Color ambientPurpleBlur = lavender;
   static const Color navInactiveLight = textMuted;
   static const Color navBarBgLight = surface;
   static const Color navBarBorderLight = borderWarm;
-
-  // Former gradient stops, now single Hearth colours.
-  @Deprecated('Hearth: use lavender')
-  static const Color gradientPurpleStart = lavender;
-  @Deprecated('Hearth: use lavender')
-  static const Color gradientPurpleEnd = lavender;
-  @Deprecated('Hearth: use tintWarm')
-  static const Color gradientBeigeStart = tintWarm;
-  @Deprecated('Hearth: use tintWarm')
-  static const Color gradientBeigeEnd = tintWarm;
-  @Deprecated('Hearth: use tintWarm')
-  static const Color gradientGoldStart = tintWarm;
-  @Deprecated('Hearth: use brandGold')
-  static const Color gradientGoldEnd = brandGold;
-
-  /// Flat purple. Kept so older screens compile; use [brandPurple].
-  @Deprecated('Hearth: use brandPurple')
-  static const LinearGradient primaryActionGradient = LinearGradient(
-    colors: [brandPurple, brandPurple],
-  );
-
-  /// Flat gold. Kept so older screens compile; use [brandGold].
-  @Deprecated('Hearth: use brandGold')
-  static const LinearGradient encouragementGradient = LinearGradient(
-    colors: [brandGold, brandGold],
-  );
-
-  /// Hearth cards have no shadow; returns none so older call sites stay flat.
-  @Deprecated('Hearth: cards have no shadow')
-  static List<BoxShadow> shadowSoft({double opacity = 0.08, double blur = 20, double y = 4}) =>
-      const [];
-
-  /// Hearth cards have no shadow; returns none so older call sites stay flat.
-  @Deprecated('Hearth: cards have no shadow')
-  static List<BoxShadow> shadowMedium({double opacity = 0.12, double blur = 32, double y = 8}) =>
-      const [];
 
   /// Hearth card: surface fill, 1px warm border, radius 24, no shadow.
   static BoxDecoration cardDecoration({
@@ -414,8 +374,7 @@ class AppTheme {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: brandPurple,
       primary: brandPurple,
-      // ignore: deprecated_member_use_from_same_package
-      secondary: brandTurquoise,
+      secondary: brandPurple,
       brightness: Brightness.dark,
     );
     return base.copyWith(
@@ -430,10 +389,8 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          // ignore: deprecated_member_use_from_same_package
-          foregroundColor: brandTurquoise,
-          // ignore: deprecated_member_use_from_same_package
-          side: BorderSide(color: brandTurquoise.withOpacity(0.7), width: 1.5),
+          foregroundColor: brandPurple,
+          side: BorderSide(color: brandPurple.withValues(alpha: 0.7), width: 1.5),
           minimumSize: const Size(48, 48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusMedium)),
         ),
@@ -461,13 +418,9 @@ class AppTheme {
 
   // Older role names, re-pointed to Hearth colours.
   static const Color lightPrimary = brandPurple;
-  @Deprecated('Hearth: use brandPurple')
-  static const Color lightSecondary = brandPurple;
   static const Color lightAccent = brandGold;
   static const Color lightForeground = ink;
   static const Color lightBackground = ground;
-  @Deprecated('Hearth: use ground or surfaceInset')
-  static const Color lightMuted = ground;
   /// Emergency only (see [emergency]).
   static const Color error = emergency;
 

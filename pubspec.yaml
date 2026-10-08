@@ -113,12 +113,6 @@ flutter:
   # https://flutter.dev/to/asset-from-package
 
   fonts:
-    - family: Primary
-      fonts:
-        - asset: assets/fonts/Primary.ttf
-    - family: Secondary
-      fonts:
-        - asset: assets/fonts/secondary.ttf
     - family: YoungSerif
       fonts:
         - asset: assets/fonts/hearth/YoungSerif-Regular.ttf

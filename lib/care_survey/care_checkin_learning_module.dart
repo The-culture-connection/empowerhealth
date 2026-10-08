@@ -47,7 +47,7 @@ Future<void> generateAndOpenCareCheckinLearningModule(
           builder: (_) => LearningModuleDetailScreen(
             title: topic,
             content: contentStr,
-            icon: '📚',
+            icon: '',
             taskId: doc.id,
           ),
         ),
@@ -144,7 +144,7 @@ Future<void> generateAndOpenCareCheckinLearningModule(
         builder: (_) => LearningModuleDetailScreen(
           title: topic,
           content: content,
-          icon: '📚',
+          icon: '',
           taskId: docRef.id,
         ),
       ),
@@ -155,7 +155,6 @@ Future<void> generateAndOpenCareCheckinLearningModule(
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Could not create module: ${e.toString()}'),
-          backgroundColor: Colors.red,
         ),
       );
     }

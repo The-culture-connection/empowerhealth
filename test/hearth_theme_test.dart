@@ -56,21 +56,7 @@ void main() {
       test(name, () => expect(pair.$1.toARGB32(), pair.$2));
     });
 
-    test('retired tokens point at Hearth colours and draw no shadow', () {
-      // ignore: deprecated_member_use_from_same_package
-      expect(AppTheme.brandTurquoise, AppTheme.brandPurple);
-      // ignore: deprecated_member_use_from_same_package
-      expect(AppTheme.lightSecondary, AppTheme.brandPurple);
-      // ignore: deprecated_member_use_from_same_package
-      expect(AppTheme.ambientPurpleBlur, AppTheme.lavender);
-      // ignore: deprecated_member_use_from_same_package
-      expect(AppTheme.primaryActionGradient.colors.toSet(), {AppTheme.brandPurple});
-      // ignore: deprecated_member_use_from_same_package
-      expect(AppTheme.encouragementGradient.colors.toSet(), {AppTheme.brandGold});
-      // ignore: deprecated_member_use_from_same_package
-      expect(AppTheme.shadowSoft(), isEmpty);
-      // ignore: deprecated_member_use_from_same_package
-      expect(AppTheme.shadowMedium(), isEmpty);
+    test('cards draw no shadow', () {
       expect(AppTheme.cardDecoration().boxShadow, isNull);
     });
   });

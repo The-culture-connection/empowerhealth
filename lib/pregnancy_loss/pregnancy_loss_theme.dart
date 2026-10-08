@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import '../cors/ui_theme.dart';
 
-/// Calm, low-clutter visuals for pregnancy-loss mode.
+/// Calm, low-clutter visuals for pregnancy-loss mode. Hearth uses the same
+/// warm palette everywhere, so these now point at its tokens.
 abstract final class PregnancyLossTheme {
-  static const background = Color(0xFFF7F4FA);
-  static const cardFill = Color(0xFFFDFBFE);
-  static const accentSoft = Color(0xFFEBE4F3);
-  static const borderSoft = Color(0xFFE8E0F0);
+  static const background = AppTheme.ground;
+  static const cardFill = AppTheme.surface;
+  static const accentSoft = AppTheme.tintWarm;
+  static const borderSoft = AppTheme.borderWarm;
 }

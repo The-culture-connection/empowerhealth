@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../app_router.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../services/database_service.dart';
 import '../birthplan/birth_plans_list_screen.dart';
 
@@ -37,127 +38,103 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
+      backgroundColor: AppTheme.ground,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Welcome and User Name
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Welcome and User Name
+            HearthTabHeader(
+              titleWidget: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Flexible(
-                    child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Welcome',
-                        style: TextStyle(
-                          fontFamily: 'Primary',
-                          fontSize: MediaQuery.of(context).size.width * 0.12,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.brandPurple,
+                  Text('Welcome', style: textTheme.displayLarge),
+                  if (_userName != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      _userName!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.headlineMedium,
+                    ),
+                  ],
+                ],
+              ),
+              trailing: HearthCircleButton(
+                icon: Icons.mic_none_rounded,
+                onPressed: () {},
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Square Buttons Section
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SquareButton(
+                            icon: Icons.calendar_today_outlined,
+                            label: 'Appointments',
+                            onTap: () => Navigator.pushNamed(context, Routes.appointments),
+                          ),
                         ),
-                      ),
-                      if (_userName != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          _userName!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'Primary',
-                            fontSize: MediaQuery.of(context).size.width * 0.08,
-                            fontWeight: FontWeight.w400,
-                            color: AppTheme.brandPurple,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _SquareButton(
+                            icon: Icons.favorite_border,
+                            label: 'Birthplan',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const BirthPlansListScreen(),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],
-                    ],
-                  ),
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    iconSize: 36,
-                    icon: const Icon(
-                      Icons.mic_none_rounded,
-                      color: AppTheme.brandPurple,
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              
-              // Square Buttons Section
-              Row(
-                children: [
-                  Expanded(
-                    child: _SquareButton(
-                      icon: Icons.calendar_today,
-                      label: 'Appointments',
-                      onTap: () => Navigator.pushNamed(context, Routes.appointments),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SquareButton(
-                      icon: Icons.favorite,
-                      label: 'Birthplan',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const BirthPlansListScreen(),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SquareButton(
+                            icon: Icons.book_outlined,
+                            label: 'Journal',
+                            onTap: () => Navigator.pushNamed(context, Routes.journal),
                           ),
-                        );
-                      },
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _SquareButton(
+                            icon: Icons.checklist,
+                            label: 'Todo',
+                            onTap: () => Navigator.pushNamed(context, Routes.learning),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _SquareButton(
-                      icon: Icons.book,
-                      label: 'Journal',
-                      onTap: () => Navigator.pushNamed(context, Routes.journal),
+
+                    const SizedBox(height: 28),
+
+                    // Community Notifications Section
+                    const HearthSectionHeading('Community Notifications'),
+                    const SizedBox(height: 12),
+
+                    Expanded(
+                      child: _CommunityNotificationsList(),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SquareButton(
-                      icon: Icons.checklist,
-                      label: 'Todo',
-                      onTap: () => Navigator.pushNamed(context, Routes.learning),
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Community Notifications Section
-              Text(
-                'Community Notifications',
-                style: TextStyle(
-                  fontFamily: 'Primary',
-                  fontSize: MediaQuery.of(context).size.width * 0.06,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.brandPurple,
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              
-              Expanded(
-                child: _CommunityNotificationsList(),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -177,38 +154,20 @@ class _SquareButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return HearthCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: MediaQuery.of(context).size.width * 0.4,
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceCard,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+      padding: const EdgeInsets.all(16),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.width * 0.3,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 48,
-              color: AppTheme.brandPurple,
-            ),
-            const SizedBox(height: 8),
+            HearthIconChip(icon),
+            const SizedBox(height: 10),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.brandPurple,
-              ),
+              textAlign: TextAlign.center,
+              style: hearthCardTitleStyle,
             ),
           ],
         ),
@@ -244,54 +203,36 @@ class _CommunityNotificationsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 24),
       itemCount: _mockNotifications.length,
       itemBuilder: (context, index) {
         final notification = _mockNotifications[index];
-        return Container(
+        return HearthCard(
           margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
+          padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Text(
                       notification['title']!,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.brandPurple,
-                      ),
+                      style: hearthCardTitleStyle,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     notification['time']!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: hearthCaptionStyle,
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 notification['message']!,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.black87,
-                ),
+                style: hearthCardBodyStyle,
               ),
             ],
           ),
@@ -300,4 +241,3 @@ class _CommunityNotificationsList extends StatelessWidget {
     );
   }
 }
-

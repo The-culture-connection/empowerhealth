@@ -73,9 +73,7 @@ class _AdvocacyAppState extends State<AdvocacyApp> {
           .timeout(
             const Duration(seconds: 30),
             onTimeout: () {
-              debugPrint(
-                '⚠️ [FCM] setupAfterFirebaseInitialized timed out after 30s — UI already running',
-              );
+              debugPrint('⚠️ [FCM] setupAfterFirebaseInitialized timed out after 30s — UI already running');
             },
           );
     } catch (e, st) {
@@ -321,9 +319,7 @@ class _AuthWrapperState extends State<_AuthWrapper> with WidgetsBindingObserver 
         }
       }
     } catch (e) {
-      debugPrint(
-        '⚠️ Startup route resolution failed, falling back to main navigation: $e',
-      );
+      debugPrint('⚠️ Startup route resolution failed, falling back to main navigation: $e');
       resolvedScreen = const MainNavigationScaffold();
     }
 

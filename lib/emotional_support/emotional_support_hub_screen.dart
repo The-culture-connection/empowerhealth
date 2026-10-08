@@ -297,7 +297,8 @@ class _ValidationBlock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            kEmotionalValidationTitle,
+            // Trimmed: the trailing no-break space was spacing for a removed emoji.
+            kEmotionalValidationTitle.trim(),
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w500,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 import '../emotional_support_navigation.dart';
 
 /// Gentle 988 crisis support — external resources only.
@@ -21,50 +22,27 @@ class Crisis988Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(compact ? 18 : 22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFEBE4F3),
-            AppTheme.surfaceCard,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppTheme.brandPurple.withValues(alpha: 0.25),
-        ),
-        boxShadow: AppTheme.shadowSoft(opacity: 0.1, blur: 22, y: 6),
-      ),
+    // Purple outline marks this as the one place to reach a person; never red.
+    return HearthCard(
+      borderColor: AppTheme.brandPurple,
+      borderWidth: 1.5,
+      padding: EdgeInsets.all(compact ? 18 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Talk to someone now',
-            style: TextStyle(
-              fontSize: compact ? 16 : 18,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.textPrimary,
-              height: 1.35,
-            ),
+            style: hearthFeatureTitleStyle(),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'You can connect with a trained counselor for free and confidential support. This is the 988 Suicide & Crisis Lifeline, not EmpowerHealth Watch.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w300,
-              height: 1.45,
-            ),
+            style: hearthCardBodyStyle,
           ),
           const SizedBox(height: 16),
           _CrisisButton(
             label: 'Call 988',
-            icon: Icons.phone_in_talk_outlined,
+            icon: Icons.phone_outlined,
             onTap: () => _launch(context, 'call'),
           ),
           const SizedBox(height: 10),
@@ -102,40 +80,31 @@ class _CrisisButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: outlined ? const Color(0xFFF5F0F8) : AppTheme.brandPurple,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: outlined ? AppTheme.brandPurple : AppTheme.brandWhite,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: outlined ? AppTheme.textPrimary : AppTheme.brandWhite,
-                ),
-              ),
-              const Spacer(),
-              Icon(
-                Icons.open_in_new_rounded,
-                size: 16,
-                color: outlined ? AppTheme.textMuted : AppTheme.brandWhite,
-              ),
-            ],
-          ),
-        ),
-      ),
+    // Label sits left with an external-link mark on the right, so the row
+    // reads as "leaves the app" rather than a centred action.
+    final content = Row(
+      children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 12),
+        Expanded(child: Text(label)),
+        const SizedBox(width: 8),
+        const Icon(Icons.open_in_new, size: 16),
+      ],
+    );
+    const padding = EdgeInsets.symmetric(horizontal: 20);
+    return SizedBox(
+      width: double.infinity,
+      child: outlined
+          ? OutlinedButton(
+              onPressed: onTap,
+              style: OutlinedButton.styleFrom(padding: padding),
+              child: content,
+            )
+          : ElevatedButton(
+              onPressed: onTap,
+              style: ElevatedButton.styleFrom(padding: padding),
+              child: content,
+            ),
     );
   }
 }

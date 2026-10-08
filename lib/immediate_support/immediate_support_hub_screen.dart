@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../emotional_support/widgets/crisis_988_card.dart';
 import '../widgets/feature_session_scope.dart';
 import 'immediate_support_constants.dart';
@@ -44,56 +45,27 @@ class _ImmediateSupportHubScreenState extends State<ImmediateSupportHubScreen> {
       feature: 'immediate-support',
       entrySource: 'support_hub',
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F4FA),
+        backgroundColor: AppTheme.ground,
         body: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(Icons.chevron_left, color: AppTheme.textMuted),
-                    ),
-                    Expanded(
-                      child: Text(
-                        'Support for you',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              HearthPushedHeader(
+                onBack: () => Navigator.pop(context),
+                backLabel: 'Support for you',
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'We\'re here with you 💜',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w400,
-                          color: AppTheme.textPrimary,
-                          height: 1.35,
-                        ),
+                        'We\'re here with you',
+                        style: Theme.of(context).textTheme.displaySmall,
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        kImmediateSupportDisclaimer,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
-                          height: 1.5,
-                        ),
-                      ),
+                      const SizedBox(height: 8),
+                      _DisclaimerText(),
                       if (show988First) ...[
                         const SizedBox(height: 24),
                         _External988Block(),
@@ -108,19 +80,13 @@ class _ImmediateSupportHubScreenState extends State<ImmediateSupportHubScreen> {
                           show988InSection: section.prioritize988 && !show988First,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
                       _SafetyBlock(),
                       const SizedBox(height: 16),
                       Center(
-                        child: TextButton(
+                        child: HearthButton.text(
+                          label: 'Done for now',
                           onPressed: () => Navigator.pop(context),
-                          child: Text(
-                            'Done for now',
-                            style: TextStyle(
-                              color: AppTheme.textMuted,
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
                         ),
                       ),
                     ],
@@ -135,20 +101,44 @@ class _ImmediateSupportHubScreenState extends State<ImmediateSupportHubScreen> {
   }
 }
 
+/// The disclaimer with its "does not provide" sentence in bold, so the limit
+/// of the service is the part that stands out.
+class _DisclaimerText extends StatelessWidget {
+  static const _emphasis = 'EmpowerHealth Watch does not provide';
+
+  @override
+  Widget build(BuildContext context) {
+    final base = Theme.of(context).textTheme.bodyLarge;
+    const text = kImmediateSupportDisclaimer;
+    final start = text.indexOf(_emphasis);
+    if (start < 0) return Text(text, style: base);
+    return Text.rich(
+      TextSpan(
+        style: base,
+        children: [
+          TextSpan(text: text.substring(0, start)),
+          TextSpan(
+            text: text.substring(start),
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.ink,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _External988Block extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           kImmediateSupport988Disclaimer,
-          style: TextStyle(
-            fontSize: 13,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-            height: 1.45,
-          ),
+          style: hearthCardBodyStyle,
         ),
         const SizedBox(height: 12),
         Crisis988Card(
@@ -178,30 +168,15 @@ class _SupportSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            config.headline,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.brandPurple,
-              height: 1.3,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
+          HearthSectionHeading(config.headline),
+          const SizedBox(height: 14),
+          SizedBox(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEBE4F3).withValues(alpha: 0.45),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Text(
-              config.supportMessage,
-              style: TextStyle(
-                fontSize: 15,
-                color: AppTheme.textPrimary,
-                fontWeight: FontWeight.w300,
-                height: 1.45,
+            child: HearthFeatureCard(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              child: Text(
+                config.supportMessage,
+                style: hearthFeatureTitleStyle().copyWith(height: 26 / 19),
               ),
             ),
           ),
@@ -217,27 +192,19 @@ class _SupportSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 7),
+                    padding: const EdgeInsets.only(top: 8),
                     child: Container(
-                      width: 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: AppTheme.brandPurple.withValues(alpha: 0.55),
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.brandPurple,
                         shape: BoxShape.circle,
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      b,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
-                        height: 1.5,
-                      ),
-                    ),
+                    child: Text(b, style: hearthCardBodyStyle),
                   ),
                 ],
               ),
@@ -245,83 +212,55 @@ class _SupportSection extends StatelessWidget {
           ),
           if (somethingElseText != null &&
               somethingElseText!.trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceCard,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppTheme.borderLight.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Text(
-                somethingElseText!.trim(),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textPrimary,
-                  fontWeight: FontWeight.w300,
-                  height: 1.45,
+            const SizedBox(height: 6),
+            HearthCard(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: Text(
+                  somethingElseText!.trim(),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyLarge
+                      ?.copyWith(color: AppTheme.ink),
                 ),
               ),
             ),
+            const SizedBox(height: 8),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 6),
           ...config.tiles.map(
             (tile) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: Material(
-                color: AppTheme.surfaceCard,
-                borderRadius: BorderRadius.circular(18),
-                child: InkWell(
-                  onTap: () async {
-                    await ImmediateSupportService.instance
-                        .logResourceOpened(tile.id);
-                    if (context.mounted) await tile.onTap(context);
-                  },
-                  borderRadius: BorderRadius.circular(18),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 16,
+              child: HearthCard(
+                onTap: () async {
+                  await ImmediateSupportService.instance
+                      .logResourceOpened(tile.id);
+                  if (context.mounted) await tile.onTap(context);
+                },
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 16,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(tile.label, style: hearthCardTitleStyle),
+                          const SizedBox(height: 4),
+                          Text(tile.subtitle, style: hearthCaptionStyle),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                tile.label,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppTheme.textPrimary,
-                                  height: 1.35,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                tile.subtitle,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppTheme.textMuted,
-                                  fontWeight: FontWeight.w300,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          color: AppTheme.textMuted,
-                          size: 22,
-                        ),
-                      ],
+                    const SizedBox(width: 12),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: AppTheme.brandPurple,
+                      size: 20,
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -335,39 +274,18 @@ class _SupportSection extends StatelessWidget {
 class _SafetyBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final style = hearthCardBodyStyle.copyWith(color: AppTheme.ink);
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppTheme.borderLight.withValues(alpha: 0.45),
+      child: HearthNote(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(kImmediateSupportSafetyGuidance, style: style),
+            const SizedBox(height: 10),
+            Text(kImmediateSupportEmotionalSafetyGuidance, style: style),
+          ],
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            kImmediateSupportSafetyGuidance,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w300,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            kImmediateSupportEmotionalSafetyGuidance,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w300,
-              height: 1.45,
-            ),
-          ),
-        ],
       ),
     );
   }

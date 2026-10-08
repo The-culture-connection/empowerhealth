@@ -8,6 +8,7 @@ const XLSX = require("xlsx");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
+const engine = require("./providerSearchEngine");
 const {
   PREGNANCY_LOSS_LEARNING_SYSTEM,
   pregnancyLossLearningUserMessage,
@@ -2672,223 +2673,6 @@ function isMaternityProviderType(providerTypeIds) {
 }
 
 /**
- * Build NPI Registry API URL with correct parameters
- * Based on official NPI Registry API: https://npiregistry.cms.hhs.gov/demo-api
- * 
- * @param {Object} params - Search parameters
- * @param {string} params.postal_code - ZIP code (REQUIRED - location must be included)
- * @param {string} params.state - State code (REQUIRED - location must be included, e.g., "OH")
- * @param {string} params.city - City name (REQUIRED - location must be included)
- * @param {string} params.taxonomy_code - Taxonomy code (REQUIRED - each provider type gets separate endpoint)
- * @param {number} params.limit - Results per page (default: 200)
- * @param {number} params.skip - Skip N results for pagination (default: 0)
- * @param {string} params.healthPlan - Health plan name (for logging context only - NPI API doesn't support this)
- * @returns {string} Full NPI API URL
- */
-function buildNpiUrl({ postal_code, state, city, taxonomy_code, limit = 200, skip = 0, healthPlan = null }) {
-  if (!taxonomy_code) {
-    throw new Error("taxonomy_code is required for NPI search");
-  }
-  
-  // Location parameters are REQUIRED for accurate NPI searches
-  if (!postal_code || !state) {
-    throw new Error("postal_code and state are required for NPI search (location must be included in all endpoints)");
-  }
-  
-  const npiUrl = new URL("https://npiregistry.cms.hhs.gov/api/");
-  const params = {
-    version: "2.1",
-    taxonomy_code: taxonomy_code, // Each provider type gets its own taxonomy_code
-    state: state, // REQUIRED - location must be included
-    limit: limit.toString(),
-  };
-  
-  // postal_code is REQUIRED - location must be included in all endpoints
-  params.postal_code = postal_code;
-  
-  // city is included if provided - location must be included in all endpoints
-  if (city) {
-    params.city = city;
-  }
-  
-  // Pagination
-  if (skip > 0) {
-    params.skip = skip.toString();
-  }
-  
-  // Note: healthPlan is NOT a valid NPI API parameter (that's Medicaid-specific)
-  // We log it for context but don't include it in the URL
-  if (healthPlan) {
-    console.log(`[buildNpiUrl] Note: healthPlan "${healthPlan}" is for context only - NPI API doesn't support health plan filtering`);
-  }
-  
-  Object.keys(params).forEach((key) => {
-    npiUrl.searchParams.append(key, params[key]);
-  });
-  
-  return npiUrl.toString();
-}
-
-/**
- * Fetch NPI results with pagination
- * Creates SEPARATE endpoints for each provider type (taxonomy code)
- * Location parameters (postal_code, state, city) are included in ALL endpoints
- * 
- * Fetches pages until: 1) enough results, 2) no more results, or 3) max pages hit
- * @param {Object} searchParams - Search parameters (must include zip, state, city)
- * @param {Array<string>} taxonomyCodes - Taxonomy codes to search (each gets separate endpoint)
- * @param {string} healthPlan - Health plan name (for logging context only)
- * @param {number} maxPages - Maximum pages to fetch (default: 5)
- * @param {number} targetResults - Target number of results (default: 200)
- * @returns {Promise<Array>} Array of NPI providers
- */
-async function fetchNpiWithPagination(searchParams, taxonomyCodes, healthPlan = null, maxPages = 5, targetResults = 200) {
-  const allProviders = [];
-  const urlsUsed = []; // Track URLs for final summary
-  
-  console.log(`[fetchNpiWithPagination] Creating SEPARATE endpoints for ${taxonomyCodes.length} provider type(s)`);
-  console.log(`[fetchNpiWithPagination] Location params (included in ALL endpoints): postal_code=${searchParams.zip}, state=${searchParams.state}, city=${searchParams.city}`);
-  if (healthPlan) {
-    console.log(`[fetchNpiWithPagination] Health plan context: ${healthPlan} (not used in NPI API - Medicaid only)`);
-  }
-  
-  // Each taxonomy code gets its own separate endpoint
-  for (const taxonomyCode of taxonomyCodes) {
-    console.log(`[fetchNpiWithPagination] ==========================================`);
-    console.log(`[fetchNpiWithPagination] Provider Type: ${taxonomyCode}`);
-    console.log(`[fetchNpiWithPagination] Creating separate endpoint for this provider type`);
-    console.log(`[fetchNpiWithPagination] ==========================================`);
-    
-    let page = 0;
-    let skip = 0;
-    const limit = 200;
-    let hasMore = true;
-    let firstPageUrl = null;
-    
-    while (hasMore && page < maxPages && allProviders.length < targetResults) {
-      page++;
-      skip = (page - 1) * limit;
-      
-      try {
-        // Build URL with location params ALWAYS included + this specific taxonomy_code
-        const npiUrl = buildNpiUrl({
-          postal_code: searchParams.zip,
-          state: searchParams.state || "OH",
-          city: searchParams.city,
-          taxonomy_code: taxonomyCode, // Separate endpoint per provider type
-          limit: limit,
-          skip: skip,
-          healthPlan: healthPlan, // For logging context only
-        });
-        
-        if (page === 1) {
-          firstPageUrl = npiUrl;
-          console.log(`[fetchNpiWithPagination] FINAL NPI URL (Page 1): ${npiUrl}`);
-        } else {
-          console.log(`[fetchNpiWithPagination] Page ${page} URL: ${npiUrl}`);
-        }
-        
-        urlsUsed.push(npiUrl);
-        
-        const npiResponse = await axios.get(npiUrl);
-        const npiData = npiResponse.data;
-        
-        if (npiData.results && Array.isArray(npiData.results)) {
-          const pageProviders = parseNpiResponse(npiData.results);
-          allProviders.push(...pageProviders);
-          
-          console.log(`[fetchNpiWithPagination] Page ${page}: ${npiData.results.length} results, ${pageProviders.length} parsed, total: ${allProviders.length}`);
-          
-          // Check if there are more results
-          if (npiData.results.length < limit) {
-            hasMore = false;
-            console.log(`[fetchNpiWithPagination] No more results for taxonomy ${taxonomyCode} (got ${npiData.results.length} < limit ${limit})`);
-          }
-        } else {
-          hasMore = false;
-          console.log(`[fetchNpiWithPagination] No results array in response for taxonomy ${taxonomyCode}`);
-        }
-      } catch (error) {
-        console.error(`[fetchNpiWithPagination] Error fetching page ${page} for taxonomy ${taxonomyCode}:`, error.message);
-        if (error.response) {
-          console.error(`[fetchNpiWithPagination] Response status: ${error.response.status}`);
-          console.error(`[fetchNpiWithPagination] Response data:`, JSON.stringify(error.response.data, null, 2));
-        }
-        hasMore = false; // Stop pagination on error
-      }
-    }
-    
-    console.log(`[fetchNpiWithPagination] Completed taxonomy ${taxonomyCode}: ${allProviders.length} total providers so far`);
-    if (firstPageUrl) {
-      console.log(`[fetchNpiWithPagination] Base URL for ${taxonomyCode}: ${firstPageUrl}`);
-    }
-  }
-  
-  console.log(`[fetchNpiWithPagination] Total URLs used: ${urlsUsed.length}`);
-  console.log(`[fetchNpiWithPagination] All URLs:`, urlsUsed);
-  
-  return allProviders;
-}
-
-/**
- * Filter NPI providers by taxonomy codes (safety check only)
- * Only keeps providers whose taxonomy list intersects with allowed taxonomy codes
- * This should be a light filter since upstream queries are already constrained
- */
-function filterByTaxonomy(npiProviders, allowedTaxonomyCodes) {
-  if (!allowedTaxonomyCodes || allowedTaxonomyCodes.length === 0) {
-    console.log(`[filterByTaxonomy] No taxonomy codes provided, returning empty array`);
-    return [];
-  }
-  
-  console.log(`[filterByTaxonomy] Safety filtering ${npiProviders.length} providers by taxonomy codes: ${JSON.stringify(allowedTaxonomyCodes)}`);
-  
-  const filtered = npiProviders.filter(provider => {
-    // Check if provider has any taxonomy codes that match allowed codes
-    if (!provider.providerTypes || !Array.isArray(provider.providerTypes)) {
-      console.log(`[filterByTaxonomy] Provider "${provider.name?.substring(0, 50)}" has no providerTypes, filtering out`);
-      return false;
-    }
-    
-    const hasMatchingTaxonomy = provider.providerTypes.some(providerTaxonomy => 
-      allowedTaxonomyCodes.includes(providerTaxonomy)
-    );
-    
-    if (!hasMatchingTaxonomy) {
-      console.log(`[filterByTaxonomy] Provider "${provider.name?.substring(0, 50)}" filtered out - taxonomies ${JSON.stringify(provider.providerTypes)} don't match ${JSON.stringify(allowedTaxonomyCodes)}`);
-    }
-    
-    return hasMatchingTaxonomy;
-  });
-  
-  const filteredCount = npiProviders.length - filtered.length;
-  if (filteredCount > 0) {
-    console.log(`[filterByTaxonomy] ⚠️ Filtered out ${filteredCount} providers (${npiProviders.length} -> ${filtered.length})`);
-    console.log(`[filterByTaxonomy] This suggests upstream query may not be correctly constrained`);
-  } else {
-    console.log(`[filterByTaxonomy] ✅ All ${filtered.length} providers match taxonomy codes (upstream filtering working correctly)`);
-  }
-  
-  return filtered;
-}
-
-/**
- * Build Medicaid FHIR API URL with correct parameters
- * Based on official Ohio Medicaid API: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
- * 
- * @param {Object} params - Search parameters
- * @param {string} params.zip - ZIP code (REQUIRED - location must be included)
- * @param {string} params.city - City name (REQUIRED - location must be included)
- * @param {string} params.state - State code (REQUIRED, e.g., "OH")
- * @param {string} params.healthplan - Health plan name (REQUIRED - included in all endpoints)
- * @param {string} params.providerTypeId - Single provider type ID (REQUIRED - each provider type gets separate endpoint)
- * @param {string} params.radius - Search radius (REQUIRED)
- * @param {boolean} params.acceptsPregnantWomen - Accepts pregnant women filter (optional, only for maternity types)
- * @param {boolean} params.acceptsNewborns - Accepts newborns filter (optional, only for maternity types)
- * @param {boolean} params.telehealth - Telehealth filter (optional)
- * @returns {string} Full Medicaid FHIR API URL
- */
-/**
  * Map frontend health plan names to API-expected format
  * Based on Ohio Medicaid API documentation: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
  */
@@ -2903,9 +2687,12 @@ function normalizeHealthPlanName(healthplan) {
     'Molina': 'Molina',
     'Anthem': 'Anthem',
     'Aetna': 'Aetna',
-    // Mobile: user’s plan not in list — use a general Medicaid directory search
-    'Not listed / not sure': 'CareSource',
-    'All plans': 'CareSource',
+    // "All plans" and "Not listed / not sure" search every Ohio Medicaid plan. The API's own
+    // "All Plans" value does that in one query and reports each provider's plans
+    // (PractitionerRole.organization), including plans the app does not list (Humana, AmeriHealth).
+    'Not listed / not sure': 'All Plans',
+    'All plans': 'All Plans',
+    'All Plans': 'All Plans',
   };
   
   // Normalize: trim and check map
@@ -2913,307 +2700,22 @@ function normalizeHealthPlanName(healthplan) {
   return healthPlanMap[normalized] || normalized; // Return mapped value or original if not found
 }
 
-/**
- * Build Medicaid FHIR API URL with comma-delimited provider types
- * Based on official Ohio Medicaid API: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
- * 
- * @param {Object} params - Search parameters
- * @param {string} params.zip - ZIP code (REQUIRED)
- * @param {string} params.state - State code (REQUIRED, e.g., "OH")
- * @param {string} params.healthplan - Health plan name (REQUIRED)
- * @param {Array<string>} params.providerTypeIds - Provider type IDs (REQUIRED, will be comma-delimited)
- * @param {string|number} params.radius - Search radius in miles (REQUIRED)
- * @param {boolean} params.acceptsPregnantWomen - Accepts pregnant women filter (optional, only if explicitly provided AND maternity type)
- * @param {boolean} params.acceptsNewborns - Accepts newborns filter (optional, only if explicitly provided AND maternity type)
- * @param {boolean} params.telehealth - Telehealth filter (optional)
- * @returns {string} Full Medicaid FHIR API URL
- */
-function buildMedicaidUrl({ zip, state, healthplan, providerTypeIds, radius, acceptsPregnantWomen, acceptsNewborns, telehealth }) {
-  if (!zip || !state || !healthplan || !providerTypeIds || !radius) {
-    throw new Error("zip, state, healthplan, providerTypeIds (array), and radius are required for Medicaid search");
-  }
-  
-  if (!Array.isArray(providerTypeIds) || providerTypeIds.length === 0) {
-    throw new Error("providerTypeIds must be a non-empty array");
-  }
-  
-  // Normalize health plan name to match API expectations
-  const normalizedHealthPlan = normalizeHealthPlanName(healthplan);
-  console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
-  console.log(`║  BUILDING MEDICAID URL                                           ║`);
-  console.log(`╚════════════════════════════════════════════════════════════════╝`);
-  console.log(`[buildMedicaidUrl] Health plan: "${healthplan}" → normalized to: "${normalizedHealthPlan}"`);
-  
-  // Join provider type IDs with commas (comma-delimited)
-  const providerTypeIDsDelimited = providerTypeIds.join(',');
-  
-  console.log(`[buildMedicaidUrl] Provider type IDs: ${JSON.stringify(providerTypeIds)}`);
-  console.log(`[buildMedicaidUrl] ProviderTypeIDsDelimited: "${providerTypeIDsDelimited}"`);
-  
-  const medicaidUrl = new URL("https://psapi.ohpnm.omes.maximus.com/fhir/PublicSearchFHIR");
-  const params = {
-    state: state, // REQUIRED
-    zip: zip, // REQUIRED
-    healthplan: normalizedHealthPlan, // REQUIRED - lowercase parameter name
-    ProviderTypeIDsDelimited: providerTypeIDsDelimited, // REQUIRED - comma-delimited provider type codes
-    radius: radius.toString(), // REQUIRED
-  };
-  
-  // Only add optional filters if explicitly provided
-  // IMPORTANT: Do not include AcceptsPregnantWomen/AcceptsNewborns unless user explicitly provides them
-  // These filters often eliminate non-OB providers
-  if (acceptsPregnantWomen !== undefined && acceptsPregnantWomen !== null) {
-    params.AcceptsPregnantWomen = acceptsPregnantWomen ? "1" : "0";
-  }
-  if (acceptsNewborns !== undefined && acceptsNewborns !== null) {
-    params.AcceptsNewborns = acceptsNewborns ? "1" : "0";
-  }
-  if (telehealth !== undefined && telehealth !== null) {
-    params.Telehealth = telehealth ? "1" : "0";
-  }
-  
-  // Build URL with all parameters
-  Object.keys(params).forEach((key) => {
-    medicaidUrl.searchParams.append(key, params[key]);
-  });
-  
-  const finalUrl = medicaidUrl.toString();
-  
-  // Log URL prominently (CRITICAL FOR DEBUGGING)
-  console.log(`\n\n\n`);
-  console.log(`================================================================================`);
-  console.log(`================================================================================`);
-  console.log(`🔗 FINAL MEDICAID URL BUILT (buildMedicaidUrl):`);
-  console.log(`${finalUrl}`);
-  console.log(`================================================================================`);
-  console.log(`================================================================================`);
-  console.log(`\n[buildMedicaidUrl] URL Parameters:`);
-  Object.keys(params).forEach(key => {
-    console.log(`   ${key}: ${params[key]}`);
-  });
-  console.log(`\n`);
-  
-  return finalUrl;
+// Upstream time budgets. The app calls OhioMaximusSearch with a 30 s client timeout and
+// searchProviders with 60 s (lib/services/firebase_functions_service.dart), so each callable
+// returns what it has (coverage.partial = true) before the app gives up.
+const OMX_MEDICAID_DEADLINE_MS = Number(process.env.PROVIDER_SEARCH_OMX_DEADLINE_MS || 25000);
+const SP_MEDICAID_DEADLINE_MS = Number(process.env.PROVIDER_SEARCH_SP_DEADLINE_MS || 40000);
+const SP_NPI_DEADLINE_MS = 20000;
+
+/** "1" -> "01" (the Ohio Medicaid API uses two-digit provider type codes). */
+function normalizeProviderTypeId(id) {
+  const s = String(id == null ? "" : id).trim();
+  const n = parseInt(s, 10);
+  if (/^\d+$/.test(s) && n >= 1 && n <= 9) return s.padStart(2, "0");
+  return s;
 }
 
-/**
- * Fetch Medicaid FHIR results using a single endpoint with comma-delimited provider types
- * Provider type is the PRIMARY constraint - results must change by provider type selection
- * 
- * @param {Object} searchParams - Search parameters (must include zip, state, healthplan, radius)
- * @param {Array<string>} providerTypeIds - Provider type IDs (comma-delimited in URL)
- * @param {boolean} acceptsPregnantWomen - Accepts pregnant women filter (optional, only if explicitly provided)
- * @param {boolean} acceptsNewborns - Accepts newborns filter (optional, only if explicitly provided)
- * @param {boolean} telehealth - Telehealth filter (optional)
- * @param {number} maxPages - Maximum pages to fetch (default: 5)
- * @returns {Promise<Array>} Array of Medicaid provider entries
- */
-async function fetchMedicaidResults(searchParams, providerTypeIds, acceptsPregnantWomen, acceptsNewborns, telehealth, maxPages = 5) {
-  console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
-  console.log(`║  FETCHING MEDICAID RESULTS (SINGLE ENDPOINT)                  ║`);
-  console.log(`╚════════════════════════════════════════════════════════════════╝`);
-  console.log(`[fetchMedicaidResults] Provider type IDs: ${JSON.stringify(providerTypeIds)}`);
-  console.log(`[fetchMedicaidResults] ProviderTypeIDsDelimited will be: "${providerTypeIds.join(',')}"`);
-  
-  try {
-    // Build single URL with comma-delimited provider types
-    const medicaidUrl = buildMedicaidUrl({
-      zip: searchParams.zip,
-      state: searchParams.state || "OH",
-      healthplan: searchParams.healthplan,
-      providerTypeIds: providerTypeIds, // Array - will be comma-delimited in URL
-      radius: searchParams.radius,
-      acceptsPregnantWomen: acceptsPregnantWomen,
-      acceptsNewborns: acceptsNewborns,
-      telehealth: telehealth,
-    });
-    
-    // Log the URL prominently (CRITICAL FOR DEBUGGING)
-    console.log(`\n\n\n`);
-    console.log(`================================================================================`);
-    console.log(`================================================================================`);
-    console.log(`🔗 MEDICAID API URL - THIS IS THE URL BEING CALLED:`);
-    console.log(`${medicaidUrl}`);
-    console.log(`================================================================================`);
-    console.log(`================================================================================`);
-    console.log(`\n`);
-    
-    // Store URL in Firestore with timestamp
-    try {
-      const db = admin.firestore();
-      await db.collection('medicaid_api_logs').add({
-        url: medicaidUrl,
-        providerTypeIds: providerTypeIds,
-        zip: searchParams.zip,
-        state: searchParams.state || "OH",
-        healthplan: searchParams.healthplan,
-        radius: searchParams.radius,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        createdAt: new Date().toISOString(),
-      });
-      console.log(`[fetchMedicaidResults] ✅ URL stored in Firestore collection 'medicaid_api_logs'`);
-    } catch (firestoreError) {
-      console.error(`[fetchMedicaidResults] ⚠️ Error storing URL in Firestore:`, firestoreError.message);
-      // Don't fail the request if Firestore logging fails
-    }
-    
-    // Fetch with pagination support
-    console.log(`[fetchMedicaidResults] Fetching entries from Medicaid API...`);
-    console.log(`[fetchMedicaidResults] URL: ${medicaidUrl}`);
-    const entries = await fetchFhirBundleWithPaging(medicaidUrl, maxPages);
-    
-    console.log(`[fetchMedicaidResults] Total entries collected: ${entries.length}`);
-    
-    if (entries.length === 0) {
-      console.log(`[fetchMedicaidResults] ⚠️ WARNING: No entries returned`);
-      console.log(`[fetchMedicaidResults] URL used: ${medicaidUrl}`);
-      console.log(`[fetchMedicaidResults] This may indicate: 1) No providers match criteria, 2) API parameter issue, 3) API error`);
-    } else {
-      // Log first 1-2 provider names to verify filtering
-      const sampleEntries = entries.slice(0, 2);
-      console.log(`[fetchMedicaidResults] Sample entries (first ${sampleEntries.length}):`);
-      sampleEntries.forEach((entry, idx) => {
-        if (entry.resource) {
-          const resource = entry.resource;
-          const name = resource.name?.[0] ? 
-            `${resource.name[0].given?.join(' ') || ''} ${resource.name[0].family || ''}`.trim() :
-            'N/A';
-          const providerTypes = resource.code?.map(c => c.coding?.[0]?.code).filter(Boolean) || [];
-          console.log(`[fetchMedicaidResults]   Entry ${idx + 1}: "${name}" - Provider Types: ${JSON.stringify(providerTypes)}`);
-        }
-      });
-    }
-    
-    return entries;
-    
-  } catch (error) {
-    console.error(`[fetchMedicaidResults] Error fetching Medicaid results:`, error.message);
-    console.error(`[fetchMedicaidResults] Error stack:`, error.stack);
-    if (error.response) {
-      console.error(`[fetchMedicaidResults] Response status: ${error.response.status}`);
-      console.error(`[fetchMedicaidResults] Response data:`, JSON.stringify(error.response.data, null, 2));
-    } else if (error.request) {
-      console.error(`[fetchMedicaidResults] Request was made but no response received`);
-    }
-    throw error;
-  }
-}
-
-/**
- * Fetch FHIR Bundle with pagination support
- * Handles cases where response has 'link' array instead of 'entry'
- */
-async function fetchFhirBundleWithPaging(initialUrl, maxPages = 5) {
-  const allEntries = [];
-  let currentUrl = initialUrl;
-  let pageCount = 0;
-  
-  console.log(`[fetchFhirBundleWithPaging] Starting fetch from: ${currentUrl}`);
-  console.log(`\n\n\n`);
-  console.log(`================================================================================`);
-  console.log(`================================================================================`);
-  console.log(`🌐 FETCHING MEDICAID API - URL BEING CALLED:`);
-  console.log(`${currentUrl}`);
-  console.log(`================================================================================`);
-  console.log(`================================================================================`);
-  console.log(`\n`);
-  
-  while (currentUrl && pageCount < maxPages) {
-    pageCount++;
-    console.log(`[fetchFhirBundleWithPaging] Fetching page ${pageCount}...`);
-    console.log(`   Page ${pageCount}...`);
-    
-    try {
-      // Log URL right before making the HTTP request
-      console.log(`\n[fetchFhirBundleWithPaging] Making HTTP GET request to: ${currentUrl}`);
-      console.log(`[fetchFhirBundleWithPaging] This is the exact URL being fetched\n`);
-      
-      const response = await axios.get(currentUrl);
-      const bundle = response.data;
-      
-      const entryCount = bundle.entry && Array.isArray(bundle.entry) ? bundle.entry.length : 0;
-      console.log(`   ✅ Response Status: ${response.status}`);
-      console.log(`   📦 Resource Type: ${bundle.resourceType || 'N/A'}`);
-      console.log(`   📄 Has Entry: ${!!bundle.entry}`);
-      console.log(`   📄 Entry Count: ${entryCount}`);
-      console.log(`   🔗 Has Link: ${!!bundle.link}`);
-      
-      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} response status: ${response.status}`);
-      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} resourceType: ${bundle.resourceType || 'N/A'}`);
-      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} has entry: ${!!bundle.entry}`);
-      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} entry count: ${entryCount}`);
-      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} has link: ${!!bundle.link}`);
-      
-      if (bundle.link && Array.isArray(bundle.link)) {
-        console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} link array:`, JSON.stringify(bundle.link, null, 2));
-      }
-      
-      // If this bundle has entries, add them
-      if (bundle.entry && Array.isArray(bundle.entry)) {
-        const entryCount = bundle.entry.length;
-        console.log(`   📋 Entries in page ${pageCount}: ${entryCount}`);
-        console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} has ${entryCount} entries`);
-        allEntries.push(...bundle.entry);
-      } else if (bundle.entry && !Array.isArray(bundle.entry)) {
-        console.log(`   ⚠️ Entry is not an array, converting...`);
-        console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} entry is not an array, converting...`);
-        allEntries.push(bundle.entry);
-      } else {
-        console.log(`   ⚠️ No entries found in page ${pageCount}`);
-      }
-      
-      // Check for next page link
-      let nextUrl = null;
-      if (bundle.link && Array.isArray(bundle.link)) {
-        const nextLink = bundle.link.find(link => link.relation === "next");
-        if (nextLink && nextLink.url) {
-          nextUrl = nextLink.url;
-          console.log(`[fetchFhirBundleWithPaging] Found next page link: ${nextUrl}`);
-        } else {
-          console.log(`[fetchFhirBundleWithPaging] No 'next' link found in link array`);
-        }
-      }
-      
-      // If no next link, we're done
-      if (!nextUrl) {
-        console.log(`   ✅ No more pages. Total entries: ${allEntries.length}`);
-        console.log(`[fetchFhirBundleWithPaging] No more pages, total entries collected: ${allEntries.length}`);
-        break;
-      }
-      
-      currentUrl = nextUrl;
-      
-    } catch (error) {
-      console.log(`   ❌ ERROR fetching page ${pageCount}: ${error.message}`);
-      if (error.response) {
-        console.log(`   ❌ Response Status: ${error.response.status}`);
-        console.log(`   ❌ Response Data: ${JSON.stringify(error.response.data, null, 2)}`);
-        console.error(`[fetchFhirBundleWithPaging] Response status: ${error.response.status}`);
-        console.error(`[fetchFhirBundleWithPaging] Response data:`, JSON.stringify(error.response.data, null, 2));
-      } else if (error.request) {
-        console.log(`   ❌ No response received from server`);
-        console.log(`   ❌ Request URL: ${currentUrl}`);
-      }
-      console.error(`[fetchFhirBundleWithPaging] Error fetching page ${pageCount}:`, error.message);
-      // If we have some entries, return what we have; otherwise throw
-      if (allEntries.length > 0) {
-        console.log(`   ⚠️ Returning ${allEntries.length} entries despite error`);
-        console.log(`[fetchFhirBundleWithPaging] Returning ${allEntries.length} entries despite error`);
-        break;
-      }
-      throw error;
-    }
-  }
-  
-  if (pageCount >= maxPages) {
-    console.log(`[fetchFhirBundleWithPaging] Reached max page limit (${maxPages}), stopping`);
-  }
-  
-  console.log(`[fetchFhirBundleWithPaging] Final result: ${allEntries.length} entries from ${pageCount} page(s)`);
-  return allEntries;
-}
-
-exports.searchProviders = onCall(async (request) => {
+exports.searchProviders = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
   // Validate authentication
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -3231,959 +2733,197 @@ exports.searchProviders = onCall(async (request) => {
     acceptsNewborns,
     telehealth,
     identityTags, // Identity & Cultural match filters
-  } = request.data;
+  } = request.data || {};
 
   // Validate required parameters
   if (!zip || !city || !healthPlan || !providerTypeIds || !radius) {
     throw new HttpsError(
       "invalid-argument",
-      "Missing required parameters: zip, city, healthPlan, providerTypeIds, radius"
+      "Missing required parameters: zip, city, healthPlan, providerTypeIds, radius",
     );
   }
 
-  // Normalize provider type IDs
-  // IMPORTANT: Ohio Medicaid API uses single digits (1-9) WITH leading zeros ("01", "02", "09")
-  // Frontend may send with or without leading zeros, so normalize to API format (with leading zeros for 1-9)
-  const normalizedProviderTypeIds = Array.isArray(providerTypeIds)
-    ? providerTypeIds.map((id) => {
-        const numId = parseInt(id, 10);
-        if (!isNaN(numId) && numId >= 1 && numId <= 9) {
-          return id.padStart(2, '0'); // Add leading zero (API format: "01", "02", "09")
-        }
-        return id; // Return as-is for double digits (10+)
-      })
-    : [providerTypeIds];
-
-  // CRITICAL: Validate provider type IDs are not empty
-  if (normalizedProviderTypeIds.length === 0 || normalizedProviderTypeIds.every(id => !id || id.trim() === '')) {
-    console.log(`[searchProviders] ⚠️ ERROR: providerTypeIds is empty or invalid`);
-    console.log(`[searchProviders] Returning empty results - provider type is required`);
+  const normalizedProviderTypeIds = [...new Set(
+    (Array.isArray(providerTypeIds) ? providerTypeIds : [providerTypeIds])
+      .map(normalizeProviderTypeId)
+      .filter((id) => id),
+  )];
+  if (normalizedProviderTypeIds.length === 0) {
     return {
       success: true,
       providers: [],
       count: 0,
-      error: "Provider type IDs are required for search"
+      error: "Provider type IDs are required for search",
     };
   }
 
-  console.log(`\n\n\n`);
-  console.log(`╔════════════════════════════════════════════════════════════════╗`);
-  console.log(`║          searchProviders FUNCTION CALLED                      ║`);
-  console.log(`╚════════════════════════════════════════════════════════════════╝`);
-  console.log(`\n[searchProviders] ==========================================`);
-  console.log(`[searchProviders] SEARCH REQUEST DETAILS`);
-  console.log(`[searchProviders] ==========================================`);
-  console.log(`[searchProviders] ZIP: ${zip}`);
-  console.log(`[searchProviders] City: ${city}`);
-  console.log(`[searchProviders] Health Plan: ${healthPlan}`);
-  console.log(`[searchProviders] Radius: ${radius}`);
-  console.log(`[searchProviders] Raw provider type IDs: ${JSON.stringify(providerTypeIds)}`);
-  console.log(`[searchProviders] Normalized provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-  // Resolve taxonomy codes for provider types (for NPI filtering)
+  const t0 = Date.now();
+  const radiusMiles = Number(radius);
+  const searchZip = engine.zip5(zip) || String(zip).trim();
+  const normalizedHealthPlan = normalizeHealthPlanName(String(healthPlan));
   const taxonomyCodes = taxonomyCodesForProviderTypeIds(normalizedProviderTypeIds);
-  
-  console.log(`[searchProviders] Provider type IDs delimited: ${normalizedProviderTypeIds.join(',')}`);
-  console.log(`[searchProviders] Resolved taxonomy codes: ${JSON.stringify(taxonomyCodes)}`);
-  console.log(`[searchProviders] Include NPI: ${includeNpi}`);
-  console.log(`[searchProviders] Accepts Pregnant Women: ${acceptsPregnantWomen}`);
-  console.log(`[searchProviders] Accepts Newborns: ${acceptsNewborns}`);
-  console.log(`[searchProviders] Telehealth: ${telehealth}`);
-  console.log(`[searchProviders] ==========================================\n`);
+  const origin = engine.searchOrigin(searchZip, city, "OH");
+  console.log(`[searchProviders] zip=${searchZip} city=${city} radius=${radiusMiles} plan="${healthPlan}"` +
+    ` -> "${normalizedHealthPlan}" types=${normalizedProviderTypeIds.join(",")} includeNpi=${includeNpi}` +
+    ` acceptsPregnantWomen=${acceptsPregnantWomen} acceptsNewborns=${acceptsNewborns} telehealth=${telehealth}` +
+    ` origin=${origin ? `${origin.lat},${origin.lon} (${origin.precision})` : "unknown"}`);
 
   try {
-    const providers = [];
-
-    // 1. Search Ohio Medicaid API
-    // IMPORTANT: Use single endpoint with comma-delimited provider types
-    // Provider type is the PRIMARY constraint - results must change by provider type selection
-    try {
-      console.log(`\n\n\n`);
-      console.log(`╔════════════════════════════════════════════════════════════════╗`);
-      console.log(`║          MEDICAID SEARCH STARTING                            ║`);
-      console.log(`╚════════════════════════════════════════════════════════════════╝`);
-      console.log(`[Medicaid] ==========================================`);
-      console.log(`[Medicaid] STARTING MEDICAID SEARCH`);
-      console.log(`[Medicaid] ==========================================`);
-      console.log(`[Medicaid] Provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-      console.log(`[Medicaid] ProviderTypeIDsDelimited: "${normalizedProviderTypeIds.join(',')}"`);
-      console.log(`[Medicaid] ZIP: ${zip}, State: OH`);
-      console.log(`[Medicaid] Health plan: ${healthPlan}`);
-      console.log(`[Medicaid] Radius: ${radius}`);
-      console.log(`[Medicaid] Using SINGLE endpoint with comma-delimited provider types`);
-      console.log(`[Medicaid] ==========================================\n`);
-      
-      // Log what the URL will look like (before building it)
-      const previewProviderTypes = normalizedProviderTypeIds.join(',');
-      const previewUrl = `https://psapi.ohpnm.omes.maximus.com/fhir/PublicSearchFHIR?state=OH&zip=${zip}&healthplan=${encodeURIComponent(healthPlan)}&ProviderTypeIDsDelimited=${previewProviderTypes}&radius=${radius}`;
-      console.log(`\n`);
-      console.log(`================================================================================`);
-      console.log(`🔗 MEDICAID URL PREVIEW (will be built and called):`);
-      console.log(`${previewUrl}`);
-      console.log(`================================================================================`);
-      console.log(`\n`);
-      
-      // Determine if this is a maternity-related search
-      const isMaternitySearch = isMaternityProviderType(normalizedProviderTypeIds);
-      console.log(`[Medicaid] Is maternity provider type: ${isMaternitySearch}`);
-      
-      // IMPORTANT: Only include AcceptsPregnantWomen/AcceptsNewborns if:
-      // 1. User explicitly provided them (not undefined/null)
-      // 2. Provider type is maternity-related
-      // These filters often eliminate non-OB providers
-      let finalAcceptsPregnantWomen = undefined;
-      let finalAcceptsNewborns = undefined;
-      
-      if (isMaternitySearch) {
-        // Only use if explicitly provided
-        if (acceptsPregnantWomen !== undefined && acceptsPregnantWomen !== null) {
-          finalAcceptsPregnantWomen = acceptsPregnantWomen;
-          console.log(`[Medicaid] Including AcceptsPregnantWomen filter: ${acceptsPregnantWomen}`);
-        } else {
-          console.log(`[Medicaid] Skipping AcceptsPregnantWomen filter (not explicitly provided)`);
-        }
-        
-        if (acceptsNewborns !== undefined && acceptsNewborns !== null) {
-          finalAcceptsNewborns = acceptsNewborns;
-          console.log(`[Medicaid] Including AcceptsNewborns filter: ${acceptsNewborns}`);
-        } else {
-          console.log(`[Medicaid] Skipping AcceptsNewborns filter (not explicitly provided)`);
-        }
-      } else {
-        console.log(`[Medicaid] Skipping AcceptsPregnantWomen/AcceptsNewborns filters (non-maternity provider type)`);
-      }
-      
-      // Fetch Medicaid results with single endpoint
-      const searchParams = {
-        zip: zip,
-        state: "OH",
-        healthplan: healthPlan,
-        radius: radius,
-      };
-      
-      console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
-      console.log(`║  CALLING fetchMedicaidResults (SINGLE ENDPOINT)                ║`);
-      console.log(`╚════════════════════════════════════════════════════════════════╝\n`);
-      
-      const allEntries = await fetchMedicaidResults(
-        searchParams,
-        normalizedProviderTypeIds, // Array - will be comma-delimited in URL
-        finalAcceptsPregnantWomen,
-        finalAcceptsNewborns,
-        telehealth,
-        5
-      );
-      
-      // Parse entries
-      console.log(`\n==========================================`);
-      console.log(`📊 MEDICAID RESULTS (TERMINAL OUTPUT):`);
-      console.log(`   Total entries fetched: ${allEntries.length}`);
-      
-      if (allEntries.length > 0) {
-        console.log(`[Medicaid] Parsing ${allEntries.length} entries...`);
-        const medicaidProviders = parseMedicaidResponse(allEntries, specialty);
-        providers.push(...medicaidProviders);
-        console.log(`   Providers after parsing: ${medicaidProviders.length}`);
-        console.log(`[Medicaid] Found ${medicaidProviders.length} providers after parsing`);
-        console.log(`[Medicaid] Medicaid source count: ${medicaidProviders.length}`);
-        
-        if (medicaidProviders.length === 0 && allEntries.length > 0) {
-          console.log(`   ⚠️ WARNING: ${allEntries.length} entries but 0 providers parsed!`);
-          console.log(`[Medicaid] WARNING: ${allEntries.length} entries but 0 providers parsed. Checking first entry...`);
-          if (allEntries[0] && allEntries[0].resource) {
-            const testProvider = parseFhirResource(allEntries[0].resource);
-            console.log(`[Medicaid] Test parse result:`, JSON.stringify(testProvider, null, 2));
-            console.log(`   First entry resource type: ${allEntries[0].resource?.resourceType || 'N/A'}`);
-            console.log(`   First entry has code: ${!!allEntries[0].resource?.code}`);
-          }
-        }
-      } else {
-        console.log(`   ⚠️ No entries returned from API`);
-        console.log("[Medicaid] No entries to parse after fetching");
-      }
-      console.log(`==========================================\n`);
-      
-      console.log(`[Medicaid] ==========================================\n`);
-    } catch (error) {
-      console.log(`\n\n\n`);
-      console.log(`╔════════════════════════════════════════════════════════════════╗`);
-      console.log(`║          ❌ MEDICAID SEARCH ERROR                                ║`);
-      console.log(`╚════════════════════════════════════════════════════════════════╝`);
-      console.log(`\n==========================================`);
-      console.log(`❌ MEDICAID SEARCH ERROR (TERMINAL OUTPUT):`);
-      console.log(`   Error: ${error.message}`);
-      console.log(`   Error Type: ${error.constructor.name}`);
-      if (error.response) {
-        console.log(`   Response Status: ${error.response.status}`);
-        console.log(`   Response Data: ${JSON.stringify(error.response.data, null, 2)}`);
-        console.error("[Medicaid] Response status:", error.response.status);
-        console.error("[Medicaid] Response data:", JSON.stringify(error.response.data, null, 2));
-      } else if (error.request) {
-        console.log(`   No response received from server`);
-        console.log(`   Request URL (if available): ${error.config?.url || 'N/A'}`);
-      }
-      console.log(`   Stack Trace:`);
-      console.log(error.stack);
-      console.log(`==========================================\n`);
-      console.error("[Medicaid] Error searching Medicaid API:", error.message);
-      console.error("[Medicaid] Error stack:", error.stack);
-      // Continue to NPI search if enabled
-    }
-
-    // 2. Search NPI Registry ONLY if explicitly requested (includeNpi=true)
-    // IMPORTANT: Do NOT call NPI fallback unless explicitly requested
-    // Provider type is the PRIMARY constraint - Medicaid directory should be sufficient
-    if (includeNpi === true) {
-      console.log(`\n[NPI] ==========================================`);
-      console.log(`[NPI] STARTING NPI SEARCH`);
-      console.log(`[NPI] ==========================================`);
-      console.log(`[NPI] Include NPI: ${includeNpi}`);
-      console.log(`[NPI] Providers found so far: ${providers.length}`);
-      console.log(`[NPI] Provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-      console.log(`[NPI] Resolved taxonomy codes: ${JSON.stringify(taxonomyCodes)}`);
-      console.log(`[NPI] ==========================================\n`);
-      
-      // CRITICAL: Require taxonomy codes for NPI search
-      if (taxonomyCodes.length === 0) {
-        console.log(`[NPI] ⚠️ ERROR: No taxonomy codes resolved for provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-        console.log(`[NPI] Skipping NPI search - provider type not supported for NPI fallback`);
-        console.log(`[NPI] Returning only Medicaid results (if any)`);
-        console.log(`[NPI] ⚠️ DO NOT perform broad NPI search without taxonomy codes`);
-      } else {
-        try {
-          // Get additional taxonomy codes from specialty if provided
-          let allTaxonomyCodes = [...taxonomyCodes];
-          
-          if (specialty) {
-            const specialtyTaxonomy = getTaxonomyCode(specialty);
-            if (specialtyTaxonomy && !allTaxonomyCodes.includes(specialtyTaxonomy)) {
-              allTaxonomyCodes.push(specialtyTaxonomy);
-              console.log(`[NPI] Added taxonomy code from specialty: ${specialtyTaxonomy}`);
-            }
-          }
-          
-          // Remove duplicates
-          allTaxonomyCodes = [...new Set(allTaxonomyCodes)];
-          
-          console.log(`[NPI] Final taxonomy codes to search: ${JSON.stringify(allTaxonomyCodes)}`);
-          console.log(`[NPI] Location params (included in ALL endpoints): zip=${zip}, city=${city}, state=OH`);
-          console.log(`[NPI] Health plan context: ${healthPlan} (not used in NPI API - Medicaid only)`);
-          console.log(`[NPI] Creating SEPARATE endpoints for each provider type (${allTaxonomyCodes.length} endpoint(s))`);
-          
-          // Fetch NPI results with pagination
-          // Location parameters (zip, city, state) are REQUIRED and included in ALL endpoints
-          const searchParams = {
-            zip: zip,
-            city: city,
-            state: "OH",
-          };
-          
-          console.log(`[NPI] Fetching NPI results with pagination (max 5 pages, target 200 results)...`);
-          console.log(`[NPI] Each provider type will get its own separate endpoint call`);
-          const allNpiProviders = await fetchNpiWithPagination(searchParams, allTaxonomyCodes, healthPlan, 5, 200);
-          
-          console.log(`[NPI] Total providers from NPI (before safety filter): ${allNpiProviders.length}`);
-          
-          // Safety filter: ensure all providers match taxonomy codes (should be minimal filtering)
-          const filteredProviders = filterByTaxonomy(allNpiProviders, allTaxonomyCodes);
-          
-          console.log(`[NPI] Total providers from NPI (after safety filter): ${filteredProviders.length}`);
-          
-          // Log first 5 providers with their taxonomy codes
-          if (filteredProviders.length > 0) {
-            console.log(`[NPI] First 5 providers from NPI:`);
-            filteredProviders.slice(0, 5).forEach((p, idx) => {
-              console.log(`[NPI]   ${idx + 1}. ${p.name?.substring(0, 60)}`);
-              console.log(`[NPI]      Taxonomies: ${JSON.stringify(p.providerTypes || [])}`);
-              console.log(`[NPI]      Source: ${p.source}`);
-            });
-          }
-          
-          // Add filtered NPI providers
-          providers.push(...filteredProviders);
-          console.log(`[NPI] Total NPI providers added: ${filteredProviders.length}`);
-          console.log(`[NPI] Total providers from all sources: ${providers.length}`);
-        } catch (error) {
-          console.error("[NPI] Error searching NPI API:", error.message);
-          if (error.response) {
-            console.error("[NPI] Response status:", error.response.status);
-            console.error("[NPI] Response data:", JSON.stringify(error.response.data, null, 2));
-          }
-          // Continue with Medicaid results only
-        }
-      }
-      console.log(`[NPI] ==========================================\n`);
-    }
-
-    // 3. Log counts from each source before deduplication
-    const medicaidCount = providers.filter(p => p.source === 'medicaid').length;
-    const npiCount = providers.filter(p => p.source === 'npi').length;
-    console.log(`\n[searchProviders] ==========================================`);
-    console.log(`[searchProviders] SOURCE COUNTS BEFORE DEDUPLICATION`);
-    console.log(`[searchProviders] ==========================================`);
-    console.log(`[searchProviders] Medicaid providers: ${medicaidCount}`);
-    console.log(`[searchProviders] NPI providers: ${npiCount}`);
-    console.log(`[searchProviders] Total providers: ${providers.length}`);
-    console.log(`[searchProviders] ==========================================\n`);
-
-    // 3. Search Firestore for providers that match search criteria (including BIPOC directory providers)
-    try {
-      console.log(`\n[searchProviders] ==========================================`);
-      console.log(`[searchProviders] SEARCHING FIRESTORE FOR MATCHING PROVIDERS`);
-      console.log(`[searchProviders] ==========================================`);
-      
-      // Search Firestore for providers with matching zip code and provider types
-      // This includes BIPOC directory providers and other Firestore-only providers
-      const firestoreProviders = await searchFirestoreProviders({
-        zip: zip,
-        city: city,
-        radius: radius,
-        providerTypeIds: normalizedProviderTypeIds,
-        specialty: specialty,
+    const timings = {};
+    const timed = (label, p) => {
+      const s = Date.now();
+      return p.finally(() => {
+        timings[label] = Date.now() - s;
       });
-      
-      if (firestoreProviders.length > 0) {
-        console.log(`[searchProviders] Found ${firestoreProviders.length} providers in Firestore`);
-        providers.push(...firestoreProviders);
-      } else {
-        console.log(`[searchProviders] No additional providers found in Firestore`);
+    };
+
+    // 1-3. Ohio Medicaid, NPI Registry and the in-app directory run in parallel.
+    const medicaidP = timed("medicaid", engine.searchMedicaid({
+      zip: searchZip,
+      city,
+      state: "OH",
+      plan: normalizedHealthPlan,
+      typeIds: normalizedProviderTypeIds,
+      radius: radiusMiles,
+      telehealth,
+      specialty,
+      deadlineMs: SP_MEDICAID_DEADLINE_MS,
+    })).catch((e) => {
+      console.error("[searchProviders] Medicaid search failed:", e.message);
+      return {providers: [], meta: {error: e.message, partial: true}};
+    });
+
+    let npiP = Promise.resolve(null);
+    if (includeNpi === true) {
+      const codes = [...taxonomyCodes];
+      if (specialty) {
+        const extra = getTaxonomyCode(specialty);
+        if (extra && !codes.includes(extra)) codes.push(extra);
       }
-      console.log(`[searchProviders] ==========================================\n`);
-    } catch (error) {
-      console.error(`[searchProviders] Error searching Firestore:`, error);
-      // Continue with API results only
+      npiP = timed("npi", engine.searchNpi({
+        zip: searchZip,
+        city,
+        state: "OH",
+        taxonomyCodes: codes,
+        radius: radiusMiles,
+        deadlineMs: SP_NPI_DEADLINE_MS,
+      })).catch((e) => {
+        console.error("[searchProviders] NPI search failed:", e.message);
+        return {providers: [], meta: {error: e.message, partial: true}};
+      });
     }
 
-    // 3b. Read BIPOC providers from Excel file (for Clinical Counselor searches)
-    try {
-      console.log(`\n[searchProviders] ==========================================`);
-      console.log(`[searchProviders] READING BIPOC PROVIDERS FROM EXCEL FILE`);
-      console.log(`[searchProviders] ==========================================`);
-      
-      // Check if searching for Clinical Counselor (provider type '47')
-      const isClinicalCounselorSearch = normalizedProviderTypeIds.some(id => 
-        id === "47" || id.toLowerCase().includes("counselor") || id.toLowerCase().includes("therapist")
-      );
+    const firestoreP = timed("directory", searchFirestoreProviders({
+      zip: searchZip,
+      city,
+      radius: radiusMiles,
+      providerTypeIds: normalizedProviderTypeIds,
+      specialty,
+      origin,
+    }));
 
-      if (isClinicalCounselorSearch) {
-        const excelProviders = await readBipocProvidersFromExcel({
-          zip: zip,
-          city: city,
-          radius: radius,
-          providerTypeIds: normalizedProviderTypeIds,
-          specialty: specialty,
-        });
-        
-        if (excelProviders.length > 0) {
-          console.log(`[searchProviders] Found ${excelProviders.length} BIPOC providers from Excel file`);
-          providers.push(...excelProviders);
-        } else {
-          console.log(`[searchProviders] No BIPOC providers found in Excel file`);
-        }
-      } else {
-        console.log(`[searchProviders] Skipping Excel file (not a Clinical Counselor search)`);
-      }
-      console.log(`[searchProviders] ==========================================\n`);
-    } catch (error) {
-      console.error(`[searchProviders] Error reading BIPOC providers from Excel:`, error);
-      // Continue with other results
-    }
+    // 3b. BIPOC providers from the Excel directory (Clinical Counselor searches only)
+    const isClinicalCounselorSearch = normalizedProviderTypeIds.some((id) =>
+      id === "47" || id.toLowerCase().includes("counselor") || id.toLowerCase().includes("therapist"),
+    );
+    const excelP = isClinicalCounselorSearch ?
+      readBipocProvidersFromExcel({zip: searchZip, city, radius: radiusMiles,
+        providerTypeIds: normalizedProviderTypeIds, specialty})
+        .then((list) => list.map((p) => {
+          // Annotate distance; keep rows whose address can't be located (legacy behaviour).
+          const placed = engine.placeLocations(p.locations, origin, radiusMiles);
+          if (placed) return {...p, locations: placed.locations, distanceMiles: placed.distance, _dist: placed.distance};
+          return origin && (p.locations || []).some((l) => engine.locatePoint(l)) ? null : p;
+        }).filter(Boolean))
+        .catch((e) => {
+          console.error("[searchProviders] Error reading BIPOC providers from Excel:", e);
+          return [];
+        }) :
+      Promise.resolve([]);
+
+    const [medicaid, npi, firestoreProviders, excelProviders] = await Promise.all([medicaidP, npiP, firestoreP,
+      excelP]);
+
+    const providers = [
+      ...medicaid.providers,
+      ...(npi ? npi.providers : []),
+      ...firestoreProviders,
+      ...excelProviders,
+    ];
+    const medicaidCount = medicaid.providers.length;
+    const npiCount = npi ? npi.providers.length : 0;
 
     // 4. Deduplicate providers by NPI or name+location
     const deduplicatedProviders = deduplicateProviders(providers);
-    console.log(`[searchProviders] After deduplication: ${deduplicatedProviders.length} providers`);
 
     // 5. Enrich with Firestore data (reviews, identity tags, Mama Approved)
-    const enrichedProviders = await enrichProvidersWithFirestore(deduplicatedProviders);
-    console.log(`[searchProviders] After enrichment: ${enrichedProviders.length} providers`);
+    const enrichedProviders = await timed("enrich", enrichProvidersWithFirestore(deduplicatedProviders));
 
-    // 5. Sort providers with prioritization
-    console.log(`[searchProviders] Before sorting: ${enrichedProviders.length} providers`);
-    
-    // Check if identity tags are selected (Identity & Cultural match)
+    // 5a. Sort: BIPOC first when identity tags are selected, then Mama Approved, rating,
+    // review count, and finally distance (nearest first).
     const hasIdentityTags = identityTags && Array.isArray(identityTags) && identityTags.length > 0;
-    console.log(`[searchProviders] Identity tags selected: ${hasIdentityTags ? identityTags.join(", ") : "none"}`);
-    
-    // Helper to check if provider has BIPOC tag
     const hasBipocTag = (provider) => {
       if (!provider.identityTags || !Array.isArray(provider.identityTags)) return false;
-      return provider.identityTags.some(tag => 
-        (tag.name && tag.name.toLowerCase() === "bipoc") || 
-        (tag.id && tag.id.toLowerCase() === "bipoc")
+      return provider.identityTags.some((tag) =>
+        (tag.name && tag.name.toLowerCase() === "bipoc") ||
+        (tag.id && tag.id.toLowerCase() === "bipoc"),
       );
     };
-    
+    const distOf = (p) => (p.distanceMiles == null ? Infinity : (p._dist != null ? p._dist : p.distanceMiles));
     enrichedProviders.sort((a, b) => {
-      const aHasBipoc = hasBipocTag(a);
-      const bHasBipoc = hasBipocTag(b);
-      
-      // If identity tags are selected, prioritize BIPOC providers first
       if (hasIdentityTags) {
+        const aHasBipoc = hasBipocTag(a);
+        const bHasBipoc = hasBipocTag(b);
         if (aHasBipoc && !bHasBipoc) return -1;
         if (!aHasBipoc && bHasBipoc) return 1;
       }
-      
-      // Mama Approved providers next
       if (a.mamaApproved && !b.mamaApproved) return -1;
       if (!a.mamaApproved && b.mamaApproved) return 1;
-      
-      // If identity tags selected and both have BIPOC, prioritize BIPOC with Mama Approved
-      if (hasIdentityTags && aHasBipoc && bHasBipoc) {
-        if (a.mamaApproved && !b.mamaApproved) return -1;
-        if (!a.mamaApproved && b.mamaApproved) return 1;
-      }
-      
-      // Then by rating (highest first)
       const ratingA = a.rating || 0;
       const ratingB = b.rating || 0;
       if (ratingA !== ratingB) return ratingB - ratingA;
-      
-      // Then by review count (more reviews = higher priority)
       const countA = a.reviewCount || 0;
       const countB = b.reviewCount || 0;
-      return countB - countA;
+      if (countA !== countB) return countB - countA;
+      return distOf(a) - distOf(b);
     });
-    
-    console.log(`[searchProviders] After sorting: ${enrichedProviders.length} providers`);
-    const bipocCount = enrichedProviders.filter(p => hasBipocTag(p)).length;
-    console.log(`[searchProviders] BIPOC providers in results: ${bipocCount}`);
 
-    // 5b. Remove listings that were deleted via report moderation (blocks Firestore + API rows by id/NPI/name key)
-    const visibleProviders = await filterProvidersRemovedFromSearch(enrichedProviders);
-    if (visibleProviders.length !== enrichedProviders.length) {
-      console.log(
-        `[searchProviders] Filtered ${enrichedProviders.length - visibleProviders.length} removed/blocked listings`,
-      );
-    }
+    // 5b. Remove listings that were deleted via report moderation
+    const visibleProviders = await timed("blocks", filterProvidersRemovedFromSearch(enrichedProviders));
 
-    // 6. Serialize providers to ensure JSON-compatible format
+    // 6. Serialize providers to a JSON-compatible format
     const serializedProviders = visibleProviders.map(serializeProvider);
-    
-    // Final summary with comprehensive debugging
-    console.log(`\n[searchProviders] ==========================================`);
-    console.log(`[searchProviders] FINAL RESULTS SUMMARY`);
-    console.log(`[searchProviders] ==========================================`);
-    console.log(`[searchProviders] Total providers returned: ${serializedProviders.length}`);
-    console.log(`[searchProviders] Medicaid source: ${medicaidCount}`);
-    console.log(`[searchProviders] NPI source: ${npiCount}`);
-    console.log(`[searchProviders] After deduplication: ${deduplicatedProviders.length}`);
-    console.log(`[searchProviders] After enrichment: ${enrichedProviders.length}`);
-    
-    // Sanity checks
-    if (providers.length === 0 && normalizedProviderTypeIds.length > 0) {
-      console.log(`[searchProviders] ⚠️ WARNING: No providers found despite provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-    }
-    
-    if (medicaidCount === 0 && npiCount === 0) {
-      console.log(`[searchProviders] ⚠️ WARNING: No providers from either source`);
-      console.log(`[searchProviders] Check: 1) API URLs, 2) Provider type IDs, 3) Location parameters`);
-    }
-    
-    if (serializedProviders.length > 0) {
-      const providerTypesFound = new Set();
-      serializedProviders.forEach(p => {
-        if (p.providerTypes && Array.isArray(p.providerTypes)) {
-          p.providerTypes.forEach(t => providerTypesFound.add(t));
-        }
-      });
-      console.log(`[searchProviders] Provider types in results: ${JSON.stringify(Array.from(providerTypesFound))}`);
-      console.log(`[searchProviders] Searched for provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-      console.log(`[searchProviders] Resolved taxonomy codes: ${JSON.stringify(taxonomyCodes)}`);
-      console.log(`[searchProviders] Note: NPI URLs were logged during pagination (see [fetchNpiWithPagination] logs above)`);
-      
-      // Log first 5 providers with details
-      const sampleProviders = serializedProviders.slice(0, 5);
-      console.log(`[searchProviders] First ${sampleProviders.length} providers with taxonomy codes:`);
-      sampleProviders.forEach((p, idx) => {
-        console.log(`[searchProviders] Provider ${idx + 1}:`, JSON.stringify({
-          name: p.name?.substring(0, 60),
-          providerTypes: p.providerTypes,
-          taxonomyCodes: p.providerTypes, // NPI taxonomy codes are stored in providerTypes
-          source: p.source,
-          mamaApproved: p.mamaApproved,
-          rating: p.rating,
-          reviewCount: p.reviewCount,
-        }, null, 2));
-      });
-    }
-    console.log(`[searchProviders] ==========================================\n`);
+
+    const completeWithin = [medicaid.meta && medicaid.meta.completeWithinMiles,
+      npi && npi.meta && npi.meta.completeWithinMiles].filter((d) => d != null);
+    const coverage = {
+      origin: origin ? {lat: origin.lat, lon: origin.lon, precision: origin.precision} : null,
+      radiusMiles,
+      radiusLimitMiles: Math.round(engine.radiusLimit(radiusMiles) * 100) / 100,
+      healthPlan: normalizedHealthPlan,
+      completeWithinMiles: completeWithin.length ? Math.min(...completeWithin) : null,
+      partial: !!(medicaid.meta && medicaid.meta.partial) || !!(npi && npi.meta && npi.meta.timedOut),
+      medicaid: medicaid.meta,
+      npi: npi ? npi.meta : null,
+    };
+    timings.total = Date.now() - t0;
+    console.log(`[searchProviders] returned ${serializedProviders.length} (medicaid ${medicaidCount}, npi ${npiCount},` +
+      ` directory ${firestoreProviders.length}, excel ${excelProviders.length}) in ${timings.total}ms` +
+      ` ${JSON.stringify(timings)} medicaidQueries=${medicaid.meta && medicaid.meta.queries}` +
+      ` cacheHits=${medicaid.meta && medicaid.meta.cacheHits} partial=${coverage.partial}`);
 
     return {
       success: true,
       providers: serializedProviders,
       count: serializedProviders.length,
+      coverage,
+      timingsMs: timings,
     };
   } catch (error) {
     console.error("Error in searchProviders:", error);
     throw new HttpsError("internal", "Provider search failed: " + error.message);
   }
 });
-
-// Helper function to parse Medicaid FHIR Bundle entries
-// Handles Organization and OrganizationAffiliation resources
-function parseMedicaidResponse(entries, specialtyFilter) {
-  const providers = [];
-  let skippedCount = 0;
-  let errorCount = 0;
-  
-  console.log(`[parseMedicaidResponse] Processing ${entries.length} entries`);
-  console.log(`[parseMedicaidResponse] Specialty filter: ${specialtyFilter || 'none'}`);
-  
-  // Separate Organization and OrganizationAffiliation resources
-  const organizations = new Map(); // id -> Organization resource
-  const affiliations = []; // OrganizationAffiliation resources
-  
-  for (const entry of entries) {
-    if (!entry.resource) {
-      skippedCount++;
-      continue;
-    }
-    
-    const resource = entry.resource;
-    if (resource.resourceType === 'Organization') {
-      const orgId = resource.id || entry.fullUrl;
-      organizations.set(orgId, resource);
-    } else if (resource.resourceType === 'OrganizationAffiliation') {
-      affiliations.push(resource);
-    } else if (resource.resourceType === 'Practitioner' || resource.resourceType === 'PractitionerRole') {
-      // Handle Practitioner/PractitionerRole if they exist
-      const provider = parseFhirResource(resource);
-      if (provider) {
-        providers.push(provider);
-      } else {
-        skippedCount++;
-      }
-    } else {
-      skippedCount++;
-      console.log(`[parseMedicaidResponse] Skipping unknown resource type: ${resource.resourceType}`);
-    }
-  }
-  
-  console.log(`[parseMedicaidResponse] Found ${organizations.size} Organizations, ${affiliations.length} OrganizationAffiliations`);
-  
-  // Process OrganizationAffiliation resources to create providers
-  for (const affiliation of affiliations) {
-    try {
-      // Get the organization reference
-      const orgRef = affiliation.organization?.reference;
-      if (!orgRef) {
-        skippedCount++;
-        continue;
-      }
-      
-      // Extract organization ID from reference (format: "Organization/id" or just "id")
-      const orgId = orgRef.includes('/') ? orgRef.split('/')[1] : orgRef;
-      const organization = organizations.get(orgId);
-      
-      if (!organization) {
-        skippedCount++;
-        console.log(`[parseMedicaidResponse] Organization not found for affiliation: ${orgRef}`);
-        continue;
-      }
-      
-      // Extract provider name from Organization
-      const name = organization.name || 'Unknown';
-      
-      // Extract provider types from OrganizationAffiliation.code
-      const providerTypes = [];
-      if (affiliation.code && Array.isArray(affiliation.code)) {
-        for (const code of affiliation.code) {
-          if (code.coding && Array.isArray(code.coding)) {
-            for (const coding of code.coding) {
-              // Check if this is a ProviderType (not SpecialtyType)
-              if (coding.system && coding.system.includes('ProviderType') && coding.code) {
-                providerTypes.push(coding.code.toString());
-              }
-            }
-          }
-        }
-      }
-      
-      // Extract specialties from OrganizationAffiliation.code
-      const specialties = [];
-      if (affiliation.code && Array.isArray(affiliation.code)) {
-        for (const code of affiliation.code) {
-          if (code.coding && Array.isArray(code.coding)) {
-            for (const coding of code.coding) {
-              // Check if this is a SpecialtyType
-              if (coding.system && coding.system.includes('SpecialtyType') && coding.display) {
-                specialties.push(coding.display.toString());
-              }
-            }
-          }
-        }
-      }
-      
-      // Apply specialty filter if provided
-      if (specialtyFilter) {
-        const matchesSpecialty = specialties.some(s => 
-          s.toLowerCase().includes(specialtyFilter.toLowerCase())
-        );
-        if (!matchesSpecialty) {
-          skippedCount++;
-          continue;
-        }
-      }
-      
-      // Extract locations from Organization.contact
-      const locations = [];
-      if (organization.contact && Array.isArray(organization.contact)) {
-        for (const contact of organization.contact) {
-          if (contact.address) {
-            const addr = contact.address;
-            const addressLines = Array.isArray(addr.line) 
-              ? addr.line.map(l => {
-                  // Handle JSON string in line field
-                  if (typeof l === 'string' && l.startsWith('[')) {
-                    try {
-                      const parsed = JSON.parse(l);
-                      if (Array.isArray(parsed) && parsed[0] && parsed[0].ADDRESS_1) {
-                        return parsed[0].ADDRESS_1;
-                      }
-                    } catch (e) {
-                      // Not JSON, use as-is
-                    }
-                  }
-                  return l.toString();
-                }).filter(l => l && l.trim())
-              : (addr.line ? [addr.line.toString()] : []);
-            
-            if (addressLines.length > 0 || addr.city) {
-              locations.push({
-                address: addressLines.join(', '),
-                city: addr.city || '',
-                state: addr.state || 'OH',
-                zip: addr.postalCode || '',
-              });
-            }
-          }
-        }
-      }
-      
-      // Extract phone from Organization.contact
-      let phone = null;
-      if (organization.contact && Array.isArray(organization.contact)) {
-        for (const contact of organization.contact) {
-          if (contact.telecom && Array.isArray(contact.telecom)) {
-            for (const telecom of contact.telecom) {
-              if (telecom.system === 'phone' && telecom.value) {
-                phone = telecom.value.toString();
-                break;
-              }
-            }
-          }
-          if (phone) break;
-        }
-      }
-      
-      // Create provider object
-      const provider = {
-        name: name,
-        specialty: specialties.length > 0 ? specialties[0] : null,
-        practiceName: name, // For organizations, name is the practice name
-        npi: null, // Organizations don't have NPI
-        locations: locations,
-        providerTypes: providerTypes,
-        specialties: specialties,
-        phone: phone,
-        email: null,
-        source: 'medicaid',
-      };
-      
-      providers.push(provider);
-      
-    } catch (error) {
-      errorCount++;
-      console.error(`[parseMedicaidResponse] Error parsing OrganizationAffiliation:`, error.message);
-      continue;
-    }
-  }
-
-  console.log(`[parseMedicaidResponse] Results: ${providers.length} providers, ${skippedCount} skipped, ${errorCount} errors`);
-  
-  // Log provider types summary
-  if (providers.length > 0) {
-    const allTypes = new Set();
-    providers.forEach(p => {
-      if (p.providerTypes && Array.isArray(p.providerTypes)) {
-        p.providerTypes.forEach(t => allTypes.add(t));
-      }
-    });
-    console.log(`[parseMedicaidResponse] Unique provider types found: ${JSON.stringify(Array.from(allTypes))}`);
-  }
-  
-  return providers;
-}
-
-// Parse a single FHIR resource into a provider object
-function parseFhirResource(resource) {
-  try {
-    // Extract name
-    let name = "";
-    if (resource.name) {
-      if (Array.isArray(resource.name)) {
-        const nameParts = resource.name.map((n) => {
-          const given = Array.isArray(n.given) ? n.given.join(" ") : (n.given || "");
-          const family = n.family || "";
-          return `${given} ${family}`.trim();
-        }).filter((n) => n.length > 0);
-        name = nameParts.join(", ");
-      } else if (typeof resource.name === "object") {
-        const given = Array.isArray(resource.name.given) 
-          ? resource.name.given.join(" ") 
-          : (resource.name.given || "");
-        const family = resource.name.family || "";
-        name = `${given} ${family}`.trim();
-      }
-    }
-    
-    // Try organization name if no name found
-    if (!name && resource.organization && resource.organization.name) {
-      name = resource.organization.name;
-    }
-    
-    if (!name) return null; // Skip if no name
-    
-    // Extract addresses
-    const locations = [];
-    if (resource.address) {
-      const addresses = Array.isArray(resource.address) ? resource.address : [resource.address];
-      
-      for (const addr of addresses) {
-        if (addr && (addr.line || addr.city)) {
-          const addressLines = Array.isArray(addr.line) 
-            ? addr.line.map((l) => {
-                // Handle JSON string in line field (e.g., "[{\"ADDRESS_1\":\"4365 READING RD\",\"ADDRESS_2\":\" \"}]")
-                const lineStr = l.toString();
-                if (lineStr.startsWith('[') && lineStr.includes('ADDRESS_1')) {
-                  try {
-                    const parsed = JSON.parse(lineStr);
-                    if (Array.isArray(parsed) && parsed[0]) {
-                      const addrObj = parsed[0];
-                      const addr1 = addrObj.ADDRESS_1 || '';
-                      const addr2 = addrObj.ADDRESS_2 || '';
-                      // Combine ADDRESS_1 and ADDRESS_2, filtering out empty strings
-                      const combined = [addr1, addr2].filter(a => a && a.trim() !== '').join(' ');
-                      return combined.trim();
-                    }
-                  } catch (e) {
-                    // If JSON parsing fails, use the original string
-                    console.log(`[parseFhirResource] Could not parse address JSON: ${lineStr.substring(0, 50)}`);
-                  }
-                }
-                return lineStr;
-              }).filter(l => l && l.trim() !== '')
-            : (addr.line ? [addr.line.toString()] : []);
-          
-          // Only add location if we have address lines or city
-          if (addressLines.length > 0 || addr.city) {
-            locations.push({
-              address: addressLines.join(", "),
-              city: addr.city || "",
-              state: addr.state || "OH",
-              zip: addr.postalCode || "",
-            });
-          }
-        }
-      }
-    }
-    
-    // Extract provider types
-    const providerTypes = [];
-    if (resource.type) {
-      const types = Array.isArray(resource.type) ? resource.type : [resource.type];
-      for (const type of types) {
-        if (type && type.coding) {
-          const codings = Array.isArray(type.coding) ? type.coding : [type.coding];
-          for (const coding of codings) {
-            if (coding && coding.code) {
-              providerTypes.push(coding.code.toString());
-            }
-          }
-        }
-      }
-    }
-    
-    // Log provider types for debugging
-    if (providerTypes.length > 0) {
-      console.log(`[parseFhirResource] Provider "${name.substring(0, 50)}" has provider types: ${JSON.stringify(providerTypes)}`);
-    } else {
-      console.log(`[parseFhirResource] Provider "${name.substring(0, 50)}" has NO provider types extracted`);
-    }
-    
-    // Extract specialties
-    const specialties = [];
-    if (resource.specialty) {
-      const specialtyList = Array.isArray(resource.specialty) 
-        ? resource.specialty 
-        : [resource.specialty];
-      for (const spec of specialtyList) {
-        if (spec && spec.text) {
-          specialties.push(spec.text.toString());
-        }
-      }
-    }
-    
-    // Extract telecom (phone, email)
-    let phone = null;
-    let email = null;
-    if (resource.telecom) {
-      const telecom = Array.isArray(resource.telecom) ? resource.telecom : [resource.telecom];
-      for (const contact of telecom) {
-        if (contact && contact.system && contact.value) {
-          if (contact.system === "phone" && !phone) {
-            phone = contact.value.toString();
-          } else if (contact.system === "email" && !email) {
-            email = contact.value.toString();
-          }
-        }
-      }
-    }
-    
-    // Extract NPI from identifiers
-    let npi = null;
-    if (resource.identifier) {
-      const identifiers = Array.isArray(resource.identifier) 
-        ? resource.identifier 
-        : [resource.identifier];
-      for (const id of identifiers) {
-        if (id && id.system && id.system.includes("npi") && id.value) {
-          npi = id.value.toString();
-          break;
-        }
-      }
-    }
-    
-    return {
-      name: name,
-      specialty: specialties.length > 0 ? specialties[0] : null,
-      practiceName: resource.organization?.name || null,
-      npi: npi,
-      locations: locations,
-      providerTypes: providerTypes,
-      specialties: specialties,
-      phone: phone,
-      email: email,
-      source: "medicaid",
-    };
-  } catch (error) {
-    console.error("Error parsing FHIR resource:", error);
-    return null;
-  }
-}
-
-// Parse NPI Registry API response
-function parseNpiResponse(results) {
-  const providers = [];
-  
-  for (const result of results) {
-    try {
-      const provider = parseNpiResult(result);
-      if (provider) {
-        providers.push(provider);
-      }
-    } catch (error) {
-      console.error("Error parsing NPI result:", error);
-      continue;
-    }
-  }
-  
-  // Log provider types summary
-  if (providers.length > 0) {
-    const allTypes = new Set();
-    providers.forEach(p => {
-      if (p.providerTypes && Array.isArray(p.providerTypes)) {
-        p.providerTypes.forEach(t => allTypes.add(t));
-      }
-    });
-    console.log(`[parseNpiResponse] Unique provider types found: ${JSON.stringify(Array.from(allTypes))}`);
-  }
-  
-  return providers;
-}
-
-// Parse a single NPI result into a provider object
-function parseNpiResult(result) {
-  try {
-    const basicInfo = result.basic;
-    if (!basicInfo) return null;
-    
-    // Extract name
-    let name = "";
-    if (basicInfo.organization_name) {
-      name = basicInfo.organization_name;
-    } else {
-      const firstName = basicInfo.first_name || "";
-      const middleName = basicInfo.middle_name || "";
-      const lastName = basicInfo.last_name || "";
-      const credential = basicInfo.credential || "";
-      
-      name = [firstName, middleName, lastName].filter((n) => n).join(" ");
-      if (credential) {
-        name = `${name}, ${credential}`;
-      }
-    }
-    
-    if (!name) return null;
-    
-    // Extract addresses
-    const locations = [];
-    if (result.addresses && Array.isArray(result.addresses)) {
-      for (const addr of result.addresses) {
-        if (addr.address_1 || addr.city) {
-          locations.push({
-            address: addr.address_1 || "",
-            address2: addr.address_2 || null,
-            city: addr.city || "",
-            state: addr.state || "",
-            zip: addr.postal_code || "",
-            phone: addr.telephone_number || null,
-          });
-        }
-      }
-    }
-    
-    // Extract specialties from taxonomies
-    const specialties = [];
-    const providerTypes = [];
-    if (result.taxonomies && Array.isArray(result.taxonomies)) {
-      for (const tax of result.taxonomies) {
-        if (tax.desc) {
-          specialties.push(tax.desc);
-        }
-        if (tax.code) {
-          providerTypes.push(tax.code);
-        }
-      }
-    }
-    
-    // Log provider types for debugging
-    if (providerTypes.length > 0) {
-      console.log(`[parseNpiResult] Provider "${name.substring(0, 50)}" has provider types: ${JSON.stringify(providerTypes)}`);
-    } else {
-      console.log(`[parseNpiResult] Provider "${name.substring(0, 50)}" has NO provider types extracted`);
-    }
-    
-    // Extract phone from first address
-    let phone = null;
-    if (locations.length > 0 && locations[0].phone) {
-      phone = locations[0].phone;
-    }
-    
-    return {
-      name: name,
-      npi: result.number || null,
-      specialty: specialties.length > 0 ? specialties[0] : null,
-      locations: locations,
-      providerTypes: providerTypes,
-      specialties: specialties,
-      phone: phone,
-      source: "npi",
-    };
-  } catch (error) {
-    console.error("Error parsing NPI result:", error);
-    return null;
-  }
-}
 
 // Deduplicate providers by NPI or name+location
 function deduplicateProviders(providers) {
@@ -4233,11 +2973,14 @@ function collectProviderSearchBlockKeys(obj) {
   const name = obj && obj.name != null ? String(obj.name) : "";
   const locs = obj && Array.isArray(obj.locations) ? obj.locations : [];
   if (name && locs.length > 0 && !npi) {
-    const loc = locs[0] || {};
-    const city = loc.city != null ? String(loc.city) : "";
-    const zip = loc.zip != null ? String(loc.zip) : "";
-    const k = `name_${name}_${city}_${zip}`.toLowerCase().replace(/[^a-z0-9_]/g, "_");
-    keys.add(k);
+    // One key per location: search results now list the nearest location first, so the
+    // location a listing was reported/removed under may no longer be the first one.
+    for (const loc of locs) {
+      const l = loc || {};
+      const city = l.city != null ? String(l.city) : "";
+      const zip = l.zip != null ? String(l.zip) : "";
+      keys.add(`name_${name}_${city}_${zip}`.toLowerCase().replace(/[^a-z0-9_]/g, "_"));
+    }
   } else if (name && !npi && locs.length === 0) {
     keys.add(`name_${name}`.toLowerCase().replace(/[^a-z0-9_]/g, "_"));
   }
@@ -4249,9 +2992,10 @@ async function fetchProviderSearchBlockHits(logicalKeys) {
   const blocked = new Set();
   if (unique.length === 0) return blocked;
   const db = admin.firestore();
-  const chunkSize = 10;
-  for (let i = 0; i < unique.length; i += chunkSize) {
-    const chunk = unique.slice(i, i + chunkSize);
+  const chunkSize = 100;
+  const chunks = [];
+  for (let i = 0; i < unique.length; i += chunkSize) chunks.push(unique.slice(i, i + chunkSize));
+  await engine.mapLimit(chunks, 8, async (chunk) => {
     const refs = chunk.map((k) =>
       db.collection("provider_search_blocks").doc(blockDocIdForKey(k)),
     );
@@ -4259,20 +3003,23 @@ async function fetchProviderSearchBlockHits(logicalKeys) {
     chunk.forEach((k, idx) => {
       if (snaps[idx] && snaps[idx].exists) blocked.add(k);
     });
-  }
+  });
   return blocked;
 }
 
 /** Drop providers that were administratively removed from directory search. */
 async function filterProvidersRemovedFromSearch(providers) {
   if (!providers || providers.length === 0) return providers;
+  // Check every known location of a listing (not only the in-radius ones shown).
+  const keysFor = (p) => collectProviderSearchBlockKeys(
+    Array.isArray(p._allLocations) ? {...p, locations: p._allLocations} : p);
   const keysToCheck = new Set();
   for (const p of providers) {
-    collectProviderSearchBlockKeys(p).forEach((k) => keysToCheck.add(k));
+    keysFor(p).forEach((k) => keysToCheck.add(k));
   }
   const blocked = await fetchProviderSearchBlockHits([...keysToCheck]);
   return providers.filter((p) => {
-    const keys = collectProviderSearchBlockKeys(p);
+    const keys = keysFor(p);
     return !keys.some((k) => blocked.has(k));
   });
 }
@@ -4352,7 +3099,16 @@ function serializeProvider(provider) {
       state: loc.state || null,
       zip: loc.zip || null,
       phone: loc.phone || null,
+      // Distance from the searched ZIP (miles) and the point it was measured to
+      // (street coordinates when known, else the ZIP/city centroid).
+      latitude: typeof loc.latitude === "number" ? Math.round(loc.latitude * 1e5) / 1e5 : null,
+      longitude: typeof loc.longitude === "number" ? Math.round(loc.longitude * 1e5) / 1e5 : null,
+      distance: typeof loc.distance === "number" ? Math.round(loc.distance * 10) / 10 : null,
     })) : [],
+    // Distance to the nearest in-radius location (= locations[0]), rounded to 0.1 mi.
+    distanceMiles: typeof provider.distanceMiles === "number" ? Math.round(provider.distanceMiles * 10) / 10 : null,
+    // Ohio Medicaid plans this provider is listed under (app plan names), when known.
+    healthPlans: Array.isArray(provider.healthPlans) ? provider.healthPlans.map((p) => String(p)) : null,
     identityTags: Array.isArray(provider.identityTags) ? provider.identityTags.map(tag => {
       // Handle Firestore document data or plain objects
       if (tag && typeof tag === 'object') {
@@ -4663,105 +3419,91 @@ async function readBipocProvidersFromExcel(searchParams) {
  * This includes BIPOC directory providers and other Firestore-only providers
  */
 async function searchFirestoreProviders(searchParams) {
-  const { zip, city, radius, providerTypeIds, specialty } = searchParams;
+  const {zip, city, radius, providerTypeIds, specialty} = searchParams;
+  const origin = searchParams.origin !== undefined ? searchParams.origin : engine.searchOrigin(zip, city, "OH");
   const providers = [];
 
   try {
-    // Query Firestore for providers with matching zip code
-    // Note: We'll need to filter by distance after fetching
-    // Firestore doesn't support geospatial queries directly, so we'll fetch by zip and filter
-    
-    let query = admin.firestore().collection("providers");
-    
-    // If we have provider types, filter by them
-    // Note: This is a simplified approach - Firestore doesn't support array-contains-any easily
-    // We'll fetch and filter in memory
-    
-    const snapshot = await query
+    // Firestore has no geo query here, so fetch the directory rows and filter by distance:
+    // a listing matches when any of its locations is within the radius of the searched ZIP
+    // (street coordinates when stored, else the ZIP or city centroid).
+    const snapshot = await admin.firestore().collection("providers")
       .where("source", "in", ["bipoc_directory", "admin_added", "user_submission"])
       .limit(500) // Limit to avoid too many reads
       .get();
 
-    console.log(`[searchFirestoreProviders] Found ${snapshot.size} Firestore-only providers to check`);
-
-    // Filter providers by location and provider types
     for (const doc of snapshot.docs) {
       const data = doc.data();
+      if (data.directoryHidden === true) continue;
+      if (!data.locations || !Array.isArray(data.locations) || data.locations.length === 0) continue;
 
-      if (data.directoryHidden === true) {
-        continue;
+      if (providerTypeIds && providerTypeIds.length > 0) {
+        const providerTypes = data.providerTypes || [];
+        const hasMatchingType = providerTypeIds.some((typeId) =>
+          providerTypes.includes(typeId) || providerTypes.includes(typeId.padStart(2, "0")),
+        );
+        if (!hasMatchingType) continue;
+      }
+      if (specialty) {
+        const specialties = data.specialties || [];
+        const providerSpecialty = data.specialty || "";
+        if (!specialties.includes(specialty) && providerSpecialty !== specialty) continue;
       }
 
-      // Check if provider has locations matching the search
-      if (!data.locations || !Array.isArray(data.locations) || data.locations.length === 0) {
-        continue;
+      const rawLocations = data.locations.map((location) => ({
+        address: location.address || "",
+        address2: location.address2 || null,
+        city: location.city || "",
+        state: location.state || "OH",
+        zip: location.zip || "",
+        phone: location.phone || data.phone || null,
+        latitude: location.latitude || null,
+        longitude: location.longitude || null,
+      }));
+      let locations;
+      let distance = null;
+      if (origin) {
+        const placed = engine.placeLocations(rawLocations, origin, radius);
+        if (!placed) continue;
+        locations = placed.locations;
+        distance = placed.distance;
+      } else {
+        // Unknown search ZIP: fall back to the old exact-ZIP match.
+        const z = String(zip || "").substring(0, 5);
+        const match = rawLocations.find((l) => l.zip && String(l.zip).substring(0, 5) === z);
+        if (!match) continue;
+        locations = [match, ...rawLocations.filter((l) => l !== match)];
       }
 
-      // Check each location
-      for (const location of data.locations) {
-        // Check if zip matches (simple check - could be enhanced with radius calculation)
-        if (location.zip && location.zip.substring(0, 5) === zip.substring(0, 5)) {
-          // Check if provider types match (if specified)
-          if (providerTypeIds && providerTypeIds.length > 0) {
-            const providerTypes = data.providerTypes || [];
-            const hasMatchingType = providerTypeIds.some(typeId => 
-              providerTypes.includes(typeId) || providerTypes.includes(typeId.padStart(2, '0'))
-            );
-            if (!hasMatchingType) {
-              continue;
-            }
-          }
-
-          // Check specialty if specified
-          if (specialty) {
-            const specialties = data.specialties || [];
-            const providerSpecialty = data.specialty || "";
-            if (!specialties.includes(specialty) && providerSpecialty !== specialty) {
-              continue;
-            }
-          }
-
-          // Convert Firestore provider to API format
-          const provider = {
-            id: doc.id,
-            name: data.name || "",
-            specialty: data.specialty || null,
-            practiceName: data.practiceName || null,
-            npi: data.npi || null,
-            locations: [{
-              address: location.address || "",
-              address2: location.address2 || null,
-              city: location.city || "",
-              state: location.state || "OH",
-              zip: location.zip || "",
-              phone: location.phone || data.phone || null,
-              latitude: location.latitude || null,
-              longitude: location.longitude || null,
-            }],
-            providerTypes: data.providerTypes || [],
-            specialties: data.specialties || [],
-            phone: data.phone || null,
-            email: data.email || null,
-            website: data.website || null,
-            acceptingNewPatients: data.acceptingNewPatients || null,
-            acceptsPregnantWomen: data.acceptsPregnantWomen || null,
-            acceptsNewborns: data.acceptsNewborns || null,
-            telehealth: data.telehealth || null,
-            rating: data.rating || null,
-            reviewCount: data.reviewCount || 0,
-            mamaApproved: data.mamaApproved || false,
-            mamaApprovedCount: data.mamaApprovedCount || 0,
-            identityTags: data.identityTags || [],
-            source: data.source || "firestore",
-          };
-
-          providers.push(provider);
-          break; // Only add provider once, even if multiple locations match
-        }
-      }
+      providers.push({
+        id: doc.id,
+        name: data.name || "",
+        specialty: data.specialty || null,
+        practiceName: data.practiceName || null,
+        npi: data.npi || null,
+        locations,
+        providerTypes: data.providerTypes || [],
+        specialties: data.specialties || [],
+        phone: data.phone || null,
+        email: data.email || null,
+        website: data.website || null,
+        acceptingNewPatients: data.acceptingNewPatients || null,
+        acceptsPregnantWomen: data.acceptsPregnantWomen || null,
+        acceptsNewborns: data.acceptsNewborns || null,
+        telehealth: data.telehealth || null,
+        rating: data.rating || null,
+        reviewCount: data.reviewCount || 0,
+        mamaApproved: data.mamaApproved || false,
+        mamaApprovedCount: data.mamaApprovedCount || 0,
+        identityTags: data.identityTags || [],
+        source: data.source || "firestore",
+        distanceMiles: distance,
+        _dist: distance,
+        _allLocations: rawLocations,
+      });
     }
 
-    console.log(`[searchFirestoreProviders] Returning ${providers.length} matching providers`);
+    console.log(`[searchFirestoreProviders] ${providers.length} of ${snapshot.size} directory rows within ${radius} mi`);
     return providers;
   } catch (error) {
     console.error(`[searchFirestoreProviders] Error:`, error);
@@ -4771,9 +3513,8 @@ async function searchFirestoreProviders(searchParams) {
 
 // Helper function to enrich providers with Firestore data
 async function enrichProvidersWithFirestore(providers) {
-  const enriched = [];
-
-  for (const provider of providers) {
+  // Runs with limited concurrency (it used to be one provider at a time); order is preserved.
+  const results = await engine.mapLimit(providers, 16, async (provider) => {
     try {
       // Try to find provider in Firestore by NPI or name+location
       let firestoreProvider = null;
@@ -4803,7 +3544,8 @@ async function enrichProvidersWithFirestore(providers) {
 
       // If not found by NPI, try by name+location
       if (!firestoreProvider && provider.locations && provider.locations.length > 0) {
-        const loc = provider.locations[0];
+        // Match on any of the listing's locations (the first one is now the nearest).
+        const provLocs = Array.isArray(provider._allLocations) ? provider._allLocations : provider.locations;
         const nameQuery = await admin.firestore()
           .collection("providers")
           .where("name", "==", provider.name)
@@ -4814,7 +3556,7 @@ async function enrichProvidersWithFirestore(providers) {
           const data = doc.data();
           if (data.locations && Array.isArray(data.locations)) {
             const match = data.locations.find((l) =>
-              l.city === loc.city && l.zip === loc.zip
+              provLocs.some((loc) => l.city === loc.city && l.zip === loc.zip)
             );
             if (match) {
               if (data.directoryHidden === true) {
@@ -4831,7 +3573,7 @@ async function enrichProvidersWithFirestore(providers) {
       }
 
       if (!firestoreProvider && matchedHiddenDirectory) {
-        continue;
+        return null;
       }
       
       // Calculate average rating from reviews
@@ -4938,15 +3680,15 @@ async function enrichProvidersWithFirestore(providers) {
         telehealth: provider.telehealth || firestoreProvider?.telehealth || null,
       };
 
-      enriched.push(enrichedProvider);
+      return enrichedProvider;
     } catch (error) {
       console.error(`Error enriching provider ${provider.name}:`, error);
       // Add provider without enrichment
-      enriched.push(provider);
+      return provider;
     }
-  }
+  });
 
-  return enriched;
+  return results.filter(Boolean);
 }
 
 /**
@@ -5280,282 +4022,177 @@ exports.addProvider = onCall(async (request) => {
 });
 
 /**
- * OhioMaximusSearch - Builds the correct Ohio Medicaid API URL from user inputs
- * Based on: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
- * 
- * @param {string} zip - ZIP code (REQUIRED)
- * @param {string} radius - Search radius in miles (REQUIRED)
- * @param {string} city - City name (optional, for logging)
- * @param {string} healthPlan - Health plan name (REQUIRED)
- * @param {string|Array<string>} providerType - Provider type name(s) or code(s) (REQUIRED)
- * @param {string} state - State code (defaults to "OH")
- * @returns {Object} Object containing the built URL and normalized parameters
+ * OhioMaximusSearch - Ohio Medicaid directory search (Maximus FHIR API).
+ *
+ * Request (unchanged): {zip, radius, city?, healthPlan, providerType (code/name or array), state?}
+ * Response: {success, url, urls, providers, count, parameters, coverage, timingsMs}
+ *   providers: one row per provider (duplicates merged), nearest in-radius location first,
+ *   each location with distance/latitude/longitude, plus distanceMiles and healthPlans.
+ * See functions/providerSearchEngine.js for how the API's 100-result cap is handled.
  */
-exports.OhioMaximusSearch = onCall(async (request) => {
-  // Log function call immediately
-  console.log(`\n\n\n`);
-  console.log(`╔════════════════════════════════════════════════════════════════╗`);
-  console.log(`║          OhioMaximusSearch FUNCTION CALLED                    ║`);
-  console.log(`╚════════════════════════════════════════════════════════════════╝`);
-  console.log(`[OhioMaximusSearch] Function execution started at: ${new Date().toISOString()}`);
-  console.log(`[OhioMaximusSearch] Request data:`, JSON.stringify(request.data, null, 2));
-  
+exports.OhioMaximusSearch = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+  // Same behaviour as searchProviders for unauthenticated calls.
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated");
+  }
+  const t0 = Date.now();
+  const {
+    zip,
+    radius,
+    city,
+    healthPlan,
+    providerType,
+    state = "OH",
+  } = request.data || {};
+
+  if (!zip || !radius || !healthPlan || !providerType) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Missing required parameters: zip, radius, healthPlan, and providerType are required",
+    );
+  }
+  const radiusMiles = Number(radius);
+  if (!Number.isFinite(radiusMiles) || radiusMiles <= 0) {
+    throw new HttpsError("invalid-argument", "radius must be a positive number of miles");
+  }
+
+  // Provider Type Code Mapping (exact as provided)
+  const providerTypeCodeMap = {
+      "Acupuncturist": "23",
+      "Adaptive Behavior Service Provider": "53",
+      "Ambulance": "82",
+      "Ambulatory Surgery Center": "46",
+      "Anesthesia Assistant Individual": "68",
+      "Audiologist Individual": "43",
+      "Behavioral Health Para-professionals": "96",
+      "Certified Registered Nurse Anesthetist Individual": "73",
+      "Chemical Dependency": "54",
+      "Chiropractor Individual": "27",
+      "Clinic": "50",
+      "Clinical Counseling": "47",
+      "Clinical Nurse Specialist Individual": "65",
+      "Dentist Individual": "30",
+      "Dodd Targeted Case Management": "85",
+      "Doula": "09",
+      "Durable Medical Equipment Supplier": "76",
+      "End-stage Renal Disease Clinic": "59",
+      "Enhanced Care Management": "78",
+      "Federally Qualified Health Center": "12",
+      "Free Standing Birth Center": "11",
+      "Help Me Grow": "06",
+      "Home And Community Based Oda Assisted Living": "74",
+      "Hospice": "44",
+      "Hospital": "01",
+      "Independent Diagnostic Testing Facility": "79",
+      "Independent Laboratory": "80",
+      "Managed Care Organization Panel Provider Only": "19",
+      "Marriage And Family Therapy": "52",
+      "Medicaid School Program": "28",
+      "Medicare Certified Home Health Agency": "60",
+      "Mental Health Clinic": "51",
+      "Non-agency Home Care Attendant": "26",
+      "Non-agency Nurse -- Rn Or Lpn": "38",
+      "Non-agency Personal Care Aide": "25",
+      "Non-state Operated Icf-dd": "89",
+      "Nurse Midwife Individual": "71",
+      "Nurse Practitioner Individual": "72",
+      "Nursing Facility": "86",
+      "Occupational Therapist, Individual": "41",
+      "Ohio Department Of Mental Health Provider": "84",
+      "Omhas Certified/licensed Treatment Program": "95",
+      "Optician/ocularist": "75",
+      "Optometrist Individual": "35",
+      "Other Accredited Home Health Agency": "16",
+      "Outpatient Health Facility": "04",
+      "Pace": "08",
+      "Pediatric Recovery Center": "10",
+      "Pharmacist": "69",
+      "Pharmacy": "70",
+      "Physical Therapist, Individual": "39",
+      "Physician Assistant": "24",
+      "Physician/osteopath Individual": "20",
+      "Podiatrist Individual": "36",
+      "Portable X-ray Supplier": "81",
+      "Professional Dental Group": "31",
+      "Professional Medical Group": "21",
+      "Psychiatric Hospital": "02",
+      "Psychiatric Residential Treatment Facility": "03",
+      "Psychology": "42",
+      "Registered Dietitian Nutritionist": "07",
+      "Rural Health Clinic": "05",
+      "Social Work": "37",
+      "Speech Language Pathologist Individual": "40",
+      "State Operated Icf-dd": "88",
+      "Waivered Services Individual": "55",
+      "Waivered Services Organization": "45",
+      "Wheelchair Van": "83",
+  };
+
+  const toCode = (type) => {
+    const trimmedType = String(type).trim();
+    if (/^\d+$/.test(trimmedType)) return normalizeProviderTypeId(trimmedType);
+    const code = providerTypeCodeMap[trimmedType];
+    if (!code) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Invalid provider type: "${trimmedType}". Please use a valid provider type name or code.`,
+      );
+    }
+    return normalizeProviderTypeId(code);
+  };
+  const providerTypeIds = [...new Set((Array.isArray(providerType) ? providerType : [providerType]).map(toCode))];
+  const searchZip = engine.zip5(zip) || String(zip).trim();
+  const normalizedHealthPlan = normalizeHealthPlanName(String(healthPlan));
+
   try {
-    const {
-      zip,
-      radius,
+    const result = await engine.searchMedicaid({
+      zip: searchZip,
       city,
-      healthPlan,
-      providerType,
-      state = "OH",
-    } = request.data;
-
-    console.log(`[OhioMaximusSearch] Parsed parameters:`);
-    console.log(`   ZIP: ${zip}`);
-    console.log(`   Radius: ${radius}`);
-    console.log(`   City: ${city || 'N/A'}`);
-    console.log(`   Health Plan: ${healthPlan}`);
-    console.log(`   Provider Type: ${providerType}`);
-    console.log(`   State: ${state}`);
-
-    // Validate required parameters
-    if (!zip || !radius || !healthPlan || !providerType) {
-      const errorMsg = "Missing required parameters: zip, radius, healthPlan, and providerType are required";
-      console.error(`[OhioMaximusSearch] ❌ VALIDATION ERROR: ${errorMsg}`);
-      throw new HttpsError("invalid-argument", errorMsg);
-    }
-
-    // Provider Type Code Mapping (exact as provided)
-    const providerTypeCodeMap = {
-    "Acupuncturist": "23",
-    "Adaptive Behavior Service Provider": "53",
-    "Ambulance": "82",
-    "Ambulatory Surgery Center": "46",
-    "Anesthesia Assistant Individual": "68",
-    "Audiologist Individual": "43",
-    "Behavioral Health Para-professionals": "96",
-    "Certified Registered Nurse Anesthetist Individual": "73",
-    "Chemical Dependency": "54",
-    "Chiropractor Individual": "27",
-    "Clinic": "50",
-    "Clinical Counseling": "47",
-    "Clinical Nurse Specialist Individual": "65",
-    "Dentist Individual": "30",
-    "Dodd Targeted Case Management": "85",
-    "Doula": "09",
-    "Durable Medical Equipment Supplier": "76",
-    "End-stage Renal Disease Clinic": "59",
-    "Enhanced Care Management": "78",
-    "Federally Qualified Health Center": "12",
-    "Free Standing Birth Center": "11",
-    "Help Me Grow": "06",
-    "Home And Community Based Oda Assisted Living": "74",
-    "Hospice": "44",
-    "Hospital": "01",
-    "Independent Diagnostic Testing Facility": "79",
-    "Independent Laboratory": "80",
-    "Managed Care Organization Panel Provider Only": "19",
-    "Marriage And Family Therapy": "52",
-    "Medicaid School Program": "28",
-    "Medicare Certified Home Health Agency": "60",
-    "Mental Health Clinic": "51",
-    "Non-agency Home Care Attendant": "26",
-    "Non-agency Nurse -- Rn Or Lpn": "38",
-    "Non-agency Personal Care Aide": "25",
-    "Non-state Operated Icf-dd": "89",
-    "Nurse Midwife Individual": "71",
-    "Nurse Practitioner Individual": "72",
-    "Nursing Facility": "86",
-    "Occupational Therapist, Individual": "41",
-    "Ohio Department Of Mental Health Provider": "84",
-    "Omhas Certified/licensed Treatment Program": "95",
-    "Optician/ocularist": "75",
-    "Optometrist Individual": "35",
-    "Other Accredited Home Health Agency": "16",
-    "Outpatient Health Facility": "04",
-    "Pace": "08",
-    "Pediatric Recovery Center": "10",
-    "Pharmacist": "69",
-    "Pharmacy": "70",
-    "Physical Therapist, Individual": "39",
-    "Physician Assistant": "24",
-    "Physician/osteopath Individual": "20",
-    "Podiatrist Individual": "36",
-    "Portable X-ray Supplier": "81",
-    "Professional Dental Group": "31",
-    "Professional Medical Group": "21",
-    "Psychiatric Hospital": "02",
-    "Psychiatric Residential Treatment Facility": "03",
-    "Psychology": "42",
-    "Registered Dietitian Nutritionist": "07",
-    "Rural Health Clinic": "05",
-    "Social Work": "37",
-    "Speech Language Pathologist Individual": "40",
-    "State Operated Icf-dd": "88",
-    "Waivered Services Individual": "55",
-    "Waivered Services Organization": "45",
-    "Wheelchair Van": "83",
-    };
-
-    // Normalize provider type(s) to code(s)
-    let providerTypeIds = [];
-    
-    if (Array.isArray(providerType)) {
-    // Handle array of provider types
-    providerTypeIds = providerType.map((type) => {
-      const trimmedType = String(type).trim();
-      // Check if it's already a code (numeric)
-      if (/^\d+$/.test(trimmedType)) {
-        // Normalize: add leading zero for single digits (1-9)
-        const numId = parseInt(trimmedType, 10);
-        if (numId >= 1 && numId <= 9) {
-          return trimmedType.padStart(2, '0');
-        }
-        return trimmedType;
-      }
-      // Look up in map
-      const code = providerTypeCodeMap[trimmedType];
-      if (!code) {
-        throw new HttpsError(
-          "invalid-argument",
-          `Invalid provider type: "${trimmedType}". Please use a valid provider type name or code.`
-        );
-      }
-      // Normalize: add leading zero for single digits (1-9)
-      const numId = parseInt(code, 10);
-      if (numId >= 1 && numId <= 9) {
-        return code.padStart(2, '0');
-      }
-      return code;
-      });
-    } else {
-      // Handle single provider type
-      const trimmedType = String(providerType).trim();
-      // Check if it's already a code (numeric)
-      if (/^\d+$/.test(trimmedType)) {
-        // Normalize: add leading zero for single digits (1-9)
-        const numId = parseInt(trimmedType, 10);
-        if (numId >= 1 && numId <= 9) {
-          providerTypeIds = [trimmedType.padStart(2, '0')];
-        } else {
-          providerTypeIds = [trimmedType];
-        }
-      } else {
-        // Look up in map
-        const code = providerTypeCodeMap[trimmedType];
-        if (!code) {
-          throw new HttpsError(
-            "invalid-argument",
-            `Invalid provider type: "${trimmedType}". Please use a valid provider type name or code.`
-          );
-        }
-        // Normalize: add leading zero for single digits (1-9)
-        const numId = parseInt(code, 10);
-        if (numId >= 1 && numId <= 9) {
-          providerTypeIds = [code.padStart(2, '0')];
-        } else {
-          providerTypeIds = [code];
-        }
-      }
-    }
-
-    // Normalize health plan name
-    console.log(`[OhioMaximusSearch] Normalizing health plan: ${healthPlan}`);
-    const normalizedHealthPlan = normalizeHealthPlanName(healthPlan);
-    console.log(`[OhioMaximusSearch] Normalized health plan: ${normalizedHealthPlan}`);
-
-    // Build URL using existing buildMedicaidUrl function
-    console.log(`[OhioMaximusSearch] Building Medicaid URL...`);
-    console.log(`[OhioMaximusSearch] Provider type IDs: ${JSON.stringify(providerTypeIds)}`);
-    
-    const medicaidUrl = buildMedicaidUrl({
-      zip: zip,
-      state: state,
-      healthplan: normalizedHealthPlan,
-      providerTypeIds: providerTypeIds,
-      radius: radius.toString(),
+      state: state || "OH",
+      plan: normalizedHealthPlan,
+      typeIds: providerTypeIds,
+      radius: radiusMiles,
+      deadlineMs: OMX_MEDICAID_DEADLINE_MS,
     });
-
-    // Log the URL prominently
-    console.log(`\n`);
-    console.log(`================================================================================`);
-    console.log(`================================================================================`);
-    console.log(`🔗 OHIO MAXIMUS SEARCH - GENERATED URL:`);
-    console.log(`${medicaidUrl}`);
-    console.log(`================================================================================`);
-    console.log(`================================================================================`);
-    console.log(`\n[OhioMaximusSearch] Final Parameters:`);
-    console.log(`   ZIP: ${zip}`);
-    console.log(`   City: ${city || 'N/A'}`);
-    console.log(`   State: ${state}`);
-    console.log(`   Health Plan: ${healthPlan} → ${normalizedHealthPlan}`);
-    console.log(`   Provider Type: ${providerType} → ${providerTypeIds.join(',')}`);
-    console.log(`   Provider Type IDs: ${JSON.stringify(providerTypeIds)}`);
-    console.log(`   Radius: ${radius}`);
-    
-    // Fetch data from the URL
-    console.log(`\n[OhioMaximusSearch] Fetching providers from Ohio Maximus API...`);
-    let providers = [];
-    let allEntries = [];
-    
-    try {
-      // Use existing fetchFhirBundleWithPaging function to get entries
-      allEntries = await fetchFhirBundleWithPaging(medicaidUrl, 5);
-      console.log(`[OhioMaximusSearch] Fetched ${allEntries.length} entries from API`);
-      
-      // Parse entries using existing parseMedicaidResponse function
-      if (allEntries.length > 0) {
-        providers = parseMedicaidResponse(allEntries, null); // No specialty filter for now
-        console.log(`[OhioMaximusSearch] Parsed ${providers.length} providers from entries`);
-      } else {
-        console.log(`[OhioMaximusSearch] No entries returned from API`);
-      }
-    } catch (fetchError) {
-      console.error(`[OhioMaximusSearch] Error fetching/parsing providers:`, fetchError.message);
-      console.error(`[OhioMaximusSearch] Stack trace:`, fetchError.stack);
-      // Don't throw - return URL and empty providers list so user can see what was attempted
-    }
-    
-    console.log(`\n[OhioMaximusSearch] ✅ Function completed successfully`);
-    console.log(`[OhioMaximusSearch] Returning ${providers.length} providers`);
-    console.log(`╚════════════════════════════════════════════════════════════════╝\n\n`);
-
-    const result = {
+    const providers = result.providers.map(serializeProvider);
+    const ms = Date.now() - t0;
+    console.log(`[OhioMaximusSearch] zip=${searchZip} radius=${radiusMiles} plan="${healthPlan}" -> ` +
+      `"${normalizedHealthPlan}" types=${providerTypeIds.join(",")}: ${providers.length} providers in ${ms}ms ` +
+      `(queries ${result.meta.queries}, cache hits ${result.meta.cacheHits}, partial ${result.meta.partial})`);
+    return {
       success: true,
-      url: medicaidUrl,
-      providers: providers,
+      url: result.meta.urls[0] || engine.buildMaximusUrl({zip: searchZip, state, plan: normalizedHealthPlan,
+        typeId: providerTypeIds[0], radius: radiusMiles}),
+      urls: result.meta.urls,
+      providers,
       count: providers.length,
       parameters: {
-        zip: zip,
+        zip: searchZip,
         city: city || null,
         state: state,
         healthPlan: normalizedHealthPlan,
         providerTypeIds: providerTypeIds,
-        providerTypeIdsDelimited: providerTypeIds.join(','),
-        radius: radius.toString(),
+        providerTypeIdsDelimited: providerTypeIds.join(","),
+        radius: String(radius),
       },
+      coverage: {
+        origin: result.meta.origin,
+        radiusMiles,
+        radiusLimitMiles: Math.round(engine.radiusLimit(radiusMiles) * 100) / 100,
+        healthPlan: normalizedHealthPlan,
+        completeWithinMiles: result.meta.completeWithinMiles,
+        partial: result.meta.partial,
+        medicaid: result.meta,
+      },
+      timingsMs: {total: ms, medicaid: result.meta.ms},
     };
-
-    // Log the result being returned
-    console.log(`[OhioMaximusSearch] Returning result with ${providers.length} providers`);
-    
-    return result;
   } catch (error) {
-    // Log error details
-    console.error(`\n`);
-    console.error(`╔════════════════════════════════════════════════════════════════╗`);
-    console.error(`║          ❌ OhioMaximusSearch ERROR                            ║`);
-    console.error(`╚════════════════════════════════════════════════════════════════╝`);
-    console.error(`[OhioMaximusSearch] Error occurred at: ${new Date().toISOString()}`);
-    console.error(`[OhioMaximusSearch] Error message: ${error.message}`);
-    console.error(`[OhioMaximusSearch] Error stack: ${error.stack}`);
-    console.error(`[OhioMaximusSearch] Request data was:`, JSON.stringify(request.data, null, 2));
-    console.error(`╚════════════════════════════════════════════════════════════════╝\n`);
-    
-    // Re-throw the error
-    throw error;
+    console.error(`[OhioMaximusSearch] Error: ${error.message}`, error.stack);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Ohio Medicaid search failed: " + error.message);
   }
 });
+
 
 /**
  * Import BIPOC providers from Excel file

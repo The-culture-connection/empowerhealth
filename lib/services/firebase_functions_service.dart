@@ -636,7 +636,9 @@ class FirebaseFunctionsService {
       final callable = _functions.httpsCallable(
         'OhioMaximusSearch',
         options: HttpsCallableOptions(
-          timeout: const Duration(seconds: 30),
+          // Uncached searches query each provider type upstream; the server
+          // returns partial results at 25s, so leave room for that response.
+          timeout: const Duration(seconds: 60),
         ),
       );
       

@@ -3,3 +3,8 @@ node_modules/
 npm-debug.log
 firebase-debug.log
 firebase-debug.*.log
+
+# Local emulator secrets / env (never commit)
+.secret.local
+.env.local
+.env.*.local

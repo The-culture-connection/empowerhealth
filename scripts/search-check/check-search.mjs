@@ -23,6 +23,9 @@
  *   --no-upstream     skip the raw Ohio Medicaid (Maximus) plan oracle fetches
  *   --zips a,b,c      override the ZIP list
  *   --verbose         print every offending provider
+ *   --base URL        callable base URL, e.g. the Functions emulator
+ *                     http://127.0.0.1:5001/empower-health-watch/us-central1
+ *                     (default: the deployed functions)
  *
  * No dependencies; Node >= 18 (global fetch).
  * Exit codes: 0 = no FAIL, 1 = at least one FAIL, 2 = fatal (auth / setup).
@@ -39,7 +42,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 // ---------------------------------------------------------------------------
 const PROJECT = 'empower-health-watch';
 const REGION = 'us-central1';
-const FN_BASE = `https://${REGION}-${PROJECT}.cloudfunctions.net`;
+const DEPLOYED_BASE = `https://${REGION}-${PROJECT}.cloudfunctions.net`;
 // lib/services/firebase_service.dart (kIsWeb branch). Public web key.
 const WEB_API_KEY =
   process.env.FIREBASE_WEB_API_KEY || 'AIzaSyAJOFoEdlGoWsq1JIzQs-xjIQSmupvbz2o';
@@ -64,9 +67,12 @@ const BACKEND_PLAN_MAP = {
   Molina: 'Molina',
   Anthem: 'Anthem',
   Aetna: 'Aetna',
-  [PLAN_NOT_LISTED]: 'CareSource',
-  [PLAN_ALL]: 'CareSource',
+  // Both pseudo plans use the Ohio Medicaid API's own "All Plans" value (every plan).
+  [PLAN_NOT_LISTED]: 'All Plans',
+  [PLAN_ALL]: 'All Plans',
 };
+// PractitionerRole.organization ("HealthPlan/<x>") / response healthPlans -> comparable key
+const planKey = (p) => String(p || '').replace(/^HealthPlan\//i, '').toLowerCase().replace(/[^a-z]/g, '');
 const backendPlan = (p) => BACKEND_PLAN_MAP[p.trim()] || p.trim();
 const isPseudoPlan = (p) => p === PLAN_ALL || p === PLAN_NOT_LISTED;
 
@@ -99,6 +105,11 @@ const DELAY_MS = Number(opt('--delay', 1500));
 const TOL_ABS = Number(opt('--tolerance', 2));
 const TOL_PCT = Number(opt('--tolerance-pct', 10));
 const CALL_TIMEOUT_MS = 120000;
+// Callable base URL. --base targets the Functions emulator; the emulator accepts the
+// anonymous ID token from the real project (it decodes but does not verify it).
+const FN_BASE = String(opt('--base', process.env.SEARCH_CHECK_BASE || DEPLOYED_BASE)).replace(/\/+$/, '');
+// Client-side timeouts the app uses (lib/services/firebase_functions_service.dart).
+const APP_TIMEOUT_MS = { OhioMaximusSearch: 30000, searchProviders: 60000 };
 
 const DEFAULT_ZIPS = ['43215', '44113', '45202', '43604', '43756']; // Columbus, Cleveland, Cincinnati, Toledo, McConnelsville (rural Morgan Co.)
 const ZIPS = opt('--zips', null)?.split(',').map((s) => s.trim()).filter(Boolean) || (QUICK ? ['43215'] : DEFAULT_ZIPS);
@@ -201,7 +212,14 @@ function saveZipCache() {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
   fs.writeFileSync(ZIP_CACHE_FILE, JSON.stringify(zipCache));
 }
+// Known errors in the zippopotam.us (GeoNames) centroids for single-building ZIPs that providers
+// use. Values are US Census geocoder points for the ZIP's main address (same as the server's table).
+const ZIP_CENTROID_FIXES = {
+  // Cleveland Clinic main campus (9500 Euclid Ave). GeoNames puts 44195 in Lake Erie, 14 mi from 44113.
+  44195: { lat: 41.5033, lon: -81.6229, city: 'Cleveland', state: 'OH', fixed: true },
+};
 async function geocodeOne(zip) {
+  if (ZIP_CENTROID_FIXES[zip]) return (zipCache[zip] = ZIP_CENTROID_FIXES[zip]);
   if (zip in zipCache) return zipCache[zip];
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -222,6 +240,7 @@ async function geocodeOne(zip) {
   return undefined; // transient failure, not cached
 }
 async function geocodeMany(zips) {
+  Object.assign(zipCache, ZIP_CENTROID_FIXES);
   const todo = [...new Set(zips)].filter((z) => /^\d{5}$/.test(z) && !(z in zipCache));
   let i = 0;
   const worker = async () => {
@@ -314,6 +333,10 @@ function annotate(providers, origin) {
       firstDist: dists[0] ?? null,
       maxDist: known.length ? Math.max(...known) : null,
       planInfo: PLAN_FIELDS.filter((f) => p[f] != null).map((f) => ({ [f]: p[f] })),
+      healthPlans: Array.isArray(p.healthPlans) ? p.healthPlans : null,
+      // distance reported by the server (miles to the nearest in-radius location)
+      serverDist: typeof p.distanceMiles === 'number' ? p.distanceMiles : null,
+      providerTypes: p.providerTypes || [],
     };
   });
 }
@@ -409,7 +432,7 @@ async function upstreamPlans(url) {
 async function main() {
   const startedAt = new Date();
   console.log(`Provider search live check — ${startedAt.toISOString()}`);
-  console.log(`Functions: ${FN_BASE}/{OhioMaximusSearch,searchProviders}`);
+  console.log(`Functions: ${FN_BASE}/{OhioMaximusSearch,searchProviders}${FN_BASE === DEPLOYED_BASE ? ' (deployed)' : ''}`);
   console.log(`Mode: ${QUICK ? 'QUICK' : 'DEFAULT'} | max calls ${MAX_CALLS} | delay ${DELAY_MS}ms | radius tolerance +${TOL_ABS}mi +${TOL_PCT}% | upstream oracle ${UPSTREAM ? 'on' : 'off'}`);
 
   try {
@@ -479,6 +502,13 @@ async function main() {
     // Call health
     for (const [lbl, r] of [['OhioMaximusSearch', run.omx], ['searchProviders', run.sp]]) {
       if (!r.ok) record(id, `call ${lbl}`, 'FAIL', `HTTP ${r.status}: ${r.error}`);
+      else if (!r.reused && r.ms > APP_TIMEOUT_MS[lbl]) {
+        record(id, `latency ${lbl}`, 'WARN', `${r.ms}ms is over the app's ${APP_TIMEOUT_MS[lbl] / 1000}s client timeout (the app would drop this response)`);
+      }
+      const cov = r.ok ? r.result.coverage : null;
+      if (cov && cov.partial) {
+        record(id, `partial ${lbl}`, 'WARN', `server returned partial results (upstream deadline/timeout): ${JSON.stringify(cov.medicaid?.perType || {}).slice(0, 200)}`);
+      }
     }
     const omxProviders = run.omx.ok ? run.omx.result.providers || [] : [];
     const spProviders = run.sp.ok ? run.sp.result.providers || [] : [];
@@ -528,11 +558,26 @@ async function main() {
           firstUniq.map(describe));
       }
     }
-    // Upstream truncation: Ohio Medicaid API returns max 100 providers per query, no paging
+    // One row per provider: OhioMaximusSearch used to return one row per Practitioner entry/address
     const omxUnique = new Set(run.omxA.map((a) => a.key)).size;
-    if (run.omx.ok) {
-      record(id, 'omx rows', 'INFO', `${run.omxA.length} rows -> ${omxUnique} unique providers (duplicate Practitioner rows per address)`);
-      if (omxUnique >= 100) record(id, 'upstream-cap', 'WARN', `${omxUnique} unique Medicaid providers = Ohio Medicaid API hard cap of 100; more providers exist in this radius but are silently dropped (no next-page link)`);
+    if (run.omx.ok && !run.omx.reused) {
+      record(id, 'omx dedupe', omxUnique === run.omxA.length ? 'PASS' : 'FAIL', `${run.omxA.length} rows -> ${omxUnique} unique providers (app key name+first location)`);
+      const pt = run.omx.result.coverage?.medicaid?.perType;
+      if (pt) {
+        const capped = Object.entries(pt).filter(([, v]) => v.upstreamCapped).map(([t, v]) => `${t}@${v.rungsQueried?.slice(-1)[0]}mi`);
+        record(id, 'upstream-cap', 'INFO', capped.length
+          ? `Ohio Medicaid API hit its 100-provider cap for type(s) ${capped.join(', ')}; the server stopped at that radius rung (nearest-first ladder) and returns the nearest ${run.omx.result.coverage.medicaid.perTypeCap} per type`
+          : 'no type hit the Ohio Medicaid API 100-provider cap');
+      }
+    }
+    // Distance fields: every row carries distanceMiles = distance of locations[0]
+    for (const [lbl, list] of [['OMX', run.omxA], ['SP', run.spA]]) {
+      if (!list.length) continue;
+      const missing = list.filter((a) => a.serverDist == null);
+      const notFirst = list.filter((a) => a.serverDist != null && a.locs[0] && typeof a.locs[0].distance === 'number' && Math.abs(a.locs[0].distance - a.serverDist) > 0.11);
+      record(id, `distance-field ${lbl}`, missing.length || notFirst.length ? 'FAIL' : 'PASS',
+        `${list.length - missing.length}/${list.length} rows have distanceMiles` + (notFirst.length ? `; ${notFirst.length} rows where locations[0].distance != distanceMiles` : ''),
+        [...missing, ...notFirst].map(describe));
     }
 
     // (d) ZIP — results are centred on the searched ZIP
@@ -551,26 +596,36 @@ async function main() {
     if (!MODES[c.mode].includeNpi && npiRows.length) {
       record(id, 'npi-gating', 'FAIL', `${npiRows.length} NPI rows returned with includeNpi=false`, npiRows.map(describe));
     } else if (npiRows.length) {
-      const notInZip = npiRows.filter((a) => !a.zips.includes(c.zip));
-      record(id, 'npi-zip', notInZip.length ? 'WARN' : 'PASS',
-        `${npiRows.length - notInZip.length}/${npiRows.length} NPI rows show an address in ${c.zip} (NPI query is exact postal_code+city, ignores radius; ` +
-        `rows matched via NPI practiceLocations show only primary/mailing addresses)`,
-        notInZip.map(describe));
+      // NPI rows are now limited by distance (covered by "radius SP"); the shown address is the nearest practice location.
+      const inZip = npiRows.filter((a) => a.zips[0] === c.zip);
+      record(id, 'npi-zip', 'INFO', `${npiRows.length} NPI rows, ${inZip.length} with the nearest practice location in ${c.zip} (others are elsewhere inside the radius)`);
     }
 
     // (b) PLAN
     const planEcho = run.omx.ok ? run.omx.result.parameters?.healthPlan : undefined;
     const expectedPlan = backendPlan(c.plan);
     if (planEcho !== undefined) {
-      if (isPseudoPlan(c.plan)) {
-        record(id, 'plan-param', 'WARN', `"${c.plan}" sent upstream as healthplan="${planEcho}" — searches ONE plan's network, not all plans (normalizeHealthPlanName)`);
-      } else {
-        record(id, 'plan-param', planEcho === expectedPlan ? 'PASS' : 'FAIL', `"${c.plan}" -> upstream healthplan="${planEcho}" (expected "${expectedPlan}")`);
-      }
+      record(id, 'plan-param', planEcho === expectedPlan ? 'PASS' : 'FAIL',
+        `"${c.plan}" -> upstream healthplan="${planEcho}" (expected "${expectedPlan}"${isPseudoPlan(c.plan) ? ', every Ohio Medicaid plan' : ''})`);
     }
     const planExposed = [...run.omxA, ...run.spA].some((a) => a.planInfo.length);
     if (!planExposed) {
       record(id, 'plan-in-response', 'SKIP', 'responses carry no plan/network field per provider — cannot assert plan membership from the function output');
+    } else {
+      // Medicaid rows report the plans they are listed under (healthPlans). Hospitals and other
+      // organizations in an "All plans" search have no plan in the upstream data (empty list).
+      const med = [...run.omxA, ...run.spA.filter((a) => a.source === 'medicaid')];
+      const unknown = med.filter((a) => !a.healthPlans || !a.healthPlans.length);
+      if (isPseudoPlan(c.plan)) {
+        const plans = {};
+        for (const a of run.omxA) for (const p of a.healthPlans || []) plans[p] = (plans[p] || 0) + 1;
+        record(id, 'plan-in-response', 'PASS', `"${c.plan}": providers from ${Object.keys(plans).length} plans ${JSON.stringify(plans)}; ${unknown.length} rows without plan data (organizations)`);
+      } else {
+        const bad = med.filter((a) => a.healthPlans && a.healthPlans.length && !a.healthPlans.some((p) => planKey(p) === planKey(c.plan) || planKey(p) === planKey(expectedPlan)));
+        record(id, 'plan-in-response', bad.length ? 'FAIL' : 'PASS',
+          `${med.length - bad.length - unknown.length}/${med.length} Medicaid rows list "${c.plan}" in healthPlans` + (unknown.length ? `; ${unknown.length} without plan data` : ''),
+          bad.map((a) => `${describe(a)} plans=${JSON.stringify(a.healthPlans)}`));
+      }
     }
     if (UPSTREAM && c.tags.includes('plan') && run.omx.ok && run.omx.result.url) {
       const up = await upstreamPlans(run.omx.result.url);
@@ -585,10 +640,10 @@ async function main() {
         const roles = Object.values(up.planRefs).reduce((s, n) => s + n, 0);
         const bad = refs.filter((r) => norm(r) !== norm(want));
         const good = roles - bad.reduce((n, r) => n + up.planRefs[r], 0);
-        const detail = `Maximus PractitionerRole.organization: ${JSON.stringify(up.planRefs)}; resources ${JSON.stringify(up.counts)}`;
+        const detail = `Maximus PractitionerRole.organization: ${JSON.stringify(up.planRefs)}; resources ${JSON.stringify(up.counts)} (first of ${run.omx.result.urls?.length || 1} upstream URLs)`;
         record(id, 'upstream types', 'INFO', `provider types among the returned roles: ${JSON.stringify(up.typeCounts)} (searched ${c.types.join(',')})`);
         if (!roles) record(id, 'plan-upstream', 'INFO', `no PractitionerRole rows to check; ${detail}`);
-        else if (isPseudoPlan(c.plan)) record(id, 'plan-upstream', 'WARN', `"${c.plan}" returns only ${refs.join(',')} roles; ${detail}`);
+        else if (isPseudoPlan(c.plan)) record(id, 'plan-upstream', refs.length > 1 ? 'PASS' : 'WARN', `"${c.plan}" returns roles from ${refs.length} plans; ${detail}`);
         else record(id, 'plan-upstream', bad.length ? 'FAIL' : 'PASS', `${good}/${roles} roles in ${want}; ${detail}`);
       }
     }
@@ -608,25 +663,45 @@ async function main() {
     rs.sort((a, b) => a.radius - b.radius);
     const [zip, plan, mode] = g.split('|');
     const gid = `${zip} plan="${plan}" ${mode}`;
-    for (const [lbl, pick] of [
-      ['OMX', (r) => r.omxA],
-      ['SP medicaid', (r) => r.spA.filter((a) => a.source === 'medicaid')],
-      ['app-merged', (r) => r.merged],
+    // The server caps each provider type nearest-first and reports coverage.completeWithinMiles:
+    // every provider closer than that distance is included. A provider that a smaller search
+    // returned may only be missing from a larger search when it is at least that far away.
+    const covOMX = (r) => r.omx.result?.coverage?.completeWithinMiles ?? null;
+    const covSP = (r) => r.sp.result?.coverage?.medicaid?.completeWithinMiles ?? null;
+    const covAll = (r) => {
+      const v = [covOMX(r), r.sp.result?.coverage?.completeWithinMiles].filter((d) => d != null);
+      return v.length ? Math.min(...v) : null;
+    };
+    const partialOf = (r) => !!(r.omx.result?.coverage?.partial || r.sp.result?.coverage?.partial);
+    for (const [lbl, pick, cov] of [
+      ['OMX', (r) => r.omxA, covOMX],
+      ['SP medicaid', (r) => r.spA.filter((a) => a.source === 'medicaid'), covSP],
+      ['app-merged', (r) => r.merged, covAll],
     ]) {
       const series = rs.map((r) => `${r.radius}mi:${new Set(pick(r).map((a) => a.key)).size}`).join(' ');
       const drops = [];
       const missing = [];
+      const truncated = [];
+      let partial = false;
       for (let i = 1; i < rs.length; i++) {
-        const small = new Set(pick(rs[i - 1]).map((a) => a.key));
+        if (partialOf(rs[i - 1]) || partialOf(rs[i])) partial = true;
+        const smallList = new Map(pick(rs[i - 1]).map((a) => [a.key, a]));
         const big = new Set(pick(rs[i]).map((a) => a.key));
-        if (big.size < small.size) drops.push(`${rs[i - 1].radius}->${rs[i].radius}mi: ${small.size} -> ${big.size}`);
-        const lost = [...small].filter((k) => !big.has(k));
-        if (lost.length) missing.push(`${rs[i - 1].radius}->${rs[i].radius}mi lost ${lost.length} (e.g. ${lost.slice(0, 3).join(' | ')})`);
+        if (big.size < smallList.size) drops.push(`${rs[i - 1].radius}->${rs[i].radius}mi: ${smallList.size} -> ${big.size}`);
+        const cutoff = cov(rs[i]);
+        const lost = [...smallList.keys()].filter((k) => !big.has(k));
+        const beyond = lost.filter((k) => cutoff != null && (smallList.get(k).serverDist ?? Infinity) >= cutoff - 0.05);
+        const real = lost.filter((k) => !beyond.includes(k));
+        if (beyond.length) truncated.push(`${rs[i - 1].radius}->${rs[i].radius}mi: ${beyond.length} beyond the ${cutoff}mi nearest-first cutoff`);
+        if (real.length) missing.push(`${rs[i - 1].radius}->${rs[i].radius}mi lost ${real.length} (e.g. ${real.slice(0, 3).map((k) => `${k} @${smallList.get(k).serverDist}mi`).join(' | ')}; cutoff ${cutoff ?? 'none'})`);
       }
-      record(gid, `monotonic ${lbl}`, drops.length ? 'FAIL' : 'PASS', `${series}${drops.length ? ' DECREASE: ' + drops.join('; ') : ''}`, drops);
-      // A provider inside the small radius is also inside the big one, so it must still be returned.
-      record(gid, `superset ${lbl}`, missing.length ? 'FAIL' : 'PASS',
-        missing.length ? `larger radius DROPS providers returned by the smaller radius: ${missing.join('; ')}` : 'every provider from a smaller radius is still returned at the larger radius',
+      const bad = partial ? 'WARN' : 'FAIL';
+      record(gid, `monotonic ${lbl}`, drops.length ? bad : 'PASS', `${series}${drops.length ? ' DECREASE: ' + drops.join('; ') : ''}`, drops);
+      // A provider inside the small radius is also inside the big one, so it must still be returned
+      // (unless the larger list was cut nearest-first before reaching it).
+      record(gid, `superset ${lbl}`, missing.length ? bad : 'PASS',
+        missing.length ? `larger radius DROPS providers returned by the smaller radius: ${missing.join('; ')}${partial ? ' (a run was partial: upstream timeout)' : ''}`
+          : `every provider from a smaller radius is still returned at the larger radius${truncated.length ? ` (except ${truncated.join('; ')})` : ''}`,
         missing);
     }
   }
@@ -642,17 +717,22 @@ async function main() {
     const same = (a, b) => sets[a] && sets[b] && sets[a].size === sets[b].size && [...sets[a]].every((k) => sets[b].has(k));
     record(gid, 'plan counts', 'INFO', rs.map((r) => `${r.plan}=${r.omxA.length}`).join(', '));
     if (sets[PLAN_ALL] && sets.CareSource) {
-      record(gid, 'all-plans', same(PLAN_ALL, 'CareSource') ? 'WARN' : 'INFO',
+      record(gid, 'all-plans', same(PLAN_ALL, 'CareSource') ? 'FAIL' : 'PASS',
         same(PLAN_ALL, 'CareSource') ? `"All plans" returns exactly the CareSource result set (${sets.CareSource.size}) — other plans' providers are not included`
           : `"All plans" (${sets[PLAN_ALL].size}) differs from CareSource (${sets.CareSource.size})`);
+      const allRun = rs.find((r) => r.plan === PLAN_ALL);
+      const allPlans = new Set(allRun.omxA.flatMap((a) => a.healthPlans || []));
+      record(gid, 'all-plans networks', allPlans.size > 1 ? 'PASS' : 'FAIL', `"All plans" rows are listed under ${allPlans.size} plans: ${[...allPlans].join(', ')}`);
       const union = new Set(rs.filter((r) => !isPseudoPlan(r.plan)).flatMap((r) => [...sets[r.plan]]));
       const notInAll = [...union].filter((k) => !sets[PLAN_ALL].has(k));
-      if (union.size) record(gid, 'all-plans coverage', notInAll.length ? 'WARN' : 'PASS',
-        `${union.size - notInAll.length}/${union.size} providers from the individual plan searches also appear under "All plans"`, notInAll.slice(0, 10));
+      // Expected to be < 100%: the Ohio Medicaid API caps each query at 100 providers, and an
+      // "All Plans" query shares that cap across every plan, while each plan search gets its own 100.
+      if (union.size) record(gid, 'all-plans coverage', 'INFO',
+        `${union.size - notInAll.length}/${union.size} providers from the individual plan searches also appear under "All plans" (upstream 100-per-query cap is shared across plans in an "All Plans" query)`, notInAll.slice(0, 10));
     }
-    if (sets[PLAN_NOT_LISTED] && sets.CareSource) {
-      record(gid, 'not-listed', same(PLAN_NOT_LISTED, 'CareSource') ? 'WARN' : 'INFO',
-        same(PLAN_NOT_LISTED, 'CareSource') ? '"Not listed / not sure" is identical to CareSource' : '"Not listed / not sure" differs from CareSource');
+    if (sets[PLAN_NOT_LISTED] && sets[PLAN_ALL]) {
+      record(gid, 'not-listed', same(PLAN_NOT_LISTED, PLAN_ALL) ? 'PASS' : 'WARN',
+        same(PLAN_NOT_LISTED, PLAN_ALL) ? '"Not listed / not sure" searches every plan, same as "All plans"' : '"Not listed / not sure" differs from "All plans"');
     }
     const specific = rs.filter((r) => !isPseudoPlan(r.plan) && sets[r.plan].size);
     if (specific.length >= 2) {
@@ -671,10 +751,16 @@ async function main() {
     const gid = `${t.zip} r=${t.radius} plan="${t.plan}" types=${t.types.join(',')}`;
     const uKeys = new Set(u.merged.map((a) => a.key));
     const tMed = [...new Map(t.omxA.map((a) => [a.key, a])).values()];
-    const missing = tMed.filter((a) => !uKeys.has(a.key));
-    record(gid, 'type-crowding', missing.length ? 'FAIL' : 'PASS',
-      missing.length ? `${missing.length}/${tMed.length} providers returned by the type-${t.types.join(',')} search are MISSING from the universal search (same ZIP/radius/plan) — crowded out by the 100-result cap`
-        : `all ${tMed.length} type-${t.types.join(',')} providers also appear in the universal search`,
+    // The universal search keeps the nearest N providers of EACH type; only providers beyond
+    // that type's cutoff distance may be missing.
+    const cuts = t.types.map((ty) => u.omx.result?.coverage?.medicaid?.perType?.[ty]?.cutoffMiles).filter((d) => d != null);
+    const cutoff = cuts.length ? Math.min(...cuts) : null;
+    const missingAll = tMed.filter((a) => !uKeys.has(a.key));
+    const missing = missingAll.filter((a) => cutoff == null || (a.serverDist ?? Infinity) < cutoff - 0.05);
+    const bad = u.omx.result?.coverage?.partial || t.omx.result?.coverage?.partial ? 'WARN' : 'FAIL';
+    record(gid, 'type-crowding', missing.length ? bad : 'PASS',
+      missing.length ? `${missing.length}/${tMed.length} providers returned by the type-${t.types.join(',')} search are MISSING from the universal search (same ZIP/radius/plan) — crowded out by other types`
+        : `all ${tMed.length - missingAll.length}/${tMed.length} type-${t.types.join(',')} providers also appear in the universal search${missingAll.length ? ` (${missingAll.length} beyond the ${cutoff}mi per-type cutoff)` : ''}`,
       missing.map(describe));
   }
 
@@ -711,6 +797,15 @@ async function main() {
   }
   console.log('='.repeat(130));
   console.log(`SUMMARY: PASS ${tally.PASS || 0} | FAIL ${tally.FAIL || 0} | WARN ${tally.WARN || 0} | SKIP ${tally.SKIP || 0}   (callable calls used: ${callsMade}/${MAX_CALLS}${capped ? ', cap reached — some cases skipped' : ''})`);
+  // Latency per callable (calls actually made; reused OhioMaximusSearch responses excluded)
+  const latency = {};
+  for (const fn of ['omx', 'sp']) {
+    const ms = runs.filter((r) => r[fn] && r[fn].ok && !r[fn].reused).map((r) => r[fn].ms).sort((a, b) => a - b);
+    if (!ms.length) continue;
+    const q = (p) => ms[Math.min(ms.length - 1, Math.floor(p * ms.length))];
+    latency[fn] = { calls: ms.length, median: q(0.5), p90: q(0.9), max: ms[ms.length - 1] };
+  }
+  console.log(`LATENCY (ms): OhioMaximusSearch ${JSON.stringify(latency.omx || {})} | searchProviders ${JSON.stringify(latency.sp || {})}`);
   const fails = checks.filter((c) => c.status === 'FAIL');
   if (fails.length) {
     console.log('\nFAILURES:');
@@ -736,19 +831,20 @@ async function main() {
   fs.mkdirSync(outDir, { recursive: true });
   const stamp = startedAt.toISOString().replace(/[:.]/g, '-');
   const outFile = path.join(outDir, `${stamp}${QUICK ? '-quick' : ''}.json`);
-  const slim = (list) => (list || []).map(({ name, npi, source, zips, minDist, firstDist, addrDist }) => ({ name, npi, source, zips: [...new Set(zips)], addrDist: addrDist == null ? addrDist : +addrDist.toFixed(2), minDist: minDist == null ? null : +minDist.toFixed(2), firstDist: firstDist == null ? null : +firstDist.toFixed(2) }));
+  const slim = (list) => (list || []).map(({ name, npi, source, zips, minDist, firstDist, addrDist, serverDist, healthPlans }) => ({ name, npi, source, serverDist, healthPlans, zips: [...new Set(zips)], addrDist: addrDist == null ? addrDist : +addrDist.toFixed(2), minDist: minDist == null ? null : +minDist.toFixed(2), firstDist: firstDist == null ? null : +firstDist.toFixed(2) }));
   fs.writeFileSync(outFile, JSON.stringify({
     startedAt: startedAt.toISOString(),
     finishedAt: new Date().toISOString(),
-    options: { QUICK, MAX_CALLS, DELAY_MS, TOL_ABS, TOL_PCT, UPSTREAM, ZIPS },
+    options: { QUICK, MAX_CALLS, DELAY_MS, TOL_ABS, TOL_PCT, UPSTREAM, ZIPS, FN_BASE },
     callsMade,
     summary: tally,
+    latency,
     checks,
     runs: runs.map((r) => ({
       id: r.id, zip: r.zip, city: r.city, radius: r.radius, plan: r.plan, mode: r.mode, skipped: !!r.skipped,
       omxPayload: r.omxPayload, spPayload: r.spPayload,
-      omx: r.omx && { ok: r.omx.ok, status: r.omx.status, ms: r.omx.ms, error: r.omx.error, reused: !!r.omx.reused, url: r.omx.result?.url, parameters: r.omx.result?.parameters, count: r.omx.result?.count },
-      sp: r.sp && { ok: r.sp.ok, status: r.sp.status, ms: r.sp.ms, error: r.sp.error, count: r.sp.result?.count },
+      omx: r.omx && { ok: r.omx.ok, status: r.omx.status, ms: r.omx.ms, error: r.omx.error, reused: !!r.omx.reused, url: r.omx.result?.url, parameters: r.omx.result?.parameters, count: r.omx.result?.count, coverage: r.omx.result?.coverage && { ...r.omx.result.coverage, medicaid: r.omx.result.coverage.medicaid && { ...r.omx.result.coverage.medicaid, urls: undefined } }, timingsMs: r.omx.result?.timingsMs },
+      sp: r.sp && { ok: r.sp.ok, status: r.sp.status, ms: r.sp.ms, error: r.sp.error, count: r.sp.result?.count, coverage: r.sp.result?.coverage && { ...r.sp.result.coverage, medicaid: r.sp.result.coverage.medicaid && { ...r.sp.result.coverage.medicaid, urls: undefined } }, timingsMs: r.sp.result?.timingsMs },
       upstream: r.upstream,
       omxProviders: slim(r.omxA),
       spProviders: slim(r.spA),

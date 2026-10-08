@@ -35,6 +35,9 @@ class Provider {
   final String? acceptedHealthType;
   /// Multiple accepted plan / payer types from Firestore.
   final List<String> acceptedHealthTypes;
+  /// Miles from the searched ZIP to the nearest in-radius location
+  /// (= locations.first). Set by provider search results only; never stored.
+  final double? distanceMiles;
 
   Provider({
     this.id,
@@ -66,6 +69,7 @@ class Provider {
     this.directoryHidden = false,
     this.acceptedHealthType,
     this.acceptedHealthTypes = const [],
+    this.distanceMiles,
   });
 
   /// Prefer [practiceName] for directory-style listings when set.
@@ -228,6 +232,7 @@ class Provider {
               .where((s) => s.isNotEmpty)
               .toList() ??
           const [],
+      distanceMiles: (map['distanceMiles'] as num?)?.toDouble(),
     );
   }
 
@@ -294,6 +299,7 @@ class Provider {
     bool? directoryHidden,
     String? acceptedHealthType,
     List<String>? acceptedHealthTypes,
+    double? distanceMiles,
   }) {
     return Provider(
       id: id ?? this.id,
@@ -325,6 +331,7 @@ class Provider {
       directoryHidden: directoryHidden ?? this.directoryHidden,
       acceptedHealthType: acceptedHealthType ?? this.acceptedHealthType,
       acceptedHealthTypes: acceptedHealthTypes ?? this.acceptedHealthTypes,
+      distanceMiles: distanceMiles ?? this.distanceMiles,
     );
   }
 }

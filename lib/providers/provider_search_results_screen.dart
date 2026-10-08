@@ -509,12 +509,10 @@ class _ProviderSearchResultsScreenState
         break;
       case 'Nearest':
         providers.sort((a, b) {
-          final distA = a.locations.isNotEmpty
-              ? a.locations.first.distance
-              : null;
-          final distB = b.locations.isNotEmpty
-              ? b.locations.first.distance
-              : null;
+          final distA = a.distanceMiles ??
+              (a.locations.isNotEmpty ? a.locations.first.distance : null);
+          final distB = b.distanceMiles ??
+              (b.locations.isNotEmpty ? b.locations.first.distance : null);
           final distAValue = distA ?? double.infinity;
           final distBValue = distB ?? double.infinity;
           return distAValue.compareTo(distBValue);
@@ -1444,9 +1442,10 @@ class _ProviderCard extends StatelessWidget {
     final location = provider.locations.isNotEmpty
         ? provider.locations.first
         : null;
-    final distance = location?.distance != null
-        ? '${location!.distance!.toStringAsFixed(1)} miles'
-        : null;
+    // locations.first is the nearest location inside the search radius.
+    final miles = provider.distanceMiles ?? location?.distance;
+    final distance =
+        miles != null ? '${miles.toStringAsFixed(1)} miles' : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20), // space-y-5

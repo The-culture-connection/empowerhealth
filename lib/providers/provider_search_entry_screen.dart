@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../constants/provider_types.dart';
 import '../constants/provider_search_constants.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../services/database_service.dart';
 import '../services/analytics_service.dart';
 import 'add_provider_screen.dart';
@@ -59,7 +60,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
   final _specialtyQueryController = TextEditingController();
   final DatabaseService _databaseService = DatabaseService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+
   String _radius = '10';
   String _healthPlan = ProviderSearchConstants.healthPlanAll;
   bool _includeNPI = false;
@@ -70,14 +71,14 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
   /// what they picked.
   bool _userPickedPlan = false;
   bool _userPickedTypes = false;
-  
+
   List<String> _selectedProviderTypes = [];
   List<String> _selectedSpecialties = [];
   List<String> _selectedIdentityTags = [];
   List<String> _selectedLanguages = [];
-  
+
   bool _showIdentityTags = false;
-  
+
   // Advanced filters - Pregnancy-Smart only
   bool _telehealth = false;
   bool _acceptsPregnant = true;
@@ -199,7 +200,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
 
   Future<void> _loadUserProfileForAutofill() async {
     if (_hasLoadedProfile) return; // Only load once
-    
+
     final userId = _auth.currentUser?.uid;
     if (userId == null) return;
 
@@ -220,23 +221,23 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           if (profile.zipCode.isNotEmpty && _zipController.text.isEmpty) {
             _zipController.text = profile.zipCode;
           }
-          
+
           // Autofill City
           if (profile.city != null && profile.city!.isNotEmpty && _cityController.text.isEmpty) {
             _cityController.text = profile.city!;
           }
-          
+
           // Map insurance type to health plan (overrides default "All plans" when known)
           final mappedPlan = _mapInsuranceToHealthPlan(profile.insuranceType);
           if (mappedPlan.isNotEmpty && !prefilledPlan && !_userPickedPlan) {
             _healthPlan = mappedPlan;
           }
-          
+
           // Map provider preferences to identity tags
           if (profile.providerPreferences.isNotEmpty && !prefilledTags) {
             _selectedIdentityTags = _mapPreferencesToIdentityTags(profile.providerPreferences);
           }
-          
+
           // Map language preference to languages
           if (!prefilledLanguages &&
               profile.languagePreference != null &&
@@ -246,7 +247,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
               _selectedLanguages = [mappedLanguage];
             }
           }
-          
+
           // Map birth preference to provider types
           if (!prefilledTypes &&
               !_userPickedTypes &&
@@ -257,17 +258,17 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
               _selectedProviderTypes = providerTypes;
             }
           }
-          
+
           // Set acceptsPregnant to true if user is pregnant
           if (profile.isPregnant) {
             _acceptsPregnant = true;
           }
-          
+
           // Set acceptsNewborns if user is postpartum
           if (profile.isPostpartum) {
             _acceptsNewborns = true;
           }
-          
+
           _hasLoadedProfile = true;
         });
       }
@@ -330,7 +331,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
   List<String> _mapBirthPreferenceToProviderTypes(String birthPreference) {
     final types = <String>[];
     final lower = birthPreference.toLowerCase();
-    
+
     if (lower.contains('hospital')) {
       types.add('Hospital');
     }
@@ -342,13 +343,13 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
       types.add('Nurse Midwife Individual');
       types.add('Doula');
     }
-    
+
     // If no specific preference, default to common maternal health providers
     if (types.isEmpty) {
       types.add('Physician / Osteopath Individual');
       types.add('Nurse Midwife Individual');
     }
-    
+
     return types;
   }
 
@@ -446,474 +447,350 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
       feature: 'provider-search',
       entrySource: 'provider_search_entry',
       child: Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundWarm,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Hero Header (matching NewUI exactly)
-              Container(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32), // px-6 pt-6 pb-8
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFFEBE4F3), // from-[#ebe4f3]
-                      Color(0xFFE0D5EB), // via-[#e0d5eb]
-                      Color(0xFFE8DFE8), // to-[#e8dfe8]
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    // Subtle background pattern
-                    Positioned.fill(
-                      child: Opacity(
-                        opacity: 0.05,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
+        child: Column(
+          children: [
+            HearthPushedHeader(
+              title: 'Find your care team',
+              subtitle: 'Trusted providers reviewed by mothers like you',
+              onBack: () => Navigator.pop(context),
+            ),
+
+            // Form Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Location Section
+                      _buildSection(
+                        title: 'Location',
+                        icon: Icons.location_on_outlined,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Container(
-                              width: 128,
-                              height: 128,
-                              decoration: BoxDecoration(
-                                color: AppTheme.surfaceCard,
-                                shape: BoxShape.circle,
-                              ),
+                            _buildTextField(
+                              controller: _zipController,
+                              label: 'ZIP Code',
+                              required: true,
+                              maxLength: 5,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              hintText: 'Enter your ZIP code',
                             ),
+                            const SizedBox(height: 16),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildDropdown(
+                                    label: 'Search Radius',
+                                    required: true,
+                                    value: _radius,
+                                    items: _radiusOptions,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _radius = value ?? '10';
+                                      });
+                                    },
+                                    displayText: (value) => '$value miles',
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 1,
+                                  child: _buildTextField(
+                                    controller: TextEditingController(text: 'Ohio'),
+                                    label: 'State',
+                                    enabled: false,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTextField(
+                              controller: _cityController,
+                              label: 'City',
+                              required: true,
+                              hintText: 'Enter city name',
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      _buildAddProviderCallout(),
+
+                      const SizedBox(height: 16),
+
+                      // Insurance & Directory
+                      _buildSection(
+                        title: 'Insurance & Directory',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildDropdown(
+                              label: 'Health Plan',
+                              required: true,
+                              value: _healthPlan.isEmpty ? null : _healthPlan,
+                              items: _healthPlans,
+                              onChanged: (value) {
+                                setState(() {
+                                  _userPickedPlan = true;
+                                  _healthPlan = value ?? '';
+                                });
+                              },
+                              hint: 'Select your health plan',
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _healthPlan == ProviderSearchConstants.healthPlanAll ||
+                                      _healthPlan ==
+                                          ProviderSearchConstants
+                                              .healthPlanNotListed
+                                  ? 'We\'ll search Ohio Medicaid with a general plan; turn on the national list below if you want NPI results too.'
+                                  : 'Needed for the Ohio Medicaid directory.',
+                              style: hearthCaptionStyle,
+                            ),
+                            const SizedBox(height: 16),
                             Container(
-                              width: 160,
-                              height: 160,
+                              padding: const EdgeInsets.fromLTRB(4, 4, 16, 16),
                               decoration: BoxDecoration(
-                                color: Color(0xFFD4C5E0),
-                                shape: BoxShape.circle,
+                                color: AppTheme.surfaceInset,
+                                borderRadius:
+                                    BorderRadius.circular(AppTheme.fieldRadius),
+                                border: Border.all(color: AppTheme.borderWarm),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Checkbox(
+                                    value: _includeNPI,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _includeNPI = value ?? false;
+                                      });
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 12),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Include the national provider list (NPI)',
+                                            style: TextStyle(
+                                              fontFamily: AppTheme.sansFamily,
+                                              fontSize: 15,
+                                              height: 22 / 15,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppTheme.ink,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          const Text(
+                                            'Adds more providers beyond the Ohio Medicaid directory',
+                                            style: hearthCaptionStyle,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    // Content
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.arrow_back, color: Color(0xFF8B7A95)),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Find your care team',
-                                    style: TextStyle(
-                                      fontSize: 24, // text-2xl
-                                      fontWeight: FontWeight.w400, // font-normal
-                                      color: Color(0xFF4A3F52), // text-[#4a3f52]
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8), // mb-2
-                                  Text(
-                                    'Trusted providers reviewed by mothers like you',
-                                    style: TextStyle(
-                                      fontSize: 14, // text-sm
-                                      color: Color(0xFF6B5C75), // text-[#6b5c75]
-                                      fontWeight: FontWeight.w300, // font-light
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
 
-              // Form Content
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24), // px-6
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Location Section
-                        _buildSection(
-                          title: 'Location',
-                          icon: Icons.location_on,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildTextField(
-                                controller: _zipController,
-                                label: 'ZIP Code',
-                                required: true,
-                                maxLength: 5,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                hintText: 'Enter your ZIP code',
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    flex: 2,
-                                    child: _buildDropdown(
-                                      label: 'Search Radius',
-                                      required: true,
-                                      value: _radius,
-                                      items: _radiusOptions,
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _radius = value ?? '10';
-                                        });
-                                      },
-                                      displayText: (value) => '$value miles',
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    flex: 1,
-                                    child: _buildTextField(
-                                      controller: TextEditingController(text: 'Ohio'),
-                                      label: 'State',
-                                      enabled: false,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              _buildTextField(
-                                controller: _cityController,
-                                label: 'City',
-                                required: true,
-                                hintText: 'Enter city name',
-                              ),
-                            ],
+                      const SizedBox(height: 16),
+
+                      // Provider Type
+                      _buildSection(
+                        title: 'Provider Type (Optional)',
+                        child: _buildTypingMultiSelect(
+                          helperText:
+                              'Optional. Leave blank for all types, or type a word like midwife or doula and tap to add.',
+                          hintText: 'Type to filter provider types…',
+                          queryController: _providerTypeQueryController,
+                          allOptions: () {
+                            final names = ProviderTypes.getAllTypes()
+                                .map((t) => t['name']!)
+                                .toList();
+                            names.sort(
+                              (a, b) =>
+                                  a.toLowerCase().compareTo(b.toLowerCase()),
+                            );
+                            return names;
+                          }(),
+                          selected: _selectedProviderTypes,
+                          onToggleItem: (item) => _toggleItem(
+                            item,
+                            _selectedProviderTypes,
+                            (list) {
+                              _userPickedTypes = true;
+                              _selectedProviderTypes = list;
+                            },
                           ),
                         ),
+                      ),
 
-                        const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                        _buildAddProviderCallout(),
-
-                        const SizedBox(height: 16),
-
-                        // Insurance & Directory
-                        _buildSection(
-                          title: 'Insurance & Directory',
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildDropdown(
-                                label: 'Health Plan',
-                                required: true,
-                                value: _healthPlan.isEmpty ? null : _healthPlan,
-                                items: _healthPlans,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _userPickedPlan = true;
-                                    _healthPlan = value ?? '';
-                                  });
-                                },
-                                hint: 'Select your health plan',
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _healthPlan == ProviderSearchConstants.healthPlanAll ||
-                                        _healthPlan ==
-                                            ProviderSearchConstants
-                                                .healthPlanNotListed
-                                    ? 'We\'ll search Ohio Medicaid with a general plan; turn on the national list below if you want NPI results too.'
-                                    : 'Needed for the Ohio Medicaid directory.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textMuted,
-                                  fontWeight: FontWeight.w300,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Color(0xFFE8E0F0).withOpacity(0.6),
-                                      Color(0xFFEDE7F3).withOpacity(0.6),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: AppTheme.borderLighter.withOpacity(0.5),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Checkbox(
-                                      value: _includeNPI,
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _includeNPI = value ?? false;
-                                        });
-                                      },
-                                      activeColor: AppTheme.brandPurple,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Include the national provider list (NPI)',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w400,
-                                              color: AppTheme.textSecondary,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Adds more providers beyond the Ohio Medicaid directory',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: AppTheme.textMuted,
-                                              fontWeight: FontWeight.w300,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                      // Specialty
+                      _buildSection(
+                        title: 'Specialty (Optional)',
+                        child: _buildTypingMultiSelect(
+                          helperText:
+                              'Optional: type a few letters to narrow specialties, then tap to add.',
+                          hintText: 'Type to filter specialties…',
+                          queryController: _specialtyQueryController,
+                          allOptions: () {
+                            final s = List<String>.from(Specialties.specialties);
+                            s.sort(
+                              (a, b) =>
+                                  a.toLowerCase().compareTo(b.toLowerCase()),
+                            );
+                            return s;
+                          }(),
+                          selected: _selectedSpecialties,
+                          onToggleItem: (item) => _toggleItem(
+                            item,
+                            _selectedSpecialties,
+                            (list) => _selectedSpecialties = list,
                           ),
                         ),
+                      ),
 
-                        const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                        // Provider Type
-                        _buildSection(
-                          title: 'Provider Type (Optional)',
-                          child: _buildTypingMultiSelect(
-                            helperText:
-                                'Optional. Leave blank for all types, or type a word like midwife or doula and tap to add.',
-                            hintText: 'Type to filter provider types…',
-                            queryController: _providerTypeQueryController,
-                            allOptions: () {
-                              final names = ProviderTypes.getAllTypes()
-                                  .map((t) => t['name']!)
-                                  .toList();
-                              names.sort(
-                                (a, b) =>
-                                    a.toLowerCase().compareTo(b.toLowerCase()),
-                              );
-                              return names;
-                            }(),
-                            selected: _selectedProviderTypes,
-                            onToggleItem: (item) => _toggleItem(
-                              item,
-                              _selectedProviderTypes,
-                              (list) {
-                                _userPickedTypes = true;
-                                _selectedProviderTypes = list;
-                              },
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Specialty
-                        _buildSection(
-                          title: 'Specialty (Optional)',
-                          child: _buildTypingMultiSelect(
-                            helperText:
-                                'Optional: type a few letters to narrow specialties, then tap to add.',
-                            hintText: 'Type to filter specialties…',
-                            queryController: _specialtyQueryController,
-                            allOptions: () {
-                              final s = List<String>.from(Specialties.specialties);
-                              s.sort(
-                                (a, b) =>
-                                    a.toLowerCase().compareTo(b.toLowerCase()),
-                              );
-                              return s;
-                            }(),
-                            selected: _selectedSpecialties,
-                            onToggleItem: (item) => _toggleItem(
-                              item,
-                              _selectedSpecialties,
-                              (list) => _selectedSpecialties = list,
-                            ),
-                            chipColor: AppTheme.brandPurple,
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Prominent Mama Approved™ filter (community trust)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFF6ECFA), Color(0xFFFBF6FF)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: AppTheme.brandPurple.withOpacity(0.2),
-                            ),
+                      // Prominent Mama Approved™ filter (community trust)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: HearthFeatureCard(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 6,
                           ),
                           child: SwitchListTile(
                             contentPadding: EdgeInsets.zero,
-                            activeColor: AppTheme.brandPurple,
+                            // The theme's off track blends into the tint card.
+                            inactiveTrackColor: AppTheme.sheetHandle,
                             value: _mamaApprovedOnly,
                             onChanged: (v) =>
                                 setState(() => _mamaApprovedOnly = v),
-                            title: Row(
+                            title: const Row(
                               children: [
-                                Icon(Icons.favorite,
+                                Icon(Icons.favorite_border,
                                     size: 18, color: AppTheme.brandPurple),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
                                     'Mama Approved™ only',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppTheme.textPrimary,
-                                    ),
+                                    style: hearthCardTitleStyle,
                                   ),
                                 ),
                               ],
                             ),
-                            subtitle: Text(
-                              '3+ reviews averaging 4 stars or higher from '
-                              'moms in our community.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w300,
-                                color: AppTheme.textMuted,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // Advanced Filters
-                        _buildAdvancedFilters(),
-
-                        const SizedBox(height: 24),
-
-                        // Search Button (matching NewUI)
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Color(0xFFD4C5E0), // from-[#d4c5e0]
-                                Color(0xFFA89CB5), // to-[#a89cb5]
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Color(0xFFA89CB5).withOpacity(0.25),
-                                blurRadius: 20,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: _canSearch ? _handleSearch : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              foregroundColor: AppTheme.brandWhite,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.search, size: 18),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Search Providers',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w300,
-                                  ),
+                            subtitle: const Padding(
+                              padding: EdgeInsets.only(top: 4),
+                              child: Text(
+                                '3+ reviews averaging 4 stars or higher from '
+                                'moms in our community.',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.sansFamily,
+                                  fontSize: 13,
+                                  height: 18 / 13,
+                                  color: AppTheme.textSecondary,
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (context) => const AddProviderScreen(),
                               ),
-                            );
-                          },
-                          icon: Icon(
-                            Icons.person_add_alt_1_rounded,
-                            color: AppTheme.brandPurple,
-                            size: 20,
-                          ),
-                          label: const Text(
-                            'Still missing? Add your provider to the directory',
-                            textAlign: TextAlign.center,
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.brandPurple,
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                              horizontal: 16,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            side: const BorderSide(
-                              color: Color(0xFFD4C4EB),
-                              width: 1.5,
                             ),
                           ),
                         ),
+                      ),
 
-                        const SizedBox(height: 24),
-                      ],
-                    ),
+                      // Advanced Filters
+                      _buildAdvancedFilters(),
+
+                      const SizedBox(height: 24),
+
+                      HearthButton.primary(
+                        label: 'Search Providers',
+                        icon: Icons.search,
+                        onPressed: _canSearch ? _handleSearch : null,
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      HearthButton.secondary(
+                        label: 'Still missing? Add your provider to the directory',
+                        icon: Icons.person_add_alt_outlined,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (context) => const AddProviderScreen(),
+                            ),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     ),
   );
+  }
+
+  /// Field label in ink, with the purple required star.
+  Widget _buildFieldLabel(String label, {bool required = false}) {
+    final style = Theme.of(context)
+        .textTheme
+        .labelMedium
+        ?.copyWith(color: AppTheme.ink);
+    return Row(
+      children: [
+        Flexible(child: Text(label, style: style)),
+        if (required) ...[
+          const SizedBox(width: 4),
+          Text(
+            '*',
+            style: style?.copyWith(color: AppTheme.brandPurple),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Removable chip for a picked item: warm tint with the purple outline.
+  Widget _buildSelectedChip(String item, VoidCallback onRemove) {
+    return Chip(
+      label: Text(item),
+      backgroundColor: AppTheme.tintWarm,
+      deleteIcon: const Icon(Icons.close, size: 18, color: AppTheme.brandPurple),
+      onDeleted: onRemove,
+      labelStyle: const TextStyle(
+        fontFamily: AppTheme.sansFamily,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.brandPurple,
+      ),
+      side: const BorderSide(color: AppTheme.brandPurple, width: 2),
+      shape: const StadiumBorder(),
+    );
   }
 
   Widget _buildSection({
@@ -922,28 +799,15 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     IconData? icon,
     bool markTitleRequired = false,
   }) {
-    return Container(
+    final headingStyle = Theme.of(context).textTheme.headlineMedium;
+    return HearthCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard.withOpacity(0.65),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: AppTheme.borderLighter.withOpacity(0.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null) ...[
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (icon != null) ...[
                   Icon(icon, color: AppTheme.brandPurple, size: 20),
@@ -952,22 +816,15 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: headingStyle,
                   ),
                 ),
                 if (markTitleRequired)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4, top: 2),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
                     child: Text(
                       '*',
-                      style: TextStyle(
-                        color: AppTheme.brandPurple,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: headingStyle?.copyWith(color: AppTheme.brandPurple),
                     ),
                   ),
               ],
@@ -981,93 +838,56 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
   }
 
   Widget _buildAddProviderCallout() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (context) => const AddProviderScreen(),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(24),
-        child: Ink(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFFF5EEF9),
-                Color(0xFFEDE4F5),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFD4C4EB)),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.brandPurple.withOpacity(0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
+    return HearthFeatureCard(
+      padding: const EdgeInsets.all(18),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (context) => const AddProviderScreen(),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
+        );
+      },
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const HearthIconChip(
+            Icons.favorite_border,
+            tone: HearthChipTone.surface,
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.brandWhite.withOpacity(0.85),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.volunteer_activism_rounded,
-                    color: Color(0xFF663399),
-                    size: 22,
+                Text(
+                  'Can\'t find your provider?',
+                  style: hearthCardTitleStyle,
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Add them here. It helps other mamas discover care that worked for you.',
+                  style: hearthCardBodyStyle,
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'Add a provider →',
+                  style: TextStyle(
+                    fontFamily: AppTheme.sansFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.brandPurple,
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Can\'t find your provider?',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Add them here. It helps other mamas discover care that worked for you.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.35,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Add a provider →',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.brandPurple,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
               ],
             ),
           ),
-        ),
+          const SizedBox(width: 8),
+          const Padding(
+            padding: EdgeInsets.only(top: 13),
+            child: Icon(Icons.chevron_right, size: 20, color: AppTheme.textMuted),
+          ),
+        ],
       ),
     );
   }
@@ -1079,7 +899,6 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     required List<String> allOptions,
     required List<String> selected,
     required void Function(String) onToggleItem,
-    Color chipColor = AppTheme.brandPurple,
   }) {
     final q = queryController.text.trim().toLowerCase();
     final filtered = q.isEmpty
@@ -1094,12 +913,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
       children: [
         Text(
           helperText,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-            height: 1.35,
-          ),
+          style: hearthCaptionStyle,
         ),
         const SizedBox(height: 12),
         TextField(
@@ -1107,37 +921,16 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             hintText: hintText,
-            filled: true,
-            fillColor: Colors.grey.shade50,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF663399), width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
+            fillColor: AppTheme.surfaceInset,
           ),
         ),
         const SizedBox(height: 12),
         if (q.isEmpty && allOptions.length > 18)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
             child: Text(
               'Showing a few common types. Type to see more.',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppTheme.textBarelyVisible,
-                fontStyle: FontStyle.italic,
-              ),
+              style: hearthCaptionStyle,
             ),
           ),
         Wrap(
@@ -1145,66 +938,30 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           runSpacing: 8,
           children: filtered.map((option) {
             final isSelected = selected.contains(option);
-            return InkWell(
-              onTap: () => onToggleItem(option),
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: isSelected
-                      ? const LinearGradient(
-                          colors: [
-                            Color(0xFF663399),
-                            Color(0xFF8855BB),
-                          ],
-                        )
-                      : null,
-                  color: isSelected ? null : AppTheme.surfaceCard.withOpacity(0.88),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected
-                        ? Colors.transparent
-                        : AppTheme.borderLighter.withOpacity(0.5),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 12,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  option,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isSelected ? AppTheme.brandWhite : AppTheme.textMuted,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
+            return HearthChoiceChip(
+              label: option,
+              selected: isSelected,
+              icon: isSelected ? Icons.check : null,
+              onSelected: () => onToggleItem(option),
             );
           }).toList(),
         ),
         if (filtered.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
             child: Text(
               'No matches. Try different words.',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppTheme.textMuted,
-                fontStyle: FontStyle.italic,
-              ),
+              style: hearthCaptionStyle,
             ),
           ),
         if (selected.isNotEmpty) ...[
           const SizedBox(height: 14),
-          Text(
+          const Text(
             'Selected',
             style: TextStyle(
-              fontSize: 12,
+              fontFamily: AppTheme.sansFamily,
+              fontSize: 14,
+              height: 20 / 14,
               fontWeight: FontWeight.w600,
               color: AppTheme.textSecondary,
             ),
@@ -1213,16 +970,9 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: selected.map((item) {
-              return Chip(
-                label: Text(item),
-                backgroundColor: chipColor.withOpacity(0.12),
-                deleteIcon: Icon(Icons.close, size: 18, color: chipColor),
-                onDeleted: () => onToggleItem(item),
-                labelStyle: TextStyle(color: chipColor, fontSize: 12),
-                side: BorderSide(color: chipColor.withOpacity(0.35)),
-              );
-            }).toList(),
+            children: selected
+                .map((item) => _buildSelectedChip(item, () => onToggleItem(item)))
+                .toList(),
           ),
         ],
       ],
@@ -1244,27 +994,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (required) ...[
-              const SizedBox(width: 4),
-              const Text(
-                '*',
-                style: TextStyle(
-                  color: AppTheme.brandPurple,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ],
-        ),
+        _buildFieldLabel(label, required: required),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -1274,23 +1004,16 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
           onChanged: onChanged,
+          style: TextStyle(
+            fontFamily: AppTheme.sansFamily,
+            fontSize: 15,
+            height: 22 / 15,
+            color: enabled ? AppTheme.ink : AppTheme.textMuted,
+          ),
           decoration: InputDecoration(
             hintText: hintText,
-            filled: true,
-            fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade100,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF663399), width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            // Fields inside a card use the inset fill.
+            fillColor: AppTheme.surfaceInset,
             counterText: '',
           ),
         ),
@@ -1307,51 +1030,27 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     String? hint,
     String Function(String)? displayText,
   }) {
+    const valueStyle = TextStyle(
+      fontFamily: AppTheme.sansFamily,
+      fontSize: 15,
+      height: 22 / 15,
+      color: AppTheme.ink,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (required) ...[
-              const SizedBox(width: 4),
-              const Text(
-                '*',
-                style: TextStyle(
-                  color: AppTheme.brandPurple,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ],
-        ),
+        _buildFieldLabel(label, required: required),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: (value == null || value.isEmpty) ? null : value,
           isExpanded: true,
+          icon: const Icon(Icons.expand_more, color: AppTheme.textSecondary),
+          dropdownColor: AppTheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.fieldRadius),
+          style: valueStyle,
           decoration: InputDecoration(
             hintText: hint ?? 'Select $label',
-            filled: true,
-            fillColor: Colors.grey.shade50,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF663399), width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            fillColor: AppTheme.surfaceInset,
           ),
           items: items.map((item) {
             return DropdownMenuItem(
@@ -1367,7 +1066,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
               return Text(
                 displayText != null ? displayText(item) : item,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.black87),
+                style: valueStyle,
               );
             }).toList();
           },
@@ -1386,38 +1085,43 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     required List<String> options,
     required List<String> selected,
     required Function(String) onToggleItem,
-    Color chipColor = AppTheme.brandPurple,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        InkWell(
-          onTap: onToggle,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceCard.withOpacity(0.88),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppTheme.borderLighter.withOpacity(0.5),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
+        // Drawn like a dropdown field so it reads as one.
+        Material(
+          color: AppTheme.surfaceInset,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.fieldRadius),
+            side: const BorderSide(color: AppTheme.borderWarm),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onToggle,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 52),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontFamily: AppTheme.sansFamily,
+                        fontSize: 15,
+                        height: 22 / 15,
+                        color: AppTheme.ink,
+                      ),
+                    ),
                   ),
-                ),
-                Icon(
-                  isExpanded ? Icons.expand_less : Icons.expand_more,
-                  color: Colors.grey[400],
-                ),
-              ],
+                  Icon(
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: AppTheme.textSecondary,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1428,44 +1132,11 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
             runSpacing: 8,
             children: options.map((option) {
               final isSelected = selected.contains(option);
-              return InkWell(
-                onTap: () => onToggleItem(option),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? LinearGradient(
-                            colors: [
-                              Color(0xFFD4C5E0), // from-[#d4c5e0]
-                              Color(0xFFA89CB5), // to-[#a89cb5]
-                            ],
-                          )
-                        : null,
-                    color: isSelected ? null : AppTheme.surfaceCard.withOpacity(0.88),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected
-                          ? Colors.transparent
-                          : AppTheme.borderLighter.withOpacity(0.5),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 12,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    option,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isSelected ? AppTheme.brandWhite : AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                ),
+              return HearthChoiceChip(
+                label: option,
+                selected: isSelected,
+                icon: isSelected ? Icons.check : null,
+                onSelected: () => onToggleItem(option),
               );
             }).toList(),
           ),
@@ -1475,16 +1146,9 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: selected.map((item) {
-              return Chip(
-                label: Text(item),
-                backgroundColor: chipColor.withOpacity(0.1),
-                deleteIcon: Icon(Icons.close, size: 16, color: chipColor),
-                onDeleted: () => onToggleItem(item),
-                labelStyle: TextStyle(color: chipColor, fontSize: 12),
-                side: BorderSide(color: chipColor.withOpacity(0.3)),
-              );
-            }).toList(),
+            children: selected
+                .map((item) => _buildSelectedChip(item, () => onToggleItem(item)))
+                .toList(),
           ),
         ],
       ],
@@ -1495,43 +1159,25 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        InkWell(
+        HearthCard(
           onTap: () {
             setState(() {
               _showAdvanced = !_showAdvanced;
             });
           },
-          borderRadius: BorderRadius.circular(28),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceCard.withOpacity(0.65),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: AppTheme.borderLighter.withOpacity(0.5),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 16,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 62),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'Advanced Filters',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: AppTheme.textSecondary,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
                 Icon(
                   _showAdvanced ? Icons.expand_less : Icons.expand_more,
-                  color: AppTheme.textBarelyVisible,
+                  color: AppTheme.brandPurple,
                 ),
               ],
             ),
@@ -1552,7 +1198,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                     });
                   },
                 ),
-                const Divider(),
+                const Divider(height: 32),
                 _buildToggleRow(
                   title: 'Accepts pregnant patients',
                   subtitle: 'Prenatal care provided',
@@ -1563,7 +1209,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                     });
                   },
                 ),
-                const Divider(),
+                const Divider(height: 32),
                 _buildToggleRow(
                   title: 'Accepts newborns',
                   subtitle: 'Newborn care provided',
@@ -1585,7 +1231,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
               children: [
                 const Text(
                   'Tags are community-added and may be pending verification',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: hearthCaptionStyle,
                 ),
                 const SizedBox(height: 12),
                 _buildExpandableSelector(
@@ -1605,7 +1251,6 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                     _selectedIdentityTags,
                     (list) => _selectedIdentityTags = list,
                   ),
-                  chipColor: Colors.blue,
                 ),
               ],
             ),
@@ -1636,8 +1281,11 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                     child: Text(
                       title,
                       style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        fontFamily: AppTheme.sansFamily,
+                        fontSize: 15,
+                        height: 22 / 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.ink,
                       ),
                     ),
                   ),
@@ -1645,9 +1293,9 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                     const SizedBox(width: 4),
                     InkWell(
                       onTap: onInfoTap,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
+                      borderRadius: BorderRadius.circular(22),
+                      child: const Padding(
+                        padding: EdgeInsets.all(13),
                         child: Icon(
                           Icons.info_outline,
                           size: 18,
@@ -1661,19 +1309,15 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
-                ),
+                style: hearthCaptionStyle,
               ),
             ],
           ),
         ),
+        const SizedBox(width: 14),
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: AppTheme.brandPurple,
         ),
       ],
     );

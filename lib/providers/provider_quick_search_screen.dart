@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../constants/provider_search_constants.dart';
 import '../constants/provider_types.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../services/database_service.dart';
 import 'provider_search_entry_screen.dart';
 import 'provider_search_results_screen.dart';
@@ -344,179 +345,161 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
       summaryParts.add('${_selectedLanguages.length} language(s)');
     }
 
+    final labelStyle = Theme.of(context).textTheme.labelMedium;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      appBar: AppTheme.newUiAppBar(context, title: 'Search providers'),
-      body: _loadingDefaults
-          ? const Center(child: CircularProgressIndicator())
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
+        child: _loadingDefaults
+          ? const Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                HearthPushedHeader(title: 'Search providers'),
+                Expanded(child: Center(child: CircularProgressIndicator())),
+              ],
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const HearthPushedHeader(
+                    title: 'Search providers',
+                    padding: EdgeInsets.fromLTRB(0, 20, 0, 16),
+                  ),
                   Text(
                     summaryParts.join(' · '),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
-                    ),
+                    style: hearthCaptionStyle,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   Text(
                     'Search by provider name or type (both optional). Leave blank '
                     'to see everyone nearby.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textMuted,
-                      height: 1.35,
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: Material(
-                          elevation: 2,
-                          shadowColor: Colors.black26,
-                          borderRadius: BorderRadius.circular(28),
-                          child: TextField(
-                            controller: _queryController,
-                            focusNode: _focusNode,
-                            textInputAction: TextInputAction.search,
-                            onSubmitted: (_) => _runSearch(),
-                            decoration: InputDecoration(
-                              hintText: 'Search by name or type (optional)…',
-                              prefixIcon:
-                                  Icon(Icons.search, color: AppTheme.textMuted),
-                              filled: true,
-                              fillColor: AppTheme.surfaceCard,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(28),
-                                borderSide:
-                                    BorderSide(color: AppTheme.borderLight),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(28),
-                                borderSide:
-                                    BorderSide(color: AppTheme.borderLight),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(28),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF663399),
-                                  width: 2,
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              isDense: true,
-                            ),
+                        child: TextField(
+                          controller: _queryController,
+                          focusNode: _focusNode,
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (_) => _runSearch(),
+                          decoration: const InputDecoration(
+                            hintText: 'Search by name or type (optional)…',
+                            prefixIcon:
+                                Icon(Icons.search, color: AppTheme.brandPurple),
+                            // The main search field is a pill, like the hub's.
+                            border: _pillBorder,
+                            enabledBorder: _pillBorder,
+                            focusedBorder: _pillFocusedBorder,
                           ),
                         ),
                       ),
                       const SizedBox(width: 10),
-                      FilledButton(
+                      HearthButton.primary(
+                        label: 'Search',
                         onPressed: _runSearch,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF663399),
-                          foregroundColor: AppTheme.brandWhite,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 16,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                        ),
-                        child: const Text('Search'),
+                        expand: false,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Suggestions',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
+                  const SizedBox(height: 20),
+                  Text('Suggestions', style: labelStyle?.copyWith(color: AppTheme.textSecondary)),
                   const SizedBox(height: 8),
-                  ..._suggestions.map(
-                    (s) => ListTile(
-                      dense: true,
-                      title: Text(s),
-                      onTap: () => _applySuggestion(s),
+                  if (_suggestions.isNotEmpty)
+                    HearthCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var i = 0; i < _suggestions.length; i++) ...[
+                            if (i > 0)
+                              const Divider(height: 1, thickness: 1, color: AppTheme.borderWarm),
+                            InkWell(
+                              onTap: () => _applySuggestion(_suggestions[i]),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(minHeight: 48),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 11,
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      _suggestions[i],
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyLarge
+                                          ?.copyWith(color: AppTheme.ink),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
                   if (_suggestions.isEmpty &&
                       _queryController.text.trim().isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Text(
                         'No suggestions. You can still search or open expanded filters.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMuted,
-                          fontStyle: FontStyle.italic,
-                        ),
+                        style: hearthCaptionStyle,
                       ),
                     ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: TextField(
-                          controller: _zipController,
-                          keyboardType: TextInputType.number,
-                          maxLength: 5,
-                          onChanged: (_) => setState(() {}),
-                          decoration: InputDecoration(
-                            counterText: '',
-                            labelText: 'ZIP',
-                            filled: true,
-                            fillColor: AppTheme.surfaceCard,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text('ZIP', style: labelStyle),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _zipController,
+                              keyboardType: TextInputType.number,
+                              maxLength: 5,
+                              onChanged: (_) => setState(() {}),
+                              decoration: const InputDecoration(
+                                counterText: '',
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         flex: 2,
-                        child: TextField(
-                          controller: _cityController,
-                          onChanged: (_) => setState(() {}),
-                          textCapitalization: TextCapitalization.words,
-                          decoration: InputDecoration(
-                            labelText: 'City',
-                            filled: true,
-                            fillColor: AppTheme.surfaceCard,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text('City', style: labelStyle),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _cityController,
+                              onChanged: (_) => setState(() {}),
+                              textCapitalization: TextCapitalization.words,
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+                  Text('Insurance / plan', style: labelStyle),
+                  const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     isExpanded: true,
                     value: _healthPlan,
-                    decoration: InputDecoration(
-                      labelText: 'Insurance / plan',
-                      filled: true,
-                      fillColor: AppTheme.surfaceCard,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    icon: const Icon(Icons.expand_more, color: AppTheme.brandPurple),
                     items: _healthPlans
                         .map(
                           (p) => DropdownMenuItem(
@@ -533,18 +516,13 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                       if (v != null) setState(() => _healthPlan = v);
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+                  Text('Radius', style: labelStyle),
+                  const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     isExpanded: true,
                     value: '$_radius',
-                    decoration: InputDecoration(
-                      labelText: 'Radius',
-                      filled: true,
-                      fillColor: AppTheme.surfaceCard,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    icon: const Icon(Icons.expand_more, color: AppTheme.brandPurple),
                     items: _radiusOptions
                         .map(
                           (r) => DropdownMenuItem(
@@ -559,48 +537,42 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                       }
                     },
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Mama Approved™ only'),
-                    subtitle: Text(
-                      '3+ reviews averaging 4 stars or higher from moms in our community.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
+                    title: const Text('Mama Approved™ only', style: hearthCardTitleStyle),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '3+ reviews averaging 4 stars or higher from moms in our community.',
+                        style: hearthCaptionStyle,
                       ),
                     ),
                     value: _mamaApprovedOnly,
-                    activeTrackColor: AppTheme.brandPurple.withValues(alpha: 0.45),
-                    activeThumbColor: AppTheme.brandPurple,
                     onChanged: (v) => setState(() => _mamaApprovedOnly = v),
                   ),
+                  const SizedBox(height: 8),
+                  Text('Specialty (optional)', style: labelStyle),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: _specialtyController,
                     onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      labelText: 'Specialty (optional)',
+                    decoration: const InputDecoration(
                       hintText: 'e.g. high-risk pregnancy',
-                      filled: true,
-                      fillColor: AppTheme.surfaceCard,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   Theme(
                     data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                     child: ExpansionTile(
                       tilePadding: EdgeInsets.zero,
+                      iconColor: AppTheme.brandPurple,
+                      collapsedIconColor: AppTheme.brandPurple,
+                      shape: const Border(),
+                      collapsedShape: const Border(),
                       title: Text(
                         'Race/ethnicity, language & cultural tags',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
-                        ),
+                        style: labelStyle?.copyWith(color: AppTheme.ink),
                       ),
                       childrenPadding: const EdgeInsets.only(bottom: 8),
                       children: [
@@ -608,76 +580,72 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             'Cultural / identity',
-                            style: TextStyle(
-                              fontSize: 12,
+                            style: hearthCaptionStyle.copyWith(
                               color: AppTheme.textSecondary,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: _identityTagOptions.map((label) {
                             final sel = _selectedIdentityTags.contains(label);
-                            return FilterChip(
-                              label: Text(
-                                label,
-                                style: const TextStyle(fontSize: 12),
-                              ),
+                            return HearthChoiceChip(
+                              label: label,
                               selected: sel,
-                              onSelected: (_) => _toggleIdentity(label),
-                              selectedColor: AppTheme.brandPurple.withValues(alpha: 0.2),
-                              checkmarkColor: AppTheme.brandPurple,
+                              icon: sel ? Icons.check : null,
+                              onSelected: () => _toggleIdentity(label),
                             );
                           }).toList(),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
                             'Language',
-                            style: TextStyle(
-                              fontSize: 12,
+                            style: hearthCaptionStyle.copyWith(
                               color: AppTheme.textSecondary,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: _languageOptions.map((label) {
                             final sel = _selectedLanguages.contains(label);
-                            return FilterChip(
-                              label: Text(
-                                label,
-                                style: const TextStyle(fontSize: 12),
-                              ),
+                            return HearthChoiceChip(
+                              label: label,
                               selected: sel,
-                              onSelected: (_) => _toggleLanguage(label),
-                              selectedColor: AppTheme.brandPurple.withValues(alpha: 0.2),
-                              checkmarkColor: AppTheme.brandPurple,
+                              icon: sel ? Icons.check : null,
+                              onSelected: () => _toggleLanguage(label),
                             );
                           }).toList(),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
+                  const SizedBox(height: 16),
+                  HearthButton.secondary(
+                    label: 'Expanded search (all filters)',
+                    icon: Icons.tune_rounded,
                     onPressed: _openExpanded,
-                    icon: Icon(Icons.tune_rounded, color: AppTheme.brandPurple),
-                    label: const Text('Expanded search (all filters)'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.brandPurple,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Color(0xFFD4C4EB)),
-                    ),
                   ),
                 ],
               ),
             ),
+      ),
     );
   }
 }
+
+const OutlineInputBorder _pillBorder = OutlineInputBorder(
+  borderRadius: BorderRadius.all(Radius.circular(999)),
+  borderSide: BorderSide(color: AppTheme.borderWarm),
+);
+
+const OutlineInputBorder _pillFocusedBorder = OutlineInputBorder(
+  borderRadius: BorderRadius.all(Radius.circular(999)),
+  borderSide: BorderSide(color: AppTheme.brandPurple, width: 2),
+);

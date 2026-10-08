@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../widgets/ai_disclaimer_banner.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 
 /// Represents a loading stage with icon, message, and progress threshold
 class LoadingStage {
@@ -54,13 +54,13 @@ class _ProviderSearchLoadingState extends State<ProviderSearchLoading>
       progress: 0.0,
     ),
     LoadingStage(
-      icon: Icons.cloud,
+      icon: Icons.cloud_outlined,
       message: 'Searching NPI registry...',
       subtext: 'Finding additional providers',
       progress: 0.35,
     ),
     LoadingStage(
-      icon: Icons.people,
+      icon: Icons.people_outline,
       message: 'Searching community directory...',
       subtext: 'Including BIPOC and verified providers',
       progress: 0.55,
@@ -72,13 +72,13 @@ class _ProviderSearchLoadingState extends State<ProviderSearchLoading>
       progress: 0.70,
     ),
     LoadingStage(
-      icon: Icons.shield,
+      icon: Icons.shield_outlined,
       message: 'Adding community trust indicators...',
       subtext: 'Including reviews and identity tags',
       progress: 0.85,
     ),
     LoadingStage(
-      icon: Icons.star,
+      icon: Icons.star_outline_rounded,
       message: 'Almost ready...',
       subtext: 'Preparing your personalized results',
       progress: 0.95,
@@ -213,190 +213,162 @@ class _ProviderSearchLoadingState extends State<ProviderSearchLoading>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppTheme.surfaceCard, AppTheme.backgroundWarm],
-        ),
-      ),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(height: 40),
-              
-              // Disclaimer Banner (matching NewUI)
-              AIDisclaimerBanner(
-                customMessage:
-                    'We match Ohio Medicaid and a national provider list to your ZIP, then apply the filters you chose.',
-                customSubMessage:
-                    'Fields with * are required for the directory. Mama Approved™ appears when there are 3+ parent reviews averaging 4★+; tags come from the community, not insurers.',
-              ),
-              
-              const SizedBox(height: 40),
-              
-              // Main loading card (matching NewUI "Almost ready..." design)
-              Container(
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+    final textTheme = Theme.of(context).textTheme;
+    // Sits on the results screen's ground, so no fill of its own.
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // How the search works. Not AI output, so a cream note.
+            HearthNote(
+              icon: Icons.favorite_border,
+              text:
+                  'We match Ohio Medicaid and a national provider list to your ZIP, then apply the filters you chose.',
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Fields with * are required for the directory. Mama Approved™ appears when there are 3+ parent reviews averaging 4★+; tags come from the community, not insurers.',
+                  style: hearthCardBodyStyle.copyWith(color: AppTheme.textMuted),
                 ),
-                child: Column(
-                  children: [
-                    // Large icon with changing images
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            HearthCard(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+              child: Column(
+                children: [
+                  // Large icon with changing images
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Container(
+                      key: ValueKey(_currentStageIndex),
+                      width: 80,
+                      height: 80,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.tintWarm,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _loadingStages[_currentStageIndex].icon,
+                        size: 36,
+                        color: AppTheme.brandPurple,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Stage message (updates based on progress)
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      _loadingStages[_currentStageIndex].message,
+                      key: ValueKey(_currentStageIndex),
+                      textAlign: TextAlign.center,
+                      style: textTheme.headlineMedium,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Stage subtext
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      _loadingStages[_currentStageIndex].subtext,
+                      key: ValueKey('subtext_$_currentStageIndex'),
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodyLarge,
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Progress bar (uses actual progress, not just animation)
+                  Container(
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: AppTheme.borderWarm,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: _currentProgress.clamp(0.0, 1.0),
                       child: Container(
-                        key: ValueKey(_currentStageIndex),
-                        width: 80,
-                        height: 80,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF5F0E8), // Light beige background
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _loadingStages[_currentStageIndex].icon,
-                          size: 40,
-                          color: const Color(0xFF663399),
+                          color: AppTheme.brandPurple,
+                          borderRadius: BorderRadius.circular(999),
                         ),
                       ),
                     ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Stage message (updates based on progress)
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: Text(
-                        _loadingStages[_currentStageIndex].message,
-                        key: ValueKey(_currentStageIndex),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 8),
-                    
-                    // Stage subtext
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: Text(
-                        _loadingStages[_currentStageIndex].subtext,
-                        key: ValueKey('subtext_$_currentStageIndex'),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Progress bar (uses actual progress, not just animation)
-                    Container(
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF5F0E8), // Light beige background
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: FractionallySizedBox(
-                        alignment: Alignment.centerLeft,
-                        widthFactor: _currentProgress.clamp(0.0, 1.0),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF663399),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Icon row showing progress steps. Circles shrink to fit
-                    // narrow screens (6 x 48 is wider than an iPhone SE card).
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        const gap = 4.0;
-                        final count = _loadingStages.length;
-                        final diameter =
-                            ((constraints.maxWidth - gap * (count - 1)) / count)
-                                .clamp(28.0, 48.0);
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(count, (index) {
-                            final isActive = index <= _currentStageIndex;
-                            final isCurrent = index == _currentStageIndex;
-                            return Container(
-                              width: diameter,
-                              height: diameter,
-                              decoration: BoxDecoration(
-                                color: isActive 
-                                    ? const Color(0xFF663399).withOpacity(isCurrent ? 0.2 : 0.1)
-                                    : Colors.grey.shade100,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isActive 
-                                      ? const Color(0xFF663399)
-                                      : Colors.grey.shade300,
-                                  width: isCurrent ? 3 : (isActive ? 2 : 1),
-                                ),
-                              ),
-                              child: Icon(
-                                _loadingStages[index].icon,
-                                size: diameter / 2,
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Icon row showing progress steps. Circles shrink to fit
+                  // narrow screens (6 x 44 is wider than an iPhone SE card).
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      const gap = 4.0;
+                      final count = _loadingStages.length;
+                      final diameter =
+                          ((constraints.maxWidth - gap * (count - 1)) / count)
+                              .clamp(28.0, 44.0);
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: List.generate(count, (index) {
+                          final isActive = index <= _currentStageIndex;
+                          final isCurrent = index == _currentStageIndex;
+                          return Container(
+                            width: diameter,
+                            height: diameter,
+                            decoration: BoxDecoration(
+                              color: isActive ? AppTheme.tintWarm : AppTheme.ground,
+                              shape: BoxShape.circle,
+                              border: Border.all(
                                 color: isActive
-                                    ? const Color(0xFF663399)
-                                    : Colors.grey.shade400,
+                                    ? AppTheme.brandPurple
+                                    : AppTheme.borderWarm,
+                                width: isCurrent ? 3 : (isActive ? 2 : 1),
                               ),
-                            );
-                          }),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                            ),
+                            child: Icon(
+                              _loadingStages[index].icon,
+                              size: diameter * 20 / 44,
+                              color: isActive
+                                  ? AppTheme.brandPurple
+                                  : AppTheme.textMuted,
+                            ),
+                          );
+                        }),
+                      );
+                    },
+                  ),
+                ],
               ),
-              
-              const SizedBox(height: 32),
-              
-              // Personalization note
-              Text(
-                'Finding providers who are right for you',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: 8),
-              
-              Text(
-                'Finding your care team, ${_userName ?? 'there'}...',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[500],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Personalization note
+            Text(
+              'Finding providers who are right for you',
+              style: textTheme.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              'Finding your care team, ${_userName ?? 'there'}...',
+              style: textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );

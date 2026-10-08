@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../models/provider.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
@@ -76,13 +77,16 @@ class _MamaApprovedProvidersScreenState
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      appBar: AppTheme.newUiAppBar(
-        context,
-        title: 'Mama Approved™ providers',
-      ),
-      body: RefreshIndicator(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const HearthPushedHeader(title: 'Mama Approved™ providers'),
+            Expanded(
+              child: RefreshIndicator(
         onRefresh: _load,
         child: _loading
             ? ListView(
@@ -95,27 +99,25 @@ class _MamaApprovedProvidersScreenState
             : _error != null
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                     children: [
                       Text(
                         'Could not load the list.',
-                        style: TextStyle(color: AppTheme.textPrimary),
+                        style: hearthCardTitleStyle,
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Check your internet connection, then pull down to try again.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMuted,
-                        ),
+                        style: textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 16),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
+                        child: HearthButton.secondary(
+                          label: 'Try again',
+                          icon: Icons.refresh,
                           onPressed: _load,
-                          icon: const Icon(Icons.refresh, size: 18),
-                          label: const Text('Try again'),
+                          expand: false,
                         ),
                       ),
                     ],
@@ -123,24 +125,16 @@ class _MamaApprovedProvidersScreenState
                 : _providers.isEmpty
                     ? ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                         children: [
                           Text(
                             'No Mama Approved™ providers yet.',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: AppTheme.textPrimary,
-                            ),
+                            style: textTheme.headlineMedium,
                           ),
                           const SizedBox(height: 8),
                           Text(
                             '${Provider.mamaApprovedCriteriaText} Share your own provider experience to help other moms.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.textMuted,
-                              fontWeight: FontWeight.w300,
-                              height: 1.35,
-                            ),
+                            style: textTheme.bodyLarge,
                           ),
                         ],
                       )
@@ -149,17 +143,13 @@ class _MamaApprovedProvidersScreenState
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                         // Index 0 is a one-sentence explainer of the badge.
                         itemCount: _providers.length + 1,
-                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        separatorBuilder: (_, index) =>
+                            SizedBox(height: index == 0 ? 20 : 16),
                         itemBuilder: (context, index) {
                           if (index == 0) {
                             return Text(
                               Provider.mamaApprovedCriteriaText,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppTheme.textMuted,
-                                fontWeight: FontWeight.w300,
-                                height: 1.35,
-                              ),
+                              style: textTheme.bodyLarge,
                             );
                           }
                           final p = _providers[index - 1];
@@ -169,11 +159,8 @@ class _MamaApprovedProvidersScreenState
                           final locationText = location != null
                               ? '${location.city}, ${location.state}'
                               : 'Location not available';
-                          return Material(
-                            color: AppTheme.surfaceCard,
-                            elevation: 0,
-                            borderRadius: BorderRadius.circular(24),
-                            child: InkWell(
+                          return HearthCard(
+                              padding: const EdgeInsets.all(20),
                               onTap: () {
                                 Navigator.push<void>(
                                   context,
@@ -185,20 +172,6 @@ class _MamaApprovedProvidersScreenState
                                   ),
                                 );
                               },
-                              borderRadius: BorderRadius.circular(24),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(color: AppTheme.borderLight),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.04),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                padding: const EdgeInsets.all(20),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -207,52 +180,41 @@ class _MamaApprovedProvidersScreenState
                                     // never squeezes the name at large text.
                                     Text(
                                       p.primaryDisplayName,
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w400,
-                                        color: AppTheme.textPrimary,
-                                      ),
+                                      style: textTheme.titleLarge,
                                     ),
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 8),
                                     const MamaApprovedCommunityBadge(
                                       compact: true,
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
                                       p.specialty ?? 'Provider',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: AppTheme.textMuted,
-                                        fontWeight: FontWeight.w300,
-                                      ),
+                                      style: hearthCardBodyStyle,
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
                                       locationText,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.textMuted,
-                                        fontWeight: FontWeight.w300,
-                                      ),
+                                      style: hearthCaptionStyle,
                                     ),
                                     if (p.rating != null ||
                                         (p.reviewCount ?? 0) > 0) ...[
                                       const SizedBox(height: 6),
                                       Text(
                                         '${p.rating != null ? '${Provider.formatAverageRating(p.rating!)} ★ · ' : ''}${p.reviewCount ?? 0} reviews',
-                                        style: TextStyle(
-                                          fontSize: 13,
+                                        style: hearthCardBodyStyle.copyWith(
                                           color: AppTheme.textMuted,
                                         ),
                                       ),
                                     ],
                                   ],
                                 ),
-                              ),
-                            ),
                           );
                         },
                       ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

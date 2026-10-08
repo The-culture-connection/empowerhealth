@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../providers/profile_creation_provider.dart';
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 
 class WellnessAccessStep extends StatelessWidget {
   const WellnessAccessStep({super.key});
@@ -14,14 +15,14 @@ class WellnessAccessStep extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Understanding your access to resources helps us connect you with the right support.',
-              style: TextStyle(fontSize: 16, color: Colors.black87),
+              style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: AppTheme.spacingXL),
 
-            _buildSectionHeader('Do you have access to:'),
-            const SizedBox(height: AppTheme.spacingL),
+            _buildSectionHeader(context, 'Do you have access to:'),
+            const SizedBox(height: 14),
 
             _buildYesNoTile(
               context: context,
@@ -75,9 +76,9 @@ class WellnessAccessStep extends StatelessWidget {
               },
             ),
 
-            const SizedBox(height: AppTheme.spacingL),
-            _buildSectionHeader('Additional Support:'),
-            const SizedBox(height: AppTheme.spacingL),
+            const SizedBox(height: AppTheme.spacingM),
+            _buildSectionHeader(context, 'Additional Support:'),
+            const SizedBox(height: 14),
 
             _buildYesNoTile(
               context: context,
@@ -112,15 +113,10 @@ class WellnessAccessStep extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Text(
       title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.brandPurple,
-        fontFamily: 'Primary',
-      ),
+      style: Theme.of(context).textTheme.titleLarge,
     );
   }
 
@@ -131,69 +127,65 @@ class WellnessAccessStep extends StatelessWidget {
     required bool value,
     required Function(bool) onChanged,
   }) {
-    return Container(
+    return HearthCard(
       margin: const EdgeInsets.only(bottom: AppTheme.spacingM),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.grey[300]!,
-          width: 1,
-        ),
-      ),
+      padding: const EdgeInsets.all(16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ListTile(
-            title: Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            subtitle: Text(
-              subtitle,
-              style: const TextStyle(fontSize: 13, color: Colors.black54),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spacingL,
-              vertical: AppTheme.spacingS,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL, vertical: AppTheme.spacingS),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => onChanged(true),
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: value ? AppTheme.brandTurquoise : AppTheme.surfaceCard,
-                      foregroundColor: value ? AppTheme.brandWhite : AppTheme.brandTurquoise,
-                      side: BorderSide(
-                        color: value ? AppTheme.brandTurquoise : Colors.grey[300]!,
-                        width: value ? 2 : 1,
-                      ),
-                    ),
-                    child: const Text('Yes'),
-                  ),
+          Text(title, style: hearthCardTitleStyle),
+          const SizedBox(height: 4),
+          Text(subtitle, style: hearthCaptionStyle),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _buildAnswerButton(
+                  label: 'Yes',
+                  selected: value,
+                  onPressed: () => onChanged(true),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => onChanged(false),
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: !value ? Colors.red.withOpacity(0.1) : AppTheme.surfaceCard,
-                      foregroundColor: !value ? Colors.red : Colors.grey[600]!,
-                      side: BorderSide(
-                        color: !value ? Colors.red : Colors.grey[300]!,
-                        width: !value ? 2 : 1,
-                      ),
-                    ),
-                    child: const Text('No'),
-                  ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildAnswerButton(
+                  label: 'No',
+                  selected: !value,
+                  onPressed: () => onChanged(false),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  // Yes and No share the selected-chip look; "No" is an answer, not an error.
+  Widget _buildAnswerButton({
+    required String label,
+    required bool selected,
+    required VoidCallback onPressed,
+  }) {
+    return Semantics(
+      selected: selected,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(64, 44),
+          backgroundColor: selected ? AppTheme.tintWarm : AppTheme.ground,
+          foregroundColor: selected ? AppTheme.brandPurple : AppTheme.textSecondary,
+          side: BorderSide(
+            color: selected ? AppTheme.brandPurple : AppTheme.borderWarm,
+            width: selected ? 2 : 1,
+          ),
+          textStyle: TextStyle(
+            fontFamily: AppTheme.sansFamily,
+            fontSize: 15,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          ),
+        ),
+        child: Text(label),
       ),
     );
   }
@@ -208,12 +200,6 @@ class WellnessAccessStep extends StatelessWidget {
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         title: Text(
           'Need Help with $resourceType?',
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-            fontFamily: 'Primary',
-          ),
         ),
         content: Text(
           'We can help connect you with resources for $resourceType. Would you like us to provide referrals?',

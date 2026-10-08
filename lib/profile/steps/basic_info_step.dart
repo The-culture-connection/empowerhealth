@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/profile_creation_provider.dart';
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 
 class BasicInfoStep extends StatefulWidget {
   const BasicInfoStep({super.key});
@@ -18,7 +19,7 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
   final _stateController = TextEditingController();
   final _childAgeMonthsController = TextEditingController();
   final _formRecruitmentKey = GlobalKey<FormFieldState<String>>();
-  
+
   @override
   void initState() {
     super.initState();
@@ -47,39 +48,52 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Let\'s start with some basic information about you.',
-                style: TextStyle(fontSize: 16, color: Colors.black87),
+                style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: AppTheme.spacingXL),
 
               _buildSectionHeader('Research study (optional)'),
               const SizedBox(height: AppTheme.spacingM),
-              SwitchListTile.adaptive(
-                value: provider.enrollInResearchStudy,
-                onChanged: provider.updateEnrollInResearchStudy,
-                title: const Text('Join the EmpowerHealth Watch research study'),
-                subtitle: const Text(
-                  'If you turn this on, after saving your profile you will complete a short '
-                  'research enrollment (study ID and baseline survey). Your name and email are '
-                  'not stored in the research dataset.',
+              HearthCard(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                // Not .adaptive: the Cupertino switch ignores the Hearth switch colours.
+                child: SwitchListTile(
+                  value: provider.enrollInResearchStudy,
+                  onChanged: provider.updateEnrollInResearchStudy,
+                  title: const Text(
+                    'Join the EmpowerHealth Watch research study',
+                    style: hearthCardTitleStyle,
+                  ),
+                  subtitle: const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      'If you turn this on, after saving your profile you will complete a short '
+                      'research enrollment (study ID and baseline survey). Your name and email are '
+                      'not stored in the research dataset.',
+                      style: hearthCardBodyStyle,
+                    ),
+                  ),
+                  contentPadding: EdgeInsets.zero,
                 ),
-                activeThumbColor: AppTheme.brandPurple,
-                contentPadding: EdgeInsets.zero,
               ),
               const SizedBox(height: AppTheme.spacingXL),
 
               // Recruitment source
               _buildSectionHeader('How did you hear about EmpowerHealth Watch?'),
               const SizedBox(height: AppTheme.spacingM),
+              _buildFieldLabel('Select an option'),
               DropdownButtonFormField<String>(
                 isExpanded: true,
                 isDense: false,
                 itemHeight: null,
                 key: _formRecruitmentKey,
                 value: provider.recruitmentSource,
+                icon: _dropdownIcon,
+                dropdownColor: AppTheme.surface,
+                borderRadius: hearthCardRadius,
                 decoration: const InputDecoration(
-                  labelText: 'Select an option',
                   helperText: 'This helps us understand how people find the app',
                   helperMaxLines: 3,
                 ),
@@ -120,12 +134,12 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               const SizedBox(height: AppTheme.spacingXL),
 
               // Username
+              _buildFieldLabel('Username'),
               TextFormField(
                 initialValue: provider.username,
                 decoration: const InputDecoration(
-                  labelText: 'Username',
                   hintText: 'Choose a username',
-                  prefixIcon: Icon(Icons.person_outline),
+                  prefixIcon: Icon(Icons.person_outline, color: AppTheme.brandPurple),
                   helperText: 'This will be displayed in the community and reviews',
                   helperMaxLines: 3,
                   errorMaxLines: 3,
@@ -153,12 +167,12 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               const SizedBox(height: AppTheme.spacingXL),
 
               // Age
+              _buildFieldLabel('Age'),
               TextFormField(
                 initialValue: provider.age.toString(),
                 decoration: const InputDecoration(
-                  labelText: 'Age',
                   hintText: 'Enter your age',
-                  prefixIcon: Icon(Icons.cake_outlined),
+                  prefixIcon: Icon(Icons.cake_outlined, color: AppTheme.brandPurple),
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
@@ -183,29 +197,22 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               // Pregnancy Status - Single Select
               _buildSectionHeader('Pregnancy Status'),
               const SizedBox(height: AppTheme.spacingM),
-              
-              RadioListTile<String>(
-                title: const Text('I am currently pregnant'),
-                value: 'pregnant',
-                groupValue: provider.isPregnant ? 'pregnant' : (provider.isPostpartum ? 'postpartum' : null),
-                activeColor: AppTheme.brandPurple,
-                contentPadding: EdgeInsets.zero,
-                onChanged: (value) {
+
+              HearthOptionRow(
+                label: 'I am currently pregnant',
+                selected: provider.isPregnant,
+                onTap: () {
                   provider.updateBasicInfo(isPregnant: true, isPostpartum: false);
                 },
               ),
 
               if (provider.isPregnant) ...[
-                const SizedBox(height: AppTheme.spacingM),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Due Date'),
-                  subtitle: Text(
-                    provider.dueDate != null
-                        ? DateFormat('MMMM d, yyyy').format(provider.dueDate!)
-                        : 'Tap to select',
-                  ),
-                  trailing: const Icon(Icons.calendar_today),
+                const SizedBox(height: AppTheme.spacingS),
+                _buildDateField(
+                  label: 'Due Date',
+                  value: provider.dueDate != null
+                      ? DateFormat('MMMM d, yyyy').format(provider.dueDate!)
+                      : 'Tap to select',
                   onTap: () async {
                     final date = await showDatePicker(
                       context: context,
@@ -219,57 +226,40 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                   },
                 ),
                 if (provider.dueDate != null) ...[
-                  const SizedBox(height: AppTheme.spacingM),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.brandPurple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, color: AppTheme.brandPurple),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Current Trimester: ${_calculateTrimester(provider.dueDate)}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.brandPurple,
-                            ),
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: AppTheme.spacingS),
+                  HearthNote(
+                    tone: HearthNoteTone.lavender,
+                    child: Text(
+                      'Current Trimester: ${_calculateTrimester(provider.dueDate)}',
+                      style: const TextStyle(
+                        fontFamily: AppTheme.sansFamily,
+                        fontSize: 15,
+                        height: 22 / 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.ink,
+                      ),
                     ),
                   ),
                 ],
               ],
 
-              const SizedBox(height: AppTheme.spacingM),
-              
-              RadioListTile<String>(
-                title: const Text('I am postpartum'),
-                value: 'postpartum',
-                groupValue: provider.isPregnant ? 'pregnant' : (provider.isPostpartum ? 'postpartum' : null),
-                activeColor: AppTheme.brandPurple,
-                contentPadding: EdgeInsets.zero,
-                onChanged: (value) {
+              const SizedBox(height: AppTheme.spacingS),
+
+              HearthOptionRow(
+                label: 'I am postpartum',
+                selected: !provider.isPregnant && provider.isPostpartum,
+                onTap: () {
                   provider.updateBasicInfo(isPregnant: false, isPostpartum: true);
                 },
               ),
 
               if (provider.isPostpartum) ...[
-                const SizedBox(height: AppTheme.spacingM),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Delivery Date'),
-                  subtitle: Text(
-                    provider.deliveryDate != null
-                        ? DateFormat('MMMM d, yyyy').format(provider.deliveryDate!)
-                        : 'Tap to select',
-                  ),
-                  trailing: const Icon(Icons.calendar_today),
+                const SizedBox(height: AppTheme.spacingS),
+                _buildDateField(
+                  label: 'Delivery Date',
+                  value: provider.deliveryDate != null
+                      ? DateFormat('MMMM d, yyyy').format(provider.deliveryDate!)
+                      : 'Tap to select',
                   onTap: () async {
                     final date = await showDatePicker(
                       context: context,
@@ -283,13 +273,13 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                   },
                 ),
                 if (provider.deliveryDate != null) ...[
-                  const SizedBox(height: AppTheme.spacingM),
+                  const SizedBox(height: AppTheme.spacingL),
+                  _buildFieldLabel('Child\'s Age (in months)'),
                   TextFormField(
                     controller: _childAgeMonthsController,
                     decoration: const InputDecoration(
-                      labelText: 'Child\'s Age (in months)',
                       hintText: 'Auto-calculated from delivery date',
-                      prefixIcon: Icon(Icons.child_care),
+                      prefixIcon: Icon(Icons.child_care, color: AppTheme.brandPurple),
                     ),
                     keyboardType: TextInputType.number,
                     readOnly: true,
@@ -300,12 +290,12 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
               const SizedBox(height: AppTheme.spacingXL),
 
               // Zip Code
+              _buildFieldLabel('Zip Code'),
               TextFormField(
                 controller: _zipCodeController,
                 decoration: const InputDecoration(
-                  labelText: 'Zip Code',
                   hintText: 'Enter your zip code',
-                  prefixIcon: Icon(Icons.location_on_outlined),
+                  prefixIcon: Icon(Icons.location_on_outlined, color: AppTheme.brandPurple),
                   errorMaxLines: 2,
                 ),
                 keyboardType: TextInputType.number,
@@ -323,14 +313,14 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                 },
               ),
               const SizedBox(height: AppTheme.spacingXL),
-              
+
               // City
+              _buildFieldLabel('City'),
               TextFormField(
                 controller: _cityController,
                 decoration: const InputDecoration(
-                  labelText: 'City',
                   hintText: 'Enter your city',
-                  prefixIcon: Icon(Icons.location_city_outlined),
+                  prefixIcon: Icon(Icons.location_city_outlined, color: AppTheme.brandPurple),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -343,14 +333,14 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                 },
               ),
               const SizedBox(height: AppTheme.spacingXL),
-              
+
               // State
+              _buildFieldLabel('State'),
               TextFormField(
                 controller: _stateController,
                 decoration: const InputDecoration(
-                  labelText: 'State',
                   hintText: 'Enter your state (e.g., OH)',
-                  prefixIcon: Icon(Icons.map_outlined),
+                  prefixIcon: Icon(Icons.map_outlined, color: AppTheme.brandPurple),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -362,18 +352,21 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
                   provider.updateBasicInfo(state: value.toUpperCase());
                 },
               ),
-              const SizedBox(height: AppTheme.spacingL),
+              const SizedBox(height: AppTheme.spacingXL),
 
               // Insurance Type
+              _buildFieldLabel('Insurance Type'),
               DropdownButtonFormField<String>(
                 isExpanded: true,
                 isDense: false,
                 itemHeight: null,
                 value: provider.insuranceType.isEmpty ? null : provider.insuranceType,
+                icon: _dropdownIcon,
+                dropdownColor: AppTheme.surface,
+                borderRadius: hearthCardRadius,
                 decoration: const InputDecoration(
-                  labelText: 'Insurance Type',
                   hintText: 'Select your insurance type',
-                  prefixIcon: Icon(Icons.medical_services_outlined),
+                  prefixIcon: Icon(Icons.medical_services_outlined, color: AppTheme.brandPurple),
                   errorMaxLines: 2,
                 ),
                 items: const [
@@ -403,34 +396,68 @@ class _BasicInfoStepState extends State<BasicInfoStep> {
     );
   }
 
+  static const Widget _dropdownIcon = Icon(Icons.expand_more, color: AppTheme.brandPurple);
+
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.brandPurple,
-        fontFamily: 'Primary',
+      style: Theme.of(context).textTheme.titleLarge,
+    );
+  }
+
+  // Labels sit above the field, as in the Hearth forms.
+  Widget _buildFieldLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.spacingS),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.ink),
+      ),
+    );
+  }
+
+  // Tappable date row drawn like a field: label, value, calendar icon.
+  Widget _buildDateField({
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return HearthCard(
+      onTap: onTap,
+      radius: BorderRadius.circular(AppTheme.fieldRadius),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.ink),
+                ),
+                const SizedBox(height: 2),
+                Text(value, style: Theme.of(context).textTheme.bodyLarge),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppTheme.spacingM),
+          const Icon(Icons.calendar_today_outlined, size: 22, color: AppTheme.brandPurple),
+        ],
       ),
     );
   }
 
   String _calculateTrimester(DateTime? dueDate) {
     if (dueDate == null) return 'First';
-    
+
     final now = DateTime.now();
     final daysUntilDue = dueDate.difference(now).inDays;
     final weeksPregnant = 40 - (daysUntilDue / 7).floor();
-    
+
     if (weeksPregnant <= 0) return 'First';
     if (weeksPregnant <= 13) return 'First';
     if (weeksPregnant <= 27) return 'Second';
     return 'Third';
   }
 }
-
-
-
-
-
-

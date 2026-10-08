@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/profile_creation_provider.dart';
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 
 class HealthInfoStep extends StatefulWidget {
   const HealthInfoStep({super.key});
@@ -30,49 +31,28 @@ class _HealthInfoStepState extends State<HealthInfoStep> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Your health information helps us provide personalized care and resources.',
-              style: TextStyle(fontSize: 16, color: Colors.black87),
+              style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: AppTheme.spacingXL),
 
             // Pregnancy Stage - Auto-calculated if pregnant, otherwise allow selection
             if (provider.isPregnant && provider.dueDate != null) ...[
               // Show calculated trimester as read-only
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.brandPurple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.brandPurple.withOpacity(0.3)),
-                ),
-                child: Row(
+              HearthNote(
+                tone: HearthNoteTone.lavender,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, color: AppTheme.brandPurple),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Pregnancy Stage (Auto-calculated)',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.brandPurple,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _calculateTrimester(provider.dueDate),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.brandPurple,
-                            ),
-                          ),
-                        ],
-                      ),
+                    Text(
+                      'Pregnancy Stage (Auto-calculated)',
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _calculateTrimester(provider.dueDate),
+                      style: hearthCardTitleStyle,
                     ),
                   ],
                 ),
@@ -91,15 +71,24 @@ class _HealthInfoStepState extends State<HealthInfoStep> {
               ),
             ] else ...[
               // Allow manual selection for postpartum or if not pregnant
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppTheme.spacingS),
+                child: Text(
+                  'Pregnancy Stage',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.ink),
+                ),
+              ),
               DropdownButtonFormField<String>(
                 isExpanded: true,
                 isDense: false,
                 itemHeight: null,
                 value: provider.pregnancyStage,
+                icon: const Icon(Icons.expand_more, color: AppTheme.brandPurple),
+                dropdownColor: AppTheme.surface,
+                borderRadius: hearthCardRadius,
                 decoration: const InputDecoration(
-                  labelText: 'Pregnancy Stage',
                   hintText: 'Select your stage',
-                  prefixIcon: Icon(Icons.pregnant_woman),
+                  prefixIcon: Icon(Icons.pregnant_woman, color: AppTheme.brandPurple),
                 ),
                 items: const [
                   DropdownMenuItem(value: 'First Trimester', child: Text('First Trimester (1-12 weeks)')),
@@ -120,10 +109,10 @@ class _HealthInfoStepState extends State<HealthInfoStep> {
 
             // Chronic Conditions
             _buildSectionHeader('Chronic Conditions'),
-            const SizedBox(height: AppTheme.spacingS),
-            const Text(
+            const SizedBox(height: AppTheme.spacingXS),
+            Text(
               'e.g., hypertension, diabetes, asthma',
-              style: TextStyle(fontSize: 14, color: Colors.black54),
+              style: _captionStyle(context),
             ),
             const SizedBox(height: AppTheme.spacingM),
             
@@ -149,10 +138,10 @@ class _HealthInfoStepState extends State<HealthInfoStep> {
 
             // Medications
             _buildSectionHeader('Current Medications'),
-            const SizedBox(height: AppTheme.spacingS),
-            const Text(
+            const SizedBox(height: AppTheme.spacingXS),
+            Text(
               'List all medications you are currently taking',
-              style: TextStyle(fontSize: 14, color: Colors.black54),
+              style: _captionStyle(context),
             ),
             const SizedBox(height: AppTheme.spacingM),
             
@@ -178,10 +167,10 @@ class _HealthInfoStepState extends State<HealthInfoStep> {
 
             // Allergies
             _buildSectionHeader('Allergies'),
-            const SizedBox(height: AppTheme.spacingS),
-            const Text(
+            const SizedBox(height: AppTheme.spacingXS),
+            Text(
               'List any known allergies',
-              style: TextStyle(fontSize: 14, color: Colors.black54),
+              style: _captionStyle(context),
             ),
             const SizedBox(height: AppTheme.spacingM),
             
@@ -213,14 +202,12 @@ class _HealthInfoStepState extends State<HealthInfoStep> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.brandPurple,
-        fontFamily: 'Primary',
-      ),
+      style: Theme.of(context).textTheme.titleLarge,
     );
   }
+
+  TextStyle? _captionStyle(BuildContext context) =>
+      Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textMuted);
 
   String _calculateTrimester(DateTime? dueDate) {
     if (dueDate == null) return 'First Trimester';
@@ -251,46 +238,44 @@ class _HealthInfoStepState extends State<HealthInfoStep> {
                 controller: controller,
                 decoration: InputDecoration(
                   hintText: hintText,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 onSubmitted: (_) => onAdd(),
               ),
             ),
-            const SizedBox(width: AppTheme.spacingM),
-            ElevatedButton(
+            const SizedBox(width: 10),
+            HearthButton.primary(
+              label: 'Add',
               onPressed: onAdd,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              ),
-              child: const Text('Add'),
+              expand: false,
             ),
           ],
         ),
         if (items.isNotEmpty) ...[
           const SizedBox(height: AppTheme.spacingM),
           ...items.asMap().entries.map((entry) {
-            return Container(
+            return HearthCard(
               margin: const EdgeInsets.only(bottom: AppTheme.spacingS),
-              padding: const EdgeInsets.all(AppTheme.spacingM),
-              decoration: BoxDecoration(
-                color: AppTheme.brandWhite,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
+              radius: BorderRadius.circular(AppTheme.fieldRadius),
+              padding: const EdgeInsets.fromLTRB(16, 3, 4, 3),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       entry.value,
-                      style: const TextStyle(fontSize: 15),
+                      style: const TextStyle(
+                        fontFamily: AppTheme.sansFamily,
+                        fontSize: 15,
+                        height: 22 / 15,
+                        color: AppTheme.ink,
+                      ),
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, size: 20),
                     onPressed: () => onRemove(entry.key),
-                    color: Colors.red,
+                    color: AppTheme.ink,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                   ),
                 ],
               ),

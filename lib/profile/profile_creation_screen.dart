@@ -7,6 +7,7 @@ import '../services/database_service.dart';
 import '../services/firebase_functions_service.dart';
 import '../privacy/consent_screen.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import 'research/research_onboarding_screen.dart';
 import 'steps/basic_info_step.dart';
 import 'steps/demographics_step.dart';
@@ -251,126 +252,83 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
       builder: (context, provider, child) {
         _scrollToTopOnStepChange(provider.currentStep);
         return Scaffold(
-          backgroundColor: AppTheme.backgroundWarm,
-          appBar: AppTheme.newUiAppBar(context, title: 'Create Your Profile'),
-          body: Column(
-            children: [
-              // Progress indicator
-              Container(
-                padding: const EdgeInsets.all(AppTheme.spacingL),
-                color: AppTheme.surfaceCard,
-                child: Column(
-                  children: [
-                    Row(
+          backgroundColor: AppTheme.ground,
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Back only shows when there is a route to return to, as the
+                // app bar did before.
+                HearthPushedHeader(
+                  title: 'Create Your Profile',
+                  showBack: ModalRoute.of(context)?.canPop ?? false,
+                ),
+
+                // Progress indicator
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      HearthStepProgress(
+                        step: provider.currentStep + 1,
+                        total: provider.totalSteps,
+                        label: 'Step ${provider.currentStep + 1} of ${provider.totalSteps}',
+                      ),
+                      const SizedBox(height: 14),
+                      HearthSectionHeading(_stepTitles[provider.currentStep]),
+                    ],
+                  ),
+                ),
+
+                // Step content
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _stepScrollController,
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                    child: _steps[provider.currentStep],
+                  ),
+                ),
+
+                // Navigation buttons
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                    child: Row(
                       children: [
-                        Expanded(
-                          child: LinearProgressIndicator(
-                            value: (provider.currentStep + 1) / provider.totalSteps,
-                            backgroundColor: AppTheme.borderLighter,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              AppTheme.brandPurple,
+                        if (provider.currentStep > 0)
+                          Expanded(
+                            child: HearthButton.secondary(
+                              label: 'Back',
+                              onPressed: provider.previousStep,
                             ),
-                            minHeight: 8,
-                            borderRadius: BorderRadius.circular(4),
                           ),
-                        ),
-                        const SizedBox(width: AppTheme.spacingM),
-                        Flexible(
-                          child: Text(
-                            'Step ${provider.currentStep + 1} of ${provider.totalSteps}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.brandBlack,
-                            ),
+                        if (provider.currentStep > 0)
+                          const SizedBox(width: AppTheme.spacingM),
+                        Expanded(
+                          flex: 2,
+                          child: HearthButton.primary(
+                            label: provider.currentStep < provider.totalSteps - 1
+                                ? 'Next'
+                                : 'Complete Profile',
+                            loading: _isLoading,
+                            onPressed: () {
+                              if (provider.currentStep < provider.totalSteps - 1) {
+                                provider.nextStep();
+                              } else {
+                                _saveProfile();
+                              }
+                            },
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: AppTheme.spacingS),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        _stepTitles[provider.currentStep],
-                        style: AppTheme.responsiveTitleStyle(
-                          context,
-                          baseSize: 18,
-                          color: AppTheme.brandPurple,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Step content
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: _stepScrollController,
-                  padding: const EdgeInsets.all(AppTheme.spacingL),
-                  child: _steps[provider.currentStep],
-                ),
-              ),
-
-              // Navigation buttons
-              Container(
-                padding: const EdgeInsets.all(AppTheme.spacingL),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, -5),
-                    ),
-                  ],
-                ),
-                child: SafeArea(
-                  child: Row(
-                    children: [
-                      if (provider.currentStep > 0)
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: provider.previousStep,
-                            child: const Text('Back'),
-                          ),
-                        ),
-                      if (provider.currentStep > 0)
-                        const SizedBox(width: AppTheme.spacingM),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton(
-                          onPressed: _isLoading
-                              ? null
-                              : () {
-                                  if (provider.currentStep < provider.totalSteps - 1) {
-                                    provider.nextStep();
-                                  } else {
-                                    _saveProfile();
-                                  }
-                                },
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
-                                  ),
-                                )
-                              : Text(
-                                  provider.currentStep < provider.totalSteps - 1
-                                      ? 'Next'
-                                      : 'Complete Profile',
-                                ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

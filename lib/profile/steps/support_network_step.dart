@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/profile_creation_provider.dart';
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 
 class SupportNetworkStep extends StatelessWidget {
   const SupportNetworkStep({super.key});
@@ -13,14 +14,14 @@ class SupportNetworkStep extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Tell us about your support network. This helps us identify resources you might need.',
-              style: TextStyle(fontSize: 16, color: Colors.black87),
+              style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: AppTheme.spacingXL),
 
-            _buildSectionHeader('Do you have access to:'),
-            const SizedBox(height: AppTheme.spacingL),
+            _buildSectionHeader(context, 'Do you have access to:'),
+            const SizedBox(height: 14),
 
             _buildCheckboxTile(
               title: 'Doula',
@@ -65,15 +66,10 @@ class SupportNetworkStep extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Text(
       title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.brandPurple,
-        fontFamily: 'Primary',
-      ),
+      style: Theme.of(context).textTheme.titleLarge,
     );
   }
 
@@ -83,39 +79,15 @@ class SupportNetworkStep extends StatelessWidget {
     required bool value,
     required Function(bool?) onChanged,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppTheme.spacingM),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: value ? AppTheme.brandPurple : Colors.grey[300]!,
-          width: value ? 2 : 1,
-        ),
-      ),
-      child: CheckboxListTile(
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(fontSize: 13, color: Colors.black54),
-        ),
-        value: value,
-        activeColor: AppTheme.brandPurple,
-        onChanged: onChanged,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spacingL,
-          vertical: AppTheme.spacingS,
-        ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.spacingM),
+      child: HearthOptionRow(
+        label: title,
+        subtitle: subtitle,
+        selected: value,
+        control: HearthControl.checkbox,
+        onTap: () => onChanged(!value),
       ),
     );
   }
 }
-
-
-
-
-
-

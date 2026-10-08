@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/birth_plan.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../widgets/module_quick_feedback.dart';
@@ -82,7 +83,7 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
       '”': '"',
       '…': '...',
       '•': '-',
-      '☑': '[x]',
+      '\u2611': '[x]', // ballot box with check
       '☐': '[ ]',
     };
     final out = StringBuffer();
@@ -218,110 +219,36 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
   @override
   Widget build(BuildContext context) {
     final birthPlan = _plan;
-    const purple = Color(0xFF663399);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
+      backgroundColor: AppTheme.ground,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              InkWell(
-                onTap: () => Navigator.of(context).maybePop(),
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.chevron_left, size: 20, color: AppTheme.textMuted),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Birth Plans',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w300,
-                          color: AppTheme.textMuted,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Your birth preferences',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w500,
-                  height: 1.25,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Download a copy for your care team and update anytime.',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w300,
-                  height: 1.5,
-                  color: AppTheme.textLight,
-                ),
+              const HearthPushedHeader(
+                backLabel: 'Birth Plans',
+                title: 'Your birth preferences',
+                subtitle:
+                    'Download a copy for your care team and update anytime.',
+                padding: EdgeInsets.only(top: 12),
               ),
               const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFFF5EEE0),
-                      AppTheme.backgroundWarm,
-                      const Color(0xFFEBE0D6),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: const Color(0xFFE8E0F0).withValues(alpha: 0.4),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: purple.withValues(alpha: 0.08),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
+              HearthFeatureCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFF5EEE0), Color(0xFFEBE0D6)],
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.favorite_border,
-                            color: Color(0xFFD4A574),
-                            size: 22,
-                          ),
+                        const HearthIconChip(
+                          Icons.favorite_border,
+                          tone: HearthChipTone.surface,
                         ),
                         const SizedBox(width: 12),
                         Text(
                           'Summary',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textSecondary,
-                          ),
+                          style: hearthFeatureTitleStyle(),
                         ),
                       ],
                     ),
@@ -344,93 +271,41 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              Container(
+              SizedBox(
                 width: double.infinity,
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: const Color(0xFFE8E0F0).withValues(alpha: 0.45),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
+                child: HearthCard(
+                  padding: const EdgeInsets.all(22),
+                  child: SelectableText.rich(
+                    _planText.trim().isNotEmpty
+                        ? _planSpans(context, _planText.trimRight())
+                        : const TextSpan(text: 'No plan content available.'),
+                    style: const TextStyle(
+                      fontFamily: AppTheme.sansFamily,
+                      fontSize: 15,
+                      height: 23 / 15,
+                      color: AppTheme.textSecondary,
                     ),
-                  ],
-                ),
-                child: SelectableText(
-                  _planText.trim().isNotEmpty
-                      ? _planText.trimRight()
-                      : 'No plan content available.',
-                  style: TextStyle(
-                    fontSize: 15,
-                    height: 1.55,
-                    fontWeight: FontWeight.w300,
-                    color: AppTheme.textSecondary,
                   ),
                 ),
               ),
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isDownloading ? null : _downloadPdf,
-                  icon: _isDownloading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppTheme.brandWhite,
-                          ),
-                        )
-                      : const Icon(Icons.download_outlined, size: 20),
-                  label: const Text('Download PDF'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: purple,
-                    foregroundColor: AppTheme.brandWhite,
-                    disabledBackgroundColor: purple.withValues(alpha: 0.7),
-                    disabledForegroundColor: AppTheme.brandWhite,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    elevation: 2,
-                  ),
-                ),
+              HearthButton.primary(
+                onPressed: _downloadPdf,
+                loading: _isDownloading,
+                icon: Icons.ios_share,
+                label: 'Download PDF',
               ),
               const SizedBox(height: 12),
               if (birthPlan.id != null) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _editPlan,
-                    icon: const Icon(Icons.edit_outlined, size: 20),
-                    label: const Text('Edit plan'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: purple,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      side: const BorderSide(color: purple),
-                    ),
-                  ),
+                HearthButton.secondary(
+                  onPressed: _editPlan,
+                  icon: Icons.edit_outlined,
+                  label: 'Edit plan',
                 ),
                 const SizedBox(height: 12),
               ],
-              SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
+              Center(
+                child: HearthButton.text(
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
@@ -440,18 +315,8 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.add, size: 20),
-                  label: const Text('Create another plan'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: purple,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                  ),
+                  icon: Icons.add,
+                  label: 'Create another plan',
                 ),
               ),
               const SizedBox(height: 24),
@@ -467,6 +332,40 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
     );
   }
 
+  /// Gives the plain-text plan the same headings the PDF draws: the opening
+  /// title in serif and the numbered sections in bold. The text is unchanged
+  /// apart from the title's case.
+  TextSpan _planSpans(BuildContext context, String text) {
+    final sectionHeading = RegExp(r'^\d+\. ');
+    final lines = text.split('\n');
+    final spans = <TextSpan>[];
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final end = i < lines.length - 1 ? '\n' : '';
+      final trimmed = line.trim();
+      if (i == 0 && trimmed.toUpperCase() == 'BIRTH PLAN') {
+        final title = trimmed[0] + trimmed.substring(1).toLowerCase();
+        spans.add(TextSpan(
+          text: '$title$end',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ));
+      } else if (sectionHeading.hasMatch(line)) {
+        spans.add(TextSpan(
+          text: '$line$end',
+          style: const TextStyle(
+            fontSize: 16,
+            height: 24 / 16,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.ink,
+          ),
+        ));
+      } else {
+        spans.add(TextSpan(text: '$line$end'));
+      }
+    }
+    return TextSpan(children: spans);
+  }
+
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -477,21 +376,20 @@ class _BirthPlanDisplayScreenState extends State<BirthPlanDisplayScreen> {
             width: 112,
             child: Text(
               label,
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
+              style: const TextStyle(
+                fontFamily: AppTheme.sansFamily,
+                fontWeight: FontWeight.w600,
                 fontSize: 13,
-                color: AppTheme.textMuted,
+                height: 21 / 13,
+                color: AppTheme.textSecondary,
               ),
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                color: AppTheme.textSecondary,
-              ),
+              style: hearthCardBodyStyle.copyWith(color: AppTheme.ink),
             ),
           ),
         ],

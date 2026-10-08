@@ -8,6 +8,7 @@ import '../models/birth_plan.dart';
 import '../services/database_service.dart';
 import '../services/analytics_service.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import 'birth_plan_display_screen.dart';
 import 'birth_plan_formatter.dart';
 import '../widgets/qualitative_survey_dialog.dart';
@@ -1225,7 +1226,7 @@ class _ComprehensiveBirthPlanScreenState
         }
       },
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundWarm, // Matching NewUI background
+        backgroundColor: AppTheme.ground,
         resizeToAvoidBottomInset: true,
         body: SafeArea(
           child: Form(
@@ -1233,78 +1234,48 @@ class _ComprehensiveBirthPlanScreenState
             child: SingleChildScrollView(
               controller: _pageScrollController,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(
-                24,
-                24,
-                24,
-                24 + MediaQuery.viewInsetsOf(context).bottom,
+              // No side padding here: the step banner scrolls edge to edge.
+              padding: EdgeInsets.only(
+                bottom: 32 + MediaQuery.viewInsetsOf(context).bottom,
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.chevron_left, size: 20, color: AppTheme.textMuted),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Birth Plans',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w300,
-                              color: AppTheme.textMuted,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  HearthPushedHeader(
+                    onBack: () => Navigator.pop(context),
+                    backLabel: 'Birth Plans',
+                    title: 'My Birth Preferences',
+                    subtitle: 'Your birth, your choices, one step at a time',
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'My Birth Preferences',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w500,
-                      height: 1.3,
-                      letterSpacing: -0.01 * 16,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Your birth, your choices, one step at a time',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w300,
-                      height: 1.5,
-                      color: AppTheme.textLight,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   if (!_introDismissed) ...[
-                    _buildAffirmingIntroCard(),
-                    const SizedBox(height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildAffirmingIntroCard(),
+                    ),
+                    const SizedBox(height: 16),
                   ],
                   _buildStepChipsRow(),
                   const SizedBox(height: 16),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    child: _buildCurrentStepBody(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          child: _buildCurrentStepBody(),
+                        ),
+                        const SizedBox(height: 24),
+                        if (_currentStep < _stepCount - 1) _buildMidStepNavigation(),
+                        if (_currentStep == _stepCount - 1) ...[
+                          _buildCompletionCard(),
+                          const SizedBox(height: 16),
+                          _buildFinalActionsRow(),
+                        ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 24),
-                  if (_currentStep < _stepCount - 1) _buildMidStepNavigation(),
-                  if (_currentStep == _stepCount - 1) ...[
-                    _buildCompletionCard(),
-                    const SizedBox(height: 16),
-                    _buildFinalActionsRow(),
-                  ],
-                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -1324,93 +1295,33 @@ class _ComprehensiveBirthPlanScreenState
   ];
 
   Widget _buildAffirmingIntroCard() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFF5EEE0),
-            Color(0xFFFAF8F4),
-            Color(0xFFEBE0D6),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE8E0F0).withOpacity(0.4)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF663399).withOpacity(0.12),
-            blurRadius: 40,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
+    return HearthFeatureCard(
+      padding: EdgeInsets.zero,
       child: Stack(
         children: [
-          Positioned(
-            top: 0,
-            right: 0,
-            child: IgnorePointer(
-              child: Container(
-                width: 128,
-                height: 128,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFD4A574).withOpacity(0.05),
-                ),
-              ),
-            ),
-          ),
           Padding(
             // Extra right padding keeps the title clear of the close button.
-            padding: const EdgeInsets.fromLTRB(24, 24, 40, 24),
+            padding: const EdgeInsets.fromLTRB(20, 20, 44, 20),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFF5EEE0), Color(0xFFEBE0D6)],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.favorite_border,
-                    color: Color(0xFFD4A574),
-                    size: 22,
-                  ),
+                const HearthIconChip(
+                  Icons.favorite_border,
+                  tone: HearthChipTone.surface,
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'You know what\'s right for you',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.textSecondary,
-                        ),
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
+                      const SizedBox(height: 6),
+                      const Text(
                         'There\'s no right or wrong way to give birth. This plan helps you explore options and share what feels right with your care team. You can change your mind anytime.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w300,
-                          height: 1.5,
-                          color: AppTheme.textMuted,
-                        ),
+                        style: hearthCardBodyStyle,
                       ),
                     ],
                   ),
@@ -1424,7 +1335,7 @@ class _ComprehensiveBirthPlanScreenState
             child: IconButton(
               onPressed: _dismissIntro,
               tooltip: 'Dismiss',
-              icon: Icon(Icons.close, size: 20, color: AppTheme.textMuted),
+              icon: const Icon(Icons.close, size: 20, color: AppTheme.textSecondary),
             ),
           ),
         ],
@@ -1444,8 +1355,7 @@ class _ComprehensiveBirthPlanScreenState
         child: SingleChildScrollView(
           controller: _stepChipsScrollController,
           scrollDirection: Axis.horizontal,
-          // Vertical padding leaves room for the chip shadows.
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1464,6 +1374,17 @@ class _ComprehensiveBirthPlanScreenState
     final meta = _stepMeta[index];
     final isActive = _currentStep == index;
     final isComplete = _currentStep > index;
+    // Active step purple, finished steps gold with a check, upcoming cream.
+    final Color fill = isActive
+        ? AppTheme.brandPurple
+        : isComplete
+            ? AppTheme.brandGold
+            : AppTheme.surface;
+    final Color fg = isActive
+        ? AppTheme.onPurple
+        : isComplete
+            ? AppTheme.ink
+            : AppTheme.textSecondary;
     return Semantics(
       key: _stepChipKeys[index],
       button: true,
@@ -1477,58 +1398,33 @@ class _ComprehensiveBirthPlanScreenState
             onTap: () => _goToStep(index),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                gradient: isActive
-                    ? const LinearGradient(
-                        colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                      )
-                    : isComplete
-                        ? const LinearGradient(
-                            colors: [Color(0xFFD4A574), Color(0xFFE0B589)],
-                          )
-                        : null,
-                color: (!isActive && !isComplete) ? AppTheme.surfaceCard : null,
-                borderRadius: BorderRadius.circular(18),
-                border: (!isActive && !isComplete)
-                    ? Border.all(color: const Color(0xFFE8E0F0).withOpacity(0.5))
-                    : null,
-                boxShadow: [
-                  if (isActive || isComplete)
-                    BoxShadow(
-                      color: (isActive
-                              ? const Color(0xFF663399)
-                              : const Color(0xFFD4A574))
-                          .withOpacity(0.25),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                ],
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: ShapeDecoration(
+                color: fill,
+                shape: StadiumBorder(
+                  side: (!isActive && !isComplete)
+                      ? const BorderSide(color: AppTheme.borderWarm)
+                      : BorderSide.none,
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    meta.icon,
-                    size: 18,
-                    color: (isActive || isComplete)
-                        ? AppTheme.brandWhite
-                        : AppTheme.textMuted,
-                  ),
+                  Icon(meta.icon, size: 18, color: fg),
                   const SizedBox(width: 8),
                   Text(
                     '${index + 1}. ${meta.title}',
                     style: TextStyle(
+                      fontFamily: AppTheme.sansFamily,
                       fontSize: 14,
-                      fontWeight: FontWeight.w300,
-                      color: (isActive || isComplete)
-                          ? AppTheme.brandWhite
-                          : AppTheme.textMuted,
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+                      color: fg,
                     ),
                   ),
                   if (isComplete) ...[
-                    const SizedBox(width: 4),
-                    const Icon(Icons.check, size: 16, color: AppTheme.brandWhite),
+                    const SizedBox(width: 6),
+                    Icon(Icons.check, size: 16, color: fg),
                   ],
                 ],
               ),
@@ -1611,67 +1507,35 @@ class _ComprehensiveBirthPlanScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => setState(() => _whyExpanded[id] = !expanded),
-            borderRadius: BorderRadius.circular(20),
-            child: Ink(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFFFAF7F3),
-                    Color(0xFFF5F0EB),
-                    Color(0xFFF0EAD8),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+        HearthCard(
+          onTap: () => setState(() => _whyExpanded[id] = !expanded),
+          color: AppTheme.tintWarm,
+          borderColor: null,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Why this matters',
+                    style: hearthCardTitleStyle.copyWith(fontSize: 15),
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE8DFC8).withOpacity(0.4)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Why this matters',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    Icon(
-                      expanded ? Icons.expand_less : Icons.expand_more,
-                      color: const Color(0xFFD4A574),
-                    ),
-                  ],
+                const SizedBox(width: 12),
+                Icon(
+                  expanded ? Icons.expand_less : Icons.expand_more,
+                  size: 22,
+                  color: AppTheme.brandPurple,
                 ),
-              ),
+              ],
             ),
           ),
         ),
         if (expanded) ...[
           const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceCard,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE8E0F0).withOpacity(0.4)),
-            ),
-            child: Text(
-              body,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w300,
-                height: 1.5,
-                color: AppTheme.textMuted,
-              ),
-            ),
+          HearthCard(
+            child: Text(body, style: hearthCardBodyStyle),
           ),
         ],
       ],
@@ -1689,24 +1553,20 @@ class _ComprehensiveBirthPlanScreenState
           child: InkWell(
             onTap: () => setState(() => _jargonExpanded[id] = !open),
             borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
               child: Row(
                 children: [
                   Icon(
                     open ? Icons.expand_less : Icons.expand_more,
                     size: 20,
-                    color: const Color(0xFFD4A574),
+                    color: AppTheme.brandPurple,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'What does this mean?',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textMuted,
-                      ),
+                      style: hearthCaptionStyle.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -1719,12 +1579,7 @@ class _ComprehensiveBirthPlanScreenState
             padding: const EdgeInsets.only(left: 4, right: 4, bottom: 8),
             child: Text(
               explanation,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.45,
-                fontWeight: FontWeight.w300,
-                color: AppTheme.textMuted,
-              ),
+              style: hearthCaptionStyle.copyWith(height: 20 / 13),
             ),
           ),
       ],
@@ -1736,39 +1591,18 @@ class _ComprehensiveBirthPlanScreenState
       children: [
         if (_currentStep > 0)
           Expanded(
-            child: OutlinedButton(
+            child: HearthButton.secondary(
+              label: 'Previous',
+              icon: Icons.chevron_left,
               onPressed: () => _goToStep(_currentStep - 1),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.textMuted,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                side: BorderSide(color: const Color(0xFFE8E0F0).withOpacity(0.5)),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.chevron_left, size: 18),
-                  SizedBox(width: 4),
-                  Flexible(child: Text('Previous', textAlign: TextAlign.center)),
-                ],
-              ),
             ),
           ),
         if (_currentStep > 0) const SizedBox(width: 12),
         Expanded(
+          // Plain themed button: HearthButton has no trailing-chevron variant
+          // for a filled button, and the mockup puts the chevron after the label.
           child: ElevatedButton(
             onPressed: () => _goToStep(_currentStep + 1),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF663399),
-              foregroundColor: AppTheme.brandWhite,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              elevation: 2,
-            ),
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -1784,48 +1618,18 @@ class _ComprehensiveBirthPlanScreenState
   }
 
   Widget _buildCompletionCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFF5EEE0),
-            Color(0xFFFAF8F4),
-            Color(0xFFEBE0D6),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE8E0F0).withOpacity(0.4)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF663399).withOpacity(0.1),
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return HearthFeatureCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'You\'re done!\u00A0🎉',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.textSecondary,
-            ),
+            'You\'re done!\u00A0'.trim(),
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             _isEditing ? 'Tap Save changes below to update your plan.' : 'Tap Save plan below to finish and store your preferences. You can open your plan from the list anytime.',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w300,
-              height: 1.5,
-              color: AppTheme.textMuted,
-            ),
+            style: hearthCardBodyStyle,
           ),
         ],
       ),
@@ -1837,109 +1641,113 @@ class _ComprehensiveBirthPlanScreenState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_currentStep > 0)
-          OutlinedButton(
+          HearthButton.secondary(
+            label: 'Previous',
+            icon: Icons.chevron_left,
             onPressed: () => _goToStep(_currentStep - 1),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.textMuted,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              side: BorderSide(
-                color: const Color(0xFFE8E0F0).withOpacity(0.5),
-              ),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.chevron_left, size: 18),
-                SizedBox(width: 4),
-                Flexible(child: Text('Previous', textAlign: TextAlign.center)),
-              ],
-            ),
           ),
         if (_currentStep > 0) const SizedBox(height: 12),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _generateBirthPlan,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF663399),
-            foregroundColor: AppTheme.brandWhite,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-          ),
-          child: _isLoading
-              ? const SizedBox(
-                  height: 22,
-                  width: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppTheme.brandWhite,
-                  ),
-                )
-              : Text(_isEditing ? 'Save changes' : 'Save plan'),
+        // HearthButton disables itself while loading, as before.
+        HearthButton.primary(
+          label: _isEditing ? 'Save changes' : 'Save plan',
+          loading: _isLoading,
+          onPressed: _generateBirthPlan,
         ),
       ],
     );
   }
 
-  Widget _buildSection1() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+  /// Card holding one group of questions. Fields inside sit on the page
+  /// colour so they read as inset, and switch rows lose their side padding.
+  Widget _sectionCard({
+    required String title,
+    String? subtitle,
+    required List<Widget> children,
+  }) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+          fillColor: AppTheme.surfaceInset,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Who do you want with you?',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Choose the people who make you feel safe and supported.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
+      child: ListTileTheme(
+        data: const ListTileThemeData(
+          contentPadding: EdgeInsets.zero,
+          titleTextStyle: TextStyle(
+            fontFamily: AppTheme.sansFamily,
+            fontSize: 15,
+            height: 22 / 15,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.ink,
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                ListTile(
-                  title: const Text('Due Date'),
-                  subtitle: Text(
-                    _dueDate != null
-                        ? DateFormat('MMMM d, yyyy').format(_dueDate!)
-                        : 'Tap to select',
-                  ),
-                  trailing: const Icon(Icons.calendar_today),
+          subtitleTextStyle: hearthCaptionStyle,
+        ),
+        child: HearthCard(
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(title, style: theme.textTheme.headlineMedium),
+              if (subtitle != null) ...[
+                const SizedBox(height: 4),
+                Text(subtitle, style: hearthCardBodyStyle),
+              ],
+              const SizedBox(height: 18),
+              ...children,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Labels sit above the field, as in the Hearth forms.
+  Widget _labeled(String label, Widget field) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.ink),
+        ),
+        const SizedBox(height: 8),
+        field,
+      ],
+    );
+  }
+
+  Widget _dropdownField({
+    required String label,
+    required String? value,
+    required List<DropdownMenuItem<String>> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return _labeled(
+      label,
+      DropdownButtonFormField<String>(
+        isExpanded: true,
+        value: value,
+        icon: const Icon(Icons.expand_more, color: AppTheme.brandPurple),
+        dropdownColor: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.fieldRadius),
+        decoration: const InputDecoration(),
+        items: items,
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildSection1() {
+    return _sectionCard(
+      title: 'Who do you want with you?',
+      subtitle: 'Choose the people who make you feel safe and supported.',
+      children: [
+                // Tappable date row drawn like a field: label, value, calendar icon.
+                HearthCard(
+                  color: AppTheme.surfaceInset,
+                  radius: BorderRadius.circular(AppTheme.fieldRadius),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                   onTap: () async {
                     final date = await showDatePicker(
                       context: context,
@@ -1951,31 +1759,65 @@ class _ComprehensiveBirthPlanScreenState
                     );
                     if (date != null) setState(() => _dueDate = date);
                   },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _supportPersonNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Birth partner(s)',
-                    hintText: 'Partner, family member, friend…',
-                    prefixIcon: Icon(Icons.people),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Due Date',
+                              style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.ink),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _dueDate != null
+                                  ? DateFormat('MMMM d, yyyy').format(_dueDate!)
+                                  : 'Tap to select',
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 22,
+                        color: AppTheme.brandPurple,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _supportPersonRelationshipController,
-                  decoration: const InputDecoration(
-                    labelText: 'How they’re connected to you',
-                    hintText: 'e.g. partner, parent, friend',
-                    prefixIcon: Icon(Icons.family_restroom),
+                _labeled(
+                  'Birth partner(s)',
+                  TextFormField(
+                    controller: _supportPersonNameController,
+                    decoration: const InputDecoration(
+                      hintText: 'Partner, family member, friend…',
+                      prefixIcon: Icon(Icons.people_outline, color: AppTheme.brandPurple),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _contactInfoController,
-                  decoration: const InputDecoration(
-                    labelText: 'Best phone number (for urgent questions)',
-                    prefixIcon: Icon(Icons.phone),
+                _labeled(
+                  'How they’re connected to you',
+                  TextFormField(
+                    controller: _supportPersonRelationshipController,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. partner, parent, friend',
+                      prefixIcon: Icon(Icons.family_restroom, color: AppTheme.brandPurple),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _labeled(
+                  'Best phone number (for urgent questions)',
+                  TextFormField(
+                    controller: _contactInfoController,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.phone_outlined, color: AppTheme.brandPurple),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -2017,62 +1859,15 @@ class _ComprehensiveBirthPlanScreenState
                     setState(() => _pregnancyComplications.removeAt(index));
                   },
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildSection2() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'What helps you feel calm?',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Choose the settings that help you relax (you can pick more than one).',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
+    return _sectionCard(
+      title: 'What helps you feel calm?',
+      subtitle: 'Choose the settings that help you relax (you can pick more than one).',
+      children: [
                 _buildMultiSelectChips('Your birth space', [
                   'Quiet room',
                   'Music',
@@ -2092,12 +1887,9 @@ class _ComprehensiveBirthPlanScreenState
                   onChanged: (v) => setState(() => _videographyAllowed = v),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'Language you want care in',
                   value: _preferredLanguage,
-                  decoration: const InputDecoration(
-                    labelText: 'Language you want care in',
-                  ),
                   items: ['English', 'Spanish', 'Other']
                       .map((e) => DropdownMenuItem(
                               value: e,
@@ -2117,62 +1909,15 @@ class _ComprehensiveBirthPlanScreenState
                   'Trauma-informed care means your team checks in before touch or exams, '
                   'so you feel more in control, especially if past experiences make care harder.',
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildSection3() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'How would you like to manage discomfort?',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'There are many ways to stay comfortable. Choose what you’re considering. You can change your mind later.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
+    return _sectionCard(
+      title: 'How would you like to manage discomfort?',
+      subtitle: 'There are many ways to stay comfortable. Choose what you’re considering. You can change your mind later.',
+      children: [
                 _buildMultiSelectChips('Positions that sound good for labor', [
                   'Walking',
                   'Birthing ball',
@@ -2190,12 +1935,9 @@ class _ComprehensiveBirthPlanScreenState
                   onChanged: (v) => setState(() => _movementFreedom = v),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'Fetal monitoring',
                   value: _monitoringPreference,
-                  decoration: const InputDecoration(
-                    labelText: 'Fetal monitoring',
-                  ),
                   items: const [
                     DropdownMenuItem(
                       value: 'Intermittent',
@@ -2229,12 +1971,9 @@ class _ComprehensiveBirthPlanScreenState
                   'Wireless monitors may be available if your hospital offers them.',
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'Pain relief',
                   value: _painManagementPreference,
-                  decoration: const InputDecoration(
-                    labelText: 'Pain relief',
-                  ),
                   items: const [
                     DropdownMenuItem(
                       value: 'Unmedicated',
@@ -2295,12 +2034,9 @@ class _ComprehensiveBirthPlanScreenState
                   onChanged: (v) => setState(() => _waterLaborAvailable = v),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'Membrane sweep',
                   value: _membraneSweepingPreference,
-                  decoration: const InputDecoration(
-                    labelText: 'Membrane sweep',
-                  ),
                   items:
                       ['Yes, if offered', 'No', 'Only if medically indicated']
                           .map(
@@ -2319,12 +2055,9 @@ class _ComprehensiveBirthPlanScreenState
                   '(opening of the womb) to encourage labor. It is optional, only if you and your provider agree it’s right for you.',
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'If labor needs help starting',
                   value: _inductionPreference,
-                  decoration: const InputDecoration(
-                    labelText: 'If labor needs help starting',
-                  ),
                   items:
                       [
                             'Natural methods first',
@@ -2341,70 +2074,25 @@ class _ComprehensiveBirthPlanScreenState
                   onChanged: (v) => setState(() => _inductionPreference = v),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _communicationStyleController,
-                  decoration: const InputDecoration(
-                    labelText: 'How you like updates and decisions explained',
-                    hintText: 'e.g. explain options first, keep me calm',
+                _labeled(
+                  'How you like updates and decisions explained',
+                  TextFormField(
+                    controller: _communicationStyleController,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. explain options first, keep me calm',
+                    ),
+                    onChanged: (v) => setState(() => _communicationStyle = v),
                   ),
-                  onChanged: (v) => setState(() => _communicationStyle = v),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildSection4() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pushing & birth',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Your team can suggest options; share what feels right for your body.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
+    return _sectionCard(
+      title: 'Pushing & birth',
+      subtitle: 'Your team can suggest options; share what feels right for your body.',
+      children: [
                 _buildMultiSelectChips('Positions for pushing', [
                   'Hands and knees',
                   'Side-lying',
@@ -2413,12 +2101,9 @@ class _ComprehensiveBirthPlanScreenState
                   'Whatever feels right',
                 ], _preferredPushingPositions),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'Guidance while pushing',
                   value: _pushingStyle,
-                  decoration: const InputDecoration(
-                    labelText: 'Guidance while pushing',
-                  ),
                   items: const [
                     DropdownMenuItem(
                       value: 'Guided',
@@ -2441,12 +2126,9 @@ class _ComprehensiveBirthPlanScreenState
                   onChanged: (v) => setState(() => _mirrorDuringPushing = v),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'Episiotomy',
                   value: _episiotomyPreference,
-                  decoration: const InputDecoration(
-                    labelText: 'Episiotomy',
-                  ),
                   items:
                       [
                             'Avoid unless absolutely necessary',
@@ -2468,21 +2150,20 @@ class _ComprehensiveBirthPlanScreenState
                   'Many people prefer to avoid it unless truly necessary. Your provider can explain in the moment.',
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _tearingPreferenceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Support for the vaginal area while stretching',
-                    hintText: 'e.g. warm cloths, hands-on support',
+                _labeled(
+                  'Support for the vaginal area while stretching',
+                  TextFormField(
+                    controller: _tearingPreferenceController,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. warm cloths, hands-on support',
+                    ),
+                    onChanged: (v) => setState(() => _tearingPreference = v),
                   ),
-                  onChanged: (v) => setState(() => _tearingPreference = v),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'Who you’d like to receive baby',
                   value: _whoCatchesBaby,
-                  decoration: const InputDecoration(
-                    labelText: 'Who you’d like to receive baby',
-                  ),
                   items: ['Partner', 'Doctor', 'Midwife', 'Myself']
                       .map((e) => DropdownMenuItem(
                               value: e,
@@ -2504,68 +2185,18 @@ class _ComprehensiveBirthPlanScreenState
                   'With an epidural, some people prefer to wait until they feel the urge to push, '
                   'sometimes called “laboring down.” Ask your team what is safe for you and your baby.',
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildSection5() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'First moments with your baby',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'These choices are about the first hour after birth.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+    return _sectionCard(
+      title: 'First moments with your baby',
+      subtitle: 'These choices are about the first hour after birth.',
+      children: [
+                _dropdownField(
+                  label: 'Delayed cord clamping',
                   value: _delayedCordClampingPreference,
-                  decoration: const InputDecoration(
-                    labelText: 'Delayed cord clamping',
-                  ),
                   items:
                       [
                             '1-3 minutes',
@@ -2589,12 +2220,9 @@ class _ComprehensiveBirthPlanScreenState
                   'Your team can advise on timing based on you and baby’s condition.',
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'Who cuts the cord',
                   value: _whoCutsCord,
-                  decoration: const InputDecoration(
-                    labelText: 'Who cuts the cord',
-                  ),
                   items: ['Partner', 'Myself', 'Doctor', 'No preference']
                       .map((e) => DropdownMenuItem(
                               value: e,
@@ -2646,60 +2274,25 @@ class _ComprehensiveBirthPlanScreenState
                 ),
                 if (_cordBloodBanking == true) ...[
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _cordBloodCompanyController,
-                    decoration: const InputDecoration(
-                      labelText: 'Cord blood company name',
+                  _labeled(
+                    'Cord blood company name',
+                    TextFormField(
+                      controller: _cordBloodCompanyController,
+                      decoration: const InputDecoration(),
                     ),
                   ),
                 ],
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildSection6() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Text(
-              'Feeding your baby',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+    return _sectionCard(
+      title: 'Feeding your baby',
+      children: [
+                _dropdownField(
+                  label: 'How you plan to feed your baby',
                   value: _feedingPreference,
-                  decoration: const InputDecoration(
-                    labelText: 'How you plan to feed your baby',
-                  ),
                   items: const [
                     DropdownMenuItem(
                       value: 'Breastfeeding',
@@ -2739,47 +2332,14 @@ class _ComprehensiveBirthPlanScreenState
                   value: _consentForDonorMilk ?? false,
                   onChanged: (v) => setState(() => _consentForDonorMilk = v),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildSection7() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Text(
-              'Recovery after birth',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
+    return _sectionCard(
+      title: 'Recovery after birth',
+      children: [
                 SwitchListTile(
                   title: const Text('Baby stays in your room (rooming-in)'),
                   subtitle: const Text('Instead of the nursery, when possible'),
@@ -2792,90 +2352,47 @@ class _ComprehensiveBirthPlanScreenState
                   onChanged: (v) => setState(() => _mentalHealthSupport = v),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _visitorPreferenceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Visitors',
-                    hintText: 'e.g. partner only for the first day',
+                _labeled(
+                  'Visitors',
+                  TextFormField(
+                    controller: _visitorPreferenceController,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. partner only for the first day',
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _dietaryPreferencesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Food needs or restrictions',
-                    hintText: 'e.g. vegetarian, allergies',
+                _labeled(
+                  'Food needs or restrictions',
+                  TextFormField(
+                    controller: _dietaryPreferencesController,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. vegetarian, allergies',
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _postpartumPainManagementController,
-                  decoration: const InputDecoration(
-                    labelText: 'Comfort for soreness after birth',
-                    hintText: 'e.g. ibuprofen first; ask before stronger meds',
+                _labeled(
+                  'Comfort for soreness after birth',
+                  TextFormField(
+                    controller: _postpartumPainManagementController,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. ibuprofen first; ask before stronger meds',
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildSection8() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'If a cesarean birth is needed',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Sometimes called a belly birth. Worth sharing even if you plan a vaginal birth.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+    return _sectionCard(
+      title: 'If a cesarean birth is needed',
+      subtitle: 'Sometimes called a belly birth. Worth sharing even if you plan a vaginal birth.',
+      children: [
+                _dropdownField(
+                  label: 'Surgical drape / screen',
                   value: _drapePreference,
-                  decoration: const InputDecoration(
-                    labelText: 'Surgical drape / screen',
-                  ),
                   items: const [
                     DropdownMenuItem(
                       value: 'Clear drape',
@@ -2922,26 +2439,19 @@ class _ComprehensiveBirthPlanScreenState
                   'sometimes with a clear drape so you can see baby lifted up. Your hospital may use different terms.',
                 ),
                 SwitchListTile(
-                  title: Text(
+                  title: const Text(
                     'Delay routine newborn tasks until you’re holding baby',
                     maxLines: 3,
                     softWrap: true,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: AppTheme.textSecondary,
-                    ),
                   ),
                   value: _delayNewbornCareUntilHolding ?? false,
                   onChanged: (v) =>
                       setState(() => _delayNewbornCareUntilHolding = v),
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'Anesthesia for surgery',
                   value: _anesthesiaPreference,
-                  decoration: const InputDecoration(
-                    labelText: 'Anesthesia for surgery',
-                  ),
                   items: const [
                     DropdownMenuItem(
                       value: 'Spinal',
@@ -2977,12 +2487,9 @@ class _ComprehensiveBirthPlanScreenState
                   'General anesthesia (asleep) is reserved for emergencies or when your team says it is safest.',
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'How the incision is closed',
                   value: _surgicalClosurePreference,
-                  decoration: const InputDecoration(
-                    labelText: 'How the incision is closed',
-                  ),
                   items: const [
                     DropdownMenuItem(
                       value: 'Staples',
@@ -3004,92 +2511,49 @@ class _ComprehensiveBirthPlanScreenState
                   onChanged: (v) =>
                       setState(() => _surgicalClosurePreference = v),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildSection9() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'If something unexpected happens',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
+    return _sectionCard(
+      title: 'If something unexpected happens',
+      subtitle: 'Most births go as planned, but sharing this now can help your team support you.',
+      children: [
+                _labeled(
+                  'Faith or spiritual practices that matter to you',
+                  TextFormField(
+                    controller: _religiousConsiderationsController,
+                    decoration: const InputDecoration(),
+                    maxLines: 2,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Most births go as planned, but sharing this now can help your team support you.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextFormField(
-                  controller: _religiousConsiderationsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Faith or spiritual practices that matter to you',
-                  ),
-                  maxLines: 2,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _culturalConsiderationsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Cultural traditions we should know about',
+                _labeled(
+                  'Cultural traditions we should know about',
+                  TextFormField(
+                    controller: _culturalConsiderationsController,
+                    decoration: const InputDecoration(),
+                    maxLines: 2,
                   ),
-                  maxLines: 2,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _accessibilityNeedsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Accessibility or mobility needs',
+                _labeled(
+                  'Accessibility or mobility needs',
+                  TextFormField(
+                    controller: _accessibilityNeedsController,
+                    decoration: const InputDecoration(),
+                    maxLines: 2,
                   ),
-                  maxLines: 2,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _traumaHistoryController,
-                  decoration: const InputDecoration(
-                    labelText: 'Past trauma (only if you want to share)',
+                _labeled(
+                  'Past trauma (only if you want to share)',
+                  TextFormField(
+                    controller: _traumaHistoryController,
+                    decoration: const InputDecoration(),
+                    maxLines: 2,
                   ),
-                  maxLines: 2,
                 ),
                 _jargonExpandable(
                   'trauma_history',
@@ -3120,12 +2584,9 @@ class _ComprehensiveBirthPlanScreenState
                   'Extra check-ins so you can consent before procedures or exams along the way, not just once at admission.',
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
+                _dropdownField(
+                  label: 'How you prefer hard news to be shared',
                   value: _preferredBadNewsDelivery,
-                  decoration: const InputDecoration(
-                    labelText: 'How you prefer hard news to be shared',
-                  ),
                   items:
                       [
                             'Private conversation',
@@ -3156,76 +2617,27 @@ class _ComprehensiveBirthPlanScreenState
                     setState(() => _fearReductionRequests.removeAt(index));
                   },
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildSection10() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Anything else?',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
+    return _sectionCard(
+      title: 'Anything else?',
+      subtitle: 'Optional: your own words for your care team.',
+      children: [
+                _labeled(
+                  'What you want your team to know',
+                  TextFormField(
+                    controller: _inMyOwnWordsController,
+                    decoration: const InputDecoration(
+                      hintText:
+                          'Anything else you\'d like your care team to know…',
+                    ),
+                    maxLines: 5,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Optional: your own words for your care team.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextFormField(
-                  controller: _inMyOwnWordsController,
-                  decoration: const InputDecoration(
-                    labelText: 'What you want your team to know',
-                    hintText:
-                        'Anything else you\'d like your care team to know…',
-                  ),
-                  maxLines: 5,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -3236,46 +2648,67 @@ class _ComprehensiveBirthPlanScreenState
     Function(String) onAdd,
     Function(int) onRemove,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                decoration: const InputDecoration(hintText: 'Add item'),
-                onSubmitted: (v) {
-                  if (v.isNotEmpty) onAdd(v);
+    return _labeled(
+      label,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(hintText: 'Add item'),
+                  onSubmitted: (v) {
+                    if (v.isNotEmpty) onAdd(v);
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              HearthCircleButton(
+                icon: Icons.add,
+                iconColor: AppTheme.brandPurple,
+                onPressed: () {
+                  if (controller.text.isNotEmpty) {
+                    onAdd(controller.text);
+                  }
                 },
               ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () {
-                if (controller.text.isNotEmpty) {
-                  onAdd(controller.text);
-                }
-              },
-            ),
-          ],
-        ),
-        if (items.isNotEmpty) ...[
-          const SizedBox(height: 8),
+            ],
+          ),
           ...items.asMap().entries.map((entry) {
-            return ListTile(
-              title: Text(entry.value),
-              trailing: IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => onRemove(entry.key),
+            return Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: HearthCard(
+                radius: BorderRadius.circular(AppTheme.fieldRadius),
+                padding: const EdgeInsets.only(left: 16, right: 2),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          entry.value,
+                          style: const TextStyle(
+                            fontFamily: AppTheme.sansFamily,
+                            fontSize: 15,
+                            height: 22 / 15,
+                            color: AppTheme.ink,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18, color: AppTheme.textSecondary),
+                        onPressed: () => onRemove(entry.key),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             );
           }),
         ],
-      ],
+      ),
     );
   }
 
@@ -3284,34 +2717,30 @@ class _ComprehensiveBirthPlanScreenState
     List<String> options,
     List<String> selected,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: options.map((option) {
-            final isSelected = selected.contains(option);
-            return FilterChip(
-              label: Text(option),
-              selected: isSelected,
-              onSelected: (isSelected) {
-                setState(() {
-                  if (isSelected) {
-                    if (!selected.contains(option)) {
-                      selected.add(option);
-                    }
-                  } else {
-                    selected.remove(option);
+    return _labeled(
+      label,
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: options.map((option) {
+          final isSelected = selected.contains(option);
+          return HearthChoiceChip(
+            label: option,
+            selected: isSelected,
+            onSelected: () {
+              setState(() {
+                if (!isSelected) {
+                  if (!selected.contains(option)) {
+                    selected.add(option);
                   }
-                });
-              },
-            );
-          }).toList(),
-        ),
-      ],
+                } else {
+                  selected.remove(option);
+                }
+              });
+            },
+          );
+        }).toList(),
+      ),
     );
   }
 }

@@ -362,6 +362,15 @@ class QaHarness {
   /// Opens the screen a checklist item is about: closes pages above the main
   /// tab scaffold (never the scaffold itself or what's under it, such as the
   /// sign-in route), selects [target]['tab'], then pushes [target]['route'].
+  /// Routes whose screen is one of the main tabs.
+  static const _tabForRoute = {
+    '/home': 0,
+    '/learning': 1,
+    '/journal': 2,
+    '/community': 3,
+    '/edit-profile': 4,
+  };
+
   static void _navigate(Map<String, dynamic> target) {
     final navigator = _observer.navigator;
     if (navigator == null) return;
@@ -370,7 +379,14 @@ class QaHarness {
     if (mainRoute != null && mainRoute.navigator == navigator) {
       navigator.popUntil((route) => route == mainRoute);
     }
-    final tab = target['tab'];
+    // Tab screens can also be pushed as standalone routes (that's how some
+    // bugs were recorded); always open them as tabs so the bottom bar shows.
+    var tab = target['tab'];
+    var route = target['route'];
+    if (route is String && _tabForRoute.containsKey(route)) {
+      tab = _tabForRoute[route];
+      route = null;
+    }
     if (tab is num) {
       final scope = scopeElement?.widget;
       if (scope is! MainNavigationScope) {
@@ -383,7 +399,6 @@ class QaHarness {
       }
       scope.selectTab(tab.toInt());
     }
-    final route = target['route'];
     if (route is String && route.isNotEmpty && route != '/') {
       SchedulerBinding.instance.addPostFrameCallback((_) => navigator.pushNamed(route));
     }

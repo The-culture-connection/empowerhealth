@@ -37,6 +37,14 @@ const String _kAssistantPromptIsThisNormal =
 /// Non-breaking space: keeps short labels (e.g. "Second trimester") on one line.
 final String _kNbsp = String.fromCharCode(0x00A0);
 
+/// Opens a main tab (bottom tabs stay visible); pushes [route] only when the
+/// app isn't inside the tab scaffold.
+void _openTab(BuildContext context, int tab, String route) {
+  if (!MainNavigationScope.goToTab(context, tab)) {
+    Navigator.pushNamed(context, route);
+  }
+}
+
 class HomeScreenV2 extends StatefulWidget {
   const HomeScreenV2({super.key});
 
@@ -469,8 +477,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                               iconColor: const Color(0xFFD4A574),
                               title: "How I'm Feeling",
                               subtitle: 'Your private space',
-                              onTap: () => Navigator.pushNamed(
-                                  context, Routes.journal),
+                              onTap: () => _openTab(
+                                  context, MainNavigationScope.tabJournal, Routes.journal),
                             ),
                       ),
                       const SizedBox(height: 16),
@@ -484,8 +492,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                           iconColor: AppTheme.brandPurple,
                           title: 'Learning guides',
                           subtitle: 'Recovery, visits, and follow-up care',
-                          onTap: () => Navigator.pushNamed(
+                          onTap: () => _openTab(
                             context,
+                            MainNavigationScope.tabLearn,
                             Routes.learning,
                           ),
                         )
@@ -519,8 +528,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                 iconColor: AppTheme.brandPurple,
                                 title: 'My Care Plan',
                                 subtitle: 'Your personalized path',
-                                onTap: () => Navigator.pushNamed(
+                                onTap: () => _openTab(
                                   context,
+                                  MainNavigationScope.tabLearn,
                                   Routes.learning,
                                 ),
                               ),
@@ -1208,7 +1218,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
             ),
           );
         } else {
-          Navigator.pushNamed(context, Routes.learning);
+          _openTab(context, MainNavigationScope.tabLearn, Routes.learning);
         }
       },
       borderRadius: BorderRadius.circular(24),

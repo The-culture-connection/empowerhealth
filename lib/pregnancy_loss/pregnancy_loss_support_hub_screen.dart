@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../models/user_profile.dart';
 import 'pregnancy_loss_home_content.dart';
 
@@ -13,40 +14,24 @@ class PregnancyLossSupportHubScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F4FA),
+      backgroundColor: AppTheme.ground,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          padding: const EdgeInsets.only(bottom: 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: Icon(Icons.chevron_left, color: AppTheme.textMuted),
+              HearthPushedHeader(
+                onBack: () => Navigator.pop(context),
+                title: 'Support options',
+                subtitle: 'One step at a time. Choose what feels right today.',
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Support options',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w400,
-                  color: AppTheme.textPrimary,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: PregnancyLossHomeContent(
+                  profile: profile,
+                  showWelcome: false,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'One step at a time. Choose what feels right today.',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 24),
-              PregnancyLossHomeContent(
-                profile: profile,
-                showWelcome: false,
               ),
             ],
           ),

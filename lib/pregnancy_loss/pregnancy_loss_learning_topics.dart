@@ -24,7 +24,7 @@ const List<PregnancyLossLearningTopic> kPregnancyLossLearningTopics = [
     title: 'Understanding pregnancy loss',
     subtitle:
         'Gentle, plain-language information about what may happen and what questions you can ask.',
-    listIcon: Icons.psychology_alt_outlined,
+    listIcon: Icons.help_outline,
     markdownBody: '''
 This guide focuses on **what happened in medical terms** and what your team may know or still be figuring out.
 
@@ -197,7 +197,7 @@ Use the contact method your team gave you (nurse line, portal, on-call number) f
     title: 'Support for the future, if or when you\'re ready',
     subtitle:
         'There is no timeline you have to follow.',
-    listIcon: Icons.calendar_month_outlined,
+    listIcon: Icons.calendar_today_outlined,
     markdownBody: '''
 This guide is only for when **you** want to talk about future care. There is no required timeline.
 
@@ -251,7 +251,7 @@ void openPregnancyLossLearningTopic(
         moduleId: topic.id,
         title: topic.title,
         content: topic.markdownBody,
-        icon: '📘',
+        icon: '',
       ),
     ),
   );

@@ -25,7 +25,6 @@ import '../immediate_support/immediate_support_navigation.dart';
 import '../immediate_support/widgets/immediate_support_home_card.dart';
 import '../support_stage/support_stage.dart';
 import '../support_stage/support_stage_scope.dart';
-import '../pregnancy_loss/pregnancy_loss_theme.dart';
 import '../pregnancy_loss/widgets/pregnancy_loss_home_variant.dart';
 import '../widgets/home_provider_search_entry.dart';
 
@@ -365,7 +364,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
     const cardGap = SizedBox(height: 12);
     return Scaffold(
       backgroundColor:
-          inLossMode ? PregnancyLossTheme.background : Colors.transparent,
+          inLossMode ? AppTheme.ground : Colors.transparent,
       body: SafeArea(
         child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),

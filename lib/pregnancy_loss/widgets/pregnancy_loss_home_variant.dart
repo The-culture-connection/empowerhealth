@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 import '../../models/user_profile.dart';
 import '../pregnancy_loss_constants.dart';
 import '../pregnancy_loss_learning_topics.dart';
 import '../pregnancy_loss_navigation.dart';
 import '../pregnancy_loss_service.dart';
 import '../pregnancy_loss_support_hub_screen.dart';
-import '../pregnancy_loss_theme.dart';
 import 'pregnancy_loss_crisis_resources.dart';
 
 /// Trauma-informed home cards when [UserProfile.isInPregnancyLossMode].
@@ -148,64 +148,51 @@ class _PrimarySupportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: PregnancyLossTheme.accentSoft.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: PregnancyLossTheme.borderSoft.withValues(alpha: 0.65),
+    // Warm tint, not purple: loss mode keeps its one feature card quiet.
+    return HearthFeatureCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Support after pregnancy loss',
+            style: hearthFeatureTitleStyle(),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Find emotional support, follow-up care guidance, and questions to ask your provider.',
+            style: TextStyle(
+              fontFamily: AppTheme.sansFamily,
+              fontSize: 15,
+              height: 22 / 15,
+              color: AppTheme.textSecondary,
             ),
           ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Support after pregnancy loss',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textPrimary,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Find emotional support, follow-up care guidance, and questions to ask your provider.',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Text(
-                    'See support options',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: AppTheme.brandPurple,
-                    ),
+          const SizedBox(height: 6),
+          const SizedBox(
+            height: 44,
+            child: Row(
+              children: [
+                Text(
+                  'See support options',
+                  style: TextStyle(
+                    fontFamily: AppTheme.sansFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.brandPurple,
                   ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 20,
-                    color: AppTheme.brandPurple.withValues(alpha: 0.85),
-                  ),
-                ],
-              ),
-            ],
+                ),
+                SizedBox(width: 6),
+                Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: AppTheme.brandPurple,
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -226,64 +213,11 @@ class _SecondaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onTap(context),
-        borderRadius: BorderRadius.circular(20),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: PregnancyLossTheme.cardFill,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: PregnancyLossTheme.borderSoft.withValues(alpha: 0.5),
-            ),
-            boxShadow: AppTheme.shadowSoft(opacity: 0.05, blur: 14, y: 4),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: PregnancyLossTheme.accentSoft.withValues(alpha: 0.65),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: AppTheme.brandPurple, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 22),
-            ],
-          ),
-        ),
-      ),
+    return HearthRowCard(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      onTap: () => onTap(context),
     );
   }
 }

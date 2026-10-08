@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import 'notes_dialog.dart';
 
 /// A journal note the user took on a lesson (users/{uid}/notes, written by
@@ -206,15 +207,25 @@ class _ModuleNotesViewDialog extends StatelessWidget {
       builder: (c) => AlertDialog(
         title: const Text('Delete this note?'),
         content: const Text('This removes it from your journal.'),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(c).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(c).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
-            child: const Text('Delete'),
+          Row(
+            children: [
+              Expanded(
+                child: HearthButton.secondary(
+                  label: 'Cancel',
+                  onPressed: () => Navigator.of(c).pop(false),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Destructive actions use the ink outline, not red.
+              Expanded(
+                child: HearthButton.destructive(
+                  label: 'Delete',
+                  onPressed: () => Navigator.of(c).pop(true),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -241,7 +252,6 @@ class _ModuleNotesViewDialog extends StatelessWidget {
       messenger.showSnackBar(
         SnackBar(
           content: Text('Could not delete note: $e'),
-          backgroundColor: Colors.red,
         ),
       );
     }
@@ -249,76 +259,56 @@ class _ModuleNotesViewDialog extends StatelessWidget {
 
   Widget _noteCard(BuildContext context, ModuleNote note) {
     final highlight = note.highlightedText?.trim();
-    return Container(
-      width: double.infinity,
+    return HearthCard(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.brandWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (highlight != null && highlight.isNotEmpty) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.brandGold.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                highlight,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontStyle: FontStyle.italic,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-          Text(
-            note.content,
-            style: const TextStyle(
-              fontSize: 15,
-              color: AppTheme.textPrimary,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            [
-              _formatNoteDate(note),
-              if (note.tag != null) note.tag!,
-            ].join(' · '),
-            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-          ),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 4,
-            children: [
-              TextButton.icon(
-                onPressed: () => _edit(context, note),
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                label: const Text('Edit'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.brandPurple,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () => _delete(context, note),
-                icon: const Icon(Icons.delete_outline, size: 18),
-                label: const Text('Delete'),
-                style: TextButton.styleFrom(foregroundColor: AppTheme.error),
-              ),
+      padding: const EdgeInsets.all(16),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (highlight != null && highlight.isNotEmpty) ...[
+              NoteHighlightQuote(text: highlight, maxLines: 4),
+              const SizedBox(height: 10),
             ],
-          ),
-        ],
+            Text(
+              note.content,
+              style: const TextStyle(
+                fontFamily: AppTheme.sansFamily,
+                fontSize: 15,
+                height: 22 / 15,
+                color: AppTheme.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              [
+                _formatNoteDate(note),
+                if (note.tag != null) note.tag!,
+              ].join(' · '),
+              style: hearthCaptionStyle,
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 16,
+              children: [
+                HearthTextAction(
+                  onPressed: () => _edit(context, note),
+                  icon: Icons.edit_outlined,
+                  label: 'Edit',
+                  color: AppTheme.brandPurple,
+                ),
+                // Quiet ink action; destructive is never red.
+                HearthTextAction(
+                  onPressed: () => _delete(context, note),
+                  icon: Icons.delete_outline,
+                  label: 'Delete',
+                  color: AppTheme.ink,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -327,7 +317,6 @@ class _ModuleNotesViewDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.8,
@@ -336,32 +325,22 @@ class _ModuleNotesViewDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
-              decoration: const BoxDecoration(
-                color: AppTheme.brandPurple,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
-              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
               child: Row(
                 children: [
                   const Icon(Icons.sticky_note_2_outlined,
-                      color: AppTheme.brandWhite),
-                  const SizedBox(width: 12),
+                      size: 22, color: AppTheme.brandPurple),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       notes.length == 1 ? 'Your note' : 'Your notes',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.brandWhite,
-                      ),
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: AppTheme.brandWhite),
+                  const SizedBox(width: 10),
+                  HearthCircleButton(
+                    icon: Icons.close,
                     tooltip: 'Close',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -370,7 +349,7 @@ class _ModuleNotesViewDialog extends StatelessWidget {
             ),
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

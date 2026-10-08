@@ -628,7 +628,15 @@ class HearthButton extends StatelessWidget {
                 Icon(icon, size: 20),
                 const SizedBox(width: 8),
               ],
-              Flexible(child: Text(label, textAlign: TextAlign.center)),
+              // A one-word label can only wrap mid-word, so it scales down instead.
+              Flexible(
+                child: label.trim().contains(' ')
+                    ? Text(label, textAlign: TextAlign.center)
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(label, maxLines: 1, softWrap: false),
+                      ),
+              ),
               if (chevron) ...[
                 const SizedBox(width: 6),
                 const Icon(Icons.chevron_right, size: 18),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
 import '../../services/research/research_firestore_service.dart';
@@ -43,7 +44,6 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please answer all questions'),
-          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -119,8 +119,7 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
         widget.onSurveyCompleted();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Survey completed! Module archived.'),
-            backgroundColor: Colors.green,
+            content: Text('Survey completed! Module archived.'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -131,7 +130,6 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error submitting survey: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -145,42 +143,28 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
         Text(
           label,
           style: const TextStyle(
+            fontFamily: AppTheme.sansFamily,
             fontSize: 16,
-            fontWeight: FontWeight.w500,
+            height: 22 / 16,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.ink,
           ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(5, (index) {
-            return GestureDetector(
-              onTap: () {
-                onRatingChanged(index + 1);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(
-                  index < rating ? Icons.star : Icons.star_border,
-                  size: 40,
-                  color: index < rating 
-                      ? Colors.amber 
-                      : Colors.grey,
-                ),
-              ),
-            );
-          }),
+        const SizedBox(height: 10),
+        Center(
+          child: HearthStarRating(
+            value: rating,
+            size: 40,
+            onChanged: (value) => onRatingChanged(value),
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Center(
           child: Text(
-            rating == 0 
+            rating == 0
                 ? 'Tap stars to rate'
                 : '$rating out of 5 stars',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
+            style: hearthCaptionStyle.copyWith(fontStyle: FontStyle.italic),
           ),
         ),
       ],
@@ -189,9 +173,12 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // Surface fill so the comments field reads as inset (Learn-Survey).
     return Dialog(
+      backgroundColor: AppTheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        side: const BorderSide(color: AppTheme.borderWarm),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -205,15 +192,12 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
                   Expanded(
                     child: Text(
                       'Complete Survey',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.brandPurple,
-                      ),
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
+                  const SizedBox(width: 10),
+                  HearthCircleButton(
+                    icon: Icons.close,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -221,12 +205,9 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
               const SizedBox(height: 8),
               Text(
                 'Please complete the survey before archiving "${widget.moduleTitle}"',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
+                style: hearthCardBodyStyle,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               _buildStarRating(
                 'I understand what this means.',
                 _understandingRating,
@@ -234,7 +215,7 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
                   setState(() => _understandingRating = rating);
                 },
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
               _buildStarRating(
                 'I know what I need to do next.',
                 _nextStepsRating,
@@ -242,7 +223,7 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
                   setState(() => _nextStepsRating = rating);
                 },
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
               _buildStarRating(
                 'I feel confident about my next steps.',
                 _confidenceRating,
@@ -250,54 +231,26 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
                   setState(() => _confidenceRating = rating);
                 },
               ),
-              const SizedBox(height: 32),
-              const Text(
+              const SizedBox(height: 20),
+              Text(
                 'General Comments (Optional)',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.ink),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               TextField(
                 controller: _commentsController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
+                  fillColor: AppTheme.surfaceInset,
                   hintText: 'Share any additional thoughts or feedback...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppTheme.brandPurple, width: 2),
-                  ),
                 ),
                 maxLines: 4,
                 minLines: 3,
               ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submitSurvey,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.brandPurple,
-                    foregroundColor: AppTheme.brandWhite,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
-                          ),
-                        )
-                      : const Text(
-                          'Submit & Archive',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
-                ),
+              const SizedBox(height: 20),
+              HearthButton.primary(
+                label: 'Submit & Archive',
+                loading: _isSubmitting,
+                onPressed: _submitSurvey,
               ),
             ],
           ),

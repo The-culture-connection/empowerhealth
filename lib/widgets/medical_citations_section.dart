@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/medical_sources.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 
 /// "Sources & References" card shown beneath health/medical content.
 ///
@@ -31,43 +32,42 @@ class MedicalCitationsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final sources = MedicalSources.forTopic(topic);
 
-    return Container(
+    return SizedBox(
+      width: double.infinity,
+      child: HearthCard(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: AppTheme.borderLight, width: 1),
-        boxShadow: AppTheme.shadowSoft(opacity: 0.06, blur: 16, y: 3),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(Icons.menu_book_outlined,
                   size: 20, color: AppTheme.brandPurple),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Flexible(
                 child: Text(
                   'Sources & References',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
+                    fontFamily: AppTheme.sansFamily,
+                    fontSize: 17,
+                    height: 24 / 17,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.ink,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'This educational content is based on guidance from the following '
             'trusted health organizations. Tap to read the source.',
             style: TextStyle(
+              fontFamily: AppTheme.sansFamily,
               fontSize: 13,
-              height: 1.45,
+              height: 19 / 13,
               color: AppTheme.textMuted,
             ),
           ),
@@ -77,6 +77,7 @@ class MedicalCitationsSection extends StatelessWidget {
                 onTap: () => _open(context, s),
               )),
         ],
+      ),
       ),
     );
   }
@@ -93,13 +94,19 @@ class _SourceLink extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
-      child: Padding(
+      child: ConstrainedBox(
+        // Keeps each link a comfortable tap target.
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.open_in_new,
-                size: 16, color: AppTheme.brandPurple.withOpacity(0.8)),
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Icon(Icons.open_in_new,
+                  size: 16, color: AppTheme.brandPurple),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -107,20 +114,23 @@ class _SourceLink extends StatelessWidget {
                 children: [
                   Text(
                     source.title,
-                    style: TextStyle(
+                    style: const TextStyle(
+                      fontFamily: AppTheme.sansFamily,
                       fontSize: 14,
+                      height: 20 / 14,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.brandPurple,
                       decoration: TextDecoration.underline,
-                      decorationColor: AppTheme.brandPurple.withOpacity(0.5),
+                      decorationColor: AppTheme.brandPurple,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     source.organization,
-                    style: TextStyle(
+                    style: const TextStyle(
+                      fontFamily: AppTheme.sansFamily,
                       fontSize: 12,
-                      height: 1.4,
+                      height: 17 / 12,
                       color: AppTheme.textMuted,
                     ),
                   ),
@@ -128,6 +138,7 @@ class _SourceLink extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

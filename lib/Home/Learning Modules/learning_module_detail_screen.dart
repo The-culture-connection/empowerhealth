@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../cors/ui_theme.dart' show AppTheme;
+import '../../design_system/hearth.dart';
 import '../../learning/module_notes.dart';
 import '../../learning/notes_dialog.dart';
 import '../../services/analytics_service.dart';
@@ -225,110 +226,61 @@ class _LearningModuleDetailScreenState
         if (!didPop) _confirmExit();
       },
       child: Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppTheme.surfaceCard, AppTheme.backgroundWarm],
-          ),
-        ),
-        child: SafeArea(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
           child: Column(
             children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: _confirmExit,
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.title,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Learning Module',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.note_add),
-                      tooltip: 'Add Note',
-                      onPressed: () => _openNotesDialog(),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.share),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: widget.content));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Copied to clipboard!')),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+              HearthPushedHeader(
+                title: widget.title,
+                subtitle: 'Learning Module',
+                onBack: _confirmExit,
+                actions: [
+                  HearthCircleButton(
+                    icon: Icons.note_add_outlined,
+                    tooltip: 'Add Note',
+                    onPressed: () => _openNotesDialog(),
+                  ),
+                  HearthCircleButton(
+                    icon: Icons.ios_share,
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: widget.content));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Copied to clipboard!')),
+                      );
+                    },
+                  ),
+                ],
               ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Selectable text for highlighting
-                      Container(
+                      HearthCard(
                         padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceCard,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.grey.shade100),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            const Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 1),
-                                  child: Icon(
-                                    Icons.auto_awesome,
-                                    size: 18,
-                                    color: Color(0xFF663399),
-                                  ),
+                                Icon(
+                                  Icons.auto_awesome_outlined,
+                                  size: 18,
+                                  color: AppTheme.brandPurple,
                                 ),
-                                const SizedBox(width: 8),
-                                const Expanded(
+                                SizedBox(width: 8),
+                                Expanded(
                                   child: Text(
                                     'Long-press or drag across text to highlight it, then add a note',
                                     style: TextStyle(
+                                      fontFamily: AppTheme.sansFamily,
                                       fontSize: 13,
+                                      height: 18 / 13,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF663399),
+                                      color: AppTheme.brandPurple,
                                     ),
                                   ),
                                 ),
@@ -345,16 +297,22 @@ class _LearningModuleDetailScreenState
                                   onPressed: () => _openNotesDialog(
                                     highlightedText: selected,
                                   ),
-                                  icon: const Icon(Icons.edit_note, size: 20),
+                                  icon: const Icon(Icons.edit_outlined, size: 18),
                                   label: Text(
                                     selected.isEmpty
                                         ? 'Add a note'
                                         : 'Add note to highlighted text',
                                   ),
                                   style: TextButton.styleFrom(
-                                    foregroundColor: const Color(0xFF663399),
+                                    foregroundColor: AppTheme.brandPurple,
+                                    minimumSize: const Size(0, 44),
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 4,
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontFamily: AppTheme.sansFamily,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 );
@@ -384,38 +342,25 @@ class _LearningModuleDetailScreenState
 
                       // Single save action: bookmarks the lesson in the
                       // Journal (Learning notes), with a link back here.
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _saveLessonToJournal,
-                          icon: const Icon(Icons.bookmark_add_outlined),
-                          label: const Text('Save', maxLines: 1),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF663399),
-                            foregroundColor: AppTheme.brandWhite,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
+                      HearthButton.primary(
+                        label: 'Save',
+                        icon: Icons.bookmark_add_outlined,
+                        onPressed: _saveLessonToJournal,
                       ),
 
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
 
                       // Medical citations (Guideline 1.4.1)
                       MedicalCitationsSection(topic: widget.title),
 
                       // Feedback now lives directly under the module content
                       // (see ModuleQuickFeedback above) so it isn't overlooked.
-                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
               ),
             ],
           ),
-        ),
       ),
       ),
     );
@@ -423,49 +368,29 @@ class _LearningModuleDetailScreenState
 
   /// Inline card that opens [QualitativeSurveyDialog] (replaces the old star-rating block).
   Widget _buildNewSurveySection() {
-    return Container(
-      width: double.infinity,
+    return HearthCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              Icon(Icons.feedback_outlined, color: AppTheme.brandPurple),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Module feedback',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF663399),
-                  ),
-                ),
+              HearthIconChip(Icons.rate_review_outlined),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text('Module feedback', style: hearthCardTitleStyle),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Share a quick rating about how clear and helpful this module was.',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            style: hearthCardBodyStyle,
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
+          HearthButton.secondary(
+              icon: Icons.rate_review_outlined,
+              label: 'Give feedback',
               onPressed: () {
                 showDialog<void>(
                   context: context,
@@ -481,14 +406,6 @@ class _LearningModuleDetailScreenState
                   ),
                 );
               },
-              icon: const Icon(Icons.rate_review_outlined),
-              label: const Text('Give feedback'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF663399),
-                side: const BorderSide(color: Color(0xFF663399)),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
           ),
         ],
       ),
@@ -565,7 +482,6 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please answer all questions'),
-          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -642,8 +558,7 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Thank you for your feedback!'),
-            backgroundColor: Colors.green,
+            content: Text('Thank you for your feedback!'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -654,7 +569,6 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error submitting survey: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -669,38 +583,20 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
+        Text(label, style: hearthCardTitleStyle),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(5, (index) {
-            return GestureDetector(
-              onTap: () {
-                onRatingChanged(index + 1);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(
-                  index < rating ? Icons.star : Icons.star_border,
-                  size: 40,
-                  color: index < rating ? Colors.amber : Colors.grey,
-                ),
-              ),
-            );
-          }),
+        Center(
+          child: HearthStarRating(
+            value: rating,
+            size: 40,
+            onChanged: onRatingChanged,
+          ),
         ),
         const SizedBox(height: 8),
         Center(
           child: Text(
             rating == 0 ? 'Tap stars to rate' : '$rating out of 5 stars',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
+            style: hearthCaptionStyle,
           ),
         ),
       ],
@@ -710,47 +606,20 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
   @override
   Widget build(BuildContext context) {
     if (_hasSubmitted) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green.withOpacity(0.3)),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Thank you for completing the survey!',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.green,
-                ),
-              ),
-            ),
-          ],
-        ),
+      return const HearthNote(
+        icon: Icons.check,
+        title: 'Thank you for completing the survey!',
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Module Survey',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.brandPurple,
-          ),
-        ),
+        const HearthSectionHeading('Module Survey'),
         const SizedBox(height: 8),
         const Text(
           'Please rate your experience with this module:',
-          style: TextStyle(fontSize: 14, color: Colors.grey),
+          style: hearthCardBodyStyle,
         ),
         const SizedBox(height: 24),
         _buildStarRating(
@@ -775,51 +644,24 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
           },
         ),
         const SizedBox(height: 32),
-        const Text(
+        Text(
           'General Comments (Optional)',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          style: Theme.of(context).textTheme.labelMedium,
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _commentsController,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Share any additional thoughts or feedback...',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: AppTheme.brandPurple,
-                width: 2,
-              ),
-            ),
           ),
           maxLines: 4,
           minLines: 3,
         ),
         const SizedBox(height: 32),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _isSubmitting ? null : _submitSurvey,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.brandPurple,
-              foregroundColor: AppTheme.brandWhite,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
-                    ),
-                  )
-                : const Text(
-                    'Submit Survey',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-          ),
+        HearthButton.primary(
+          label: 'Submit Survey',
+          loading: _isSubmitting,
+          onPressed: _submitSurvey,
         ),
       ],
     );

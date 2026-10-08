@@ -5,9 +5,8 @@ class RightsStaticTopic {
   final String id;
   final String title;
   final String description;
+  /// Drawn in the shared warm icon chip, so topics carry no colours of their own.
   final IconData icon;
-  final List<Color> iconBgGradient;
-  final Color iconColor;
   final String whatThisMeans;
   final List<String> whatYouCanSay;
   final List<String> questionsToAsk;
@@ -18,8 +17,6 @@ class RightsStaticTopic {
     required this.title,
     required this.description,
     required this.icon,
-    required this.iconBgGradient,
-    required this.iconColor,
     required this.whatThisMeans,
     required this.whatYouCanSay,
     required this.questionsToAsk,
@@ -33,9 +30,7 @@ const List<RightsStaticTopic> rightsStaticTopicsNewUi = [
     id: 'ask-questions',
     title: 'Your right to ask questions',
     description: 'You deserve clear answers about your care',
-    icon: Icons.chat_bubble_outline_rounded,
-    iconBgGradient: [Color(0xFFF5EEE0), Color(0xFFEBE0D6)],
-    iconColor: Color(0xFFD4A574),
+    icon: Icons.chat_bubble_outline,
     whatThisMeans:
         'You have the right to ask questions and get clear answers. Your care team should explain things in a way you can understand.',
     whatYouCanSay: [
@@ -57,8 +52,6 @@ const List<RightsStaticTopic> rightsStaticTopicsNewUi = [
     title: 'Your right to informed consent',
     description: 'Understanding your choices before any procedure',
     icon: Icons.shield_outlined,
-    iconBgGradient: [Color(0xFFE8E0F0), Color(0xFFEDE7F3)],
-    iconColor: Color(0xFF8B7AA8),
     whatThisMeans:
         'Before any procedure or treatment, your provider should explain what will happen, why it’s recommended, and what other options you have. You have the right to say yes or no.',
     whatYouCanSay: [
@@ -80,9 +73,7 @@ const List<RightsStaticTopic> rightsStaticTopicsNewUi = [
     id: 'pain-management',
     title: 'Your right to pain management',
     description: 'Asking for comfort during labor and delivery',
-    icon: Icons.favorite_border_rounded,
-    iconBgGradient: [Color(0xFFF8EDF3), Color(0xFFFDF5F9)],
-    iconColor: Color(0xFFC9A9C0),
+    icon: Icons.favorite_border,
     whatThisMeans:
         'You have the right to ask for pain relief during labor and delivery. Your preferences about pain management should be respected.',
     whatYouCanSay: [
@@ -104,9 +95,7 @@ const List<RightsStaticTopic> rightsStaticTopicsNewUi = [
     id: 'support-person',
     title: 'Your right to a support person',
     description: 'Having someone you trust by your side',
-    icon: Icons.volunteer_activism_outlined,
-    iconBgGradient: [Color(0xFFF9F2E8), Color(0xFFFEF9F5)],
-    iconColor: Color(0xFFD4A574),
+    icon: Icons.people_outline,
     whatThisMeans:
         'You have the right to have a support person with you during labor, delivery, and recovery. This could be a partner, family member, doula, or friend.',
     whatYouCanSay: [
@@ -128,9 +117,7 @@ const List<RightsStaticTopic> rightsStaticTopicsNewUi = [
     id: 'understand-care',
     title: 'Your right to understand your care',
     description: 'Getting information in words that make sense',
-    icon: Icons.help_outline_rounded,
-    iconBgGradient: [Color(0xFFDCE8E4), Color(0xFFE8F0ED)],
-    iconColor: Color(0xFF7D9D92),
+    icon: Icons.help_outline,
     whatThisMeans:
         'You have the right to receive information about your care in language you can understand. If medical terms are confusing, your care team should explain them clearly.',
     whatYouCanSay: [

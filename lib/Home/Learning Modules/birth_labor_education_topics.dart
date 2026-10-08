@@ -116,7 +116,7 @@ void openBirthLaborTopic(BuildContext context, BirthLaborEducationTopic topic) {
       builder: (context) => LearningModuleDetailScreen(
         title: topic.title,
         content: topic.markdownBody,
-        icon: '📘',
+        icon: '',
       ),
     ),
   );

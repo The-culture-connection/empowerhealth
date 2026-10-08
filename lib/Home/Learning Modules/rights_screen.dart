@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/ai_service.dart';
 import '../../services/analytics_service.dart';
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 import '../../learning/notes_dialog.dart';
 import '../../widgets/medical_citations_section.dart';
 import 'learning_module_detail_screen.dart';
@@ -13,16 +14,12 @@ class _AiRightsTopic {
   final String topic;
   final String description;
   final IconData icon;
-  final List<Color> iconBgGradient;
-  final Color iconColor;
 
   const _AiRightsTopic({
     required this.title,
     required this.topic,
     required this.description,
     required this.icon,
-    required this.iconBgGradient,
-    required this.iconColor,
   });
 }
 
@@ -32,40 +29,30 @@ const _aiExtras = <_AiRightsTopic>[
     topic: 'Your Right to Say No',
     description: 'When and how you can refuse or delay treatment',
     icon: Icons.front_hand_outlined,
-    iconBgGradient: [Color(0xFFE8E0F0), Color(0xFFD8CFE5)],
-    iconColor: Color(0xFF8B7AA8),
   ),
   _AiRightsTopic(
     title: 'Birth preferences',
     topic: 'Creating Your Birth Plan',
     description: 'How to share your wishes for labor and delivery',
-    icon: Icons.edit_note_rounded,
-    iconBgGradient: [Color(0xFFF9F2E8), Color(0xFFFEF9F5)],
-    iconColor: Color(0xFFD4A574),
+    icon: Icons.edit_outlined,
   ),
   _AiRightsTopic(
     title: 'Medical records',
     topic: 'Accessing Your Medical Information',
     description: 'How to get copies of your records',
-    icon: Icons.folder_shared_outlined,
-    iconBgGradient: [Color(0xFFF5EEE0), Color(0xFFEBE0D6)],
-    iconColor: Color(0xFFD4A574),
+    icon: Icons.folder_outlined,
   ),
   _AiRightsTopic(
     title: 'Second opinions',
     topic: "Getting Another Doctor's View",
     description: 'When and how to seek another perspective',
-    icon: Icons.groups_2_outlined,
-    iconBgGradient: [Color(0xFFDCE8E4), Color(0xFFE8F0ED)],
-    iconColor: Color(0xFF7D9D92),
+    icon: Icons.people_outline,
   ),
   _AiRightsTopic(
     title: 'Respectful care',
     topic: 'Dignity and Respect in Healthcare',
     description: 'What respectful maternity care can look like',
-    icon: Icons.favorite_outline_rounded,
-    iconBgGradient: [Color(0xFFF8EDF3), Color(0xFFFDF5F9)],
-    iconColor: Color(0xFFC9A9C0),
+    icon: Icons.favorite_border,
   ),
 ];
 
@@ -111,7 +98,7 @@ class _RightsScreenState extends State<RightsScreen> {
           builder: (context) => LearningModuleDetailScreen(
             title: t.title,
             content: result['content'],
-            icon: '💜',
+            icon: '',
           ),
         ),
       );
@@ -135,152 +122,60 @@ class _RightsScreenState extends State<RightsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Stack(
-        children: [
-          Positioned(
-            top: -50,
-            right: MediaQuery.sizeOf(context).width * 0.25,
-            child: IgnorePointer(
-              child: Container(
-                width: 280,
-                height: 280,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFD4A574).withOpacity(0.16),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 120,
-            left: -30,
-            child: IgnorePointer(
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFB899D4).withOpacity(0.12),
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-              children: [
-                InkWell(
-                  onTap: () => Navigator.maybePop(context),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.chevron_left, size: 22, color: AppTheme.textMuted),
-                      Text(
-                        'Learning center',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w300,
-                          letterSpacing: 0.3,
-                          color: AppTheme.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Know Your Rights',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w400,
-                    height: 1.3,
-                    letterSpacing: -0.32,
-                    color: Color(0xFF2D2235),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          children: [
+            const HearthPushedHeader(
+              backLabel: 'Learning center',
+              title: 'Know Your Rights',
+              subtitle:
                   'You have the right to be heard, respected, and informed during your care.',
-                  style: TextStyle(
-                    fontSize: 15,
-                    height: 1.5,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ...rightsStaticTopicsNewUi.map((t) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _RightsTile(
-                        title: t.title,
-                        description: t.description,
-                        icon: t.icon,
-                        iconBgGradient: t.iconBgGradient,
-                        iconColor: t.iconColor,
-                        onTap: () {
-                          _analytics.logKnowYourRightsViewed(
-                            source: 'static_topic',
-                            topicId: t.title
-                                .toLowerCase()
-                                .replaceAll(RegExp(r'[^a-z0-9]+'), '_'),
-                            topicTitle: t.title,
-                          );
-                          setState(() => _staticDetail = t);
-                        },
-                      ),
-                    )),
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 12),
-                  child: Text(
-                    'More topics (personalized)',
-                    style: TextStyle(
-                      fontSize: 13,
-                      letterSpacing: 0.8,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.brandPurple.withOpacity(0.85),
-                    ),
-                  ),
-                ),
-                ..._aiExtras.map((t) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _RightsTile(
-                        title: t.title,
-                        description: t.description,
-                        icon: t.icon,
-                        iconBgGradient: t.iconBgGradient,
-                        iconColor: t.iconColor,
-                        onTap: () => _openAiTopic(t),
-                      ),
-                    )),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFF5EEE0), Color(0xFFFAF8F4), Color(0xFFEBE0D6)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppTheme.borderLight.withOpacity(0.4)),
-                    boxShadow: AppTheme.shadowSoft(opacity: 0.06, blur: 18, y: 3),
-                  ),
-                  child: Text(
-                    _footer,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.5,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                ),
-              ],
+              padding: EdgeInsets.fromLTRB(0, 20, 0, 24),
             ),
-          ),
-        ],
+            ...rightsStaticTopicsNewUi.map((t) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _RightsTile(
+                    title: t.title,
+                    description: t.description,
+                    icon: t.icon,
+                    onTap: () {
+                      _analytics.logKnowYourRightsViewed(
+                        source: 'static_topic',
+                        topicId: t.title
+                            .toLowerCase()
+                            .replaceAll(RegExp(r'[^a-z0-9]+'), '_'),
+                        topicTitle: t.title,
+                      );
+                      setState(() => _staticDetail = t);
+                    },
+                  ),
+                )),
+            const Padding(
+              padding: EdgeInsets.only(top: 12, bottom: 14),
+              child: HearthSectionHeading('More topics (personalized)'),
+            ),
+            ..._aiExtras.map((t) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _RightsTile(
+                    title: t.title,
+                    description: t.description,
+                    icon: t.icon,
+                    onTap: () => _openAiTopic(t),
+                  ),
+                )),
+            const SizedBox(height: 12),
+            HearthFeatureCard(
+              padding: const EdgeInsets.all(22),
+              child: Text(
+                _footer,
+                textAlign: TextAlign.center,
+                style: hearthCardBodyStyle.copyWith(fontSize: 13, height: 19 / 13),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -290,87 +185,44 @@ class _RightsTile extends StatelessWidget {
   final String title;
   final String description;
   final IconData icon;
-  final List<Color> iconBgGradient;
-  final Color iconColor;
   final VoidCallback onTap;
 
   const _RightsTile({
     required this.title,
     required this.description,
     required this.icon,
-    required this.iconBgGradient,
-    required this.iconColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Ink(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppTheme.borderLight.withOpacity(0.45)),
-            boxShadow: AppTheme.shadowMedium(opacity: 0.08, blur: 28, y: 6),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: iconBgGradient),
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+    return HearthCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          HearthIconChip(icon),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: hearthCardTitleStyle.copyWith(fontSize: 17, height: 24 / 17),
                 ),
-                child: Icon(icon, color: iconColor, size: 26),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w500,
-                        height: 1.25,
-                        color: Color(0xFF2D2235),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.45,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Icon(Icons.chevron_right_rounded, color: AppTheme.textLight, size: 22),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(description, style: hearthCardBodyStyle),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(width: 8),
+          const Padding(
+            padding: EdgeInsets.only(top: 13),
+            child: Icon(Icons.chevron_right, color: AppTheme.brandPurple, size: 20),
+          ),
+        ],
       ),
     );
   }
@@ -387,250 +239,176 @@ class _StaticDetailView extends StatelessWidget {
     required this.footer,
   });
 
+  // Quotes and questions sit beside a 44px save button, so the first line is
+  // nudged down to centre on it.
+  static const _itemText = TextStyle(
+    fontFamily: AppTheme.sansFamily,
+    fontSize: 14,
+    height: 21 / 14,
+    color: AppTheme.ink,
+  );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Stack(
-        children: [
-          Positioned(
-            top: -40,
-            right: 80,
-            child: IgnorePointer(
-              child: Container(
-                width: 240,
-                height: 240,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFD4A574).withOpacity(0.14),
-                ),
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          children: [
+            HearthPushedHeader(
+              onBack: onBack,
+              backLabel: 'All rights',
+              padding: const EdgeInsets.fromLTRB(0, 20, 0, 16),
+              titleWidget: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  HearthIconChip(topic.icon),
+                  const SizedBox(height: 14),
+                  Text(
+                    topic.title,
+                    style: Theme.of(context).textTheme.displaySmall,
+                  ),
+                ],
               ),
             ),
-          ),
-          SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-              children: [
-                TextButton.icon(
-                  onPressed: onBack,
-                  icon: Icon(Icons.chevron_left, color: AppTheme.textMuted, size: 22),
-                  label: Text(
-                    'All rights',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w300,
-                      color: AppTheme.textMuted,
-                    ),
-                  ),
-                  style: TextButton.styleFrom(
-                    alignment: Alignment.centerLeft,
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: topic.iconBgGradient),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: AppTheme.shadowSoft(opacity: 0.12, blur: 20, y: 6),
-                  ),
-                  child: Icon(topic.icon, color: topic.iconColor, size: 32),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  topic.title,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w400,
-                    height: 1.3,
-                    color: Color(0xFF2D2235),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _DetailCard(
-                  heading: 'WHAT THIS MEANS',
-                  child: Text(
-                    topic.whatThisMeans,
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.5,
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _DetailCard(
-                  heading: 'WHAT YOU CAN SAY',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: topic.whatYouCanSay
-                        .map(
-                          (s) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(Icons.chat_bubble_outline_rounded,
-                                    size: 18, color: const Color(0xFFD4A574)),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    '“$s”',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      height: 1.45,
-                                      color: AppTheme.textPrimary,
-                                      fontWeight: FontWeight.w300,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: 'Save to Journal',
-                                  icon: Icon(Icons.bookmark_add_outlined,
-                                      size: 20, color: AppTheme.textLight),
-                                  onPressed: () {
-                                    showDialog<void>(
-                                      context: context,
-                                      builder: (context) => NotesDialog(
-                                        moduleTitle: topic.title,
-                                        preFilledText: s,
-                                        initialTag:
-                                            NotesDialog.categoryForSection(
-                                                'know_your_rights'),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _DetailCard(
-                  heading: 'QUESTIONS YOU MAY WANT TO ASK',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: topic.questionsToAsk
-                        .map(
-                          (s) => Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(Icons.check_circle_outline_rounded,
-                                    size: 18, color: const Color(0xFF8B7AA8)),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    s,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      height: 1.45,
-                                      color: AppTheme.textPrimary,
-                                      fontWeight: FontWeight.w300,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: 'Save to Journal',
-                                  icon: Icon(Icons.bookmark_add_outlined,
-                                      size: 20, color: AppTheme.textLight),
-                                  onPressed: () {
-                                    showDialog<void>(
-                                      context: context,
-                                      builder: (context) => NotesDialog(
-                                        moduleTitle: topic.title,
-                                        preFilledText: s,
-                                        initialTag:
-                                            NotesDialog.categoryForSection(
-                                                'questions_to_ask'),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFF5EEE0), Color(0xFFFAF8F4), Color(0xFFEBE0D6)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppTheme.borderLight.withOpacity(0.4)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.favorite_border_rounded, color: const Color(0xFFD4A574), size: 22),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
+            _DetailCard(
+              heading: 'What this means',
+              child: Text(
+                topic.whatThisMeans,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _DetailCard(
+              heading: 'What you can say',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: topic.whatYouCanSay
+                    .map(
+                      (s) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'When to ask for help',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: AppTheme.textPrimary,
+                            const Padding(
+                              padding: EdgeInsets.only(top: 13),
+                              child: Icon(Icons.chat_bubble_outline,
+                                  size: 18, color: AppTheme.brandGold),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 11),
+                                child: Text('“$s”', style: _itemText),
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              topic.whenToAskForHelp,
-                              style: TextStyle(
-                                fontSize: 14,
-                                height: 1.5,
-                                color: AppTheme.textMuted,
-                                fontWeight: FontWeight.w300,
-                              ),
+                            IconButton(
+                              tooltip: 'Save to Journal',
+                              icon: const Icon(Icons.bookmark_add_outlined,
+                                  size: 20, color: AppTheme.brandPurple),
+                              onPressed: () {
+                                showDialog<void>(
+                                  context: context,
+                                  builder: (context) => NotesDialog(
+                                    moduleTitle: topic.title,
+                                    preFilledText: s,
+                                    initialTag:
+                                        NotesDialog.categoryForSection(
+                                            'know_your_rights'),
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                MedicalCitationsSection(topic: 'rights ${topic.title}'),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceCard.withOpacity(0.85),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.borderLight.withOpacity(0.4)),
-                  ),
-                  child: Text(
-                    footer,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
-                      height: 1.5,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
+                    )
+                    .toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _DetailCard(
+              heading: 'Questions you may want to ask',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: topic.questionsToAsk
+                    .map(
+                      (s) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 13),
+                              child: Icon(Icons.check_circle_outline,
+                                  size: 18, color: AppTheme.brandPurple),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 11),
+                                child: Text(s, style: _itemText),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Save to Journal',
+                              icon: const Icon(Icons.bookmark_add_outlined,
+                                  size: 20, color: AppTheme.brandPurple),
+                              onPressed: () {
+                                showDialog<void>(
+                                  context: context,
+                                  builder: (context) => NotesDialog(
+                                    moduleTitle: topic.title,
+                                    preFilledText: s,
+                                    initialTag:
+                                        NotesDialog.categoryForSection(
+                                            'questions_to_ask'),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            HearthFeatureCard(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.favorite_border, color: AppTheme.brandPurple, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('When to ask for help', style: hearthCardTitleStyle),
+                        const SizedBox(height: 6),
+                        Text(topic.whenToAskForHelp, style: hearthCardBodyStyle),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            MedicalCitationsSection(topic: 'rights ${topic.title}'),
+            const SizedBox(height: 16),
+            HearthCard(
+              padding: const EdgeInsets.all(18),
+              child: Text(
+                footer,
+                textAlign: TextAlign.center,
+                style: hearthCardBodyStyle.copyWith(fontSize: 13, height: 19 / 13),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -644,30 +422,18 @@ class _DetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.borderLight.withOpacity(0.4)),
-        boxShadow: AppTheme.shadowSoft(opacity: 0.06, blur: 22, y: 5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            heading,
-            style: TextStyle(
-              fontSize: 11,
-              letterSpacing: 1.1,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.brandPurple.withOpacity(0.88),
-            ),
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
+      child: HearthCard(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(heading, style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
       ),
     );
   }

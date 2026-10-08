@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../cors/ui_theme.dart' show AppTheme;
+import '../design_system/hearth.dart';
 import '../learning/module_notes.dart';
 import '../learning/notes_dialog.dart';
 import 'note_highlight_spans.dart';
@@ -65,10 +66,10 @@ class LearningModuleFormattedContent extends StatelessWidget {
         widgets.add(
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Divider(
+            child: const Divider(
               height: 1,
               thickness: 1,
-              color: AppTheme.borderLight.withOpacity(0.8),
+              color: AppTheme.borderWarm,
             ),
           ),
         );
@@ -208,7 +209,7 @@ class _ModuleNotesScope extends InheritedWidget {
 /// Soft highlight behind text the user has taken a note on.
 TextStyle _noteHighlightStyle(TextStyle? base) =>
     (base ?? const TextStyle()).copyWith(
-      backgroundColor: AppTheme.brandGold.withOpacity(0.32),
+      backgroundColor: AppTheme.brandGold.withValues(alpha: 0.32),
     );
 
 /// Small tappable note icon shown right after a highlighted passage. Works
@@ -241,7 +242,7 @@ class _NoteEmblem extends StatelessWidget {
               child: const Icon(
                 Icons.sticky_note_2_rounded,
                 size: 14,
-                color: AppTheme.brandWhite,
+                color: AppTheme.onPurple,
               ),
             ),
           ),
@@ -267,39 +268,38 @@ class _LessonNotesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      padding: const EdgeInsets.only(top: 12, bottom: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               const Icon(
-                Icons.sticky_note_2_rounded,
-                size: 18,
+                Icons.sticky_note_2_outlined,
+                size: 20,
                 color: AppTheme.brandPurple,
               ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Your notes on this lesson',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.brandPurple,
-                  ),
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           for (final note in notes)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Material(
-                color: AppTheme.brandWhite,
-                borderRadius: BorderRadius.circular(12),
+                color: AppTheme.ground,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  side: const BorderSide(color: AppTheme.borderWarm),
+                ),
+                clipBehavior: Clip.antiAlias,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
                   onTap: () => showModuleNotesDialog(
                     context,
                     notes: [note],
@@ -308,11 +308,8 @@ class _LessonNotesList extends StatelessWidget {
                   ),
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.borderLight),
-                    ),
+                    constraints: const BoxConstraints(minHeight: 44),
+                    padding: const EdgeInsets.all(14),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -326,7 +323,9 @@ class _LessonNotesList extends StatelessWidget {
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
+                                    fontFamily: AppTheme.sansFamily,
                                     fontSize: 13,
+                                    height: 18 / 13,
                                     fontStyle: FontStyle.italic,
                                     color: AppTheme.textMuted,
                                   ),
@@ -338,8 +337,10 @@ class _LessonNotesList extends StatelessWidget {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
+                                  fontFamily: AppTheme.sansFamily,
                                   fontSize: 15,
-                                  color: AppTheme.textPrimary,
+                                  height: 22 / 15,
+                                  color: AppTheme.ink,
                                 ),
                               ),
                             ],
@@ -348,7 +349,8 @@ class _LessonNotesList extends StatelessWidget {
                         const SizedBox(width: 8),
                         const Icon(
                           Icons.chevron_right,
-                          color: AppTheme.textLight,
+                          size: 20,
+                          color: AppTheme.brandPurple,
                         ),
                       ],
                     ),
@@ -413,20 +415,28 @@ class _EngagingModuleSection extends StatelessWidget {
 
   static final _numberedTitle = RegExp(r'^(\d+)\.\s*(.+)$');
 
+  static const _cardTitleStyle = TextStyle(
+    fontFamily: AppTheme.sansFamily,
+    fontSize: 17,
+    height: 24 / 17,
+    fontWeight: FontWeight.w700,
+    color: AppTheme.ink,
+  );
+
   IconData _iconForTitle(String titleLower) {
-    if (titleLower.contains('what this is')) return Icons.menu_book_rounded;
-    if (titleLower.contains('why it matters')) return Icons.favorite_rounded;
-    if (titleLower.contains('what to expect')) return Icons.visibility_rounded;
+    if (titleLower.contains('what this is')) return Icons.menu_book_outlined;
+    if (titleLower.contains('why it matters')) return Icons.favorite_border;
+    if (titleLower.contains('what to expect')) return Icons.visibility_outlined;
     if (titleLower.contains('what you can ask')) return Icons.chat_bubble_outline_rounded;
     if (titleLower.contains('risk') || titleLower.contains('option')) {
       return Icons.shield_outlined;
     }
     if (titleLower.contains('when to seek')) return Icons.health_and_safety_outlined;
-    if (titleLower.contains('key point')) return Icons.star_rounded;
+    if (titleLower.contains('key point')) return Icons.star_outline_rounded;
     if (titleLower.contains('right')) return Icons.volunteer_activism_outlined;
     if (titleLower.contains('insurance')) return Icons.description_outlined;
-    if (titleLower.contains('empowerment')) return Icons.auto_awesome_rounded;
-    return Icons.auto_awesome_rounded;
+    if (titleLower.contains('empowerment')) return Icons.auto_awesome_outlined;
+    return Icons.auto_awesome_outlined;
   }
 
   @override
@@ -449,18 +459,13 @@ class _EngagingModuleSection extends StatelessWidget {
 
     if (styleTier == _SectionStyleTier.h2) {
       return Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 12),
+        padding: const EdgeInsets.only(top: 10, bottom: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.brandPurple,
-                height: 1.25,
-              ),
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
             if (body.trim().isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -482,11 +487,7 @@ class _EngagingModuleSection extends StatelessWidget {
           children: [
             Text(
               title,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
+              style: Theme.of(context).textTheme.titleLarge,
             ),
             if (body.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
@@ -502,13 +503,12 @@ class _EngagingModuleSection extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(top: 6, bottom: 16),
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.surfaceCard,
+          color: AppTheme.ground,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: AppTheme.borderLight.withOpacity(0.55)),
-          boxShadow: AppTheme.shadowSoft(opacity: 0.06, blur: 16, y: 3),
+          border: Border.all(color: AppTheme.borderWarm),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -517,47 +517,30 @@ class _EngagingModuleSection extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFFEDE7F3).withOpacity(0.55),
-                    AppTheme.surfaceCard,
-                  ],
-                ),
-              ),
+              color: AppTheme.tintWarm,
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.brandPurple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(icon, color: AppTheme.brandPurple, size: 22),
-                  ),
+                  HearthIconChip(icon, tone: HearthChipTone.surface),
                   const SizedBox(width: 12),
                   Expanded(
                     child: numbered != null
                         ? Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
                                 width: 28,
                                 height: 28,
                                 alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.brandGold.withOpacity(0.35),
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.brandGold,
                                   shape: BoxShape.circle,
                                 ),
                                 child: Text(
                                   numbered.group(1)!,
                                   style: const TextStyle(
+                                    fontFamily: AppTheme.sansFamily,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: AppTheme.textSecondary,
+                                    color: AppTheme.ink,
                                   ),
                                 ),
                               ),
@@ -565,32 +548,19 @@ class _EngagingModuleSection extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   numbered.group(2)!.trim(),
-                                  style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimary,
-                                    height: 1.25,
-                                  ),
+                                  style: _cardTitleStyle,
                                 ),
                               ),
                             ],
                           )
-                        : Text(
-                            title,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary,
-                              height: 1.25,
-                            ),
-                          ),
+                        : Text(title, style: _cardTitleStyle),
                   ),
                 ],
               ),
             ),
             if (body.trim().isNotEmpty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: _ModuleBodyBlocks(
                   body: body,
                   moduleTitle: moduleTitle,
@@ -677,10 +647,11 @@ class _RichSelectableParagraph extends StatelessWidget {
   final TextSelectionControls? selectionControls;
 
   static const _base = TextStyle(
-    fontSize: 16,
-    height: 1.55,
+    fontFamily: AppTheme.sansFamily,
+    fontSize: 15,
+    height: 23 / 15,
     color: AppTheme.textSecondary,
-    fontWeight: FontWeight.w300,
+    fontWeight: FontWeight.w400,
   );
 
   /// `**bold**` (group 1) or `*italic*` (group 2). Italic needs non-space
@@ -702,8 +673,8 @@ class _RichSelectableParagraph extends StatelessWidget {
           text: bold ?? m.group(2),
           style: bold != null
               ? _base.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.ink,
                 )
               : _base.copyWith(fontStyle: FontStyle.italic),
         ),
@@ -849,7 +820,7 @@ class _RichSelectableParagraph extends StatelessWidget {
                         },
                         child: const Text(
                           'Add Note',
-                          style: TextStyle(color: AppTheme.brandWhite),
+                          style: TextStyle(color: AppTheme.onPurple),
                         ),
                       ),
                     ],
@@ -882,7 +853,7 @@ class _BulletLine extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(top: 7),
+            padding: const EdgeInsets.only(top: 8),
             child: Container(
               width: 7,
               height: 7,

@@ -8,6 +8,7 @@ import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
 import '../../services/research/research_firestore_service.dart';
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 import '../../widgets/drag_scroll_behavior.dart';
 import '../../utils/pregnancy_utils.dart';
 import '../../utils/second_person.dart';
@@ -106,38 +107,30 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
     );
   }
 
-  // Helper to get icon for module
+  // Helper to get icon for module. Every module uses the same warm icon chip;
+  // only the glyph varies by topic.
   IconData _getModuleIcon(String title) {
     final lowerTitle = title.toLowerCase();
-    if (lowerTitle.contains('right') || lowerTitle.contains('advocacy')) return Icons.favorite_border_rounded;
-    if (lowerTitle.contains('nutrition') || lowerTitle.contains('food') || lowerTitle.contains('eat')) return Icons.restaurant;
-    if (lowerTitle.contains('medication') || lowerTitle.contains('medicine')) return Icons.medication;
-    if (lowerTitle.contains('mental') || lowerTitle.contains('emotional') || lowerTitle.contains('wellbeing')) return Icons.favorite;
-    if (lowerTitle.contains('birth') || lowerTitle.contains('labor') || lowerTitle.contains('delivery')) return Icons.child_care;
-    if (lowerTitle.contains('risk') || lowerTitle.contains('prenatal')) return Icons.shield;
-    return Icons.book_outlined;
+    if (lowerTitle.contains('right') || lowerTitle.contains('advocacy')) return Icons.shield_outlined;
+    if (lowerTitle.contains('nutrition') || lowerTitle.contains('food') || lowerTitle.contains('eat')) return Icons.restaurant_outlined;
+    if (lowerTitle.contains('medication') || lowerTitle.contains('medicine')) return Icons.medication_outlined;
+    if (lowerTitle.contains('mental') || lowerTitle.contains('emotional') || lowerTitle.contains('wellbeing')) return Icons.favorite_border;
+    if (lowerTitle.contains('birth') || lowerTitle.contains('labor') || lowerTitle.contains('delivery')) return Icons.child_care_outlined;
+    if (lowerTitle.contains('risk') || lowerTitle.contains('prenatal')) return Icons.shield_outlined;
+    return Icons.menu_book_outlined;
   }
 
-  // Helper to get color for module
-  Map<String, Color> _getModuleColors(String title) {
-    final lowerTitle = title.toLowerCase();
-    if (lowerTitle.contains('right') || lowerTitle.contains('advocacy')) {
-      return {'bg': const Color(0xFFE8E0F0).withOpacity(0.65), 'icon': const Color(0xFF8B7AA8)};
-    }
-    if (lowerTitle.contains('nutrition') || lowerTitle.contains('food')) {
-      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
-    }
-    if (lowerTitle.contains('medication')) {
-      return {'bg': Colors.green.shade50, 'icon': Colors.green.shade600};
-    }
-    if (lowerTitle.contains('mental') || lowerTitle.contains('emotional')) {
-      return {'bg': Colors.purple.shade50, 'icon': const Color(0xFF663399)};
-    }
-    if (lowerTitle.contains('risk') || lowerTitle.contains('prenatal')) {
-      return {'bg': Colors.amber.shade50, 'icon': Colors.amber.shade600};
-    }
-    return {'bg': Colors.blue.shade50, 'icon': Colors.blue.shade500};
-  }
+  // Quiet text actions on module cards; still a 44px touch target.
+  static final ButtonStyle _cardActionStyle = TextButton.styleFrom(
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    minimumSize: const Size(0, 44),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    textStyle: const TextStyle(
+      fontFamily: AppTheme.sansFamily,
+      fontSize: 14,
+      fontWeight: FontWeight.w700,
+    ),
+  );
 
   String _formatMapContentToMarkdown(Map<String, dynamic> contentMap) {
     final buffer = StringBuffer();
@@ -228,32 +221,18 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
     return 'Health made simple';
   }
 
-  Widget _sectionHeader(String label, {String? subtitle}) {
+  Widget _sectionHeader(String label, {String? subtitle, bool first = false}) {
+    // Cards already leave 12 below them; the extra top padding makes the
+    // 24 gap between sections.
     return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      padding: EdgeInsets.only(top: first ? 0 : 12, bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
-              color: AppTheme.textSecondary,
-            ),
-          ),
+          HearthSectionHeading(label),
           if (subtitle != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.4,
-                fontWeight: FontWeight.w300,
-                color: AppTheme.textMuted,
-              ),
-            ),
+            const SizedBox(height: 4),
+            Text(subtitle, style: hearthCaptionStyle),
           ],
         ],
       ),
@@ -329,79 +308,59 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
     // height from the actual text metrics so it grows with Dynamic Type.
     final textScale =
         MediaQuery.textScalerOf(context).scale(14) / 14.0;
-    // 24 vertical padding + 22 icon + 12 min gap, then scaled text:
-    // title 3 × (14 × 1.2) + 4 gap + subtitle 2 × (12 × 1.25).
+    // 32 vertical padding + 46 icon chip + 14 gap + 2 border, then scaled
+    // text: title 3 × 22 + 4 gap + subtitle 2 × 18.
     final birthStripHeight =
-        (58.0 + textScale * (3 * 14 * 1.2 + 4 + 2 * 12 * 1.25) + 8)
-            .clamp(148.0, 260.0);
+        (94.0 + textScale * (3 * 22 + 4 + 2 * 18) + 4).clamp(180.0, 340.0);
     // Deliberate carousel: card is ~80% of the content width so the next card
     // peeks in from the screen edge (strip is full-bleed, not clipped at the
-    // 24pt gutter).
-    final contentWidth = MediaQuery.sizeOf(context).width - 48;
+    // 20pt gutter).
+    final contentWidth = MediaQuery.sizeOf(context).width - 40;
     final birthCardWidth = (contentWidth * 0.8).clamp(216.0, 340.0);
     // Archived shows only archived items — hide static modules/cards.
     final showStaticContent = _filterType != 'archived';
 
     return [
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Learning center',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w400,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Knowledge that empowers your choices',
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 1.5,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
-                ),
-              ),
-            ],
-          ),
+      const SliverToBoxAdapter(
+        child: HearthTabHeader(
+          title: 'Learning center',
+          subtitle: 'Knowledge that empowers your choices',
         ),
       ),
       SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
           child: _LearningWeekContinueCard(userProfile: _userProfile),
         ),
       ),
       SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.only(top: 20),
+          padding: const EdgeInsets.only(top: 24),
           child: HorizontalDragScroll(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  _FilterChip(
+                  HearthChoiceChip(
                     label: 'All',
-                    isSelected: _filterType == 'all',
-                    onTap: () => setState(() => _filterType = 'all'),
+                    primary: true,
+                    selected: _filterType == 'all',
+                    onSelected: () => setState(() => _filterType = 'all'),
                   ),
                   const SizedBox(width: 8),
-                  _FilterChip(
+                  HearthChoiceChip(
                     label: 'Modules',
-                    isSelected: _filterType == 'modules',
-                    onTap: () => setState(() => _filterType = 'modules'),
+                    primary: true,
+                    selected: _filterType == 'modules',
+                    onSelected: () => setState(() => _filterType = 'modules'),
                   ),
                   const SizedBox(width: 8),
-                  _FilterChip(
+                  HearthChoiceChip(
                     label: 'Archived',
-                    isSelected: _filterType == 'archived',
-                    onTap: () => setState(() => _filterType = 'archived'),
+                    primary: true,
+                    selected: _filterType == 'archived',
+                    onSelected: () => setState(() => _filterType = 'archived'),
                   ),
                 ],
               ),
@@ -415,93 +374,52 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Text(
-                  'Birth & hospital basics',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.6,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: HearthSectionHeading('Birth & hospital basics'),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
               SizedBox(
                 height: birthStripHeight,
                 child: HorizontalDragScroll(
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     itemCount: birthLaborEducationTopics.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 12),
                     itemBuilder: (context, i) {
                       final t = birthLaborEducationTopics[i];
                       return SizedBox(
                         width: birthCardWidth,
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => openBirthLaborTopic(context, t),
-                            borderRadius: BorderRadius.circular(20),
-                            child: Ink(
-                              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                              decoration: BoxDecoration(
-                                color: AppTheme.surfaceCard,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: AppTheme.borderLight.withOpacity(0.5),
-                                ),
-                                boxShadow: AppTheme.shadowSoft(
-                                  opacity: 0.05,
-                                  blur: 14,
-                                  y: 2,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    Icons.local_hospital_outlined,
-                                    size: 22,
-                                    color: AppTheme.brandPurple.withOpacity(0.85),
-                                  ),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          t.title,
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            height: 1.2,
-                                            color: AppTheme.textPrimary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          t.subtitle,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            height: 1.25,
-                                            color: AppTheme.textMuted,
-                                            fontWeight: FontWeight.w300,
-                                          ),
-                                        ),
-                                      ],
+                        child: HearthCard(
+                          onTap: () => openBirthLaborTopic(context, t),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const HearthIconChip(Icons.local_hospital_outlined),
+                              const SizedBox(height: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      t.title,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: hearthCardTitleStyle,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      t.subtitle,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: hearthCaptionStyle,
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       );
@@ -512,71 +430,44 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
             ],
           ),
       ),
-      const SliverToBoxAdapter(child: SizedBox(height: 20)),
+      const SliverToBoxAdapter(child: SizedBox(height: 24)),
       SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const RightsScreen()),
-                );
-              },
-              borderRadius: BorderRadius.circular(24),
-              child: Ink(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppTheme.borderLight.withOpacity(0.45)),
-                  boxShadow: AppTheme.shadowSoft(opacity: 0.06, blur: 20, y: 4),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFE8E0F0), Color(0xFFF0E8F6)],
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          // The one purple feature card on this screen, matching Home.
+          child: HearthFeatureCard(
+            tone: HearthTone.purple,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const RightsScreen()),
+              );
+            },
+            child: Row(
+              children: [
+                const HearthIconChip(Icons.shield_outlined, tone: HearthChipTone.gold),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Know your rights',
+                        style: hearthFeatureTitleStyle(onPurple: true),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Understand your options and feel confident speaking up.',
+                        style: hearthCardBodyStyle.copyWith(
+                          color: AppTheme.onPurpleSecondary,
                         ),
-                        borderRadius: BorderRadius.circular(18),
                       ),
-                      child: const Icon(Icons.favorite_border_rounded, color: Color(0xFF9D8FB5), size: 24),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Know your rights',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Understand your options and feel confident speaking up.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.4,
-                              color: AppTheme.textMuted,
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.chevron_right_rounded, color: AppTheme.textLight),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right, size: 20, color: AppTheme.onPurple),
+              ],
             ),
           ),
         ),
@@ -632,35 +523,22 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Container(
-                                    width: 80,
-                                    height: 80,
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                                      ),
-                                      borderRadius: BorderRadius.circular(40),
-                                    ),
-                                    child: const Icon(
-                                      Icons.book_outlined,
-                                      size: 40,
-                                      color: AppTheme.brandWhite,
-                                    ),
+                                  const HearthIconChip(
+                                    Icons.menu_book_outlined,
+                                    size: 80,
+                                    iconSize: 36,
                                   ),
                                   const SizedBox(height: 24),
                                   Text(
                                     'No Learning Modules Yet',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.textPrimary,
-                                    ),
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context).textTheme.headlineMedium,
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     'Generate personalized learning modules from the Home screen',
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(color: AppTheme.textMuted),
+                                    style: Theme.of(context).textTheme.bodyLarge,
                                   ),
                                 ],
                               ),
@@ -723,7 +601,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                           : _filterType == 'modules'
                                               ? 'No learning modules yet'
                                               : 'No items yet',
-                                  style: TextStyle(color: AppTheme.textMuted),
+                                  style: Theme.of(context).textTheme.bodyLarge,
                                 ),
                               ),
                             ),
@@ -738,7 +616,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                       slivers: [
                         ..._learningScrollHeaderSlivers(),
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -747,16 +625,20 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                             return const SizedBox.shrink();
                           }
                           return Padding(
-                            padding: const EdgeInsets.only(top: 8, bottom: 24),
+                            padding: const EdgeInsets.only(top: 12, bottom: 24),
                             child: _LearningApproachCard(),
                           );
                         }
                         final row = rows[index];
                         if (row is String) {
-                          return _sectionHeader(row);
+                          return _sectionHeader(row, first: index == 0);
                         }
                         if (row is _SectionHeading) {
-                          return _sectionHeader(row.label, subtitle: row.subtitle);
+                          return _sectionHeader(
+                            row.label,
+                            subtitle: row.subtitle,
+                            first: index == 0,
+                          );
                         }
                         final doc = row as QueryDocumentSnapshot;
                         final data = doc.data() as Map<String, dynamic>;
@@ -764,7 +646,6 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                         final description = (data['description'] ?? '').toString();
                         final content = data['content'];
                         final contentString = content is String ? content : (content is Map ? content.toString() : '');
-                        final colors = _getModuleColors(title);
                         final icon = _getModuleIcon(title);
 
                         // Check if completed and archived
@@ -984,20 +865,16 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                           );
                         }
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          decoration: BoxDecoration(
-                            color: AppTheme.surfaceCard,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isArchived ? AppTheme.borderLighter : AppTheme.borderLight,
-                            ),
-                            boxShadow: AppTheme.shadowSoft(opacity: 0.05, blur: 12, y: 2),
-                          ),
-                          child: Opacity(
-                            opacity: isArchived ? 0.6 : 1.0,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(20),
+                        // Archived cards stay fully opaque; muted text marks them.
+                        final titleColor =
+                            isArchived ? AppTheme.textMuted : AppTheme.ink;
+                        final bodyColor = isArchived
+                            ? AppTheme.textMuted
+                            : AppTheme.textSecondary;
+
+                        return HearthCard(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
                               onTap: () {
                                 // Only navigate to detail screen if it has content (learning modules)
                                 if (contentString.isNotEmpty && !isTodo) {
@@ -1016,7 +893,7 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                       builder: (context) => LearningModuleDetailScreen(
                                         title: title,
                                         content: formattedContent,
-                                        icon: '📚',
+                                        icon: '',
                                         taskId: taskId,
                                       ),
                                     ),
@@ -1035,186 +912,147 @@ class _LearningModulesScreenV2State extends State<LearningModulesScreenV2> {
                                   );
                                 }
                               },
-                              // Mobile-first layout: compact status row on top, then title
-                              // and description at full card width (no narrow side column).
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(10, 8, 14, 14),
-                                child: Column(
+                          // Mobile-first layout: compact status row on top, then title
+                          // and description at full card width (no narrow side column).
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  // Icon chip for learning modules, status tag for todos
+                                  if (!isTodo)
+                                    HearthIconChip(icon)
+                                  else
+                                    Flexible(
+                                      child: HearthTag(
+                                        isBirthPlanTodo
+                                            ? 'Birth preferences'
+                                            : 'Next step',
+                                      ),
+                                    ),
+                                  const Spacer(),
+                                  if (isArchived)
+                                    const Padding(
+                                      padding: EdgeInsets.only(left: 8),
+                                      child: Icon(
+                                        Icons.inventory_2_outlined,
+                                        size: 20,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  if (contentString.isNotEmpty && !isTodo)
+                                    const SizedBox(
+                                      width: 44,
+                                      height: 44,
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Icon(
+                                          Icons.chevron_right,
+                                          size: 22,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              // Pulled left so the box lines up with the tag
+                              // while keeping a 44px touch target.
+                              Transform.translate(
+                                offset: const Offset(-11, 0),
+                                child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      children: [
-                                        // Checkbox - show for all items (todos and learning modules)
-                                        Checkbox(
+                                    // Checkbox - show for all items (todos and learning modules)
+                                    SizedBox(
+                                      width: 44,
+                                      height: 44,
+                                      child: Transform.scale(
+                                        scale: 22 / 18,
+                                        child: Checkbox(
                                           value: isCompleted,
-                                          visualDensity: VisualDensity.compact,
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
                                           // Unchecking an archived item restores it.
                                           onChanged: isArchived
                                               ? (value) {
                                                   if (value == false) onRestore();
                                                 }
                                               : onCheckboxChanged,
-                                          activeColor: const Color(0xFF663399),
                                         ),
-                                        const SizedBox(width: 6),
-                                        // Icon box for learning modules, status badge for todos
-                                        if (!isTodo)
-                                          Container(
-                                            width: 36,
-                                            height: 36,
-                                            decoration: BoxDecoration(
-                                              color: colors['bg']!,
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            child: Icon(
-                                              icon,
-                                              color: colors['icon']!,
-                                              size: 20,
-                                            ),
-                                          )
-                                        else
-                                          Flexible(
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: isBirthPlanTodo
-                                                    ? Colors.orange.shade100
-                                                    : Colors.blue.shade100,
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                isBirthPlanTodo
-                                                    ? 'Birth preferences'
-                                                    : 'Next step',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: isBirthPlanTodo
-                                                      ? Colors.orange.shade700
-                                                      : Colors.blue.shade700,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        const Spacer(),
-                                        if (isArchived)
-                                          const Icon(
-                                            Icons.archive,
-                                            size: 16,
-                                            color: Colors.grey,
-                                          ),
-                                        if (contentString.isNotEmpty && !isTodo)
-                                          Icon(Icons.chevron_right, color: Colors.grey[400]),
-                                      ],
+                                      ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 4, top: 6),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            displayTitle,
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: isArchived ? Colors.grey[500] : Colors.black87,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          _ExpandableDescription(
-                                            key: ValueKey('desc_$taskId'),
-                                            text: displayDescription,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              height: 1.4,
-                                              color: isArchived ? Colors.grey[400] : Colors.grey[600],
-                                            ),
-                                          ),
-                                          if (!isArchived && !isCompleted)
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 10),
-                                              child: Align(
-                                                alignment: Alignment.centerRight,
-                                                child: TextButton(
-                                                  onPressed: onMarkDoneAndArchive,
-                                                  style: TextButton.styleFrom(
-                                                    padding: EdgeInsets.zero,
-                                                    minimumSize: Size.zero,
-                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                  ),
-                                                  child: const Text(
-                                                    'Mark Done & Archive',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Color(0xFF663399),
-                                                      fontWeight: FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                ),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 10),
+                                        child: Text(
+                                          displayTitle,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge
+                                              ?.copyWith(
+                                                height: 24 / 17,
+                                                color: titleColor,
                                               ),
-                                            ),
-                                          if (isCompleted && !isArchived)
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 10),
-                                              child: Align(
-                                                alignment: Alignment.centerRight,
-                                                child: TextButton(
-                                                  onPressed: onArchiveCompleted,
-                                                  style: TextButton.styleFrom(
-                                                    padding: EdgeInsets.zero,
-                                                    minimumSize: Size.zero,
-                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                  ),
-                                                  child: Text(
-                                                    'Archive',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey[600],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          if (isArchived)
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 10),
-                                              child: Align(
-                                                alignment: Alignment.centerRight,
-                                                child: TextButton.icon(
-                                                  onPressed: onRestore,
-                                                  icon: const Icon(
-                                                    Icons.undo,
-                                                    size: 16,
-                                                    color: Color(0xFF663399),
-                                                  ),
-                                                  style: TextButton.styleFrom(
-                                                    padding: const EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 4,
-                                                    ),
-                                                    minimumSize: const Size(0, 36),
-                                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                  ),
-                                                  label: Text(
-                                                    isCompleted
-                                                        ? 'Mark not done'
-                                                        : 'Unarchive',
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      color: Color(0xFF663399),
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                        ],
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 6),
+                              _ExpandableDescription(
+                                key: ValueKey('desc_$taskId'),
+                                text: displayDescription,
+                                style: hearthCardBodyStyle.copyWith(color: bodyColor),
+                              ),
+                              if (!isArchived && !isCompleted)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: onMarkDoneAndArchive,
+                                      style: _cardActionStyle,
+                                      child: const Text('Mark Done & Archive'),
+                                    ),
+                                  ),
+                                ),
+                              if (isCompleted && !isArchived)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: onArchiveCompleted,
+                                      style: _cardActionStyle.copyWith(
+                                        foregroundColor:
+                                            const WidgetStatePropertyAll(
+                                          AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                      child: const Text('Archive'),
+                                    ),
+                                  ),
+                                ),
+                              if (isArchived)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton.icon(
+                                      onPressed: onRestore,
+                                      icon: const Icon(Icons.undo, size: 18),
+                                      style: _cardActionStyle,
+                                      label: Text(
+                                        isCompleted
+                                            ? 'Mark not done'
+                                            : 'Unarchive',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         );
                       },
@@ -1249,79 +1087,35 @@ class _LearningWeekContinueCard extends StatelessWidget {
         ? "Week $weeks of 40 · ${PregnancyUtils.getTrimesterInfo(trimester)}"
         : 'Add your due date for week-by-week guidance';
 
-    const fg = AppTheme.textPrimary;
-    const muted = AppTheme.textMuted;
-
     // Compact pregnancy-status banner (replaces the large progress card).
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => openTrimesterJourney(context),
-        borderRadius: BorderRadius.circular(20),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFEBE4F3),
-                Color(0xFFE6D8ED),
-                Color(0xFFEAD9E0),
-              ],
-            ),
-            border: Border.all(color: const Color(0x80E0D3E8)),
+    return HearthFeatureCard(
+      onTap: () => openTrimesterJourney(context),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          const HearthIconChip(
+            Icons.menu_book_outlined,
+            tone: HearthChipTone.surface,
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    color: const Color(0xCCFAF8F4),
-                  ),
-                  child: const Icon(
-                    Icons.menu_book_rounded,
-                    color: AppTheme.brandPurple,
-                    size: 22,
-                  ),
+                // Full title + week info wrap rather than ellipsize
+                // (Bold Text / larger Dynamic Type).
+                Text(title, style: hearthFeatureTitleStyle()),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: hearthCardBodyStyle.copyWith(height: 20 / 14),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Full title + week info wrap rather than ellipsize
-                      // (Bold Text / larger Dynamic Type).
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: fg,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w300,
-                          color: muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.chevron_right_rounded, color: AppTheme.textLight),
               ],
             ),
           ),
-        ),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right, size: 20, color: AppTheme.brandPurple),
+        ],
       ),
     );
   }
@@ -1331,51 +1125,21 @@ class _LearningWeekContinueCard extends StatelessWidget {
 class _LearningApproachCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppTheme.backgroundWarm,
-            Color(0xFFFDFBFC),
-            Color(0xFFFEF9F5),
+      child: HearthFeatureCard(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Plain language promise', style: hearthFeatureTitleStyle()),
+            const SizedBox(height: 8),
+            const Text(
+              'All our content is written at a 6th grade reading level. No confusing medical jargon, just clear, supportive guidance that helps you understand your care.',
+              style: hearthCardBodyStyle,
+            ),
           ],
         ),
-        border: Border.all(color: Color(0x80E8E0F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Plain language promise',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'All our content is written at a 6th grade reading level. No confusing medical jargon, just clear, supportive guidance that helps you understand your care.',
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.55,
-              fontWeight: FontWeight.w300,
-              color: AppTheme.textMuted,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1436,73 +1200,23 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
               overflow: collapsed ? TextOverflow.ellipsis : null,
             ),
             if (overflows)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: TextButton(
-                  onPressed: () => setState(() => _expanded = !_expanded),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    _expanded ? 'Show less' : 'Show more',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF663399),
-                      fontWeight: FontWeight.w500,
-                    ),
+              TextButton(
+                onPressed: () => setState(() => _expanded = !_expanded),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 44),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: const TextStyle(
+                    fontFamily: AppTheme.sansFamily,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
+                child: Text(_expanded ? 'Show less' : 'Show more'),
               ),
           ],
         );
       },
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _FilterChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          gradient: isSelected ? AppTheme.primaryActionGradient : null,
-          color: isSelected ? null : AppTheme.surfaceCard,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isSelected
-                ? Colors.transparent
-                : AppTheme.borderLighter.withOpacity(0.5),
-          ),
-          boxShadow: isSelected
-              ? AppTheme.shadowSoft(opacity: 0.1, blur: 14, y: 3)
-              : AppTheme.shadowSoft(opacity: 0.05, blur: 10, y: 2),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? AppTheme.brandWhite : AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-            fontSize: 13,
-            height: 1.4,
-          ),
-        ),
-      ),
     );
   }
 }

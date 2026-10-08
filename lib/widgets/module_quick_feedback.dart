@@ -3,20 +3,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../services/qualitative_survey_service.dart';
 
-/// A single tappable feedback option (emoji + label + numeric score).
+/// A single tappable feedback option (icon + label + numeric score).
 class QuickFeedbackOption {
-  final String emoji;
+  final IconData icon;
   final String label;
 
   /// 1–3 score stored alongside the response (higher = more positive).
   final int score;
 
   const QuickFeedbackOption({
-    required this.emoji,
+    required this.icon,
     required this.label,
     required this.score,
   });
@@ -70,17 +71,17 @@ class ModuleQuickFeedback extends StatefulWidget {
       prompt: 'Did this help?',
       options: const [
         QuickFeedbackOption(
-          emoji: '💜',
+          icon: Icons.favorite_border,
           label: 'I understand it better now',
           score: 3,
         ),
         QuickFeedbackOption(
-          emoji: '🙂',
+          icon: Icons.eco_outlined,
           label: 'It helped a little',
           score: 2,
         ),
         QuickFeedbackOption(
-          emoji: '😕',
+          icon: Icons.cloud_outlined,
           label: 'I still have questions',
           score: 1,
         ),
@@ -106,17 +107,17 @@ class ModuleQuickFeedback extends StatefulWidget {
       prompt: 'How do you feel now?',
       options: const [
         QuickFeedbackOption(
-          emoji: '💪',
+          icon: Icons.wb_sunny_outlined,
           label: 'I feel more prepared',
           score: 3,
         ),
         QuickFeedbackOption(
-          emoji: '🙂',
+          icon: Icons.eco_outlined,
           label: 'A little more prepared',
           score: 2,
         ),
         QuickFeedbackOption(
-          emoji: '😕',
+          icon: Icons.cloud_outlined,
           label: 'Still unsure',
           score: 1,
         ),
@@ -197,58 +198,46 @@ class _ModuleQuickFeedbackState extends State<ModuleQuickFeedback> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return HearthCard(
+      color: AppTheme.tintWarm,
+      borderColor: null,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFEBE4F3), Color(0xFFF5F0FA)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.brandPurple.withValues(alpha: 0.18),
-        ),
-      ),
-      child: _selectedScore != null
-          ? Row(
-              children: [
-                const Text('💜', style: TextStyle(fontSize: 20)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Thank you! Your feedback helps us make this clearer.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: AppTheme.textPrimary,
+      child: SizedBox(
+        width: double.infinity,
+        child: _selectedScore != null
+            ? const Row(
+                children: [
+                  Icon(Icons.favorite_border, size: 20, color: AppTheme.brandPurple),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Thank you! Your feedback helps us make this clearer.',
+                      style: TextStyle(
+                        fontFamily: AppTheme.sansFamily,
+                        fontSize: 14,
+                        height: 21 / 14,
+                        fontWeight: FontWeight.w400,
+                        color: AppTheme.ink,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.prompt,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textPrimary,
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.prompt, style: hearthCardTitleStyle),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: widget.options
+                        .map((o) => _OptionChip(option: o, onTap: () => _select(o)))
+                        .toList(),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: widget.options
-                      .map((o) => _OptionChip(option: o, onTap: () => _select(o)))
-                      .toList(),
-                ),
-              ],
-            ),
+                ],
+              ),
+      ),
     );
   }
 }
@@ -272,68 +261,48 @@ Future<void> showModuleExitFeedbackSheet(
       return Container(
         constraints: BoxConstraints(maxHeight: maxHeight),
         decoration: const BoxDecoration(
-          color: AppTheme.surfaceCard,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          color: AppTheme.ground,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLarge)),
         ),
         padding: EdgeInsets.fromLTRB(
-          16,
+          20,
           12,
-          16,
-          16 + MediaQuery.paddingOf(sheetContext).bottom,
+          20,
+          32 + MediaQuery.paddingOf(sheetContext).bottom,
         ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.borderLight,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
+              const Center(child: HearthSheetHandle()),
+              const SizedBox(height: 16),
               Text(
-                'Before you go, a quick check-in\u00A0💜',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
+                'Before you go, a quick check-in\u00A0',
+                style: Theme.of(sheetContext).textTheme.headlineMedium,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               ModuleQuickFeedback.didThisHelp(
                 feature: feature,
                 sourceId: sourceId,
                 moduleTitle: moduleTitle,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               ModuleQuickFeedback.howDoYouFeel(
                 feature: feature,
                 sourceId: sourceId,
                 moduleTitle: moduleTitle,
               ),
-              const SizedBox(height: 12),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: AppTheme.brandWhite,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
+              const SizedBox(height: 16),
+              HearthButton.primary(
+                label: 'Done',
                 onPressed: () => Navigator.of(sheetContext).maybePop(),
-                child: const Text('Done'),
               ),
+              const SizedBox(height: 4),
               Center(
-                child: TextButton(
+                child: HearthButton.text(
+                  label: 'Skip',
                   onPressed: () => Navigator.of(sheetContext).maybePop(),
-                  child: Text(
-                    'Skip',
-                    style: TextStyle(color: AppTheme.textMuted),
-                  ),
                 ),
               ),
             ],
@@ -383,39 +352,27 @@ Future<void> showModuleFeedbackSheet(
 
       return Container(
         decoration: const BoxDecoration(
-          color: AppTheme.surfaceCard,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          color: AppTheme.ground,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLarge)),
         ),
         padding: EdgeInsets.fromLTRB(
-          16,
+          20,
           12,
-          16,
-          16 + MediaQuery.paddingOf(sheetContext).bottom,
+          20,
+          32 + MediaQuery.paddingOf(sheetContext).bottom,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 14),
-                decoration: BoxDecoration(
-                  color: AppTheme.borderLight,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
+            const Center(child: HearthSheetHandle()),
+            const SizedBox(height: 16),
             feedback,
             const SizedBox(height: 8),
             Center(
-              child: TextButton(
+              child: HearthButton.text(
+                label: 'Not now',
                 onPressed: () => Navigator.of(sheetContext).maybePop(),
-                child: Text(
-                  'Not now',
-                  style: TextStyle(color: AppTheme.textMuted),
-                ),
               ),
             ),
           ],
@@ -434,27 +391,34 @@ class _OptionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.brandWhite.withValues(alpha: 0.85),
-      borderRadius: BorderRadius.circular(16),
+      color: AppTheme.surface,
+      shape: const StadiumBorder(side: BorderSide(color: AppTheme.borderWarm)),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(option.emoji, style: const TextStyle(fontSize: 16)),
-              const SizedBox(width: 8),
-              Text(
-                option.label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: AppTheme.textPrimary,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(option.icon, size: 18, color: AppTheme.textSecondary),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    option.label,
+                    style: const TextStyle(
+                      fontFamily: AppTheme.sansFamily,
+                      fontSize: 14,
+                      height: 20 / 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

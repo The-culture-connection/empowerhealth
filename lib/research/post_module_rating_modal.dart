@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../services/research/research_micro_measure_service.dart';
 import 'micro_measure_prompt.dart';
 
@@ -29,7 +30,7 @@ class _PostModuleRatingModalState extends State<PostModuleRatingModal> {
   Future<void> _submit() async {
     if (_u == 0 || _n == 0 || _c == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please rate all three items (1–5).'), backgroundColor: Colors.orange),
+        const SnackBar(content: Text('Please rate all three items (1–5).')),
       );
       return;
     }
@@ -47,13 +48,13 @@ class _PostModuleRatingModalState extends State<PostModuleRatingModal> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Thanks! Your responses were saved.'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Thanks! Your responses were saved.')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Could not save: $e')),
         );
       }
     } finally {
@@ -63,8 +64,13 @@ class _PostModuleRatingModalState extends State<PostModuleRatingModal> {
 
   @override
   Widget build(BuildContext context) {
+    // Same surface dialog as the module survey (Learn-Rating).
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: AppTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        side: const BorderSide(color: AppTheme.borderWarm),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: SingleChildScrollView(
@@ -77,22 +83,20 @@ class _PostModuleRatingModalState extends State<PostModuleRatingModal> {
                   Expanded(
                     child: Text(
                       'Quick check-in',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.brandPurple,
-                      ),
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
+                  const SizedBox(width: 10),
+                  HearthCircleButton(
+                    icon: Icons.close,
                     onPressed: _busy ? null : () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
               Text(
                 'You finished "${widget.moduleTitle}". How are you feeling about it?',
-                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                style: hearthCardBodyStyle,
               ),
               const SizedBox(height: 20),
               MicroMeasurePrompt(
@@ -106,21 +110,16 @@ class _PostModuleRatingModalState extends State<PostModuleRatingModal> {
               const SizedBox(height: 24),
               Row(
                 children: [
-                  TextButton(
+                  HearthButton.text(
+                    label: 'Skip',
                     onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                    child: const Text('Skip'),
                   ),
                   const Spacer(),
-                  FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    style: FilledButton.styleFrom(backgroundColor: AppTheme.brandPurple),
-                    child: _busy
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Text('Submit'),
+                  HearthButton.primary(
+                    label: 'Submit',
+                    expand: false,
+                    loading: _busy,
+                    onPressed: _submit,
                   ),
                 ],
               ),

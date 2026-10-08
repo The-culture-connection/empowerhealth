@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 import '../immediate_support_navigation.dart';
 
 /// Home entry for the universal immediate support pathway.
@@ -12,6 +13,7 @@ class ImmediateSupportHomeCard extends StatelessWidget {
     this.title,
     this.subtitle,
     this.ctaLabel,
+    this.quiet = false,
   });
 
   final String entrySource;
@@ -23,77 +25,68 @@ class ImmediateSupportHomeCard extends StatelessWidget {
   final String? subtitle;
   final String? ctaLabel;
 
+  /// Plain surface card with a sans title, for screens that already have a
+  /// tint feature card above it (pregnancy-loss Home).
+  final bool quiet;
+
   @override
   Widget build(BuildContext context) {
-    final titleText = title ?? 'We\'re here with you 💜';
+    final titleText = title ?? 'We\'re here with you';
     final subtitleText = subtitle ??
         'Emotional support, guidance, and help with next steps, whenever you need it.';
     final ctaText = ctaLabel ?? 'See support options';
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => openImmediateSupport(context, entrySource: entrySource),
-        borderRadius: BorderRadius.circular(compact ? 20 : 22),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(compact ? 20 : 22),
-            color: const Color(0xFFEBE4F3).withValues(alpha: 0.55),
-            border: Border.all(
-              color: AppTheme.brandPurple.withValues(alpha: 0.2),
-            ),
-            boxShadow: AppTheme.shadowSoft(opacity: 0.08, blur: 20, y: 6),
-          ),
-          padding: EdgeInsets.all(compact ? 16 : 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    // The serif title is set looser when it is a long sentence (Home's
+    // "Understand your care…" line) so it doesn't feel cramped.
+    final titleStyle = quiet
+        ? Theme.of(context).textTheme.titleLarge
+        : hearthFeatureTitleStyle().copyWith(
+            height: subtitleText.isEmpty ? 27 / 19 : 25 / 19,
+          );
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(titleText, style: titleStyle),
+        if (subtitleText.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(subtitleText, style: hearthCardBodyStyle),
+        ],
+        SizedBox(height: subtitleText.isEmpty ? 6 : 2),
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Row(
             children: [
-              Text(
-                titleText,
-                style: TextStyle(
-                  fontSize: compact ? 16 : 18,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textPrimary,
-                  height: 1.3,
+              Flexible(
+                child: Text(
+                  ctaText,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.brandPurple,
+                  ),
                 ),
               ),
-              if (subtitleText.isNotEmpty) ...[
-                SizedBox(height: compact ? 6 : 8),
-                Text(
-                  subtitleText,
-                  style: TextStyle(
-                    fontSize: compact ? 13 : 14,
-                    fontWeight: FontWeight.w300,
-                    height: 1.45,
-                    color: AppTheme.textMuted,
-                  ),
-                ),
-              ],
-              SizedBox(height: compact ? 12 : 14),
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      ctaText,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: AppTheme.brandPurple,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 20,
-                    color: AppTheme.brandPurple.withValues(alpha: 0.85),
-                  ),
-                ],
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: AppTheme.brandPurple,
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
+    void open() => openImmediateSupport(context, entrySource: entrySource);
+    final padding = EdgeInsets.fromLTRB(
+      compact ? 20 : 22,
+      compact ? 18 : 22,
+      compact ? 20 : 22,
+      8,
+    );
+    if (quiet) {
+      return HearthCard(onTap: open, padding: padding, child: content);
+    }
+    return HearthFeatureCard(onTap: open, padding: padding, child: content);
   }
 }
 
@@ -109,23 +102,17 @@ class ImmediateSupportEntryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(Icons.volunteer_activism_outlined, color: AppTheme.brandPurple),
-      title: Text(
+      minVerticalPadding: 12,
+      leading: const HearthIconChip(Icons.volunteer_activism_outlined),
+      title: const Text(
         'I need support right now',
-        style: TextStyle(
-          color: AppTheme.textPrimary,
-          fontWeight: FontWeight.w400,
-        ),
+        style: hearthCardTitleStyle,
       ),
-      subtitle: Text(
+      subtitle: const Text(
         'Emotional support, guidance, and external resources',
-        style: TextStyle(
-          color: AppTheme.textMuted,
-          fontWeight: FontWeight.w300,
-          fontSize: 13,
-        ),
+        style: hearthCaptionStyle,
       ),
-      trailing: Icon(Icons.chevron_right, color: AppTheme.textMuted),
+      trailing: const Icon(Icons.chevron_right, color: AppTheme.brandPurple),
       onTap: () => openImmediateSupport(context, entrySource: entrySource),
     );
   }

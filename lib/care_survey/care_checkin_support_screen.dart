@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../research/need_other_text_field.dart';
 import '../immediate_support/widgets/immediate_support_home_card.dart';
 import 'care_checkin_support_config.dart';
@@ -32,14 +33,10 @@ class CareCheckinSupportScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppTheme.borderLight.withValues(alpha: 0.4),
-              width: 1,
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: const ShapeDecoration(
+            color: AppTheme.surface,
+            shape: StadiumBorder(side: BorderSide(color: AppTheme.borderWarm)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -48,52 +45,34 @@ class CareCheckinSupportScreen extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFD4A574),
+                  color: AppTheme.brandGold,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 'Your support options',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
+                style: hearthCaptionStyle.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondary,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         Text(
           'Here’s support based on what you shared',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w400,
-            color: AppTheme.textPrimary,
-            height: 1.3,
-          ),
+          style: Theme.of(context).textTheme.displaySmall,
         ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFF5EEE0), Color(0xFFFAF8F4), Color(0xFFEBE0D6)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.borderLight.withValues(alpha: 0.45)),
-          ),
-          child: Text(
-            kCareCheckinReinforcementMessage,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.textPrimary,
-              fontWeight: FontWeight.w300,
-              height: 1.5,
+        const SizedBox(height: 24),
+        HearthFeatureCard(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: SizedBox(
+            width: double.infinity,
+            child: Text(
+              kCareCheckinReinforcementMessage,
+              style: hearthCardBodyStyle.copyWith(color: AppTheme.ink),
             ),
           ),
         ),
@@ -101,14 +80,9 @@ class CareCheckinSupportScreen extends StatelessWidget {
         if (!hasNeeds) ...[
           Text(
             'You can explore community, providers, or learning topics anytime from home.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w300,
-              height: 1.45,
-            ),
+            style: Theme.of(context).textTheme.bodyLarge,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _SupportTile(
             label: 'Connect with community',
             onTap: () => onOpenAction(
@@ -127,19 +101,12 @@ class CareCheckinSupportScreen extends StatelessWidget {
               return const SizedBox.shrink();
             }
             return Padding(
-              padding: const EdgeInsets.only(bottom: 20),
+              padding: const EdgeInsets.only(bottom: 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    sectionTitle,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.brandPurple,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
+                  HearthSectionHeading(sectionTitle),
+                  const SizedBox(height: 12),
                   if (needId == 'other') ...[
                     NeedOtherTextField(controller: otherDetailController),
                     const SizedBox(height: 10),
@@ -157,52 +124,26 @@ class CareCheckinSupportScreen extends StatelessWidget {
               ),
             );
           }),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         const ImmediateSupportHomeCard(
           entrySource: 'care_checkin',
           compact: true,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 24),
         Row(
           children: [
             Expanded(
-              child: OutlinedButton(
+              child: HearthButton.secondary(
+                label: 'Back',
                 onPressed: onBack,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.textMuted,
-                  side: BorderSide(color: AppTheme.borderLight.withValues(alpha: 0.4)),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                ),
-                child: const Text('Back'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: ElevatedButton(
-                onPressed: isContinueBusy ? null : onContinue,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: AppTheme.brandWhite,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  minimumSize: const Size(double.infinity, 52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  elevation: 0,
-                ),
-                child: isContinueBusy
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppTheme.brandWhite,
-                        ),
-                      )
-                    : const Text('Continue'),
+              child: HearthButton.primary(
+                label: 'Continue',
+                loading: isContinueBusy,
+                onPressed: onContinue,
               ),
             ),
           ],
@@ -221,35 +162,27 @@ class _SupportTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return HearthCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceCard,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: AppTheme.shadowSoft(opacity: 0.08, blur: 20, y: 5),
-          border: Border.all(
-            color: AppTheme.borderLight.withValues(alpha: 0.4),
-            width: 1,
-          ),
-        ),
+      padding: const EdgeInsets.fromLTRB(18, 14, 16, 14),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 28),
         child: Row(
           children: [
             Expanded(
               child: Text(
                 label,
-                style: TextStyle(
+                style: const TextStyle(
+                  fontFamily: AppTheme.sansFamily,
                   fontSize: 15,
-                  height: 1.35,
-                  fontWeight: FontWeight.w300,
-                  color: AppTheme.textPrimary,
+                  height: 22 / 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.ink,
                 ),
               ),
             ),
-            Icon(Icons.chevron_right, color: AppTheme.textMuted, size: 22),
+            const SizedBox(width: 12),
+            const Icon(Icons.chevron_right, color: AppTheme.brandPurple, size: 22),
           ],
         ),
       ),

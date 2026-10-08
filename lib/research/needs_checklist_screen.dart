@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import 'need_other_text_field.dart';
 
 /// Labels aligned with [CareNavigationSurveyScreen] care need ids (research `need_*` fields).
@@ -52,14 +53,10 @@ class NeedsChecklistScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppTheme.borderLight.withValues(alpha: 0.4),
-              width: 1,
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: const ShapeDecoration(
+            color: AppTheme.surface,
+            shape: StadiumBorder(side: BorderSide(color: AppTheme.borderWarm)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -68,132 +65,54 @@ class NeedsChecklistScreen extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFD4A574),
+                  color: AppTheme.brandGold,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 'Care check-in',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
+                style: hearthCaptionStyle.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondary,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         Text(
           'Did you get the care and support you needed?',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w400,
-            color: AppTheme.textPrimary,
-            height: 1.3,
-          ),
+          style: Theme.of(context).textTheme.displaySmall,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           'Let’s check if your care needs were met. Select anything you needed help with, even if you didn’t receive it.',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-            height: 1.45,
-          ),
+          style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: AppTheme.shadowSoft(opacity: 0.1, blur: 24, y: 8),
-            border: Border.all(
-              color: AppTheme.borderLight.withValues(alpha: 0.4),
-              width: 1,
-            ),
-          ),
+        HearthCard(
+          padding: const EdgeInsets.all(16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               ...kCareNeedsChecklistItems.map((need) {
                 final id = need['id']!;
                 final label = need['label']!;
                 final isSelected = selectedNeedIds.contains(id);
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: InkWell(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: HearthOptionRow(
+                    label: label,
+                    selected: isSelected,
+                    control: HearthControl.checkbox,
                     onTap: () => onToggleNeed(id),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: isSelected
-                            ? const LinearGradient(
-                                colors: [
-                                  AppTheme.brandPurple,
-                                  Color(0xFF7744AA),
-                                ],
-                              )
-                            : null,
-                        color: isSelected ? null : AppTheme.backgroundWarm,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: AppTheme.brandPurple.withValues(alpha: 0.2),
-                                  blurRadius: 24,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ]
-                            : [
-                                BoxShadow(
-                                  color: AppTheme.brandPurple.withValues(alpha: 0.08),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isSelected ? AppTheme.brandWhite : AppTheme.brandPurple,
-                                width: 2,
-                              ),
-                              color: isSelected ? AppTheme.brandWhite : Colors.transparent,
-                            ),
-                            child: isSelected
-                                ? Icon(Icons.check, size: 14, color: AppTheme.brandPurple)
-                                : null,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              label,
-                              style: TextStyle(
-                                fontSize: 15,
-                                height: 1.35,
-                                fontWeight: FontWeight.w300,
-                                color: isSelected ? AppTheme.brandWhite : AppTheme.textPrimary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 );
               }),
               if (selectedNeedIds.contains('other')) ...[
                 const SizedBox(height: 8),
-                NeedOtherTextField(controller: otherDetailController),
+                NeedOtherTextField(controller: otherDetailController, inCard: true),
               ],
             ],
           ),
@@ -202,47 +121,19 @@ class NeedsChecklistScreen extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: OutlinedButton(
+              child: HearthButton.secondary(
+                label: 'Back',
                 onPressed: onBack,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.textMuted,
-                  side: BorderSide(color: AppTheme.borderLight.withValues(alpha: 0.4)),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                ),
-                child: const Text('Back'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: ElevatedButton(
-                onPressed: isContinueBusy
-                    ? null
-                    : () async {
-                        await onContinue();
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: AppTheme.brandWhite,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  minimumSize: const Size(double.infinity, 52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  elevation: 0,
-                ),
-                child: isContinueBusy
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppTheme.brandWhite,
-                        ),
-                      )
-                    : const Text('Continue'),
+              child: HearthButton.primary(
+                label: 'Continue',
+                loading: isContinueBusy,
+                onPressed: () async {
+                  await onContinue();
+                },
               ),
             ),
           ],

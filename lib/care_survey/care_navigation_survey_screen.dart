@@ -7,6 +7,7 @@ import '../app_router.dart';
 import '../birthplan/birth_plans_list_screen.dart';
 import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../research/navigation_outcome_prompt.dart';
 import '../research/needs_checklist_screen.dart';
 import '../resources/app_external_resources.dart';
@@ -161,7 +162,6 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving survey: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -316,7 +316,6 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
           content: Text(
             'Please add a few words for “Something else” or deselect it.',
           ),
-          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -365,7 +364,6 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Could not continue: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -398,20 +396,20 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
       feature: 'user-feedback',
       entrySource: 'care_navigation_survey',
       child: Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
+      backgroundColor: AppTheme.ground,
       body: SafeArea(
         child: SingleChildScrollView(
           controller: _scrollController,
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Back Navigation (not on complete step)
               if (_step != 'complete')
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: InkWell(
-                    onTap: () {
+                HearthPushedHeader(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  backLabel: _step == 'needs' ? 'Home' : 'Back',
+                  onBack: () {
                       if (_step == 'support') {
                         setState(() => _step = 'needs');
                       } else if (_step == 'outcome') {
@@ -440,21 +438,6 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
                         Navigator.pop(context);
                       }
                     },
-                    child: Row(
-                      children: [
-                        Icon(Icons.chevron_left, color: AppTheme.textMuted, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          _step == 'needs' ? 'Home' : 'Back',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textMuted,
-                            fontWeight: FontWeight.w300,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
 
               if (_step == 'needs')
@@ -518,14 +501,10 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppTheme.borderLight.withOpacity(0.4),
-              width: 1,
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: const ShapeDecoration(
+            color: AppTheme.surface,
+            shape: StadiumBorder(side: BorderSide(color: AppTheme.borderWarm)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -534,68 +513,48 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
                 width: 6,
                 height: 6,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFD4A574),
+                  color: AppTheme.brandGold,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 'Almost done',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
+                style: hearthCaptionStyle.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondary,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         Text(
           'Overall, did you get the care and support you needed?',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w400,
-            color: AppTheme.textPrimary,
-            height: 1.3,
-          ),
+          style: Theme.of(context).textTheme.displaySmall,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           'A quick big-picture check-in after the areas you picked.',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-            height: 1.45,
-          ),
+          style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: 24),
         ..._outcomeOptions.map((opt) {
           return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: InkWell(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: HearthCard(
               onTap: () => _submitGotWhatNeeded(opt['value']!),
-              borderRadius: BorderRadius.circular(18),
-              child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              child: SizedBox(
                 width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: AppTheme.shadowSoft(opacity: 0.08, blur: 20, y: 5),
-                  border: Border.all(
-                    color: AppTheme.borderLight.withOpacity(0.4),
-                    width: 1,
-                  ),
-                ),
                 child: Text(
                   opt['label']!,
-                  style: TextStyle(
+                  style: const TextStyle(
+                    fontFamily: AppTheme.sansFamily,
                     fontSize: 15,
-                    height: 1.45,
-                    fontWeight: FontWeight.w300,
-                    color: AppTheme.textPrimary,
+                    height: 22 / 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.ink,
                   ),
                 ),
               ),
@@ -611,79 +570,30 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFFF5EEE0),
-                  Color(0xFFEBE0D6),
-                ],
-              ),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.favorite,
-              color: Color(0xFFD4A574),
-              size: 40,
-            ),
-          ),
+          const SizedBox(height: 56),
+          const HearthIconChip(Icons.favorite_border, size: 80, iconSize: 36),
           const SizedBox(height: 24),
 
           Text(
             'Thank you for trusting us',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w400,
-              color: AppTheme.textPrimary,
-              height: 1.3,
-            ),
+            style: Theme.of(context).textTheme.displaySmall,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
 
           Text(
             'Sharing what you need takes courage. Your voice helps us understand how to better support you and others.',
-            style: TextStyle(
-              fontSize: 15,
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w300,
-              height: 1.5,
-            ),
+            style: Theme.of(context).textTheme.bodyLarge,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
 
-          Container(
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFF5EEE0), Color(0xFFFAF8F4), Color(0xFFEBE0D6)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.borderLight.withOpacity(0.45)),
-              boxShadow: AppTheme.shadowSoft(opacity: 0.1, blur: 24, y: 6),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.favorite_border_rounded, color: const Color(0xFFD4A574), size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'You’ve taken an important step. When you’re ready, you can explore providers, learning topics, or your visit summaries in the app, at your own pace.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.w300,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
+          HearthNote(
+            icon: Icons.favorite_border,
+            padding: const EdgeInsets.all(18),
+            child: Text(
+              'You’ve taken an important step. When you’re ready, you can explore providers, learning topics, or your visit summaries in the app, at your own pace.',
+              style: hearthCardBodyStyle.copyWith(color: AppTheme.ink),
             ),
           ),
           const SizedBox(height: 32),
@@ -693,17 +603,8 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.brandPurple,
-              foregroundColor: AppTheme.brandWhite,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 32,
-                vertical: 18,
-              ),
               minimumSize: const Size(200, 52),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 32),
             ),
             child: const Text('Back to home'),
           ),

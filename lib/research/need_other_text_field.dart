@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 
 /// Free text when the user selects **Other** on the needs checklist (research: `need_other_text`).
 class NeedOtherTextField extends StatelessWidget {
   const NeedOtherTextField({
     super.key,
     required this.controller,
+    this.inCard = false,
   });
 
   final TextEditingController controller;
+
+  /// Inside a card the field takes the inset fill; on the page it keeps the theme fill.
+  final bool inCard;
 
   @override
   Widget build(BuildContext context) {
@@ -17,21 +22,12 @@ class NeedOtherTextField extends StatelessWidget {
       children: [
         Text(
           'What kind of support?',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppTheme.brandPurple,
-          ),
+          style: Theme.of(context).textTheme.labelMedium,
         ),
         const SizedBox(height: 8),
-        Text(
+        const Text(
           'A few words help the research team understand your “Other” need.',
-          style: TextStyle(
-            fontSize: 13,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-            height: 1.4,
-          ),
+          style: hearthCaptionStyle,
         ),
         const SizedBox(height: 12),
         TextField(
@@ -40,16 +36,7 @@ class NeedOtherTextField extends StatelessWidget {
           maxLength: 2000,
           decoration: InputDecoration(
             hintText: 'e.g., housing, legal aid, dental…',
-            filled: true,
-            fillColor: AppTheme.backgroundWarm,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: AppTheme.borderLight.withValues(alpha: 0.5)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppTheme.brandPurple, width: 2),
-            ),
+            fillColor: inCard ? AppTheme.surfaceInset : null,
           ),
         ),
       ],

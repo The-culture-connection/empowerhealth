@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import 'need_outcome_question_list.dart';
 
 /// Wraps the per-need “Did you get what you needed?” research access step.
@@ -31,14 +32,10 @@ class NavigationOutcomePrompt extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppTheme.borderLight.withValues(alpha: 0.4),
-              width: 1,
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: const ShapeDecoration(
+            color: AppTheme.surface,
+            shape: StadiumBorder(side: BorderSide(color: AppTheme.borderWarm)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -47,64 +44,34 @@ class NavigationOutcomePrompt extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFD4A574),
+                  color: AppTheme.brandGold,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 'Question ${currentIndex + 1} of $totalNeeds',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
+                style: hearthCaptionStyle.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondary,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         Text(
           needLabel,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w400,
-            color: AppTheme.textPrimary,
-            height: 1.3,
-          ),
+          style: Theme.of(context).textTheme.displaySmall,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           'Did you get what you needed?',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-          ),
+          style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: 24),
-        Container(
-          height: 6,
-          decoration: BoxDecoration(
-            color: AppTheme.borderLight,
-            borderRadius: BorderRadius.circular(3),
-          ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: (currentIndex + 1) / totalNeeds,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    AppTheme.brandPurple,
-                    Color(0xFFD4A574),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-          ),
-        ),
+        // The pill above already says "Question N of M", so the bar has no caption.
+        HearthStepProgress(step: currentIndex + 1, total: totalNeeds),
         const SizedBox(height: 24),
         child ??
             NeedOutcomeQuestionList(
@@ -112,20 +79,9 @@ class NavigationOutcomePrompt extends StatelessWidget {
               onSelect: onSelectOption,
             ),
         const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: onBack,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.textMuted,
-              side: BorderSide(color: AppTheme.borderLight.withValues(alpha: 0.4)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-            child: const Text('Back'),
-          ),
+        HearthButton.secondary(
+          label: 'Back',
+          onPressed: onBack,
         ),
       ],
     );

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 import '../../models/user_profile.dart';
 import '../../research/milestone_tracker_sheet.dart';
 import '../../services/research/research_firestore_service.dart';
@@ -122,13 +123,10 @@ class _HomeMilestoneBellState extends State<HomeMilestoneBell> {
       final sid = _studyId ?? _summary!['study_id'] as String;
       final nav = Navigator.of(context);
       final h = MediaQuery.sizeOf(context).height;
+      // Fill and corner radius come from the Hearth bottom-sheet theme.
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: AppTheme.backgroundWarm,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
         builder: (ctx) {
           return Padding(
             padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(ctx).bottom),
@@ -149,53 +147,45 @@ class _HomeMilestoneBellState extends State<HomeMilestoneBell> {
     }
 
     if (!mounted) return;
-    await showModalBottomSheet<void>(
+    await showHearthSheet<void>(
       context: context,
-      backgroundColor: AppTheme.backgroundWarm,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      isScrollControlled: false,
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(24, 16, 24, 24 + MediaQuery.paddingOf(ctx).bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Milestone check-ins',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: AppTheme.textPrimary),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                _helpMessage ??
-                    'Complete research onboarding in your profile so we can assign a study ID and '
-                    'show your milestone journey here.',
-                style: TextStyle(fontSize: 15, height: 1.45, color: AppTheme.textMuted),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text('Close', style: TextStyle(color: AppTheme.textMuted)),
-                  ),
-                  const Spacer(),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      unawaited(_load());
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.brandPurple,
-                      foregroundColor: AppTheme.brandWhite,
-                    ),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+        final textTheme = Theme.of(ctx).textTheme;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Milestone check-ins',
+              style: textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _helpMessage ??
+                  'Complete research onboarding in your profile so we can assign a study ID and '
+                  'show your milestone journey here.',
+              style: textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
+                  child: const Text('Close'),
+                ),
+                const Spacer(),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    unawaited(_load());
+                  },
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ],
         );
       },
     );
@@ -208,19 +198,20 @@ class _HomeMilestoneBellState extends State<HomeMilestoneBell> {
     }
 
     if (_loading) {
-      return Padding(
-        padding: const EdgeInsets.all(8),
+      return SizedBox(
+        width: 44,
+        height: 44,
         child: Stack(
           alignment: Alignment.center,
           children: [
             Icon(
-              Icons.notifications_outlined,
-              size: 28,
+              Icons.notifications_none,
+              size: 22,
               color: AppTheme.brandPurple.withValues(alpha: 0.35),
             ),
             const SizedBox(
-              width: 36,
-              height: 36,
+              width: 40,
+              height: 40,
               child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.brandPurple),
             ),
           ],
@@ -228,38 +219,33 @@ class _HomeMilestoneBellState extends State<HomeMilestoneBell> {
       );
     }
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _openTracker,
-        borderRadius: BorderRadius.circular(24),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              const Icon(
-                Icons.notifications_outlined,
-                size: 28,
-                color: AppTheme.brandPurple,
-              ),
-              if (_showDot)
-                Positioned(
-                  right: -1,
-                  top: -1,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.brandPurple,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+    // 44 surface circle; the dot sits on the bell's shoulder with a surface ring.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        HearthCircleButton(
+          icon: Icons.notifications_none,
+          iconSize: 22,
+          iconColor: AppTheme.brandPurple,
+          onPressed: _openTracker,
         ),
-      ),
+        if (_showDot)
+          Positioned(
+            right: 8,
+            top: 7,
+            child: IgnorePointer(
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: AppTheme.brandPurple,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.surface, width: 2),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

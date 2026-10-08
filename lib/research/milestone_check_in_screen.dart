@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../services/research/research_milestone_service.dart';
 
 /// Full-screen milestone check-in (three Yes/No items) for research participants.
@@ -30,7 +31,7 @@ class _MilestoneCheckInScreenState extends State<MilestoneCheckInScreen> {
   Future<void> _submit() async {
     if (_healthQuestion == null || _clearNext == null || _appHelped == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please answer all three questions.'), backgroundColor: Colors.orange),
+        const SnackBar(content: Text('Please answer all three questions.')),
       );
       return;
     }
@@ -47,7 +48,7 @@ class _MilestoneCheckInScreenState extends State<MilestoneCheckInScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Could not save: $e')),
         );
       }
     } finally {
@@ -55,37 +56,59 @@ class _MilestoneCheckInScreenState extends State<MilestoneCheckInScreen> {
     }
   }
 
+  /// Yes / No pill in the selected-chip style, label centred.
+  Widget _choice(String label, bool selected, VoidCallback? onPressed) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(64, 48),
+        backgroundColor: selected ? AppTheme.tintWarm : AppTheme.surface,
+        foregroundColor: selected ? AppTheme.brandPurple : AppTheme.textSecondary,
+        side: selected
+            ? const BorderSide(color: AppTheme.brandPurple, width: 2)
+            : const BorderSide(color: AppTheme.borderWarm),
+        textStyle: TextStyle(
+          fontFamily: AppTheme.sansFamily,
+          fontSize: 15,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+        ),
+      ),
+      child: Text(label),
+    );
+  }
+
   Widget _row(String label, bool? value, void Function(bool) onPick) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 15, color: AppTheme.textPrimary, height: 1.35)),
-          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: AppTheme.sansFamily,
+              fontSize: 15,
+              height: 22 / 15,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.ink,
+            ),
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: _submitting ? null : () => setState(() => onPick(true)),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: value == true ? AppTheme.brandPurple.withValues(alpha: 0.12) : null,
-                    foregroundColor: AppTheme.textPrimary,
-                    side: BorderSide(color: AppTheme.borderLight.withValues(alpha: 0.5)),
-                  ),
-                  child: const Text('Yes'),
+                child: _choice(
+                  'Yes',
+                  value == true,
+                  _submitting ? null : () => setState(() => onPick(true)),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: OutlinedButton(
-                  onPressed: _submitting ? null : () => setState(() => onPick(false)),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: value == false ? AppTheme.brandPurple.withValues(alpha: 0.12) : null,
-                    foregroundColor: AppTheme.textPrimary,
-                    side: BorderSide(color: AppTheme.borderLight.withValues(alpha: 0.5)),
-                  ),
-                  child: const Text('No'),
+                child: _choice(
+                  'No',
+                  value == false,
+                  _submitting ? null : () => setState(() => onPick(false)),
                 ),
               ),
             ],
@@ -98,58 +121,44 @@ class _MilestoneCheckInScreenState extends State<MilestoneCheckInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      appBar: AppBar(
-        backgroundColor: AppTheme.backgroundWarm,
-        elevation: 0,
-        foregroundColor: AppTheme.textPrimary,
-        title: const Text('Check-in'),
-      ),
+      backgroundColor: AppTheme.ground,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.only(bottom: 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.title, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w400, color: AppTheme.textPrimary)),
-              if (widget.subtitle != null) ...[
-                const SizedBox(height: 8),
-                Text(widget.subtitle!, style: TextStyle(fontSize: 14, color: AppTheme.textMuted, height: 1.45)),
-              ],
-              const SizedBox(height: 28),
-              _row(
-                'Did you have a health-related question you wanted to ask a care team?',
-                _healthQuestion,
-                (v) => _healthQuestion = v,
+              HearthPushedHeader(
+                backLabel: 'Check-in',
+                title: widget.title,
+                subtitle: widget.subtitle,
               ),
-              _row(
-                'Did you feel clear on what your next step in care should be?',
-                _clearNext,
-                (v) => _clearNext = v,
-              ),
-              _row(
-                'Did this app help you figure out or take a next step?',
-                _appHelped,
-                (v) => _appHelped = v,
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.brandPurple,
-                    foregroundColor: AppTheme.brandWhite,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                  ),
-                  child: _submitting
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.brandWhite),
-                        )
-                      : const Text('Submit'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _row(
+                      'Did you have a health-related question you wanted to ask a care team?',
+                      _healthQuestion,
+                      (v) => _healthQuestion = v,
+                    ),
+                    _row(
+                      'Did you feel clear on what your next step in care should be?',
+                      _clearNext,
+                      (v) => _clearNext = v,
+                    ),
+                    _row(
+                      'Did this app help you figure out or take a next step?',
+                      _appHelped,
+                      (v) => _appHelped = v,
+                    ),
+                    HearthButton.primary(
+                      label: 'Submit',
+                      loading: _submitting,
+                      onPressed: _submit,
+                    ),
+                  ],
                 ),
               ),
             ],

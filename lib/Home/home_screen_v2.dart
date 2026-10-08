@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../app_router.dart';
 import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../birthplan/birth_plans_list_screen.dart';
 import '../appointments/appointments_list_screen.dart';
 import '../appointments/visit_summary_preview.dart';
@@ -139,7 +140,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
       barrierDismissible: false,
       builder: (context) => _ModuleGenerationDialog(profile: profile),
     );
-    
+
     if (mounted) {
       setState(() {});
     }
@@ -148,44 +149,28 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
   void _showTodoModal(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: AppTheme.scrim,
       builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.all(16),
-        child: Container(
+        child: ConstrainedBox(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.8,
-          ),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: AppTheme.shadowMedium(opacity: 0.14, blur: 28, y: 10),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.primaryActionGradient,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 12, 8),
                 child: Row(
                   children: [
-                    const Text(
-                      'Learning Modules',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.brandWhite,
+                    Expanded(
+                      child: Text(
+                        'Learning Modules',
+                        style: Theme.of(context).textTheme.headlineMedium,
                       ),
                     ),
-                    const Spacer(),
                     IconButton(
-                      icon: const Icon(Icons.close, color: AppTheme.brandWhite),
+                      icon: const Icon(Icons.close, color: AppTheme.ink),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
@@ -306,6 +291,64 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
   UserProfile? get _effectiveProfile =>
       SupportStageScope.profileOf(context) ?? _userProfile;
 
+  /// Pill that opens the assistant; it only looks like a search field.
+  Widget _buildAssistantSearchField() {
+    return Material(
+      color: AppTheme.surface,
+      shape: const StadiumBorder(side: BorderSide(color: AppTheme.borderWarm)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          Navigator.pushNamed(context, Routes.assistant);
+        },
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 54),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.auto_awesome_outlined,
+                  color: AppTheme.brandPurple,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    enabled: false,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 22 / 15,
+                      color: AppTheme.ink,
+                    ),
+                    // The theme's field box would draw a second outline
+                    // inside the pill, so this field is bare.
+                    decoration: const InputDecoration(
+                      hintText: 'Search symptoms or topics',
+                      hintMaxLines: 2,
+                      hintStyle: TextStyle(
+                        color: AppTheme.textMuted,
+                        fontSize: 15,
+                        height: 22 / 15,
+                      ),
+                      filled: false,
+                      isDense: true,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = _effectiveProfile;
@@ -317,6 +360,9 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
     final showWeekJourneyCard = !inLossMode &&
         dueDate != null &&
         !(profile?.hidePregnancyMilestones ?? false);
+    const sectionGap = SizedBox(height: 28);
+    const headingGap = SizedBox(height: 14);
+    const cardGap = SizedBox(height: 12);
     return Scaffold(
       backgroundColor:
           inLossMode ? PregnancyLossTheme.background : Colors.transparent,
@@ -325,104 +371,41 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
               physics: const AlwaysScrollableScrollPhysics(),
               // Bottom inset keeps the last card clear of the floating support
               // button and bottom nav (SafeArea adds the nav/safe-area inset).
-              padding: const EdgeInsets.fromLTRB(24, 48, 24, 120),
+              padding: const EdgeInsets.only(bottom: 120),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Greeting (NewUI Home.tsx) + research milestone bell
-                  Padding(
-                    padding: EdgeInsets.only(bottom: inLossMode ? 28 : 32),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                inLossMode
-                                    // Non-breaking space keeps the emoji on
-                                    // the same line as the last word.
-                                    ? 'We\'re here with you$_kNbsp💜'
-                                    : 'Welcome, Mama$_kNbsp🤍',
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1.3,
-                                  letterSpacing: -0.32,
-                                  color: Color(0xFF2D2235),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                inLossMode
-                                    ? 'Support is here when you\'re ready.'
-                                    : "You're supported, with clear answers and tools to speak up.",
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w300,
-                                  height: 1.5,
-                                  color: AppTheme.textMuted,
-                                ),
-                              ),
-                              if (!inLossMode) ...[
-                                const SizedBox(height: 24),
-                                InkWell(
-                                  onTap: () {
-                                    Navigator.pushNamed(context, Routes.assistant);
-                                  },
-                                  borderRadius: BorderRadius.circular(28),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.surfaceCard,
-                                      borderRadius: BorderRadius.circular(28),
-                                      border: Border.all(
-                                        color: const Color(0xFFE8DFE8),
-                                      ),
-                                      boxShadow: AppTheme.shadowSoft(),
-                                    ),
-                                    child: TextField(
-                                      enabled: false,
-                                      style: const TextStyle(
-                                        color: Color(0xFF2D2733),
-                                        fontWeight: FontWeight.w300,
-                                      ),
-                                      decoration: InputDecoration(
-                                        hintText: 'Search symptoms or topics',
-                                        hintMaxLines: 2,
-                                        hintStyle: TextStyle(
-                                          color: const Color(0xFFB5A8C2),
-                                          fontWeight: FontWeight.w300,
-                                          fontSize: 14,
-                                        ),
-                                        prefixIcon: const Icon(
-                                          Icons.auto_awesome_rounded,
-                                          color: Color(0xFF9D8FB5),
-                                          size: 20,
-                                        ),
-                                        border: InputBorder.none,
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 20,
-                                          vertical: 16,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        if (!inLossMode)
-                          HomeMilestoneBell(
+                  // Greeting + research milestone bell. Pregnancy-loss mode
+                  // drops the decorative circle and underline.
+                  HearthTabHeader(
+                    warmCircle: !inLossMode,
+                    titleWidget: _GreetingTitle(
+                      text: inLossMode
+                          ? 'We\'re here with you$_kNbsp'
+                          : 'Welcome, Mama$_kNbsp',
+                      underlineLastWord: !inLossMode,
+                    ),
+                    subtitle: inLossMode
+                        ? 'Support is here when you\'re ready.'
+                        : "You're supported, with clear answers and tools to speak up.",
+                    trailing: inLossMode
+                        ? null
+                        : HomeMilestoneBell(
                             key: ValueKey<String>(
                               '${profile?.userId ?? 'none'}_${profile?.isResearchParticipant ?? false}',
                             ),
                             profile: profile,
                           ),
-                      ],
-                    ),
                   ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                  if (!inLossMode) ...[
+                    _buildAssistantSearchField(),
+                    sectionGap,
+                  ],
 
                   if (inLossMode && profile != null) ...[
                     PregnancyLossHomeVariant(profile: profile),
@@ -430,32 +413,20 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                     ImmediateSupportHomeCard(
                       entrySource: 'home_loss_mode',
                       compact: true,
+                      quiet: true,
                     ),
                   ],
 
                   if (!inLossMode)
                   // Your space — Visits, Journal, Birth preferences, Next steps (NewUI order)
                   Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        'Your space',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 1.04,
-                          color: AppTheme.brandPurple,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+                      const HearthSectionHeading('Your space'),
+                      headingGap,
                       _CareToolPair(
                             first: _CareToolCard(
                               icon: Icons.article_outlined,
-                              iconGradient: const [
-                                Color(0xFFE8E0F0),
-                                Color(0xFFD8CFE5),
-                              ],
-                              iconColor: AppTheme.brandPurple,
                               title: 'My Visits & What It Means',
                               subtitle: 'Summaries & notes',
                               onTap: () {
@@ -470,26 +441,16 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                             ),
                             second: _CareToolCard(
                               icon: Icons.favorite_border,
-                              iconGradient: const [
-                                Color(0xFFF5EEE0),
-                                Color(0xFFEBE0D6),
-                              ],
-                              iconColor: const Color(0xFFD4A574),
                               title: "How I'm Feeling",
                               subtitle: 'Your private space',
                               onTap: () => _openTab(
                                   context, MainNavigationScope.tabJournal, Routes.journal),
                             ),
                       ),
-                      const SizedBox(height: 16),
+                      cardGap,
                       if (inLossMode)
                         _CareToolCard(
                           icon: Icons.menu_book_outlined,
-                          iconGradient: const [
-                            Color(0xFFE8E0F0),
-                            Color(0xFFD8CFE5),
-                          ],
-                          iconColor: AppTheme.brandPurple,
                           title: 'Learning guides',
                           subtitle: 'Recovery, visits, and follow-up care',
                           onTap: () => _openTab(
@@ -502,11 +463,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                         _CareToolPair(
                               first: _CareToolCard(
                                 icon: Icons.description_outlined,
-                                iconGradient: const [
-                                  Color(0xFFE8E0F0),
-                                  Color(0xFFD8CFE5),
-                                ],
-                                iconColor: AppTheme.brandPurple,
                                 title: 'My Birth Choices',
                                 subtitle: "What's right for you",
                                 onTap: () {
@@ -521,11 +477,6 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                               ),
                               second: _CareToolCard(
                                 icon: Icons.menu_book_outlined,
-                                iconGradient: const [
-                                  Color(0xFFE8E0F0),
-                                  Color(0xFFD8CFE5),
-                                ],
-                                iconColor: AppTheme.brandPurple,
                                 title: 'My Care Plan',
                                 subtitle: 'Your personalized path',
                                 onTap: () => _openTab(
@@ -537,25 +488,21 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                         ),
                     ],
                   ),
-                  if (!inLossMode) const SizedBox(height: 40),
+                  if (!inLossMode) sectionGap,
 
                   if (!inLossMode)
                   // Today's Guidance (primary hero + visit summary widget)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 40),
+                    padding: const EdgeInsets.only(bottom: 28),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          "💜${_kNbsp}TODAY'S GUIDANCE",
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 1.2,
-                            color: AppTheme.brandPurple,
-                          ),
+                        // The no-break space is what is left of the removed
+                        // emoji; trim keeps it from indenting the heading.
+                        HearthSectionHeading(
+                          "${_kNbsp}Today's guidance".trim(),
                         ),
-                        const SizedBox(height: 12),
+                        headingGap,
                         ImmediateSupportHomeCard(
                           entrySource: 'home',
                           compact: true,
@@ -565,243 +512,94 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                           ctaLabel: 'See options',
                         ),
                         if (!inLossMode) ...[
-                        const SizedBox(height: 12),
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              Navigator.pushNamed(context, Routes.careSurvey);
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: Ink(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFF5EEE0),
-                                    Color(0xFFFAF8F4),
-                                    Color(0xFFEBE0D6),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: const Color(0xFFE8E0F0)
-                                      .withOpacity(0.4),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.brandPurple.withOpacity(0.12),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: Stack(
+                        cardGap,
+                        HearthCard(
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.careSurvey);
+                          },
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Positioned(
-                                    top: 0,
-                                    right: 0,
-                                    child: Container(
-                                      width: 80,
-                                      height: 80,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: const Color(0xFFD4A574)
-                                            .withOpacity(0.08),
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(20),
+                                  const HearthIconChip(Icons.auto_awesome_outlined),
+                                  const SizedBox(width: 14),
+                                  Expanded(
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Container(
-                                              width: 44,
-                                              height: 44,
-                                              decoration: BoxDecoration(
-                                                gradient:
-                                                    const LinearGradient(
-                                                  colors: [
-                                                    Color(0xFFF5EEE0),
-                                                    Color(0xFFEBE0D6),
-                                                  ],
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(18),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black
-                                                        .withOpacity(0.08),
-                                                    blurRadius: 10,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: const Icon(
-                                                Icons.auto_awesome_rounded,
-                                                color: Color(0xFFD4A574),
-                                                size: 22,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 14),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'Care Check-In',
-                                                    style: TextStyle(
-                                                      fontSize: 15,
-                                                      fontWeight: FontWeight.w400,
-                                                      letterSpacing: -0.085,
-                                                      color: AppTheme.textPrimary,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  Text(
-                                                    'Tell us what you needed help with and whether you got it.',
-                                                    style: TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight: FontWeight.w300,
-                                                      height: 1.45,
-                                                      color: AppTheme.textMuted,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
+                                        Text(
+                                          'Care Check-In',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge,
                                         ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          children: [
-                                            Flexible(
-                                              child: Text(
-                                                'Start check-in',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w400,
-                                                  color: AppTheme.brandPurple,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Icon(
-                                              Icons.chevron_right,
-                                              size: 18,
-                                              color: AppTheme.brandPurple,
-                                            ),
-                                          ],
+                                        const SizedBox(height: 4),
+                                        const Text(
+                                          'Tell us what you needed help with and whether you got it.',
+                                          style: hearthCardBodyStyle,
                                         ),
                                       ],
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
+                              const SizedBox(height: 4),
+                              const _HomeCta('Start check-in'),
+                            ],
                           ),
                         ),
                         ],
-                        const SizedBox(height: 12),
+                        cardGap,
                         _buildLatestVisitSection(),
                       ],
                     ),
                   ),
 
                   if (!inLossMode)
-                  // Know your rights — elevated as a core empowerment feature
+                  // Know your rights — the one purple card on Home.
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 40),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () =>
-                            Navigator.pushNamed(context, Routes.rights),
-                        borderRadius: BorderRadius.circular(24),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.brandPurple.withOpacity(0.28),
-                                blurRadius: 24,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
+                    padding: const EdgeInsets.only(bottom: 28),
+                    child: HearthFeatureCard(
+                      tone: HearthTone.purple,
+                      onTap: () =>
+                          Navigator.pushNamed(context, Routes.rights),
+                      child: Row(
+                        children: [
+                          const HearthIconChip(
+                            Icons.shield_outlined,
+                            tone: HearthChipTone.gold,
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Row(
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.brandWhite.withOpacity(0.16),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color:
-                                          AppTheme.brandWhite.withOpacity(0.25),
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.shield_outlined,
-                                    color: AppTheme.brandWhite,
-                                    size: 24,
-                                  ),
+                                Text(
+                                  'Know your rights',
+                                  style:
+                                      hearthFeatureTitleStyle(onPurple: true),
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Know your rights',
-                                        style: TextStyle(
-                                          fontSize: 17,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppTheme.brandWhite,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Understand your options and feel confident speaking up.',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          height: 1.4,
-                                          fontWeight: FontWeight.w300,
-                                          color: AppTheme.brandWhite
-                                              .withOpacity(0.9),
-                                        ),
-                                      ),
-                                    ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Understand your options and feel confident speaking up.',
+                                  style: hearthCardBodyStyle.copyWith(
+                                    color: AppTheme.onPurpleSecondary,
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: AppTheme.brandWhite.withOpacity(0.9),
                                 ),
                               ],
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.chevron_right,
+                            size: 20,
+                            color: AppTheme.onPurple,
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -809,35 +607,22 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                   if (!inLossMode)
                   // Understand Your Care — quick paths to explanation features
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 40),
+                    padding: const EdgeInsets.only(bottom: 28),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          'UNDERSTAND YOUR CARE',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 1.2,
-                            color: AppTheme.brandPurple,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
+                        const HearthSectionHeading('Understand your care'),
+                        headingGap,
                         HomeProviderSearchEntry(
                           title: 'Find your care team',
                           subtitle: 'Search providers by ZIP, city, and type of care',
                           onTap: () =>
                               Navigator.pushNamed(context, Routes.providers),
                         ),
-                        const SizedBox(height: 12),
+                        cardGap,
                         _CareToolPair(
                               first: _CareToolCard(
                                 icon: Icons.science_outlined,
-                                iconGradient: const [
-                                  Color(0xFFE8E0F0),
-                                  Color(0xFFD8CFE5),
-                                ],
-                                iconColor: AppTheme.brandPurple,
                                 title: 'What does this test mean?',
                                 subtitle:
                                     'Labs and visit notes in plain language',
@@ -851,12 +636,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                 ),
                               ),
                               second: _CareToolCard(
-                                icon: Icons.help_outline_rounded,
-                                iconGradient: const [
-                                  Color(0xFFF5EEE0),
-                                  Color(0xFFEBE0D6),
-                                ],
-                                iconColor: const Color(0xFFD4A574),
+                                icon: Icons.help_outline,
                                 title: 'Is this normal?',
                                 subtitle:
                                     "What's typical, and when to reach out",
@@ -888,299 +668,116 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
 
                   if (!inLossMode) ...[
                   // Week / trimester journey card → the same trimester module the
-                  // Learning Center banner opens (single source of truth).
+                  // Learning Center banner opens (single source of truth). Tint,
+                  // because "Know your rights" is the screen's purple card.
                   if (showWeekJourneyCard) ...[
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 40),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => openTrimesterJourney(context),
-                          borderRadius: BorderRadius.circular(24),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF663399),
-                                  Color(0xFF7744AA),
-                                  Color(0xFF8855BB),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(24),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF663399).withOpacity(0.25),
-                                  blurRadius: 40,
-                                  offset: const Offset(0, 16),
-                                ),
-                              ],
+                      padding: const EdgeInsets.only(bottom: 28),
+                      child: HearthFeatureCard(
+                        onTap: () => openTrimesterJourney(context),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const HearthIconChip(
+                              Icons.menu_book_outlined,
+                              tone: HearthChipTone.surface,
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Row(
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color:
-                                          AppTheme.brandWhite.withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: AppTheme.brandWhite
-                                            .withOpacity(0.2),
-                                      ),
-                                    ),
-                                    child: const Icon(
-                                      Icons.menu_book_rounded,
-                                      color: Color(0xFFF5F0F7),
-                                      size: 22,
-                                    ),
+                                  Text(
+                                    // Non-breaking spaces keep "Week N" and
+                                    // the full trimester label together.
+                                    'Week$_kNbsp$displayWeek • ${PregnancyUtils.trimesterDisplayTitle(trimester).replaceAll(' ', _kNbsp)}',
+                                    style: hearthFeatureTitleStyle(),
                                   ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          // Non-breaking spaces keep "Week N" and
-                                          // the full trimester label together.
-                                          'Week$_kNbsp$displayWeek • ${PregnancyUtils.trimesterDisplayTitle(trimester).replaceAll(' ', _kNbsp)}',
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w500,
-                                            letterSpacing: -0.1,
-                                            color: Color(0xFFF5F0F7),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        const Text(
-                                          'What to expect this week, what to ask, and when to call your provider.',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w300,
-                                            height: 1.45,
-                                            color: Color(0xFFE8DFF0),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: const [
-                                            Flexible(
-                                              child: Text(
-                                                'Open your trimester guide',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Color(0xFFF5F0F7),
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(width: 4),
-                                            Icon(
-                                              Icons.arrow_forward,
-                                              size: 18,
-                                              color: Color(0xFFF5F0F7),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    'What to expect this week, what to ask, and when to call your provider.',
+                                    style: hearthCardBodyStyle,
+                                  ),
+                                  const _HomeCta(
+                                    'Open your trimester guide',
+                                    icon: Icons.arrow_forward,
                                   ),
                                 ],
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     ),
                   ],
                   ],
                   if (!inLossMode) ...[
-                  const SizedBox(height: 40),
                   // Community (NewUI: conversational header + belonging copy)
-                  Text(
-                    'FROM THE COMMUNITY$_kNbsp💬',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 1.2,
-                      color: AppTheme.brandPurple,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      // Switch to the Community tab so the bottom tab bar
-                      // stays visible; push only outside the main shell.
-                      onTap: () {
-                        if (!MainNavigationScope.goToTab(
-                            context, MainNavigationScope.tabCommunity)) {
-                          Navigator.pushNamed(context, Routes.community);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(24),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFFFAF7F3),
-                              Color(0xFFF5F0EB),
-                              Color(0xFFF0EAD8),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: const Color(0xFFE8DFC8).withOpacity(0.4),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFD4A574).withOpacity(0.15),
-                              blurRadius: 28,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: Stack(
+                  // Trimmed: a trailing no-break space makes web fall back to
+                  // another serif for the whole heading.
+                  HearthSectionHeading('From the community$_kNbsp'.trim()),
+                  headingGap,
+                  HearthCard(
+                    // Switch to the Community tab so the bottom tab bar
+                    // stays visible; push only outside the main shell.
+                    onTap: () {
+                      if (!MainNavigationScope.goToTab(
+                          context, MainNavigationScope.tabCommunity)) {
+                        Navigator.pushNamed(context, Routes.community);
+                      }
+                    },
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Positioned(
-                              top: 0,
-                              right: 0,
-                              child: Container(
-                                width: 100,
-                                height: 100,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: const Color(0xFFD4A574)
-                                      .withOpacity(0.06),
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(28),
+                            const HearthIconChip(Icons.favorite_border),
+                            const SizedBox(width: 14),
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFFF5EEE0),
-                                              Color(0xFFEBE0D6),
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(16),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black
-                                                  .withOpacity(0.06),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Icon(
-                                          Icons.favorite_border,
-                                          color: Color(0xFFD4A574),
-                                          size: 22,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Welcome to',
-                                              style: TextStyle(
-                                                fontSize: 17,
-                                                fontWeight: FontWeight.w400,
-                                                letterSpacing: -0.085,
-                                                color: AppTheme.textPrimary,
-                                              ),
-                                            ),
-                                            // Product name kept on one line so
-                                            // it never breaks mid-word at large
-                                            // text sizes.
-                                            FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              alignment: Alignment.centerLeft,
-                                              child: Text(
-                                                'EmpowerHealth Watch',
-                                                maxLines: 1,
-                                                softWrap: false,
-                                                style: TextStyle(
-                                                  fontSize: 17,
-                                                  fontWeight: FontWeight.w400,
-                                                  letterSpacing: -0.085,
-                                                  color: AppTheme.textPrimary,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              "You're not alone here. Connect with other moms, share your journey, and find support from those who understand.",
-                                              style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w300,
-                                                height: 1.5,
-                                                color: AppTheme.textMuted,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
+                                  Text(
+                                    'Welcome to',
+                                    style:
+                                        Theme.of(context).textTheme.titleLarge,
                                   ),
-                                  const SizedBox(height: 16),
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          'Explore community',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w300,
-                                            color: AppTheme.textMuted
-                                                .withOpacity(0.85),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.chevron_right,
-                                        size: 18,
-                                        color: AppTheme.textMuted
-                                            .withOpacity(0.85),
-                                      ),
-                                    ],
+                                  // Product name kept on one line so
+                                  // it never breaks mid-word at large
+                                  // text sizes.
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      'EmpowerHealth Watch',
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    "You're not alone here. Connect with other moms, share your journey, and find support from those who understand.",
+                                    style: hearthCardBodyStyle,
                                   ),
                                 ],
                               ),
                             ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        const _HomeCta('Explore community'),
+                      ],
                     ),
                   ),
                   ],
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1198,13 +795,13 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
     final title = (data['title'] ?? '').toString();
     final description = (data['description'] ?? '').toString();
     final content = data['content'];
-    final contentString = content is String 
-        ? content 
+    final contentString = content is String
+        ? content
         : (content is Map ? content.toString() : '');
     final colors = getColors(title);
     final icon = getIcon(title);
 
-    return InkWell(
+    return HearthCard(
       onTap: () {
         if (contentString.isNotEmpty) {
           Navigator.push(
@@ -1213,7 +810,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
               builder: (context) => LearningModuleDetailScreen(
                 title: title,
                 content: contentString,
-                icon: '📚',
+                icon: '',
               ),
             ),
           );
@@ -1221,50 +818,142 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
           _openTab(context, MainNavigationScope.tabLearn, Routes.learning);
         }
       },
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceCard,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.borderLight.withOpacity(0.6)),
-          boxShadow: AppTheme.shadowSoft(opacity: 0.06, blur: 16, y: 3),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: colors['bg']!,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: colors['icon']!, size: 20),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Chip colours come from the caller's palette.
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: colors['bg'] ?? AppTheme.tintWarm,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 12),
-            Text(
-              title,
+            child: Icon(
+              icon,
+              color: colors['icon'] ?? AppTheme.brandPurple,
+              size: 22,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: hearthCardTitleStyle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            description.isNotEmpty ? description : 'Learning module',
+            style: hearthCaptionStyle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tab-title greeting. On the regular Home the last word gets the gold
+/// hand-drawn underline from the mockup.
+class _GreetingTitle extends StatelessWidget {
+  const _GreetingTitle({required this.text, required this.underlineLastWord});
+
+  final String text;
+  final bool underlineLastWord;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.displayLarge;
+    final trimmed = text.trim();
+    final split = trimmed.lastIndexOf(' ');
+    if (!underlineLastWord || split < 0) {
+      return Text(trimmed, style: style);
+    }
+    return Text.rich(
+      TextSpan(
+        style: style,
+        children: [
+          TextSpan(text: trimmed.substring(0, split + 1)),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Text(trimmed.substring(split + 1), style: style),
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: -7,
+                  height: 10,
+                  child: CustomPaint(painter: _SquigglePainter()),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Gold underline stroke (mockup path "M2 7c18-6 36-6 52-2s28 3 40-2" on 96×10).
+class _SquigglePainter extends CustomPainter {
+  const _SquigglePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sx = size.width / 96;
+    final sy = size.height / 10;
+    final path = Path()
+      ..moveTo(2 * sx, 7 * sy)
+      ..cubicTo(20 * sx, 1 * sy, 38 * sx, 1 * sy, 54 * sx, 5 * sy)
+      ..cubicTo(70 * sx, 9 * sy, 82 * sx, 8 * sy, 94 * sx, 3 * sy);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = AppTheme.brandGold
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SquigglePainter oldDelegate) => false;
+}
+
+/// Purple "Start check-in ›" style link line at the foot of a card. The whole
+/// card is the tap target, so this is only a visual cue.
+class _HomeCta extends StatelessWidget {
+  const _HomeCta(this.label, {this.icon = Icons.chevron_right});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              label,
               style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.brandPurple,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
-            Text(
-              description.isNotEmpty ? description : 'Learning module',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[500],
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 6),
+          Icon(icon, size: 18, color: AppTheme.brandPurple),
+        ],
       ),
     );
   }
@@ -1295,86 +984,29 @@ class _SupportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return HearthCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(32),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          gradient: gradient,
-          color: gradient == null ? AppTheme.surfaceCard : null,
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(
-            color: borderColor ?? AppTheme.borderLight,
-            width: 1,
-          ),
-          boxShadow: gradient == null ? AppTheme.shadowSoft() : AppTheme.shadowSoft(opacity: 0.1, blur: 22, y: 5),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: gradient == null
-                    ? LinearGradient(
-                        colors: [
-                          AppTheme.gradientBeigeStart.withOpacity(0.6),
-                          AppTheme.gradientBeigeEnd.withOpacity(0.6),
-                        ],
-                      )
-                    : null,
-                color: gradient == null ? iconBg : null,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          HearthIconChip(icon),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: hearthCardTitleStyle),
+                const SizedBox(height: 4),
+                Text(subtitle, style: hearthCardBodyStyle),
+                if (description != null) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                  if (description != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      description!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textLight,
-                        fontWeight: FontWeight.w300,
-                      ),
-                    ),
-                  ],
+                  Text(description!, style: hearthCaptionStyle),
                 ],
-              ),
+              ],
             ),
-            Icon(Icons.chevron_right, color: AppTheme.textBarelyVisible, size: 20),
-          ],
-        ),
+          ),
+          const Icon(Icons.chevron_right, color: AppTheme.brandPurple, size: 20),
+        ],
       ),
     );
   }
@@ -1399,63 +1031,18 @@ class _ModuleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return HearthCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(28),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceCard,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: AppTheme.borderLight),
-          boxShadow: AppTheme.shadowSoft(),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.gradientBeigeStart.withOpacity(0.6),
-                    AppTheme.gradientBeigeEnd.withOpacity(0.6),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                fontWeight: FontWeight.w400,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.4,
-                color: AppTheme.textLightest,
-                fontWeight: FontWeight.w300,
-              ),
-            ),
-          ],
-        ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          HearthIconChip(icon),
+          const SizedBox(height: 12),
+          Text(title, style: hearthCardTitleStyle),
+          const SizedBox(height: 4),
+          Text(subtitle, style: hearthCaptionStyle),
+        ],
       ),
     );
   }
@@ -1482,145 +1069,49 @@ class _AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(compact ? 16 : 20),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceCard,
-            borderRadius: BorderRadius.circular(compact ? 16 : 20),
-            border: Border.all(
-              color: const Color(0xFFE8E0F0).withOpacity(0.4),
-            ),
-            boxShadow: AppTheme.shadowSoft(
-              opacity: compact ? 0.08 : 0.1,
-              blur: compact ? 14 : 22,
-              y: compact ? 4 : 6,
-            ),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(compact ? 16 : 24),
-            child: Row(
+    final hasDuration = durationLabel != null && durationLabel!.isNotEmpty;
+    return HearthCard(
+      onTap: onTap,
+      padding: EdgeInsets.fromLTRB(18, 18, 18, hasDuration ? 8 : 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const HearthIconChip(Icons.article_outlined),
+          SizedBox(width: compact ? 14 : 16),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: compact ? 40 : 48,
-                  height: compact ? 40 : 48,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFFE8E0F0),
-                        Color(0xFFD8CFE5),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.article_outlined,
-                    color: AppTheme.brandPurple,
-                    size: compact ? 18 : 20,
-                  ),
-                ),
-                SizedBox(width: compact ? 12 : 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (overline != null && overline!.isNotEmpty) ...[
-                        Text(
-                          overline!,
-                          style: TextStyle(
-                            fontSize: compact ? 11 : 12,
-                            fontWeight: FontWeight.w300,
-                            letterSpacing: 0.5,
-                            color: AppTheme.textMuted.withOpacity(0.9),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                      ],
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: compact ? 14 : 16,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.12,
-                          color: const Color(0xFF2D2235),
-                        ),
-                      ),
-                      if (subtitle.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: compact ? 12 : 14,
-                            fontWeight: FontWeight.w300,
-                            height: 1.45,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                      ],
-                      if (description.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          description,
-                          style: TextStyle(
-                            fontSize: compact ? 12 : 14,
-                            fontWeight: FontWeight.w300,
-                            color: AppTheme.textMuted.withOpacity(0.85),
-                          ),
-                        ),
-                      ],
-                      if (durationLabel != null &&
-                          durationLabel!.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                durationLabel!,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w300,
-                                  color: AppTheme.textMuted.withOpacity(0.85),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.chevron_right,
-                              size: 18,
-                              color: AppTheme.textMuted.withOpacity(0.85),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (durationLabel == null || durationLabel!.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Icon(
-                      Icons.chevron_right,
-                      color: AppTheme.textMuted.withOpacity(0.7),
-                      size: 22,
-                    ),
-                  ),
+                if (overline != null && overline!.isNotEmpty) ...[
+                  Text(overline!, style: hearthCaptionStyle),
+                  const SizedBox(height: 4),
+                ],
+                Text(title, style: hearthCardTitleStyle),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: hearthCaptionStyle),
+                ],
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(description, style: hearthCardBodyStyle),
+                ],
+                if (hasDuration) ...[
+                  const SizedBox(height: 4),
+                  _HomeCta(durationLabel!),
+                ],
               ],
             ),
           ),
-        ),
+          if (!hasDuration)
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Icon(
+                Icons.chevron_right,
+                color: AppTheme.brandPurple,
+                size: 20,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1635,7 +1126,7 @@ class _CareToolPair extends StatelessWidget {
 
   const _CareToolPair({required this.first, required this.second});
 
-  static const double _gap = 16;
+  static const double _gap = 12;
 
   @override
   Widget build(BuildContext context) {
@@ -1658,13 +1149,16 @@ class _CareToolPair extends StatelessWidget {
             ],
           );
         }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: first),
-            const SizedBox(width: _gap),
-            Expanded(child: second),
-          ],
+        // Equal heights, like the mockup's grid rows.
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: first),
+              const SizedBox(width: _gap),
+              Expanded(child: second),
+            ],
+          ),
         );
       },
     );
@@ -1673,88 +1167,31 @@ class _CareToolPair extends StatelessWidget {
 
 class _CareToolCard extends StatelessWidget {
   final IconData icon;
-  final List<Color> iconGradient;
-  final Color iconColor;
   final String title;
   final String subtitle;
-  final Color? borderColor;
   final VoidCallback onTap;
 
   const _CareToolCard({
     required this.icon,
-    required this.iconGradient,
-    required this.iconColor,
     required this.title,
     required this.subtitle,
-    this.borderColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return HearthCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: borderColor != null
-              ? LinearGradient(
-                  colors: iconGradient,
-                )
-              : null,
-          color: borderColor == null ? AppTheme.surfaceCard : null,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: borderColor ?? const Color(0xFFE8E0F0).withOpacity(0.4),
-          ),
-          boxShadow: AppTheme.shadowSoft(),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 44, // w-11
-              height: 44, // h-11
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: iconGradient,
-                ),
-                borderRadius: BorderRadius.circular(18), // rounded-[18px]
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: 20, // w-5 h-5
-              ),
-            ),
-            const SizedBox(height: 12), // mb-3
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14, // text-sm
-                fontWeight: FontWeight.w400, // font-normal
-                color: Color(0xFF2D2733), // text-[#2d2733]
-              ),
-            ),
-            const SizedBox(height: 4), // mb-1
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12, // text-xs
-                color: Color(0xFF9D8FB5), // text-[#9d8fb5]
-                fontWeight: FontWeight.w300, // font-light
-              ),
-            ),
-          ],
-        ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          HearthIconChip(icon),
+          const SizedBox(height: 12),
+          Text(title, style: hearthCardTitleStyle),
+          const SizedBox(height: 4),
+          Text(subtitle, style: hearthCaptionStyle),
+        ],
       ),
     );
   }
@@ -1814,7 +1251,7 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
 
     for (int i = 0; i < modules.length; i++) {
       final module = modules[i];
-      
+
       setState(() {
         _currentTask = 'Generating: ${module['title']}...';
         _progress = (i / modules.length);
@@ -1855,7 +1292,7 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
     });
 
     await Future.delayed(const Duration(seconds: 1));
-    
+
     if (mounted) {
       Navigator.of(context).pop();
     }
@@ -1863,26 +1300,18 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.auto_awesome,
-              size: 48,
-              color: Color(0xFF663399),
-            ),
+            const HearthIconChip(Icons.auto_awesome_outlined),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Creating Your Learning Plan',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF663399),
-              ),
+              style: textTheme.headlineMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -1896,24 +1325,24 @@ class _ModuleGenerationDialogState extends State<_ModuleGenerationDialog> {
             ),
             const SizedBox(height: 16),
             ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
                 value: _progress,
-                backgroundColor: Colors.grey[200],
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF663399)),
-                minHeight: 8,
+                backgroundColor: AppTheme.borderWarm,
+                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                minHeight: 6,
               ),
             ),
             const SizedBox(height: 16),
             Text(
               _currentTask,
-              style: const TextStyle(fontSize: 14, color: Colors.black87),
+              style: textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               '$_completedModules of $_totalModules modules generated',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: textTheme.bodySmall,
             ),
           ],
         ),

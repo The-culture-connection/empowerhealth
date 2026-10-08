@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import 'milestone_check_in_screen.dart';
 
 /// Bottom sheet: milestone journey checklist for research participants.
@@ -44,34 +45,21 @@ class MilestoneTrackerSheet extends StatelessWidget {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.borderLight,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
+            const Center(child: HearthSheetHandle()),
             const SizedBox(height: 20),
             Text(
               'Milestone check-ins',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textPrimary,
-              ),
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 8),
             Text(
               'Short research check-ins along your pregnancy or postpartum journey. '
               'Each row shows where you are and what is already completed.',
-              style: TextStyle(fontSize: 14, height: 1.45, color: AppTheme.textMuted, fontWeight: FontWeight.w300),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 20),
             if (steps.isEmpty)
@@ -80,7 +68,7 @@ class MilestoneTrackerSheet extends StatelessWidget {
                 child: Text(
                   'No milestone windows are listed yet. Complete your research onboarding and baseline '
                   'so we can match check-ins to your journey.',
-                  style: TextStyle(fontSize: 14, color: AppTheme.textMuted, height: 1.45),
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               )
             else
@@ -94,24 +82,17 @@ class MilestoneTrackerSheet extends StatelessWidget {
                     final isCurrent = s['is_current'] == true;
                     final title = '${s['title'] ?? 'Check-in'}';
                     final subtitle = '${s['subtitle'] ?? ''}';
-                    return Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceCard,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isCurrent
-                              ? AppTheme.brandPurple.withValues(alpha: 0.35)
-                              : AppTheme.borderLight.withValues(alpha: 0.5),
-                          width: isCurrent ? 1.5 : 1,
-                        ),
-                      ),
+                    // The current window gets the selected outline; done rows a purple check.
+                    return HearthCard(
+                      padding: EdgeInsets.all(isCurrent ? 15 : 16),
+                      borderColor: isCurrent ? AppTheme.brandPurple : AppTheme.borderWarm,
+                      borderWidth: isCurrent ? 2 : 1,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
-                            completed ? Icons.check_circle : Icons.radio_button_unchecked,
-                            color: completed ? const Color(0xFF23C0C2) : AppTheme.textMuted,
+                            completed ? Icons.check_circle_outline : Icons.radio_button_unchecked,
+                            color: completed ? AppTheme.brandPurple : AppTheme.textMuted,
                             size: 22,
                           ),
                           const SizedBox(width: 12),
@@ -120,46 +101,30 @@ class MilestoneTrackerSheet extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Expanded(
-                                      child: Text(
-                                        title,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w500,
-                                          color: AppTheme.textPrimary,
-                                        ),
-                                      ),
+                                      child: Text(title, style: hearthCardTitleStyle),
                                     ),
-                                    if (isCurrent)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.brandPurple.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          'Current window',
-                                          style: TextStyle(fontSize: 11, color: AppTheme.brandPurple, fontWeight: FontWeight.w500),
-                                        ),
-                                      ),
+                                    if (isCurrent) ...[
+                                      const SizedBox(width: 8),
+                                      const HearthTag('Current window'),
+                                    ],
                                   ],
                                 ),
                                 if (subtitle.isNotEmpty) ...[
                                   const SizedBox(height: 4),
-                                  Text(
-                                    subtitle,
-                                    style: TextStyle(fontSize: 13, color: AppTheme.textMuted, height: 1.35),
-                                  ),
+                                  Text(subtitle, style: hearthCaptionStyle),
                                 ],
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 4),
                                 Text(
                                   completed ? 'Completed' : 'Not completed yet',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: completed ? const Color(0xFF23C0C2) : AppTheme.textMuted,
-                                    fontWeight: FontWeight.w400,
-                                  ),
+                                  style: completed
+                                      ? hearthCaptionStyle.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.brandPurple,
+                                        )
+                                      : hearthCaptionStyle,
                                 ),
                               ],
                             ),
@@ -172,31 +137,22 @@ class MilestoneTrackerSheet extends StatelessWidget {
               ),
             if (_hasPending && eligible != null) ...[
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    navigator.pop();
-                    await navigator.push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => MilestoneCheckInScreen(
-                          studyId: studyId,
-                          milestoneType: eligible,
-                          title: 'Milestone check-in',
-                          subtitle: 'Three yes or no questions for the study team.',
-                        ),
+              HearthButton.primary(
+                label: 'Start check-in',
+                onPressed: () async {
+                  navigator.pop();
+                  await navigator.push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => MilestoneCheckInScreen(
+                        studyId: studyId,
+                        milestoneType: eligible,
+                        title: 'Milestone check-in',
+                        subtitle: 'Three yes or no questions for the study team.',
                       ),
-                    );
-                    await onRefresh();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.brandPurple,
-                    foregroundColor: AppTheme.brandWhite,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  child: const Text('Start check-in'),
-                ),
+                    ),
+                  );
+                  await onRefresh();
+                },
               ),
             ],
           ],

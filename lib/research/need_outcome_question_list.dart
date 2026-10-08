@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 
 /// Answer options for “Did you get what you needed?” (care access step).
 class NeedOutcomeQuestionList extends StatelessWidget {
@@ -17,29 +18,21 @@ class NeedOutcomeQuestionList extends StatelessWidget {
     return Column(
       children: options.map((option) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: InkWell(
+          padding: const EdgeInsets.only(bottom: 10),
+          // A tap answers and moves on, so the rows carry no radio control.
+          child: HearthCard(
             onTap: () => onSelect(option['value']!),
-            borderRadius: BorderRadius.circular(18),
-            child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: SizedBox(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceCard,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: AppTheme.shadowSoft(opacity: 0.08, blur: 20, y: 5),
-                border: Border.all(
-                  color: AppTheme.borderLight.withValues(alpha: 0.4),
-                  width: 1,
-                ),
-              ),
               child: Text(
                 option['label']!,
-                style: TextStyle(
+                style: const TextStyle(
+                  fontFamily: AppTheme.sansFamily,
                   fontSize: 15,
-                  height: 1.45,
-                  fontWeight: FontWeight.w300,
-                  color: AppTheme.textPrimary,
+                  height: 22 / 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.ink,
                 ),
               ),
             ),

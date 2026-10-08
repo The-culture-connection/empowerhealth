@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../design_system/hearth.dart';
+
 /// Shared 1–5 Likert prompts for immediate outcome signals (research micro-measures).
 class MicroMeasurePrompt extends StatelessWidget {
   const MicroMeasurePrompt({
@@ -23,29 +25,21 @@ class MicroMeasurePrompt extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        Text(label, style: hearthCardTitleStyle),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(5, (index) {
-            return GestureDetector(
-              onTap: () => onChanged(index + 1),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(
-                  index < rating ? Icons.star : Icons.star_border,
-                  size: 40,
-                  color: index < rating ? Colors.amber : Colors.grey,
-                ),
-              ),
-            );
-          }),
+        Center(
+          child: HearthStarRating(
+            value: rating,
+            size: 40,
+            onChanged: onChanged,
+          ),
         ),
         const SizedBox(height: 8),
         Center(
           child: Text(
             rating == 0 ? 'Tap stars to rate (1 = low, 5 = high)' : '$rating of 5',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600], fontStyle: FontStyle.italic),
+            textAlign: TextAlign.center,
+            style: hearthCaptionStyle,
           ),
         ),
       ],

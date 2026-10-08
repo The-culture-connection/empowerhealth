@@ -16,6 +16,7 @@ import 'services/push_notification_service.dart';
 import 'services/database_service.dart';
 import 'services/analytics_service.dart';
 import 'providers/profile_creation_provider.dart';
+import 'beta/beta_checklist_service.dart';
 import 'qa/qa_harness.dart';
 
 // QaHarness.run is a pass-through unless built with QA_HARNESS=true.
@@ -41,6 +42,9 @@ Future<void> _appMain() async {
     // Do **not** await full FCM + Firestore wiring here: on some iOS / SDK combinations
     // `getInitialMessage`, `getToken`, or Firestore can block indefinitely before the first
     // frame, which leaves the user on a white launch screen forever.
+
+    // Synchronous: only attaches listeners; Firestore reads run in the background.
+    BetaChecklistService.instance.initialize();
   }
 
   runApp(AdvocacyApp(firebaseReady: firebaseReady));
@@ -92,6 +96,7 @@ class _AdvocacyAppState extends State<AdvocacyApp> {
         title: 'EmpowerHealth',
         theme: AppTheme.light(),
         themeMode: ThemeMode.light,
+        navigatorKey: appNavigatorKey,
         onGenerateRoute: AppRouter.onGenerateRoute,
         navigatorObservers: QaHarness.navigatorObservers,
         // Bound the OS text-scale so accessibility font settings can't overflow

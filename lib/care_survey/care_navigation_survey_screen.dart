@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../app_router.dart';
+import '../beta/beta_checklist_service.dart';
 import '../birthplan/birth_plans_list_screen.dart';
 import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
@@ -133,6 +134,9 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
       await FirebaseFirestore.instance
           .collection('CareSurvey')
           .add(surveyData);
+
+      // Submitting logs no analytics event, so tick the beta item directly.
+      unawaited(BetaChecklistService.instance.markDone('care_checkin'));
 
       try {
         final profile = await _databaseService.getUserProfile(userId);

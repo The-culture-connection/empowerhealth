@@ -24,6 +24,7 @@ import 'immediate_support/immediate_support_checkin_screen.dart';
 import 'resources/app_resources_screen.dart';
 import 'Home/pregnancy_journey_screen.dart';
 import 'Home/Learning Modules/rights_screen.dart';
+import 'beta/beta_checklist_screen.dart';
 
 class Routes {
   static const auth = '/auth';
@@ -57,7 +58,12 @@ class Routes {
   static const resources = '/resources';
   static const pregnancyJourney = '/pregnancy-journey';
   static const rights = '/rights';
+  static const betaChecklist = '/beta-checklist';
 }
+
+/// Root navigator, for navigation that starts outside the widget tree
+/// (e.g. a tapped push notification).
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 class AppRouter {
   static String get auth => Routes.auth;
@@ -137,6 +143,8 @@ class AppRouter {
         return _page(const PregnancyJourneyScreen());
       case Routes.rights:
         return _page(const RightsScreen());
+      case Routes.betaChecklist:
+        return _page(const BetaChecklistScreen());
       default:
         return _page(const AuthScreen());
     }

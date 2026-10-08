@@ -7,8 +7,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../app_router.dart';
 import '../constants/push_audience_topics.dart';
 import '../utils/pregnancy_utils.dart';
+import 'analytics_service.dart';
 import 'firebase_service.dart';
 
 /// Top-level background handler — must not be a class method.
@@ -139,6 +141,7 @@ class PushNotificationService {
       debugPrint(
         '[FCM][initial / cold start] messageId=${initial.messageId} data=${initial.data}',
       );
+      _handleOpenedMessage(initial);
     } else {
       debugPrint('[FCM][initial / cold start] no pending message');
     }
@@ -164,6 +167,7 @@ class PushNotificationService {
           '[FCM][opened from background] messageId=${message.messageId} '
           'data=${message.data}',
         );
+        _handleOpenedMessage(message);
       });
 
       _messaging.onTokenRefresh.listen((token) async {
@@ -191,6 +195,38 @@ class PushNotificationService {
       });
       _fcmListenersRegistered = true;
     }
+  }
+
+  /// Routes a tapped notification. Only beta checklist reminders open a screen.
+  void _handleOpenedMessage(RemoteMessage message) {
+    final type = message.data['type']?.toString();
+    try {
+      unawaited(AnalyticsService().logNotificationOpened(
+        notificationId: message.messageId ?? 'unknown',
+        notificationType: type,
+      ));
+    } catch (e) {
+      debugPrint('[FCM] logNotificationOpened failed: $e');
+    }
+    if (type == 'beta_checklist') {
+      unawaited(_openNamedWhenReady(Routes.betaChecklist));
+    }
+  }
+
+  /// On cold start the navigator may not exist yet, so retry briefly.
+  Future<void> _openNamedWhenReady(String route) async {
+    for (var i = 0; i < 20; i++) {
+      final nav = appNavigatorKey.currentState;
+      if (nav != null) {
+        // Let the auth gate settle so the screen lands above the tabs.
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        if (FirebaseAuth.instance.currentUser == null) return;
+        unawaited(nav.pushNamed(route));
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    debugPrint('[FCM] navigator not ready; could not open $route');
   }
 
   /// `subscribeToTopic` on iOS requires an APNS token; retry in the background so cold start

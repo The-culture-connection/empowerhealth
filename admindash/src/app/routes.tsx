@@ -6,6 +6,7 @@ import { TechnologyOverview } from "./pages/TechnologyOverview";
 import { TechnologyInstructions } from "./pages/TechnologyInstructions";
 import { UsersAndRoles } from "./pages/UsersAndRoles";
 import { Analytics } from "./pages/Analytics";
+import { BetaAnalytics } from "./pages/BetaAnalytics";
 import { AnalyticsInfo } from "./pages/AnalyticsInfo";
 import { Reports } from "./pages/Reports";
 import { ResearchDashboard } from "./pages/ResearchDashboard";
@@ -45,8 +46,16 @@ export const router = createBrowserRouter([
           </RoleRoute>
         ),
       },
-      { 
-        path: "documentation", 
+      {
+        path: "beta-analytics",
+        element: (
+          <RoleRoute allowedRoles={["admin"]}>
+            <BetaAnalytics />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: "documentation",
         element: (
           <RoleRoute allowedRoles={['admin', 'research_partner', 'community_manager']}>
             <Documentation />

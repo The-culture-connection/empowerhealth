@@ -20,6 +20,7 @@ import 'Learning Modules/learning_modules_screen_v2.dart' show openTrimesterJour
 import '../widgets/ai_disclaimer_banner.dart';
 import '../models/user_profile.dart';
 import 'widgets/home_milestone_bell.dart';
+import '../beta/beta_checklist_button.dart';
 import '../assistant/assistant_screen.dart';
 import '../immediate_support/immediate_support_navigation.dart';
 import '../immediate_support/widgets/immediate_support_home_card.dart';
@@ -387,14 +388,23 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                     subtitle: inLossMode
                         ? 'Support is here when you\'re ready.'
                         : "You're supported, with clear answers and tools to speak up.",
-                    trailing: inLossMode
-                        ? null
-                        : HomeMilestoneBell(
+                    // The beta checklist shows in loss mode too; the bell
+                    // does not.
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const BetaChecklistButton(),
+                        if (!inLossMode) ...[
+                          const SizedBox(width: 8),
+                          HomeMilestoneBell(
                             key: ValueKey<String>(
                               '${profile?.userId ?? 'none'}_${profile?.isResearchParticipant ?? false}',
                             ),
                             profile: profile,
                           ),
+                        ],
+                      ],
+                    ),
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),

@@ -4,6 +4,7 @@
  * - New learning modules: Firestore onCreate learning_tasks (module-like docs only)
  * - Weekly todo reminders: scheduled (Mondays); scans learning_tasks for open todos
  * - Trimester transitions: daily schedule; compares computed trimester vs users.pushNotifications.trimesterNotified
+ * - Beta checklist: daily 6pm ET nudge to testers with checklist items or today's goal left
  * - Community: onUpdate for likes/replies (notify post author); onCreate broadcasts to FCM topic community_new_posts
  *
  * Client: store tokens under users/{uid}/devices/{docId} (see Flutter PushNotificationService).
@@ -12,6 +13,7 @@
 
 const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
+const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 
 const db = admin.firestore();
@@ -384,5 +386,89 @@ exports.scheduledBirthHospitalBasicsReminder = onSchedule(
     console.log(
       `[push] birth-hospital-basics week=${weekKey} scanned=${scanned} eligible=${eligible} notified=${notified}`,
     );
+  },
+);
+
+/** Today's date (yyyy-MM-dd) in America/New_York, matching the app's beta_days keys. */
+function newYorkDateKey(d = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+/**
+ * Daily beta-tester nudge. Reads users/{uid}/beta/checklist (written by the app's
+ * BetaChecklistService) and today's users/{uid}/beta_days/{date}; sends one push to
+ * each tester who still has checklist items or today's 10-minute goal left.
+ */
+exports.scheduledBetaChecklistReminder = onSchedule(
+  {
+    schedule: "0 18 * * *",
+    timeZone: "America/New_York",
+    region: REGION,
+    timeoutSeconds: 300,
+    memory: "512MiB",
+  },
+  async () => {
+    const dateKey = newYorkDateKey();
+    const snap = await db.collectionGroup("beta").get();
+    let testers = 0;
+    let eligible = 0;
+    let notified = 0;
+    let noTokens = 0;
+    let failed = 0;
+
+    for (const doc of snap.docs) {
+      if (doc.id !== "checklist") continue;
+      const userRef = doc.ref.parent.parent;
+      if (!userRef) continue;
+      testers++;
+      try {
+        const data = doc.data() || {};
+        const completed = data.completed && typeof data.completed === "object" ? data.completed : {};
+        const totalItems = Number(data.totalItems) || 0;
+        // Recount rather than trust the stored `remaining`, which reflects the
+        // day it was written.
+        const itemsLeft = Math.max(0, totalItems - Object.keys(completed).length);
+        const today = await userRef.collection("beta_days").doc(dateKey).get();
+        const goalMet = today.exists && today.data()?.goalMet === true;
+        const remaining = itemsLeft + (goalMet ? 0 : 1);
+        if (remaining <= 0) continue;
+        eligible++;
+
+        const taskWord = remaining === 1 ? "task" : "tasks";
+        const body = goalMet
+          ? `You have ${remaining} beta ${taskWord} left. Tap to see what to try next.`
+          : `Spend 10 minutes in EmpowerHealth Watch today. You have ${remaining} beta ${taskWord} left.`;
+
+        const result = await sendToUserDevices(userRef.id, {
+          title: "Your beta checklist",
+          body,
+          data: {type: "beta_checklist"},
+        });
+        if (result.sent > 0) {
+          notified++;
+        } else if (result.failures === 0) {
+          noTokens++;
+        } else {
+          failed++;
+        }
+      } catch (e) {
+        failed++;
+        logger.warn("[push] beta checklist reminder failed", {uid: userRef.id, error: String(e)});
+      }
+    }
+
+    logger.info("[push] beta checklist reminders", {
+      date: dateKey,
+      testers,
+      eligible,
+      notified,
+      noTokens,
+      failed,
+    });
   },
 );

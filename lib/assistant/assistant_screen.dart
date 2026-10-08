@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../beta/beta_checklist_service.dart';
 import '../constants/medical_sources.dart';
 import '../cors/ui_theme.dart';
 import '../design_system/hearth.dart';
@@ -334,6 +336,9 @@ class _AssistantScreenState extends State<AssistantScreen>
         'text': assistantResponse as String,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // No analytics event covers a sent question, so tick the item directly.
+      unawaited(BetaChecklistService.instance.markDone('assistant'));
 
       if (mounted) {
         setState(() => _isLoading = false);

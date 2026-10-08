@@ -18,6 +18,7 @@ import '../models/helpfulness_survey.dart';
 import '../models/milestone_checkin.dart';
 import '../models/care_navigation_outcome.dart';
 import '../utils/pregnancy_utils.dart';
+import '../beta/beta_checklist_service.dart';
 import 'analytics/realtime_analytics_service.dart';
 import 'database_service.dart';
 import 'research/research_app_activity_service.dart';
@@ -342,6 +343,7 @@ class AnalyticsService {
     int? durationMs,
     UserProfile? userProfile,
   }) async {
+    try { BetaChecklistService.instance.recordEvent(eventName); } catch (_) {}
     try {
       // Check if user is authenticated and auth is ready
       final user = FirebaseAuth.instance.currentUser;

@@ -19,6 +19,7 @@ import '../services/research/research_firestore_service.dart';
 import '../models/user_profile.dart';
 import '../research/post_visit_summary_rating_modal.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../widgets/ai_disclaimer_banner.dart';
 import '../widgets/feature_session_scope.dart';
 import '../privacy/after_visit_privacy_screen.dart';
@@ -85,42 +86,23 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         context: context,
         barrierDismissible: true,
         builder: (ctx) {
+          // Fill, radius and scrim come from the dialog theme.
           return Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Container(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Padding(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceCard,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.borderLight.withOpacity(0.45)),
-                boxShadow: AppTheme.shadowMedium(opacity: 0.12, blur: 32, y: 10),
-              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFF5EEE0), Color(0xFFEBE0D6)],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.spa_outlined, color: Color(0xFFD4A574), size: 24),
-                      ),
+                      const HearthIconChip(Icons.spa_outlined),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Text(
                           'How After-Visit Support works',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textPrimary,
-                          ),
+                          style: Theme.of(ctx).textTheme.headlineMedium,
                         ),
                       ),
                     ],
@@ -129,46 +111,28 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                   Text(
                     'We simplify the language in paperwork or notes you choose to share. '
                     'We don’t diagnose or tell you what to do medically. Your care team does that.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.5,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
+                    style: Theme.of(ctx).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: HearthButton.text(
+                      label: 'Your privacy (plain language)',
+                      onPressed: () {
+                        Navigator.of(ctx).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AfterVisitPrivacyScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(ctx).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AfterVisitPrivacyScreen(),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      'Your privacy (plain language)',
-                      style: TextStyle(
-                        color: AppTheme.brandPurple,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  FilledButton(
+                  HearthButton.primary(
+                    label: 'I understand',
                     onPressed: () async {
                       await prefs.setBool(_transparencyPrefsKey, true);
                       if (ctx.mounted) Navigator.of(ctx).pop();
                     },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.brandPurple,
-                      foregroundColor: AppTheme.brandWhite,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: const Text('I understand'),
                   ),
                 ],
               ),
@@ -343,66 +307,56 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     Widget? child,
     bool showReadingLevel = false,
   }) {
-    return Container(
+    return HearthCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.borderLight.withOpacity(0.45)),
-        boxShadow: AppTheme.shadowSoft(opacity: 0.07, blur: 20, y: 5),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
-              letterSpacing: 1.1,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.brandPurple.withOpacity(0.88),
+            style: hearthCaptionStyle.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.brandPurple,
             ),
           ),
           if (showReadingLevel) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            const SizedBox(height: 12),
+            DecoratedBox(
               decoration: BoxDecoration(
-                color: AppTheme.brandPurple.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(12),
+                color: AppTheme.tintWarm,
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.menu_book_outlined, size: 16, color: AppTheme.brandPurple.withOpacity(0.85)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Adjusted toward ${_userProfile?.educationLevel ?? "6th grade"} reading level where possible.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 1),
+                      child: Icon(Icons.menu_book_outlined, size: 16, color: AppTheme.brandPurple),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Adjusted toward ${_userProfile?.educationLevel ?? "6th grade"} reading level where possible.',
+                        style: hearthCaptionStyle.copyWith(color: AppTheme.textSecondary),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           if (child != null) child else
           MarkdownBody(
             data: fixDoublePeriods(body),
             styleSheet: MarkdownStyleSheet(
-              h2: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-              h3: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-              p: const TextStyle(fontSize: 15, height: 1.55, fontWeight: FontWeight.w300),
-              listBullet: TextStyle(fontSize: 15, color: AppTheme.brandPurple.withOpacity(0.9)),
+              h2: hearthCardTitleStyle,
+              h3: hearthCardTitleStyle.copyWith(fontSize: 15),
+              p: hearthCardBodyStyle,
+              strong: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.ink),
+              listBullet: hearthCardBodyStyle.copyWith(color: AppTheme.brandPurple),
             ),
           ),
         ],
@@ -498,7 +452,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       SnackBar(
         content: Text(message),
         duration: const Duration(seconds: 5),
-        backgroundColor: Colors.red,
         action: SnackBarAction(
           label: 'Retry',
           textColor: AppTheme.brandWhite,
@@ -545,7 +498,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('The file picker took too long to open. Please try again.'),
-            backgroundColor: Colors.orange,
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'Retry',
@@ -580,7 +532,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
             content: Text(
               'Please choose a PDF or a photo (JPG, PNG, HEIC, WebP). Selected: ${pickedFile.name}',
             ),
-            backgroundColor: Colors.orange,
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'Retry',
@@ -630,7 +581,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       SnackBar(
         content: Text(_avsUploadResearchSlug == 'pdf' ? 'Your document is ready to upload.' : 'Your photo is ready to upload.'),
         duration: const Duration(seconds: 3),
-        backgroundColor: Colors.green,
       ),
     );
   }
@@ -700,7 +650,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     if (lower.contains('timeout') ||
         lower.contains('timed out') ||
         lower.contains('deadline')) {
-      return '⏱️ This is taking longer than expected. Please try again.';
+      return 'This is taking longer than expected. Please try again.';
     }
     if (lower.contains('unauthenticated') ||
         lower.contains('not signed in') ||
@@ -737,7 +687,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                 ? 'Please choose your appointment date at the top first.'
                 : 'Please choose a file to upload.',
           ),
-          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -748,7 +697,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please sign in to add your visit summary.'),
-          backgroundColor: Colors.red,
         ),
       );
       return;
@@ -895,9 +843,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       }
       
       print('👤 Current user: ${currentUser.uid}');
-      print(
-        '📅 Appointment date (calendar): ${visitAppointmentCalendarKey(_selectedDate!)}',
-      );
+      print('📅 Appointment date (calendar): ${visitAppointmentCalendarKey(_selectedDate!)}');
 
       // Call Firebase Function to analyze PDF
       final analysisResult = await _functionsService.analyzeVisitSummaryPDF(
@@ -975,7 +921,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
               'Your summary is ready.${todosCount > 0 ? " We added $todosCount next ${todosCount == 1 ? "step" : "steps"}." : ""}${modulesCount > 0 ? " $modulesCount new ${modulesCount == 1 ? "lesson is" : "lessons are"} waiting in Learn." : ""}'
             ),
             duration: const Duration(seconds: 4),
-            backgroundColor: Colors.green,
           ),
         );
       }
@@ -1006,7 +951,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
           SnackBar(
             content: Text(userFriendlyMessage),
             duration: const Duration(seconds: 6),
-            backgroundColor: Colors.red,
             action: SnackBarAction(
               label: 'Retry',
               textColor: AppTheme.brandWhite,
@@ -1030,7 +974,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                 ? 'Please choose your appointment date at the top first.'
                 : 'Please type or paste your visit notes first.',
           ),
-          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -1041,7 +984,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please sign in to simplify your visit notes.'),
-          backgroundColor: Colors.red,
         ),
       );
       return;
@@ -1114,7 +1056,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
           const SnackBar(
             content: Text('Your summary is ready.'),
             duration: Duration(seconds: 3),
-            backgroundColor: Colors.green,
           ),
         );
       }
@@ -1151,7 +1092,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
             ),
           ),
           duration: const Duration(seconds: 6),
-          backgroundColor: Colors.red,
           action: SnackBarAction(
             label: 'Retry',
             textColor: AppTheme.brandWhite,
@@ -1168,40 +1108,10 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       feature: 'appointment-summarizing',
       entrySource: 'upload_visit_summary',
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundWarm,
-        body: Stack(
-          children: [
-            Positioned(
-              top: -60,
-              right: MediaQuery.sizeOf(context).width * 0.2,
-              child: IgnorePointer(
-                child: Container(
-                  width: 320,
-                  height: 320,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFD4A574).withOpacity(0.22),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: MediaQuery.sizeOf(context).height * 0.15,
-              left: -60,
-              child: IgnorePointer(
-                child: Container(
-                  width: 280,
-                  height: 280,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFB899D4).withOpacity(0.16),
-                  ),
-                ),
-              ),
-            ),
-            SafeArea(
+        backgroundColor: AppTheme.ground,
+        body: SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: ConstrainedBox(
@@ -1209,57 +1119,17 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        InkWell(
-                          onTap: () => Navigator.maybePop(context),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 8, top: 4),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.chevron_left,
-                                  size: 22,
-                                  color: AppTheme.textMuted,
-                                ),
-                                Text(
-                                  'My Visits',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w300,
-                                    letterSpacing: 0.3,
-                                    color: AppTheme.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        const HearthPushedHeader(
+                          backLabel: 'My Visits',
+                          title: 'After-Visit Support',
+                          subtitle:
+                              'Doctor visits can be overwhelming. We’re here to help you understand paperwork in plain language: after-visit summaries, discharge instructions, provider notes, and similar documents. This is literacy support, not a diagnosis.',
+                          padding: EdgeInsets.only(top: 20, bottom: 4),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'After-Visit Support',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w400,
-                            height: 1.3,
-                            letterSpacing: -0.32,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Doctor visits can be overwhelming. We’re here to help you understand paperwork in plain language: after-visit summaries, discharge instructions, provider notes, and similar documents. This is literacy support, not a diagnosis.',
-                          style: TextStyle(
-                            fontSize: 15,
-                            height: 1.45,
-                            color: AppTheme.textMuted,
-                            fontWeight: FontWeight.w300,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
                         Align(
                           alignment: Alignment.centerLeft,
-                          child: TextButton(
+                          child: HearthButton.text(
+                            label: 'Your privacy (plain language)',
                             onPressed: () {
                               Navigator.push<void>(
                                 context,
@@ -1268,59 +1138,16 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                                 ),
                               );
                             },
-                            child: Text(
-                              'Your privacy (plain language)',
-                              style: TextStyle(
-                                color: AppTheme.brandPurple,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                              ),
-                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(22),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFFF5EEE0),
-                                Color(0xFFFAF8F4),
-                                Color(0xFFEBE0D6),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: AppTheme.borderLight.withOpacity(0.4),
-                            ),
-                            boxShadow: AppTheme.shadowSoft(
-                              opacity: 0.08,
-                              blur: 20,
-                              y: 4,
-                            ),
-                          ),
+                        HearthFeatureCard(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFFF5EEE0),
-                                      Color(0xFFEBE0D6),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Icon(
-                                  Icons.shield_outlined,
-                                  color: Color(0xFFD4A574),
-                                  size: 22,
-                                ),
+                              const HearthIconChip(
+                                Icons.shield_outlined,
+                                tone: HearthChipTone.surface,
                               ),
                               const SizedBox(width: 14),
                               Expanded(
@@ -1329,22 +1156,12 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                                   children: [
                                     Text(
                                       'We help simplify the documents you share',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: -0.05,
-                                        color: AppTheme.textPrimary,
-                                      ),
+                                      style: hearthCardTitleStyle,
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 6),
                                     Text(
                                       'This tool makes medical language easier to understand. It does not provide medical advice, diagnoses, or replace your healthcare provider.',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        height: 1.45,
-                                        color: AppTheme.textMuted,
-                                        fontWeight: FontWeight.w300,
-                                      ),
+                                      style: hearthCardBodyStyle,
                                     ),
                                   ],
                                 ),
@@ -1352,101 +1169,59 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'APPOINTMENT DATE',
-                          style: TextStyle(
-                            fontSize: 11,
-                            letterSpacing: 1.2,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.brandPurple.withOpacity(0.85),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Material(
-                          color: AppTheme.surfaceCard,
-                          borderRadius: BorderRadius.circular(24),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(24),
-                            onTap: () async {
-                              final date = await showDatePicker(
-                                context: context,
-                                initialDate: DateTime.now(),
-                                firstDate: DateTime.now()
-                                    .subtract(const Duration(days: 365)),
-                                lastDate: DateTime.now(),
-                              );
-                              if (date != null) {
-                                setState(() => _selectedDate = date);
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(18),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: AppTheme.borderLight.withOpacity(0.45),
-                                ),
-                                boxShadow: AppTheme.shadowSoft(
-                                  opacity: 0.06,
-                                  blur: 16,
-                                  y: 3,
+                        const SizedBox(height: 24),
+                        const HearthSectionHeading('Appointment date'),
+                        const SizedBox(height: 14),
+                        HearthCard(
+                          padding: const EdgeInsets.all(16),
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.now(),
+                              firstDate: DateTime.now()
+                                  .subtract(const Duration(days: 365)),
+                              lastDate: DateTime.now(),
+                            );
+                            if (date != null) {
+                              setState(() => _selectedDate = date);
+                            }
+                          },
+                          child: Row(
+                            children: [
+                              const HearthIconChip(Icons.calendar_today_outlined),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Text(
+                                  _selectedDate != null
+                                      ? MaterialLocalizations.of(context)
+                                          .formatFullDate(_selectedDate!)
+                                      : 'Tap to select date',
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.sansFamily,
+                                    fontSize: 16,
+                                    height: 22 / 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: _selectedDate != null
+                                        ? AppTheme.ink
+                                        : AppTheme.textMuted,
+                                  ),
                                 ),
                               ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          AppTheme.brandPurple.withOpacity(0.12),
-                                          AppTheme.brandPurple.withOpacity(0.06),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Icon(
-                                      Icons.calendar_month_rounded,
-                                      color: AppTheme.brandPurple.withOpacity(0.9),
-                                      size: 22,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Text(
-                                      _selectedDate != null
-                                          ? MaterialLocalizations.of(context)
-                                              .formatFullDate(_selectedDate!)
-                                          : 'Tap to select date',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w300,
-                                        color: _selectedDate != null
-                                            ? AppTheme.textPrimary
-                                            : AppTheme.textLight,
-                                      ),
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.expand_more_rounded,
-                                    color: AppTheme.textLight,
-                                  ),
-                                ],
+                              const Icon(
+                                Icons.expand_more,
+                                color: AppTheme.textSecondary,
                               ),
-                            ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 16),
                         Row(
                           children: [
                             Expanded(
                               child: _MethodPill(
                                 selected: _inputMethod == 'pdf',
-                                icon: Icons.upload_file_rounded,
+                                icon: Icons.upload_outlined,
                                 label: 'From file',
-                                useGoldWhenSelected: true,
                                 onTap: () =>
                                     setState(() => _inputMethod = 'pdf'),
                               ),
@@ -1455,9 +1230,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                             Expanded(
                               child: _MethodPill(
                                 selected: _inputMethod == 'text',
-                                icon: Icons.text_fields_rounded,
+                                icon: Icons.text_fields,
                                 label: 'Type notes',
-                                useGoldWhenSelected: false,
                                 onTap: () =>
                                     setState(() => _inputMethod = 'text'),
                               ),
@@ -1466,120 +1240,44 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                         ),
                         const SizedBox(height: 16),
                         if (_inputMethod == 'text')
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            margin: const EdgeInsets.only(bottom: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8F4FC),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFFBBDDF0),
-                              ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.lock_outline_rounded,
-                                  size: 20,
-                                  color: Colors.blue.shade800,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    'Recommended for privacy: your text won\'t be stored unless you choose to save it.',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      height: 1.4,
-                                      color: Colors.blue.shade900,
-                                      fontWeight: FontWeight.w300,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 16),
+                            child: HearthNote(
+                              icon: Icons.lock_outline,
+                              text:
+                                  'Recommended for privacy: your text won\'t be stored unless you choose to save it.',
                             ),
                           ),
 
             // PDF Upload Section
             if (_inputMethod == 'pdf' && _selectedPdfBytes == null) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: AppTheme.borderLight.withOpacity(0.55),
-                    width: 2,
-                  ),
-                  boxShadow: AppTheme.shadowSoft(
-                    opacity: 0.06,
-                    blur: 20,
-                    y: 4,
-                  ),
-                ),
+              HearthCard(
+                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
                 child: Column(
                   children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFB899D4), Color(0xFF9D7AB8)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFB899D4).withOpacity(0.35),
-                            blurRadius: 18,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.cloud_upload_rounded,
-                        size: 40,
-                        color: AppTheme.brandWhite,
-                      ),
+                    const HearthIconChip(
+                      Icons.cloud_upload_outlined,
+                      size: 80,
+                      iconSize: 36,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
                     Text(
                       'PDF or image file',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: -0.05,
-                        color: AppTheme.textPrimary,
-                      ),
+                      style: hearthCardTitleStyle.copyWith(fontSize: 17, height: 24 / 17),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Choose a PDF or image (JPG, PNG, HEIC, WebP) from Files',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.45,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
-                      ),
+                      style: hearthCardBodyStyle,
                     ),
-                    const SizedBox(height: 22),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _GradientActionButton(
-                          icon: Icons.description_outlined,
-                          label: 'Choose file',
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF663399),
-                              Color(0xFF7744AA),
-                              Color(0xFF8855BB),
-                            ],
-                          ),
-                          onPressed: _pickPDF,
-                        ),
-                      ],
+                    const SizedBox(height: 20),
+                    HearthButton.primary(
+                      icon: Icons.description_outlined,
+                      label: 'Choose file',
+                      expand: false,
+                      onPressed: _pickPDF,
                     ),
                   ],
                 ),
@@ -1589,48 +1287,49 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                 child: Text(
                   'After-visit summaries, discharge paperwork, and provider notes work well. Remove sensitive information you do not want analyzed.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textLight,
-                    fontWeight: FontWeight.w300,
-                    height: 1.4,
-                  ),
+                  style: hearthCaptionStyle,
                 ),
               ),
             ] else if (_inputMethod == 'pdf') ...[
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green, width: 2),
-                ),
+              HearthCard(
+                padding: const EdgeInsets.all(16),
+                color: AppTheme.tintWarm,
+                borderColor: AppTheme.brandPurple,
+                borderWidth: 2,
                 child: Row(
                   children: [
-                    const Icon(Icons.picture_as_pdf, color: Colors.green, size: 48),
-                    const SizedBox(width: 16),
+                    const HearthIconChip(
+                      Icons.description_outlined,
+                      tone: HearthChipTone.surface,
+                    ),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Ready to upload',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.green,
-                            ),
+                          const Row(
+                            children: [
+                              Icon(Icons.check, size: 18, color: AppTheme.brandPurple),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Ready to upload',
+                                  style: hearthCardTitleStyle,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text(
                             _avsUploadResearchSlug == 'pdf' ? 'Your document' : 'Your photo',
-                            style: const TextStyle(fontSize: 14),
+                            style: hearthCardBodyStyle,
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.red),
+                    const SizedBox(width: 8),
+                    HearthCircleButton(
+                      icon: Icons.close,
                       onPressed: () {
                         setState(() {
                           _selectedPdfBytes = null;
@@ -1642,21 +1341,14 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-              // Process Button
+              // Process Button. Theme gives the purple stadium; the child keeps
+              // the live step text while uploading.
               ElevatedButton(
                 onPressed: !_isLoading
                     ? _processPDF
                     : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: AppTheme.brandWhite,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
                 child: _isLoading
                     ? Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1666,7 +1358,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
+                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
                             ),
                           ),
                           if (_currentStep != null) ...[
@@ -1682,26 +1374,11 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                           ],
                         ],
                       )
-                    : const Text(
-                        'Upload Visit Summary',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600                      ),
-                    ),
+                    : const Text('Upload Visit Summary'),
               ),
             ] else ...[
-              Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: AppTheme.borderLight.withOpacity(0.45),
-                  ),
-                  boxShadow: AppTheme.shadowSoft(
-                    opacity: 0.06,
-                    blur: 20,
-                    y: 4,
-                  ),
-                ),
+              HearthCard(
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -1710,51 +1387,29 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                       // Rebuild so the Simplify button reflects typed/pasted text.
                       onChanged: (_) => setState(() {}),
                       maxLines: 10,
-                      style: TextStyle(
+                      style: const TextStyle(
+                        fontFamily: AppTheme.sansFamily,
                         fontSize: 15,
-                        height: 1.45,
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.w300,
+                        height: 22 / 15,
+                        color: AppTheme.ink,
                       ),
-                      decoration: InputDecoration(
+                      // Inset fill because the field sits inside a card.
+                      decoration: const InputDecoration(
                         hintText: 'Type or paste your visit notes here...',
-                        hintStyle: TextStyle(
-                          color: AppTheme.textLight,
-                          fontWeight: FontWeight.w300,
-                        ),
-                        filled: true,
-                        fillColor: const Color(0xFFF7F5F9),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide(
-                            color: AppTheme.borderLight.withOpacity(0.5),
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide(
-                            color: AppTheme.borderLight.withOpacity(0.5),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide(
-                            color: AppTheme.brandPurple.withOpacity(0.45),
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.all(18),
+                        fillColor: AppTheme.surfaceInset,
+                        contentPadding: EdgeInsets.all(16),
                       ),
                     ),
                     const SizedBox(height: 12),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text(
+                      title: Text(
                         'Save my original text',
-                        style: TextStyle(fontSize: 14),
+                        style: hearthCardTitleStyle.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
                       ),
-                      subtitle: const Text(
+                      subtitle: Text(
                         'By default, only the summary is saved. Check this to also save your original notes.',
-                        style: TextStyle(fontSize: 12),
+                        style: hearthCaptionStyle,
                       ),
                       value: _saveOriginalText,
                       onChanged: (value) =>
@@ -1770,30 +1425,17 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                         // spinner/progress text stays readable.
                         final canRun = isReady || _isLoading;
                         return Material(
-                          color: Colors.transparent,
+                          color: canRun ? AppTheme.brandPurple : AppTheme.borderWarm,
+                          shape: const StadiumBorder(),
+                          clipBehavior: Clip.antiAlias,
                           child: InkWell(
                             // Stay tappable when not ready so the user is told what is missing
                             // (date or notes) instead of a silently dead button.
                             onTap: _isLoading ? null : _processManualText,
-                            borderRadius: BorderRadius.circular(20),
                             child: Container(
                               height: 52,
                               alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                gradient: canRun
-                                    ? const LinearGradient(
-                                        colors: [
-                                          Color(0xFF663399),
-                                          Color(0xFF7744AA),
-                                          Color(0xFF8855BB),
-                                        ],
-                                      )
-                                    : null,
-                                color: canRun
-                                    ? null
-                                    : AppTheme.borderLight.withOpacity(0.35),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: _isLoading
                                   ? Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1829,8 +1471,9 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                                   : Text(
                                       'Simplify this visit',
                                       style: TextStyle(
+                                        fontFamily: AppTheme.sansFamily,
                                         fontSize: 16,
-                                        fontWeight: FontWeight.w500,
+                                        fontWeight: FontWeight.w700,
                                         color: canRun
                                             ? AppTheme.brandWhite
                                             : AppTheme.textMuted,
@@ -1846,11 +1489,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                       Text(
                         'Choose your appointment date above to continue.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
-                        ),
+                        style: hearthCaptionStyle,
                       ),
                     ],
                   ],
@@ -1860,12 +1499,11 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
               // Show current step and progress below button if loading
               if (_isLoading && _currentStep != null) ...[
                 const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.brandPurple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                HearthCard(
+                  padding: const EdgeInsets.all(14),
+                  color: AppTheme.tintWarm,
+                  borderColor: null,
+                  radius: BorderRadius.circular(AppTheme.fieldRadius),
                   child: Column(
                     children: [
                       Row(
@@ -1883,20 +1521,25 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                             child: Text(
                               _currentStep!,
                               style: const TextStyle(
+                                fontFamily: AppTheme.sansFamily,
                                 fontSize: 14,
                                 color: AppTheme.brandPurple,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                         ],
                       ),
                       if (_uploadProgress > 0) ...[
-                        const SizedBox(height: 8),
-                        LinearProgressIndicator(
-                          value: _uploadProgress,
-                          backgroundColor: AppTheme.brandPurple.withOpacity(0.2),
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: _uploadProgress,
+                            minHeight: 6,
+                            backgroundColor: AppTheme.borderWarm,
+                            valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                          ),
                         ),
                       ],
                     ],
@@ -1906,66 +1549,13 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
             ],
 
                         const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFFFAF7F3),
-                                Color(0xFFF5F0EB),
-                                Color(0xFFF0EAD8),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: AppTheme.borderLight.withOpacity(0.35),
-                            ),
-                            boxShadow: AppTheme.shadowSoft(
-                              opacity: 0.06,
-                              blur: 14,
-                              y: 2,
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.info_outline_rounded,
-                                size: 22,
-                                color: const Color(0xFFD4A574),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'We\'re making this easier to understand',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        letterSpacing: -0.05,
-                                        color: AppTheme.textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'We\'ll explain your visit in everyday words, including any medical terms. Nothing is shared without your permission.',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        height: 1.45,
-                                        color: AppTheme.textMuted,
-                                        fontWeight: FontWeight.w300,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                        const HearthNote(
+                          icon: Icons.info_outline,
+                          title: 'We\'re making this easier to understand',
+                          text:
+                              'We\'ll explain your visit in everyday words, including any medical terms. Nothing is shared without your permission.',
                         ),
+                        const SizedBox(height: 4),
 
             // Generated Summary Display — sectioned like NewUI
             if (_generatedSummary != null) ...[
@@ -1976,16 +1566,11 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                   customSubMessage: 'It is not medical advice and does not replace your provider.',
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 4),
               Text(
                 'Below is a gentle breakdown of what you shared. If anything feels unclear, bring these notes to your next visit.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.45,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w300,
-                ),
+                style: hearthCaptionStyle,
               ),
               const SizedBox(height: 16),
               ..._buildVisitSummarySections(context),
@@ -1994,15 +1579,10 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
               Text(
                 'Still have questions? Write them down and ask your care team. You’re not bothering anyone.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.45,
-                  color: AppTheme.textLight,
-                  fontWeight: FontWeight.w300,
-                ),
+                style: hearthCaptionStyle,
               ),
               const SizedBox(height: 16),
-              OutlinedButton.icon(
+              HearthButton.secondary(
                 onPressed: () {
                   setState(() {
                     _generatedSummary = null;
@@ -2012,13 +1592,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     _avsUploadResearchSlug = 'unknown';
                   });
                 },
-                icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: const Text('Add another visit summary'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.brandPurple,
-                  side: const BorderSide(color: AppTheme.brandPurple),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
+                icon: Icons.add,
+                label: 'Add another visit summary',
               ),
             ],
           ],
@@ -2027,8 +1602,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     ),
   ),
 ),
-            ],
-          ),
         ),
     );
   }
@@ -2039,133 +1612,55 @@ class _MethodPill extends StatelessWidget {
     required this.selected,
     required this.icon,
     required this.label,
-    required this.useGoldWhenSelected,
     required this.onTap,
   });
 
   final bool selected;
   final IconData icon;
   final String label;
-  final bool useGoldWhenSelected;
   final VoidCallback onTap;
 
+  /// Full-width version of the Hearth choice chip (tint + purple outline when
+  /// selected), centred so the two pills read as a segmented choice.
   @override
   Widget build(BuildContext context) {
-    final Gradient? selectedGradient = selected
-        ? LinearGradient(
-            colors: useGoldWhenSelected
-                ? const [Color(0xFFD4A574), Color(0xFFE0B589)]
-                : const [
-                    Color(0xFF663399),
-                    Color(0xFF7744AA),
-                    Color(0xFF8855BB),
-                  ],
-          )
-        : null;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: selectedGradient,
-            color: selected ? null : AppTheme.surfaceCard,
-            border: Border.all(
-              color: selected
-                  ? Colors.transparent
-                  : AppTheme.borderLight.withOpacity(0.5),
-            ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: (useGoldWhenSelected
-                              ? const Color(0xFFD4A574)
-                              : const Color(0xFF663399))
-                          .withOpacity(0.22),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+    final fg = selected ? AppTheme.brandPurple : AppTheme.textSecondary;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? AppTheme.tintWarm : AppTheme.surface,
+        shape: StadiumBorder(
+          side: selected
+              ? const BorderSide(color: AppTheme.brandPurple, width: 2)
+              : const BorderSide(color: AppTheme.borderWarm),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 20, color: fg),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppTheme.sansFamily,
+                      fontSize: 15,
+                      height: 20 / 15,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                      color: fg,
                     ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: selected ? AppTheme.brandWhite : AppTheme.textMuted,
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w300,
-                    color: selected ? AppTheme.brandWhite : AppTheme.textMuted,
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GradientActionButton extends StatelessWidget {
-  const _GradientActionButton({
-    required this.icon,
-    required this.label,
-    required this.gradient,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final Gradient gradient;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF663399).withOpacity(0.2),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: AppTheme.brandWhite),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppTheme.brandWhite,
-                  fontWeight: FontWeight.w300,
-                  fontSize: 14,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

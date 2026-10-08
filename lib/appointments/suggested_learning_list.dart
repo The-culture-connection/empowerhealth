@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../Journal/journal_learning_note_opener.dart';
 
 /// Suggested lessons from one visit summary, each opening its lesson.
@@ -143,27 +144,24 @@ class _SuggestedLearningListState extends State<SuggestedLearningList> {
                   children: [
                     Text(
                       '$number. $title',
-                      style: TextStyle(
+                      style: hearthCardBodyStyle.copyWith(
                         fontSize: 15,
-                        height: 1.4,
-                        fontWeight: FontWeight.w600,
+                        height: 22 / 15,
+                        fontWeight: FontWeight.w700,
                         color: waiting ? AppTheme.textMuted : AppTheme.brandPurple,
                       ),
                     ),
                     if (reason.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          reason,
-                          style: const TextStyle(fontSize: 14, height: 1.45, color: AppTheme.textSecondary),
-                        ),
+                        child: Text(reason, style: hearthCardBodyStyle),
                       ),
                     if (waiting)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           queued ? 'Opening as soon as it\'s ready…' : 'Getting your lesson ready…',
-                          style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                          style: hearthCaptionStyle,
                         ),
                       ),
                   ],
@@ -176,9 +174,12 @@ class _SuggestedLearningListState extends State<SuggestedLearningList> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.brandPurple,
+                        ),
                       )
-                    : Icon(Icons.chevron_right, color: AppTheme.brandPurple),
+                    : const Icon(Icons.chevron_right, size: 20, color: AppTheme.brandPurple),
               ),
             ],
           ),

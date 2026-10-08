@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import 'visit_summary_preview.dart';
 import 'suggested_learning_list.dart';
 
@@ -207,293 +208,171 @@ class VisitDetailScreen extends StatelessWidget {
     return [b, y].where((x) => x.isNotEmpty).join('\n\n');
   }
 
-  Widget _newUiCard({
+  Widget _card({
     required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(24),
-    Gradient? gradient,
+    Color color = AppTheme.surface,
+    Color? borderColor = AppTheme.borderWarm,
   }) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: padding,
-      decoration: BoxDecoration(
-        color: gradient == null ? AppTheme.surfaceCard : null,
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.borderLight.withOpacity(0.4)),
-        boxShadow: AppTheme.shadowSoft(opacity: 0.08, blur: 24, y: 4),
+      child: HearthCard(
+        padding: const EdgeInsets.all(20),
+        color: color,
+        borderColor: borderColor,
+        child: child,
       ),
-      child: child,
     );
   }
+
+  /// Serif section heading with the 14px gap the mockup puts under it.
+  List<Widget> _section(Widget heading) => [
+        const SizedBox(height: 24),
+        heading,
+        const SizedBox(height: 14),
+      ];
 
   @override
   Widget build(BuildContext context) {
     final appointmentDate = data['appointmentDate'];
     final readingLevel = data['readingLevel']?.toString() ?? '6th grade level';
+    final text = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Stack(
-        children: [
-          Positioned(
-            top: -40,
-            right: MediaQuery.sizeOf(context).width * 0.2,
-            child: IgnorePointer(
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFD4A574).withOpacity(0.15),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 120,
-            left: -30,
-            child: IgnorePointer(
-              child: Container(
-                width: 180,
-                height: 180,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFB899D4).withOpacity(0.12),
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+              padding: const EdgeInsets.only(bottom: 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.chevron_left,
-                            size: 20,
-                            color: AppTheme.textMuted,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'My Visits',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w300,
-                              letterSpacing: 0.3,
-                              color: AppTheme.textMuted,
-                            ),
-                          ),
-                        ],
+                  HearthPushedHeader(
+                    backLabel: 'My Visits',
+                    onBack: () => Navigator.pop(context),
+                    actions: [
+                      HearthTextAction(
+                        icon: Icons.delete_outline,
+                        label: 'Delete this summary',
+                        onPressed: () =>
+                            confirmDeleteVisitSummary(context, summaryId: summaryId),
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () =>
-                          confirmDeleteVisitSummary(context, summaryId: summaryId),
-                      icon: Icon(
-                        Icons.delete_outline,
-                        size: 20,
-                        color: AppTheme.textMuted,
-                      ),
-                      label: Text(
-                        'Delete this summary',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: AppTheme.textMuted,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF663399),
-                          Color(0xFF7744AA),
-                          Color(0xFF8855BB),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.brandPurple.withOpacity(0.22),
-                          blurRadius: 18,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: AppTheme.brandWhite.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: AppTheme.brandWhite.withOpacity(0.22),
+                  // The date card is this screen's title, so it is the one purple card.
+                  SizedBox(
+                    width: double.infinity,
+                    child: HearthFeatureCard(
+                      tone: HearthTone.purple,
+                      child: Row(
+                        children: [
+                          const HearthIconChip(
+                            Icons.description_outlined,
+                            tone: HearthChipTone.gold,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _formatHeaderDate(appointmentDate),
+                                  style: text.displaySmall
+                                      ?.copyWith(color: AppTheme.onPurple),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Visit summary · $readingLevel',
+                                  style: const TextStyle(
+                                    fontFamily: AppTheme.sansFamily,
+                                    fontSize: 14,
+                                    height: 20 / 14,
+                                    color: AppTheme.onPurpleSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: const Icon(
-                            Icons.description_outlined,
-                            color: AppTheme.brandWhite,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _formatHeaderDate(appointmentDate),
-                                style: const TextStyle(
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFFF5F0F7),
-                                  height: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Visit summary · $readingLevel',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w300,
-                                  color: AppTheme.brandWhite.withOpacity(0.88),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   // Single-line disclaimer (replaces the large "About this summary" card).
-                  Row(
+                  const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline,
-                          size: 15, color: AppTheme.textMuted),
-                      const SizedBox(width: 8),
-                      const Expanded(
+                      Padding(
+                        padding: EdgeInsets.only(top: 1),
+                        child: Icon(Icons.info_outline,
+                            size: 15, color: AppTheme.textMuted),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
                         child: Text(
                           'Plain-language summary. It doesn\'t replace medical advice from your provider.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            height: 1.4,
-                            fontWeight: FontWeight.w300,
-                            color: AppTheme.textMuted,
-                          ),
+                          style: hearthCaptionStyle,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'WHAT WAS DISCUSSED',
-                    style: TextStyle(
-                      fontSize: 11,
-                      letterSpacing: 1.2,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.brandPurple.withOpacity(0.85),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _newUiCard(
+                  ..._section(const HearthSectionHeading('What was discussed')),
+                  _card(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'What this means',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.brandPurple.withOpacity(0.9),
-                          ),
-                        ),
+                        const Text('What this means', style: _cardLabelStyle),
                         const SizedBox(height: 10),
                         Text(
                           _whatWasDiscussed().isEmpty
                               ? 'Open your full summary below if sections are still loading.'
                               : _whatWasDiscussed(),
-                          style: const TextStyle(
-                            fontSize: 15,
-                            height: 1.55,
-                            fontWeight: FontWeight.w300,
-                            color: AppTheme.textPrimary,
-                          ),
+                          style: _bodyInkStyle,
                         ),
                         if (_summaryData != null &&
                             _summaryData!['keyMedicalTerms'] is List &&
                             (_summaryData!['keyMedicalTerms'] as List)
                                 .isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          Divider(color: AppTheme.borderLight.withOpacity(0.5)),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Key terms',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.brandPurple.withOpacity(0.9),
-                            ),
-                          ),
+                          const SizedBox(height: 18),
+                          const Divider(height: 1, color: AppTheme.borderWarm),
+                          const SizedBox(height: 14),
+                          const Text('Key terms', style: _cardLabelStyle),
                           const SizedBox(height: 8),
                           ...(_summaryData!['keyMedicalTerms'] as List).map((t) {
                             if (t is! Map) return const SizedBox.shrink();
                             final term = t['term']?.toString() ?? '';
                             final exp = t['explanation']?.toString() ?? '';
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: ExpansionTile(
-                                tilePadding: EdgeInsets.zero,
-                                expandedAlignment: Alignment.centerLeft,
-                                childrenPadding: const EdgeInsets.only(
-                                  bottom: 8,
-                                  left: 4,
-                                  right: 4,
-                                ),
-                                title: Text(
-                                  term,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
-                                children: [
-                                  Text(
-                                    exp,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      height: 1.45,
-                                      fontWeight: FontWeight.w300,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ],
+                            return ExpansionTile(
+                              tilePadding: EdgeInsets.zero,
+                              minTileHeight: 44,
+                              shape: const Border(),
+                              collapsedShape: const Border(),
+                              textColor: AppTheme.brandPurple,
+                              collapsedTextColor: AppTheme.ink,
+                              iconColor: AppTheme.brandPurple,
+                              collapsedIconColor: AppTheme.textSecondary,
+                              expandedAlignment: Alignment.centerLeft,
+                              childrenPadding: const EdgeInsets.only(
+                                bottom: 8,
+                                left: 4,
+                                right: 4,
                               ),
+                              // No colour here so the tile's open/closed colours apply.
+                              title: Text(
+                                term,
+                                style: const TextStyle(
+                                  fontFamily: AppTheme.sansFamily,
+                                  fontSize: 15,
+                                  height: 22 / 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              children: [
+                                Text(exp, style: hearthCardBodyStyle),
+                              ],
                             );
                           }),
                         ],
@@ -502,27 +381,12 @@ class VisitDetailScreen extends StatelessWidget {
                   ),
                   if (_actionsMarkdown() != null &&
                       _actionsMarkdown()!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    Text(
-                      'IMPORTANT NEXT STEPS',
-                      style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.brandPurple.withOpacity(0.85),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _newUiCard(
+                    ..._section(const HearthSectionHeading('Important next steps')),
+                    _card(
                       child: MarkdownBody(
                         data: fixDoublePeriods(_actionsMarkdown()!),
                         styleSheet: MarkdownStyleSheet(
-                          p: const TextStyle(
-                            fontSize: 15,
-                            height: 1.5,
-                            fontWeight: FontWeight.w300,
-                            color: AppTheme.textPrimary,
-                          ),
+                          p: _bodyInkStyle,
                           listBullet: const TextStyle(
                             color: AppTheme.brandPurple,
                           ),
@@ -531,18 +395,8 @@ class VisitDetailScreen extends StatelessWidget {
                     ),
                   ],
                   if (_medicationsList().isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    Text(
-                      'MEDICATIONS MENTIONED',
-                      style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.brandPurple.withOpacity(0.85),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _newUiCard(
+                    ..._section(const HearthSectionHeading('Medications mentioned')),
+                    _card(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: _medicationsList().map((med) {
@@ -551,25 +405,10 @@ class VisitDetailScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  med['name']!,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
+                                Text(med['name']!, style: hearthCardTitleStyle),
                                 if (med['detail']!.isNotEmpty) ...[
                                   const SizedBox(height: 4),
-                                  Text(
-                                    med['detail']!,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      height: 1.45,
-                                      fontWeight: FontWeight.w300,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
+                                  Text(med['detail']!, style: hearthCardBodyStyle),
                                 ],
                               ],
                             ),
@@ -579,50 +418,27 @@ class VisitDetailScreen extends StatelessWidget {
                     ),
                   ],
                   if (_questionsList().isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.chat_bubble_outline,
-                          size: 18,
-                          color: AppTheme.brandGold,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'QUESTIONS TO ASK NEXT TIME',
-                          style: TextStyle(
-                            fontSize: 11,
-                            letterSpacing: 1.0,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.brandPurple.withOpacity(0.85),
+                    ..._section(
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.chat_bubble_outline,
+                            size: 18,
+                            color: AppTheme.brandPurple,
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(22),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFFF5EEE0),
-                            AppTheme.surfaceCard,
-                            const Color(0xFFEBE0D6),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: const Color(0xFFE8DFC8).withOpacity(0.5),
-                        ),
-                        boxShadow: AppTheme.shadowSoft(
-                          opacity: 0.06,
-                          blur: 18,
-                          y: 3,
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Questions to ask next time',
+                              style: text.headlineMedium,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    _card(
+                      color: AppTheme.tintWarm,
+                      borderColor: null,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: _questionsList().map((q) {
@@ -631,26 +447,13 @@ class VisitDetailScreen extends StatelessWidget {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFD4A574),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ),
+                                const _Dot(),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     q,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      height: 1.5,
-                                      fontWeight: FontWeight.w300,
-                                      color: AppTheme.textSecondary,
+                                    style: hearthCardBodyStyle.copyWith(
+                                      color: AppTheme.ink,
                                     ),
                                   ),
                                 ),
@@ -662,26 +465,8 @@ class VisitDetailScreen extends StatelessWidget {
                     ),
                   ],
                   if (_notesList().isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    Text(
-                      'NOTES',
-                      style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.brandPurple.withOpacity(0.85),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _newUiCard(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppTheme.surfaceCard,
-                          const Color(0xFFF5F0EB),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
+                    ..._section(const HearthSectionHeading('Notes')),
+                    _card(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: _notesList().map((n) {
@@ -690,22 +475,14 @@ class VisitDetailScreen extends StatelessWidget {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.edit_note,
-                                  size: 20,
-                                  color: AppTheme.brandGold.withOpacity(0.9),
+                                const Icon(
+                                  Icons.edit_outlined,
+                                  size: 18,
+                                  color: AppTheme.brandPurple,
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: Text(
-                                    n,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      height: 1.5,
-                                      fontWeight: FontWeight.w300,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
+                                  child: Text(n, style: hearthCardBodyStyle),
                                 ),
                               ],
                             ),
@@ -716,18 +493,8 @@ class VisitDetailScreen extends StatelessWidget {
                   ],
                   if (data['learningModules'] != null &&
                       (data['learningModules'] as List).isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    Text(
-                      'SUGGESTED LEARNING',
-                      style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.brandPurple.withOpacity(0.85),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _newUiCard(
+                    ..._section(const HearthSectionHeading('Suggested learning')),
+                    _card(
                       child: SuggestedLearningList(
                         summaryId: summaryId,
                         modules: (data['learningModules'] as List)
@@ -738,63 +505,88 @@ class VisitDetailScreen extends StatelessWidget {
                   ],
                   const SizedBox(height: 24),
                   // Educational reminder collapsed into an expandable section.
-                  Container(
+                  SizedBox(
                     width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFFFAF7F3),
-                          const Color(0xFFF0EAD8).withOpacity(0.6),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color(0xFFE8DFC8).withOpacity(0.5),
-                      ),
-                    ),
-                    child: Theme(
-                      data: Theme.of(context)
-                          .copyWith(dividerColor: Colors.transparent),
+                    child: HearthCard(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                       child: ExpansionTile(
-                        tilePadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 2,
-                        ),
-                        childrenPadding:
-                            const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        tilePadding: EdgeInsets.zero,
+                        minTileHeight: 52,
+                        shape: const Border(),
+                        collapsedShape: const Border(),
+                        iconColor: AppTheme.textSecondary,
+                        collapsedIconColor: AppTheme.textSecondary,
+                        childrenPadding: const EdgeInsets.only(bottom: 16),
                         expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                        leading: Icon(
+                        leading: const Icon(
                           Icons.info_outline,
-                          color: AppTheme.brandGold,
+                          color: AppTheme.brandPurple,
                           size: 22,
                         ),
                         title: const Text(
                           'Reminder',
                           style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
+                            fontFamily: AppTheme.sansFamily,
+                            fontSize: 15,
+                            height: 22 / 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.ink,
                           ),
                         ),
                         children: const [
                           Text(
                             'This summary helps you understand your document. It does not replace medical advice from your healthcare provider. Always contact your provider with questions or concerns.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.45,
-                              fontWeight: FontWeight.w300,
-                              color: AppTheme.textMuted,
-                            ),
+                            style: hearthCaptionStyle,
                           ),
                         ],
                       ),
                     ),
                   ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
+      ),
+    );
+  }
+}
+
+/// Small purple label inside a card ("What this means", "Key terms").
+const TextStyle _cardLabelStyle = TextStyle(
+  fontFamily: AppTheme.sansFamily,
+  fontSize: 13,
+  height: 18 / 13,
+  fontWeight: FontWeight.w700,
+  color: AppTheme.brandPurple,
+);
+
+/// Summary prose: 15/22 ink, a little larger than other card body text.
+const TextStyle _bodyInkStyle = TextStyle(
+  fontFamily: AppTheme.sansFamily,
+  fontSize: 15,
+  height: 22 / 15,
+  color: AppTheme.ink,
+);
+
+/// 6px purple bullet, nudged down to sit on the first line of 14/21 text.
+class _Dot extends StatelessWidget {
+  const _Dot();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(top: 8),
+      child: SizedBox(
+        width: 6,
+        height: 6,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppTheme.brandPurple,
+            shape: BoxShape.circle,
           ),
-        ],
+        ),
       ),
     );
   }
@@ -809,7 +601,7 @@ Future<void> confirmDeleteVisitSummary(
   final uid = FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) return;
 
-  final ok = await showDialog<bool>(
+  final ok = await showHearthDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('Delete this summary?'),
@@ -822,13 +614,11 @@ Future<void> confirmDeleteVisitSummary(
           onPressed: () => Navigator.pop(ctx, false),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: AppTheme.brandPurple,
-            foregroundColor: AppTheme.brandWhite,
-          ),
+        // Destructive actions are an ink outline, never a filled or red button.
+        HearthButton.destructive(
+          expand: false,
           onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Delete'),
+          label: 'Delete',
         ),
       ],
     ),
@@ -878,7 +668,6 @@ Future<void> confirmDeleteVisitSummary(
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Summary deleted'),
-          backgroundColor: AppTheme.brandTurquoise,
         ),
       );
     }

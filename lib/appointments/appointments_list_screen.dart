@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import 'upload_visit_summary_screen.dart';
 import 'visit_detail_screen.dart';
 import '../services/analytics_service.dart';
@@ -20,16 +21,17 @@ class AppointmentsListScreen extends StatelessWidget {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.backgroundWarm,
-        ),
-        child: SafeArea(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
           child: userId == null
-              ? const Center(child: Text('Sign in to see visit summaries'))
+              ? Center(
+                  child: Text(
+                    'Sign in to see visit summaries',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                )
               : SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 24),
+                  padding: const EdgeInsets.only(bottom: 32),
                   child: Align(
                     alignment: Alignment.topCenter,
                     child: ConstrainedBox(
@@ -37,105 +39,49 @@ class AppointmentsListScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'My Visits',
-                                        style: TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.w400,
-                                          height: 1.3,
-                                          letterSpacing: -0.28,
-                                          color: AppTheme.textPrimary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Summaries in plain language, newest first',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          height: 1.45,
-                                          color: AppTheme.textMuted,
-                                          fontWeight: FontWeight.w300,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFFB899D4),
-                                        Color(0xFF9D7AB8),
-                                      ],
+                          HearthPushedHeader(
+                            title: 'My Visits',
+                            subtitle: 'Summaries in plain language, newest first',
+                            actions: [
+                              _AddVisitButton(
+                                tooltip: 'Add visit summary',
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (context) =>
+                                          const UploadVisitSummaryScreen(),
                                     ),
-                                    borderRadius: BorderRadius.circular(24),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFFB899D4)
-                                            .withOpacity(0.35),
-                                        blurRadius: 16,
-                                        offset: const Offset(0, 6),
-                                      ),
-                                    ],
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(
-                                      Icons.add,
-                                      color: AppTheme.brandWhite,
-                                    ),
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute<void>(
-                                          builder: (context) =>
-                                              const UploadVisitSummaryScreen(),
-                                        ),
-                                      );
-                                    },
-                                    tooltip: 'Add visit summary',
-                                  ),
-                                ),
-                              ],
-                            ),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                             child: ImmediateSupportHomeCard(
                               entrySource: 'after_visit',
                               compact: true,
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(
-                                  Icons.favorite_border,
-                                  color: Color(0xFFD4A574),
-                                  size: 16,
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 1),
+                                  child: Icon(
+                                    Icons.favorite_border,
+                                    color: AppTheme.brandPurple,
+                                    size: 16,
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     'Plain-language summaries to support you. Not medical advice.',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      height: 1.4,
-                                      color: AppTheme.textMuted,
-                                      fontWeight: FontWeight.w300,
-                                    ),
+                                    style: hearthCaptionStyle,
                                   ),
                                 ),
                               ],
@@ -162,7 +108,28 @@ class AppointmentsListScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-        ),
+      ),
+    );
+  }
+}
+
+/// The header's add action: the one filled purple circle on this screen.
+class _AddVisitButton extends StatelessWidget {
+  const _AddVisitButton({required this.tooltip, required this.onPressed});
+
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.brandPurple,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: IconButton(
+        icon: const Icon(Icons.add, color: AppTheme.onPurple, size: 24),
+        onPressed: onPressed,
+        tooltip: tooltip,
       ),
     );
   }
@@ -193,7 +160,12 @@ class _VisitSummariesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (userId == null) {
-      return const Center(child: Text('Sign in to see visit summaries'));
+      return Center(
+        child: Text(
+          'Sign in to see visit summaries',
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+      );
     }
     return StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
@@ -211,85 +183,43 @@ class _VisitSummariesList extends StatelessWidget {
                     if (snapshot.hasError ||
                         !snapshot.hasData ||
                         snapshot.data!.docs.isEmpty) {
+                      final text = Theme.of(context).textTheme;
                       return Center(
                         child: Padding(
-                          padding: const EdgeInsets.all(24.0),
+                          padding: const EdgeInsets.fromLTRB(20, 48, 20, 24),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Color(0xFF663399),
-                                      Color(0xFF8855BB),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(40),
-                                ),
-                                child: const Icon(
-                                  Icons.medical_information_outlined,
-                                  size: 40,
-                                  color: AppTheme.brandWhite,
-                                ),
+                              const HearthIconChip(
+                                Icons.add_box_outlined,
+                                size: 80,
+                                iconSize: 32,
                               ),
                               const SizedBox(height: 24),
                               Text(
                                 'No visits yet',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w400,
-                                  color: AppTheme.textSecondary,
-                                ),
+                                textAlign: TextAlign.center,
+                                style: text.headlineMedium,
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'When you add an after-visit summary, it will show up here.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: AppTheme.textMuted,
-                                  fontWeight: FontWeight.w300,
-                                ),
+                                style: text.bodyLarge,
                               ),
                               const SizedBox(height: 24),
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Color(0xFFD4C5E0),
-                                      Color(0xFFA89CB5),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                child: ElevatedButton.icon(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => const UploadVisitSummaryScreen(),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.add, color: AppTheme.brandWhite),
-                                  label: const Text(
-                                    'Upload visit summary',
-                                    style: TextStyle(color: AppTheme.brandWhite),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 14,
+                              HearthButton.primary(
+                                expand: false,
+                                icon: Icons.add,
+                                label: 'Upload visit summary',
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const UploadVisitSummaryScreen(),
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(24),
-                                    ),
-                                  ),
-                                ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -437,54 +367,30 @@ class _VisitSummariesList extends StatelessWidget {
                         : <DocumentSnapshot>[];
 
                     return Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           if (latestDoc != null) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(top: 20, bottom: 8),
-                              child: Text(
-                                'MOST RECENT VISIT',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  letterSpacing: 1.2,
-                                  fontWeight: FontWeight.w600,
-                                  color:
-                                      AppTheme.brandPurple.withOpacity(0.85),
-                                ),
-                              ),
+                            const Padding(
+                              padding: EdgeInsets.only(top: 24, bottom: 14),
+                              child: HearthSectionHeading('Most recent visit'),
                             ),
                             _MostRecentVisitCard(
                               doc: latestDoc,
                               onOpen: onOpenDetail,
                             ),
                           ],
-                          Padding(
-                            padding: EdgeInsets.only(
-                              top: latestDoc != null ? 16 : 20,
-                              bottom: 8,
-                            ),
-                            child: Text(
-                              'PAST VISITS',
-                              style: TextStyle(
-                                fontSize: 11,
-                                letterSpacing: 1.2,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.brandPurple.withOpacity(0.85),
-                              ),
-                            ),
+                          const Padding(
+                            padding: EdgeInsets.only(top: 24, bottom: 14),
+                            child: HearthSectionHeading('Past visits'),
                           ),
                           if (pastDocs.isEmpty && latestDoc != null)
                             Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.only(bottom: 12),
                               child: Text(
                                 'No older visits yet.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.textMuted,
-                                  fontWeight: FontWeight.w300,
-                                ),
+                                style: hearthCardBodyStyle,
                               ),
                             ),
                           ...pastDocs.map(
@@ -493,9 +399,8 @@ class _VisitSummariesList extends StatelessWidget {
                               onOpenDetail: onOpenDetail,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                           const _PastVisitNotesFooter(),
-                          const SizedBox(height: 8),
                         ],
                       ),
                     );
@@ -520,145 +425,111 @@ class _MostRecentVisitCard extends StatelessWidget {
     final appointmentDate = data['appointmentDate'];
     final questions = _questionsFromSummaryData(data);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppTheme.borderLight.withOpacity(0.4),
-        ),
-        boxShadow: AppTheme.shadowSoft(
-          opacity: 0.07,
-          blur: 18,
-          y: 3,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () async => onOpen(doc.id, data),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    return HearthCard(
+      onTap: () async => onOpen(doc.id, data),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const HearthIconChip(Icons.calendar_today_outlined),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.brandPurple.withOpacity(0.14),
-                            AppTheme.brandPurple.withOpacity(0.06),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        Icons.calendar_month_rounded,
-                        color: AppTheme.brandPurple.withOpacity(0.9),
-                        size: 24,
-                      ),
+                    Text(
+                      _formatDateShort(appointmentDate),
+                      style: _visitDateStyle,
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _formatDateShort(appointmentDate),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.05,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _providerSubtitleLine(data),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.textMuted,
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 4),
+                    Text(
+                      _providerSubtitleLine(data),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: hearthCaptionStyle.copyWith(
+                        fontSize: 14,
+                        height: 20 / 14,
                       ),
                     ),
                   ],
                 ),
-                if (questions.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Divider(
-                    height: 1,
-                    color: AppTheme.borderLight.withOpacity(0.45),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.chat_bubble_outline_rounded,
-                        size: 16,
-                        color: Color(0xFFD4A574),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'QUESTIONS TO ASK',
-                        style: TextStyle(
-                          fontSize: 11,
-                          letterSpacing: 0.8,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.brandPurple.withOpacity(0.85),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ...questions.take(2).map(
-                        (q) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Container(
-                                  width: 5,
-                                  height: 5,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFD4A574),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  q,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    height: 1.45,
-                                    color: AppTheme.textMuted,
-                                    fontWeight: FontWeight.w300,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                ],
-                _VisitLessonsSection(summaryId: doc.id),
+              ),
+            ],
+          ),
+          if (questions.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: AppTheme.borderWarm),
+            const SizedBox(height: 14),
+            const Row(
+              children: [
+                Icon(
+                  Icons.chat_bubble_outline,
+                  size: 16,
+                  color: AppTheme.brandPurple,
+                ),
+                SizedBox(width: 8),
+                Text('Questions to ask', style: _cardLabelStyle),
               ],
             ),
-          ),
+            const SizedBox(height: 10),
+            ...questions.take(2).map(
+                  (q) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _Dot(color: AppTheme.brandGold),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(q, style: hearthCardBodyStyle),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+          ],
+          _VisitLessonsSection(summaryId: doc.id),
+        ],
+      ),
+    );
+  }
+}
+
+/// Visit date on list cards: 17/24 bold ink.
+const TextStyle _visitDateStyle = TextStyle(
+  fontFamily: AppTheme.sansFamily,
+  fontSize: 17,
+  height: 24 / 17,
+  fontWeight: FontWeight.w700,
+  color: AppTheme.ink,
+);
+
+/// Small purple label inside a card ("Questions to ask").
+const TextStyle _cardLabelStyle = TextStyle(
+  fontFamily: AppTheme.sansFamily,
+  fontSize: 13,
+  height: 20 / 13,
+  fontWeight: FontWeight.w700,
+  color: AppTheme.brandPurple,
+);
+
+/// 6px bullet, nudged down to sit on the first line of 14/21 text.
+class _Dot extends StatelessWidget {
+  const _Dot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: SizedBox(
+        width: 6,
+        height: 6,
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
       ),
     );
@@ -715,26 +586,19 @@ class _VisitLessonsSectionState extends State<_VisitLessonsSection> {
             .toList();
         if (titles.isEmpty) return const SizedBox.shrink();
         final count = titles.length == 1 ? '1 lesson' : '${titles.length} lessons';
-        final openButton = TextButton.icon(
+        final openButton = HearthButton.text(
           onPressed: _openLearn,
-          icon: const Icon(Icons.school_outlined, size: 18),
-          label: const Text('Open in Learn'),
-          style: TextButton.styleFrom(
-            foregroundColor: AppTheme.brandPurple,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          ),
+          icon: Icons.school_outlined,
+          label: 'Open in Learn',
         );
         if (widget.compact) {
           return Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 4,
+              spacing: 8,
               children: [
-                Text(
-                  '$count from this visit',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
-                ),
+                Text('$count from this visit', style: hearthCaptionStyle),
                 openButton,
               ],
             ),
@@ -743,38 +607,19 @@ class _VisitLessonsSectionState extends State<_VisitLessonsSection> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 16),
-            Divider(height: 1, color: AppTheme.borderLight.withOpacity(0.45)),
-            const SizedBox(height: 12),
-            Text(
-              'LESSONS FROM THIS VISIT',
-              style: TextStyle(
-                fontSize: 11,
-                letterSpacing: 0.8,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.brandPurple.withOpacity(0.85),
-              ),
-            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: AppTheme.borderWarm),
+            const SizedBox(height: 14),
+            const Text('Lessons from this visit', style: _cardLabelStyle),
             const SizedBox(height: 10),
             ...titles.take(3).map(
                   (t) => Padding(
                     padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      t,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.45,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
-                      ),
-                    ),
+                    child: Text(t, style: hearthCardBodyStyle),
                   ),
                 ),
             if (titles.length > 3)
-              Text(
-                'and ${titles.length - 3} more',
-                style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
-              ),
+              Text('and ${titles.length - 3} more', style: hearthCaptionStyle),
             Align(alignment: Alignment.centerLeft, child: openButton),
           ],
         );
@@ -799,101 +644,52 @@ class _PastVisitListTile extends StatelessWidget {
     final appointmentDate = data['appointmentDate'];
     final preview = previewLineFromVisitSummary(data);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppTheme.borderLight.withOpacity(0.35),
-        ),
-        boxShadow: AppTheme.shadowSoft(
-          opacity: 0.07,
-          blur: 18,
-          y: 3,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () async {
-            await onOpenDetail(doc.id, data);
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 18,
-            ),
-            child: Row(
+    return HearthCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      onTap: () async {
+        await onOpenDetail(doc.id, data);
+      },
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const HearthIconChip(Icons.description_outlined),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppTheme.brandPurple.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    Icons.article_rounded,
-                    color: AppTheme.brandPurple.withOpacity(0.85),
-                    size: 22,
-                  ),
+                Text(
+                  _formatDateShort(appointmentDate),
+                  style: _visitDateStyle,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _formatDateShort(appointmentDate),
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.2,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Visit summary · ${data['readingLevel'] ?? '6th grade reading level'}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textLight,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                      if (preview != null && preview.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          preview,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            height: 1.45,
-                            color: AppTheme.textMuted,
-                            fontWeight: FontWeight.w300,
-                          ),
-                        ),
-                      ],
-                      _VisitLessonsSection(summaryId: doc.id, compact: true),
-                    ],
-                  ),
+                const SizedBox(height: 4),
+                Text(
+                  'Visit summary · ${data['readingLevel'] ?? '6th grade reading level'}',
+                  style: hearthCaptionStyle,
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(
-                    Icons.chevron_right,
-                    color: AppTheme.textLightest,
-                    size: 22,
+                if (preview != null && preview.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    preview,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: hearthCardBodyStyle,
                   ),
-                ),
+                ],
+                _VisitLessonsSection(summaryId: doc.id, compact: true),
               ],
             ),
           ),
-        ),
+          const SizedBox(width: 8),
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(
+              Icons.chevron_right,
+              color: AppTheme.textSecondary,
+              size: 22,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -904,67 +700,22 @@ class _PastVisitNotesFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFFAF7F3),
-            Color(0xFFF5F0EB),
-            Color(0xFFF0EAD8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppTheme.borderLight.withOpacity(0.4),
-        ),
-        boxShadow: AppTheme.shadowSoft(
-          opacity: 0.08,
-          blur: 20,
-          y: 4,
-        ),
-      ),
+    return const HearthFeatureCard(
+      padding: EdgeInsets.all(18),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceCard.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.article_outlined,
-              color: Color(0xFFD4A574),
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
+          HearthIconChip(Icons.description_outlined, tone: HearthChipTone.surface),
+          SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Notes from past visits',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.05,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
+                Text('Notes from past visits', style: hearthCardTitleStyle),
+                SizedBox(height: 4),
                 Text(
                   'Your visit history helps you track your journey and prepare for future appointments.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.45,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                  ),
+                  style: hearthCardBodyStyle,
                 ),
               ],
             ),

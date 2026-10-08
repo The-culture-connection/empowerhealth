@@ -3,5 +3,10 @@
     "file": "lib/cors/main_navigation_scaffold.dart",
     "text": "⚠️ Analytics: No authenticated user - screen view tracking skipped",
     "reason": "Debug log, not user-facing copy, and still present word for word. The debugPrint call was joined onto one line so the emoji lint (which skips debugPrint lines) stops flagging its continuation line; the string check skips debugPrint lines too, so it now reads as missing."
+  },
+  {
+    "file": "lib/appointments/upload_visit_summary_screen.dart",
+    "text": "📅 Appointment date (calendar): ${}",
+    "reason": "Debug log, not user-facing copy, and still present word for word. Same as above: the print call was joined onto one line so the emoji lint stops flagging its continuation line, which hides the string from the string check."
   }
 ]

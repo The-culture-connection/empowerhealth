@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../services/research/research_micro_measure_service.dart';
 import 'micro_measure_prompt.dart';
 
@@ -31,7 +31,7 @@ class _PostVisitSummaryRatingModalState extends State<PostVisitSummaryRatingModa
   Future<void> _submit() async {
     if (_u == 0 || _n == 0 || _c == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please rate all three items (1–5).'), backgroundColor: Colors.orange),
+        const SnackBar(content: Text('Please rate all three items (1–5).')),
       );
       return;
     }
@@ -49,13 +49,13 @@ class _PostVisitSummaryRatingModalState extends State<PostVisitSummaryRatingModa
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Thanks! Your responses were saved.'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Thanks! Your responses were saved.')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Could not save: $e')),
         );
       }
     } finally {
@@ -65,10 +65,12 @@ class _PostVisitSummaryRatingModalState extends State<PostVisitSummaryRatingModa
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    // Shape and fill come from the dialog theme.
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -77,24 +79,20 @@ class _PostVisitSummaryRatingModalState extends State<PostVisitSummaryRatingModa
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      widget.headline,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.brandPurple,
-                      ),
-                    ),
+                    child: Text(widget.headline, style: textTheme.headlineMedium),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
+                  const SizedBox(width: 12),
+                  HearthCircleButton(
+                    icon: Icons.close,
+                    iconSize: 18,
                     onPressed: _busy ? null : () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
+              const SizedBox(height: 6),
               Text(
                 'Your answers help us learn whether the summary was clear and useful (1 = not at all, 5 = very much).',
-                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                style: textTheme.bodyMedium,
               ),
               const SizedBox(height: 20),
               MicroMeasurePrompt(
@@ -108,21 +106,16 @@ class _PostVisitSummaryRatingModalState extends State<PostVisitSummaryRatingModa
               const SizedBox(height: 24),
               Row(
                 children: [
-                  TextButton(
+                  HearthButton.text(
+                    label: 'Skip',
                     onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                    child: const Text('Skip'),
                   ),
                   const Spacer(),
-                  FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    style: FilledButton.styleFrom(backgroundColor: AppTheme.brandPurple),
-                    child: _busy
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Text('Submit'),
+                  HearthButton.primary(
+                    label: 'Submit',
+                    expand: false,
+                    loading: _busy,
+                    onPressed: _submit,
                   ),
                 ],
               ),

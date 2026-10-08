@@ -34,6 +34,17 @@ Each run writes its full results (payloads, response URLs, coverage and timings 
 the server, every provider with its computed distance, every check, and a latency summary)
 to `results/<timestamp>.json`. The `results/` and `.cache/` folders are gitignored.
 
+To get a readable report you can keep or share, turn a results file into Markdown:
+
+```bash
+node scripts/search-check/report.mjs                       # newest results file
+node scripts/search-check/report.mjs results/<file>.json   # a specific run
+```
+
+Reports are written to `docs/search-check/<date>-<production|emulator>.md` (committed), with the
+verdict, speed, a row per search (provider counts, nearest and farthest distance), plan results,
+example nearest providers to spot-check in the app, any failures/warnings, and every check.
+
 ## Running against the emulator
 
 The emulator runs the local `functions/` code and calls the real Ohio Medicaid and NPI APIs.

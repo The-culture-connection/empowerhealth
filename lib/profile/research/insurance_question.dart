@@ -18,24 +18,20 @@ class InsuranceQuestion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Insurance',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppTheme.brandPurple,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: 12),
+        Text('Insurance', style: textTheme.headlineMedium),
+        const SizedBox(height: 16),
+        // Hearth puts field labels above the field rather than inside it.
+        Text('Insurance type', style: textTheme.titleSmall),
+        const SizedBox(height: 8),
         DropdownButtonFormField<int>(
           isExpanded: true,
           value: insuranceType,
-          decoration: const InputDecoration(
-            labelText: 'Insurance type',
-            border: OutlineInputBorder(),
-          ),
+          icon: const Icon(Icons.expand_more, color: AppTheme.brandPurple),
+          decoration: const InputDecoration(),
           selectedItemBuilder: (context) {
             return kInsuranceTypeOptions.map((e) {
               return Align(
@@ -60,11 +56,11 @@ class InsuranceQuestion extends StatelessWidget {
         ),
         if (showOtherField && insuranceType == 5) ...[
           const SizedBox(height: 16),
+          Text('Other (specify)', style: textTheme.titleSmall),
+          const SizedBox(height: 8),
           TextFormField(
             controller: otherController,
             decoration: const InputDecoration(
-              labelText: 'Other (specify)',
-              border: OutlineInputBorder(),
               helperText: 'No names or email addresses',
             ),
             maxLength: 500,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 import '../../models/user_profile.dart';
 import '../../research/research_codes.dart';
 import '../../services/database_service.dart';
@@ -144,91 +145,89 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final stepLabel = _step == 0 ? 'Step 1 of 2: About you' : 'Step 2 of 2: Baseline survey';
+    // Errors are not emergencies, so they read as a cream note rather than red text.
+    Widget errorNote(EdgeInsetsGeometry padding) => Padding(
+          padding: padding,
+          child: HearthNote(text: _error!),
+        );
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Research enrollment'),
-        backgroundColor: AppTheme.backgroundWarm,
-        foregroundColor: AppTheme.textPrimary,
-        elevation: 0,
-      ),
-      backgroundColor: AppTheme.backgroundWarm,
+      backgroundColor: AppTheme.ground,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                _step == 0 ? 'Step 1 of 2: About you' : 'Step 2 of 2: Baseline survey',
-                style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.brandPurple),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            HearthPushedHeader(
+              title: 'Research enrollment',
+              // Matches the AppBar it replaces: back only when there is a route to return to.
+              showBack: ModalRoute.of(context)?.impliesAppBarDismissal ?? false,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // The baseline form draws its own bar, so step 2 shows only the caption.
+                    if (_step == 0)
+                      HearthStepProgress(step: 1, total: 2, label: stepLabel)
+                    else
+                      Text(stepLabel, style: hearthCaptionStyle),
+                    const SizedBox(height: 12),
+                    if (_step == 0) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Thank you for joining the research cohort. We will store a study ID and '
+                        'baseline survey answers without your name or email in the research dataset.',
+                        style: textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: 24),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              RecruitmentSourceQuestion(
+                                value: _recruitmentSource,
+                                onChanged: (v) => setState(() => _recruitmentSource = v),
+                                otherController: _recruitOther,
+                              ),
+                              const SizedBox(height: 24),
+                              const Divider(color: AppTheme.borderWarm, height: 1),
+                              const SizedBox(height: 24),
+                              RecruitmentPathwayQuestion(
+                                value: _recruitmentPathway,
+                                onChanged: (v) => setState(() => _recruitmentPathway = v),
+                                pathways: _pathwayOptions,
+                                loading: _pathwaysLoading,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (_error != null) errorNote(const EdgeInsets.only(bottom: 12)),
+                      HearthButton.primary(
+                        label: 'Continue to baseline',
+                        loading: _busy,
+                        onPressed: _busy || _pathwaysLoading ? null : _completeEnrollmentStep,
+                      ),
+                    ] else ...[
+                      Expanded(
+                        child: BaselineResearchForm(
+                          profile: widget.profile,
+                          recruitmentPathway: _recruitmentPathway!,
+                          isSubmitting: _busy,
+                          onSubmit: _submitBaseline,
+                        ),
+                      ),
+                      if (_error != null) errorNote(const EdgeInsets.only(top: 12)),
+                    ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              if (_step == 0) ...[
-                const Text(
-                  'Thank you for joining the research cohort. We will store a study ID and '
-                  'baseline survey answers without your name or email in the research dataset.',
-                  style: TextStyle(height: 1.35),
-                ),
-                const SizedBox(height: 24),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        RecruitmentSourceQuestion(
-                          value: _recruitmentSource,
-                          onChanged: (v) => setState(() => _recruitmentSource = v),
-                          otherController: _recruitOther,
-                        ),
-                        const SizedBox(height: 32),
-                        const Divider(),
-                        const SizedBox(height: 24),
-                        RecruitmentPathwayQuestion(
-                          value: _recruitmentPathway,
-                          onChanged: (v) => setState(() => _recruitmentPathway = v),
-                          pathways: _pathwayOptions,
-                          loading: _pathwaysLoading,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(_error!, style: const TextStyle(color: Colors.red)),
-                  ),
-                FilledButton(
-                  onPressed: _busy || _pathwaysLoading ? null : _completeEnrollmentStep,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: AppTheme.brandPurple,
-                  ),
-                  child: _busy
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Continue to baseline'),
-                ),
-              ] else ...[
-                Expanded(
-                  child: BaselineResearchForm(
-                    profile: widget.profile,
-                    recruitmentPathway: _recruitmentPathway!,
-                    isSubmitting: _busy,
-                    onSubmit: _submitBaseline,
-                  ),
-                ),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(_error!, style: const TextStyle(color: Colors.red)),
-                  ),
-              ],
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

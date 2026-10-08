@@ -40,29 +40,28 @@ class RecruitmentPathwayQuestion extends StatelessWidget {
       return 'Select';
     }
 
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Which recruitment pathway applies to you?',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppTheme.brandPurple,
-                fontWeight: FontWeight.w600,
-              ),
+          style: textTheme.headlineMedium,
         ),
         const SizedBox(height: 8),
         Text(
           'This helps the research team compare cohorts. Choose the option that best matches how you are using the app.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.35),
+          style: textTheme.bodySmall,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+        // Hearth puts field labels above the field rather than inside it.
+        Text('Recruitment pathway', style: textTheme.titleSmall),
+        const SizedBox(height: 8),
         DropdownButtonFormField<int>(
           isExpanded: true,
           value: value,
-          decoration: const InputDecoration(
-            labelText: 'Recruitment pathway',
-            border: OutlineInputBorder(),
-          ),
+          icon: const Icon(Icons.expand_more, color: AppTheme.brandPurple),
+          decoration: const InputDecoration(),
           selectedItemBuilder: (context) {
             return items.map((item) {
               final code = item.value!;

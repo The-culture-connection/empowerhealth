@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../app_router.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 
 /// Gates account-only actions for guests (anonymous users) and signed-out users.
 ///
@@ -26,10 +27,8 @@ Future<bool> requireAccount(
   final isRealAccount = user != null && !user.isAnonymous;
   if (isRealAccount) return true;
 
-  await showModalBottomSheet<void>(
+  await showHearthSheet<void>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
     builder: (ctx) => _CreateAccountPrompt(action: action),
   );
   return false;
@@ -43,68 +42,50 @@ class _CreateAccountPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.fromLTRB(24, 16, 24, 20 + bottom),
+    final textTheme = Theme.of(context).textTheme;
+    // The sheet shell draws the handle and side padding; this keeps clear of
+    // the home indicator.
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 18),
-              decoration: BoxDecoration(
-                color: AppTheme.borderLight,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          Icon(Icons.lock_outline, size: 36, color: AppTheme.brandPurple),
+          const Center(child: HearthIconChip(Icons.lock_outline)),
           const SizedBox(height: 12),
           Text(
             'Create a free account',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
-            ),
+            style: textTheme.headlineMedium,
           ),
           const SizedBox(height: 8),
           Text(
             'You\'re exploring as a guest. Create a free account to $action and '
             'save your progress. You can keep browsing without one.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.5,
-              color: AppTheme.textMuted,
-            ),
+            style: textTheme.bodyLarge,
           ),
           const SizedBox(height: 20),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.brandPurple,
-              foregroundColor: AppTheme.brandWhite,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
+          HearthButton.primary(
+            label: 'Create account',
             onPressed: () {
               Navigator.of(context).pop();
               Navigator.of(context).pushNamed(Routes.terms);
             },
-            child: const Text('Create account'),
           ),
           const SizedBox(height: 8),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Maybe later',
-              style: TextStyle(color: AppTheme.textMuted),
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.textMuted,
+                textStyle: const TextStyle(
+                  fontFamily: AppTheme.sansFamily,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('Maybe later'),
             ),
           ),
         ],

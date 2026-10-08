@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../constants/legal_docs_urls.dart';
 import '../cors/ui_theme.dart';
 import '../cors/main_navigation_scaffold.dart';
+import '../design_system/hearth.dart';
 
 class ConsentScreen extends StatefulWidget {
   final bool isFirstRun;
@@ -30,227 +31,155 @@ class _ConsentScreenState extends State<ConsentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppTheme.surfaceCard, AppTheme.backgroundWarm],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(
-                          Icons.favorite,
-                          color: AppTheme.brandWhite,
-                          size: 40,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Welcome to EmpowerHealth',
-                        style: AppTheme.responsiveTitleStyle(
-                          context,
-                          baseSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.brandPurple,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Your privacy and trust matter to us',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Column(
+                children: [
+                  const HearthIconChip(Icons.favorite_border, size: 72, iconSize: 30),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Welcome to EmpowerHealth',
+                    style: textTheme.displaySmall,
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 40),
-
-                // Privacy Information
-                _buildSection(
-                  icon: Icons.lock_outline,
-                  title: 'Your Data is Private',
-                  content: [
-                    'We store your health information securely in your account',
-                    'Only you can access your personal data',
-                    'We use industry-standard encryption to protect your information',
-                    'You can export or delete your data anytime from Settings',
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // AI Use Disclosure
-                _buildSection(
-                  icon: Icons.psychology_outlined,
-                  title: 'How We Use AI',
-                  content: [
-                    'AI helps us create easy-to-understand summaries of your visits',
-                    'AI generates personalized learning content based on your needs',
-                    'AI provides educational support. This is not medical advice',
-                    'Your raw documents are not stored unless you choose to save them',
-                    'You can turn off AI features anytime in Settings',
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Important Disclaimers
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.orange.shade200),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your privacy and trust matter to us',
+                    style: textTheme.bodyLarge,
+                    textAlign: TextAlign.center,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.warning_amber_rounded, 
-                            color: Colors.orange.shade700, size: 24),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Important',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange.shade900,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'This app provides educational support and tools to help you understand your care. It does not replace professional medical advice, diagnosis, or treatment.',
-                        style: TextStyle(fontSize: 14, height: 1.5),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'If you have a medical emergency, call 911 or contact your healthcare provider immediately.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          height: 1.5,
+                ],
+              ),
+              const SizedBox(height: 32),
+
+              // Privacy Information
+              _buildSection(
+                icon: Icons.lock_outline,
+                title: 'Your Data is Private',
+                content: [
+                  'We store your health information securely in your account',
+                  'Only you can access your personal data',
+                  'We use industry-standard encryption to protect your information',
+                  'You can export or delete your data anytime from Settings',
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // AI Use Disclosure
+              _buildSection(
+                icon: Icons.auto_awesome_outlined,
+                title: 'How We Use AI',
+                content: [
+                  'AI helps us create easy-to-understand summaries of your visits',
+                  'AI generates personalized learning content based on your needs',
+                  'AI provides educational support. This is not medical advice',
+                  'Your raw documents are not stored unless you choose to save them',
+                  'You can turn off AI features anytime in Settings',
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Important Disclaimers
+              HearthFeatureCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: AppTheme.ink, size: 22),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text('Important', style: textTheme.titleLarge),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Consent Checkboxes
-                _buildCheckbox(
-                  value: _acceptedTerms,
-                  onChanged: (value) => setState(() => _acceptedTerms = value!),
-                  title: 'I accept the Terms of Service',
-                  subtitle: 'I understand and agree to the app\'s terms',
-                ),
-                const SizedBox(height: 16),
-                _buildCheckbox(
-                  value: _acceptedPrivacy,
-                  onChanged: (value) => setState(() => _acceptedPrivacy = value!),
-                  title: 'I accept the Privacy Policy',
-                  subtitle: 'I understand how my data is collected and used',
-                ),
-                const SizedBox(height: 16),
-                _buildCheckbox(
-                  value: _acceptedAIUse,
-                  onChanged: (value) => setState(() => _acceptedAIUse = value!),
-                  title: 'I consent to AI-powered features',
-                  subtitle: 'I understand AI is used for educational summaries and content',
-                ),
-                const SizedBox(height: 32),
-
-                // Continue Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: (_acceptedTerms && _acceptedPrivacy && _acceptedAIUse && !_isSaving)
-                        ? _saveConsent
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.brandPurple,
-                      foregroundColor: AppTheme.brandWhite,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'This app provides educational support and tools to help you understand your care. It does not replace professional medical advice, diagnosis, or treatment.',
+                      style: hearthCardBodyStyle,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'If you have a medical emergency, call 911 or contact your healthcare provider immediately.',
+                      style: hearthCardBodyStyle.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.ink,
                       ),
                     ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
-                            ),
-                          )
-                        : const Text(
-                            'Continue',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 28),
 
-                // Links
-                Center(
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 16,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          _openDocsSection(LegalDocsFragments.terms);
-                        },
-                        child: const Text('Terms of Service'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          _openDocsSection(LegalDocsFragments.privacy);
-                        },
-                        child: const Text('Privacy Policy'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          _openDocsSection(LegalDocsFragments.eula);
-                        },
-                        child: const Text('EULA'),
-                      ),
-                    ],
-                  ),
+              // Consent Checkboxes
+              _buildCheckbox(
+                value: _acceptedTerms,
+                onChanged: (value) => setState(() => _acceptedTerms = value!),
+                title: 'I accept the Terms of Service',
+                subtitle: 'I understand and agree to the app\'s terms',
+              ),
+              const SizedBox(height: 12),
+              _buildCheckbox(
+                value: _acceptedPrivacy,
+                onChanged: (value) => setState(() => _acceptedPrivacy = value!),
+                title: 'I accept the Privacy Policy',
+                subtitle: 'I understand how my data is collected and used',
+              ),
+              const SizedBox(height: 12),
+              _buildCheckbox(
+                value: _acceptedAIUse,
+                onChanged: (value) => setState(() => _acceptedAIUse = value!),
+                title: 'I consent to AI-powered features',
+                subtitle: 'I understand AI is used for educational summaries and content',
+              ),
+              const SizedBox(height: 28),
+
+              // Continue Button
+              HearthButton.primary(
+                label: 'Continue',
+                loading: _isSaving,
+                onPressed: (_acceptedTerms && _acceptedPrivacy && _acceptedAIUse && !_isSaving)
+                    ? _saveConsent
+                    : null,
+              ),
+              const SizedBox(height: 8),
+
+              // Links
+              Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 16,
+                  children: [
+                    HearthButton.text(
+                      onPressed: () {
+                        _openDocsSection(LegalDocsFragments.terms);
+                      },
+                      label: 'Terms of Service',
+                    ),
+                    HearthButton.text(
+                      onPressed: () {
+                        _openDocsSection(LegalDocsFragments.privacy);
+                      },
+                      label: 'Privacy Policy',
+                    ),
+                    HearthButton.text(
+                      onPressed: () {
+                        _openDocsSection(LegalDocsFragments.eula);
+                      },
+                      label: 'EULA',
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -262,47 +191,36 @@ class _ConsentScreenState extends State<ConsentScreen> {
     required String title,
     required List<String> content,
   }) {
-    return Container(
+    return HearthCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: AppTheme.brandPurple, size: 24),
-              const SizedBox(width: 12),
+              HearthIconChip(icon),
+              const SizedBox(width: 14),
               Expanded(
                 child: Text(
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           ...content.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Icon(Icons.check_circle_outline,
-                        color: Colors.green, size: 20),
-                    const SizedBox(width: 8),
+                        color: AppTheme.brandPurple, size: 20),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        item,
-                        style: const TextStyle(fontSize: 14, height: 1.5),
-                      ),
+                      child: Text(item, style: hearthCardBodyStyle),
                     ),
                   ],
                 ),
@@ -327,52 +245,38 @@ class _ConsentScreenState extends State<ConsentScreen> {
     required String title,
     required String subtitle,
   }) {
-    return InkWell(
+    return HearthCard(
       onTap: () => onChanged(!value),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: value ? AppTheme.brandPurple.withOpacity(0.1) : AppTheme.surfaceCard,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: value ? AppTheme.brandPurple : Colors.grey.shade300,
-            width: value ? 2 : 1,
+      padding: const EdgeInsets.fromLTRB(6, 12, 16, 12),
+      color: value ? AppTheme.tintWarm : AppTheme.surface,
+      borderColor: value ? AppTheme.brandPurple : AppTheme.borderWarm,
+      borderWidth: value ? 2 : 1,
+      child: Row(
+        children: [
+          Checkbox(
+            value: value,
+            onChanged: onChanged,
           ),
-        ),
-        child: Row(
-          children: [
-            Checkbox(
-              value: value,
-              onChanged: onChanged,
-              activeColor: AppTheme.brandPurple,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: value ? AppTheme.brandPurple : Colors.black87,
-                    ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: hearthCardTitleStyle.copyWith(
+                    color: value ? AppTheme.brandPurple : AppTheme.ink,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: hearthCaptionStyle.copyWith(color: AppTheme.textSecondary),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -423,7 +327,6 @@ class _ConsentScreenState extends State<ConsentScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving consent: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
         );
       }

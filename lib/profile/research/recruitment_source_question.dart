@@ -47,24 +47,23 @@ class RecruitmentSourceQuestion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'How did you hear about EmpowerHealth Watch?',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppTheme.brandPurple,
-                fontWeight: FontWeight.w600,
-              ),
+          style: textTheme.headlineMedium,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+        // Hearth puts field labels above the field rather than inside it.
+        Text('Recruitment source', style: textTheme.titleSmall),
+        const SizedBox(height: 8),
         DropdownButtonFormField<int>(
           isExpanded: true,
           value: value,
-          decoration: const InputDecoration(
-            labelText: 'Recruitment source',
-            border: OutlineInputBorder(),
-          ),
+          icon: const Icon(Icons.expand_more, color: AppTheme.brandPurple),
+          decoration: const InputDecoration(),
           selectedItemBuilder: (context) {
             return _items.map((item) {
               final code = item.value!;
@@ -83,11 +82,11 @@ class RecruitmentSourceQuestion extends StatelessWidget {
         ),
         if (value == 6) ...[
           const SizedBox(height: 16),
+          Text('Other (specify)', style: textTheme.titleSmall),
+          const SizedBox(height: 8),
           TextFormField(
             controller: otherController,
             decoration: const InputDecoration(
-              labelText: 'Other (specify)',
-              border: OutlineInputBorder(),
               helperText: 'Do not include names or email addresses',
             ),
             maxLength: 500,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_router.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 
 /// Full-screen call-to-action shown in place of account-only screens (e.g. the
 /// profile tab) when the user is browsing as a guest.
@@ -26,63 +27,39 @@ class GuestAccountCta extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: AppTheme.brandPurple.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.person_outline,
-                      size: 36, color: AppTheme.brandPurple),
+                const HearthIconChip(
+                  Icons.person_outline,
+                  size: 72,
+                  iconSize: 32,
                 ),
                 const SizedBox(height: 20),
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textPrimary,
-                  ),
+                  style: Theme.of(context).textTheme.displaySmall,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    height: 1.5,
-                    color: AppTheme.textMuted,
+                  style: const TextStyle(
+                    fontFamily: AppTheme.sansFamily,
+                    fontSize: 16,
+                    height: 22 / 16,
+                    color: AppTheme.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.brandPurple,
-                      foregroundColor: AppTheme.brandWhite,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed(Routes.terms),
-                    child: const Text('Create account'),
-                  ),
+                HearthButton.primary(
+                  label: 'Create account',
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(Routes.terms),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.brandPurple,
-                      side: BorderSide(color: AppTheme.brandPurple),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed(Routes.login),
-                    child: const Text('Log in'),
-                  ),
+                HearthButton.secondary(
+                  label: 'Log in',
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(Routes.login),
                 ),
               ],
             ),

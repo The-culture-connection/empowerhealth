@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 import '../../models/user_profile.dart';
 import '../../research/research_codes.dart';
 import '../../widgets/step_scroll.dart';
@@ -258,16 +259,31 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
     await widget.onSubmit(payload);
   }
 
+  // Hearth puts field labels above the field rather than inside it.
+  Widget _labelled(String label, Widget field) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        field,
+      ],
+    );
+  }
+
   Widget _buildPageBody() {
+    final textTheme = Theme.of(context).textTheme;
+    const dropdownIcon = Icon(Icons.expand_more, color: AppTheme.brandPurple);
     switch (_page) {
       case _BaselinePage.age:
-        return TextFormField(
-          controller: _ageController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'What is your age (in years)?',
-            border: OutlineInputBorder(),
-            helperText: 'Research baseline: numbers only',
+        return _labelled(
+          'What is your age (in years)?',
+          TextFormField(
+            controller: _ageController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              helperText: 'Research baseline: numbers only',
+            ),
           ),
         );
       case _BaselinePage.pregnancyPostpartum:
@@ -281,26 +297,27 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
         );
       case _BaselinePage.pregnancyFollowUp:
         if (_pp == 1) {
-          return TextFormField(
-            controller: _gestController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'How many weeks pregnant are you? (4–42)',
-              border: OutlineInputBorder(),
+          return _labelled(
+            'How many weeks pregnant are you? (4–42)',
+            TextFormField(
+              controller: _gestController,
+              keyboardType: TextInputType.number,
             ),
           );
         }
         if (_pp == 2) {
-          return TextFormField(
-            controller: _ppMonthController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'How many months since delivery? (0–48)',
-              border: OutlineInputBorder(),
+          return _labelled(
+            'How many months since delivery? (0–48)',
+            TextFormField(
+              controller: _ppMonthController,
+              keyboardType: TextInputType.number,
             ),
           );
         }
-        return const Text('Go back and select pregnancy or postpartum.');
+        return Text(
+          'Go back and select pregnancy or postpartum.',
+          style: textTheme.bodyLarge,
+        );
       case _BaselinePage.insurance:
         return InsuranceQuestion(
           insuranceType: _insuranceType,
@@ -312,15 +329,16 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
           showOtherField: false,
         );
       case _BaselinePage.insuranceOther:
-        return TextFormField(
-          controller: _insuranceOtherController,
-          decoration: const InputDecoration(
-            labelText: 'Describe your insurance (other)',
-            border: OutlineInputBorder(),
-            helperText: 'Do not include names or email addresses',
+        return _labelled(
+          'Describe your insurance (other)',
+          TextFormField(
+            controller: _insuranceOtherController,
+            decoration: const InputDecoration(
+              helperText: 'Do not include names or email addresses',
+            ),
+            maxLength: 500,
+            maxLines: 3,
           ),
-          maxLength: 500,
-          maxLines: 3,
         );
       case _BaselinePage.supportNavigation:
         return Column(
@@ -328,24 +346,21 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
           children: [
             Text(
               'Support person / navigation',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.brandPurple,
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: textTheme.headlineMedium,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               'Were you able to navigate care with a support person?',
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: textTheme.bodyLarge,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            Text('Your answer', style: textTheme.titleSmall),
+            const SizedBox(height: 8),
             DropdownButtonFormField<int>(
               isExpanded: true,
               value: _supportNav,
-              decoration: const InputDecoration(
-                labelText: 'Your answer',
-                border: OutlineInputBorder(),
-              ),
+              icon: dropdownIcon,
+              decoration: const InputDecoration(),
               selectedItemBuilder: (context) {
                 return kSupportPersonNavOptions.map((e) {
                   return Align(
@@ -371,24 +386,21 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
           children: [
             Text(
               'Advocacy confidence',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.brandPurple,
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: textTheme.headlineMedium,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               'How confident do you feel advocating for yourself? (1 = low, 5 = high)',
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: textTheme.bodyLarge,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            Text('Rating', style: textTheme.titleSmall),
+            const SizedBox(height: 8),
             DropdownButtonFormField<int>(
               isExpanded: true,
               value: _advocacy,
-              decoration: const InputDecoration(
-                labelText: 'Rating',
-                border: OutlineInputBorder(),
-              ),
+              icon: dropdownIcon,
+              decoration: const InputDecoration(),
               items: List.generate(
                 5,
                 (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
@@ -414,13 +426,14 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
         children: [
           Text(
             'Baseline · Question ${_stepOrdinal()} of ${_stepTotal()}',
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: AppTheme.brandPurple,
-              fontSize: 14,
-            ),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontSize: 15,
+                  color: AppTheme.brandPurple,
+                ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          HearthStepProgress(step: _stepOrdinal(), total: _stepTotal()),
+          const SizedBox(height: 24),
           Expanded(
             child: SingleChildScrollView(
               controller: _scrollController,
@@ -432,32 +445,23 @@ class _BaselineResearchFormState extends State<BaselineResearchForm> {
           Row(
             children: [
               if (canBack)
-                OutlinedButton(
-                  onPressed: widget.isSubmitting ? null : _goBack,
-                  child: const Text('Back'),
+                Expanded(
+                  child: HearthButton.secondary(
+                    label: 'Back',
+                    onPressed: widget.isSubmitting ? null : _goBack,
+                  ),
                 ),
               if (canBack) const SizedBox(width: 12),
               Expanded(
-                child: FilledButton(
+                flex: 2,
+                child: HearthButton.primary(
+                  label: isLast ? 'Submit research baseline' : 'Next',
+                  loading: widget.isSubmitting,
                   onPressed: widget.isSubmitting
                       ? null
                       : () async {
                           await _goNext();
                         },
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: AppTheme.brandPurple,
-                  ),
-                  child: widget.isSubmitting
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(isLast ? 'Submit research baseline' : 'Next'),
                 ),
               ),
             ],

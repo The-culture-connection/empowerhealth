@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../cors/ui_theme.dart';
+import 'hearth.dart';
 
+/// Older design-system helpers, kept for existing callers and drawn with
+/// Hearth components.
 class DS {
   // Gap helpers
   static const gapXS = SizedBox(height: AppTheme.spacingXS);
@@ -19,21 +22,7 @@ class DS {
 
   // Logo widget - secondary logo for headers
   static Widget logo({double size = 32}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: AppTheme.lightPrimary,
-        borderRadius: BorderRadius.circular(size * 0.25),
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.favorite,
-          color: AppTheme.brandWhite,
-          size: 20,
-        ),
-      ),
-    );
+    return HearthIconChip(Icons.favorite_border, size: size, iconSize: size * 0.55);
   }
 
   // App bar with logo
@@ -43,19 +32,8 @@ class DS {
         padding: const EdgeInsets.all(12.0),
         child: logo(size: 32),
       ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontFamily: 'Primary',
-          fontSize: 20,
-          fontWeight: FontWeight.w400,
-          color: AppTheme.textPrimary,
-        ),
-      ),
+      title: Text(title),
       actions: actions,
-      backgroundColor: AppTheme.backgroundWarm,
-      foregroundColor: AppTheme.textPrimary,
-      elevation: 0,
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
     );
@@ -63,48 +41,17 @@ class DS {
 
   // Primary button
   static Widget cta(String label, {VoidCallback? onPressed, IconData? icon, bool fullWidth = true}) {
-    final button = ElevatedButton(
-      onPressed: onPressed,
-      child: Row(
-        mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 20),
-            const SizedBox(width: 8),
-          ],
-          Text(label),
-        ],
-      ),
-    );
-    return fullWidth ? SizedBox(width: double.infinity, child: button) : button;
+    return HearthButton.primary(label: label, onPressed: onPressed, icon: icon, expand: fullWidth);
   }
 
   // Secondary button
   static Widget secondary(String label, {VoidCallback? onPressed, IconData? icon, bool fullWidth = true}) {
-    final button = OutlinedButton(
-      onPressed: onPressed,
-      child: Row(
-        mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 20),
-            const SizedBox(width: 8),
-          ],
-          Text(label),
-        ],
-      ),
-    );
-    return fullWidth ? SizedBox(width: double.infinity, child: button) : button;
+    return HearthButton.secondary(label: label, onPressed: onPressed, icon: icon, expand: fullWidth);
   }
 
   // Text button
   static Widget textButton(String label, {VoidCallback? onPressed}) {
-    return TextButton(
-      onPressed: onPressed,
-      child: Text(label),
-    );
+    return HearthButton.text(label: label, onPressed: onPressed);
   }
 
   // Section card with optional image header
@@ -114,8 +61,8 @@ class DS {
     Widget? trailing,
     String? imageUrl,
   }) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
+    return HearthCard(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -124,7 +71,7 @@ class DS {
               height: 120,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: AppTheme.lightMuted,
+                color: AppTheme.tintWarm,
                 image: DecorationImage(
                   image: AssetImage(imageUrl),
                   fit: BoxFit.cover,
@@ -132,25 +79,12 @@ class DS {
               ),
             ),
           Padding(
-            padding: const EdgeInsets.all(AppTheme.spacingL),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (trailing != null) trailing,
-                  ],
-                ),
-                const SizedBox(height: AppTheme.spacingM),
+                HearthSectionHeading(title, trailing: trailing),
+                const SizedBox(height: 12),
                 child,
               ],
             ),
@@ -166,60 +100,10 @@ class DS {
     required String title,
     required String subtitle,
     VoidCallback? onTap,
+    // Kept for callers; Hearth icon chips are always purple on warm tint.
     Color? iconColor,
   }) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.spacingL),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: (iconColor ?? AppTheme.lightPrimary).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  color: iconColor ?? AppTheme.lightPrimary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: AppTheme.spacingM),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.lightForeground.withOpacity(0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: AppTheme.lightForeground.withOpacity(0.3),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return HearthRowCard(icon: icon, title: title, subtitle: subtitle, onTap: onTap);
   }
 
   // Background images for each screen
@@ -229,7 +113,7 @@ class DS {
   static const String feedbackBackground = 'assets/images/family.jpeg';
   static const String appointmentsBackground = 'assets/images/helpingheadjpg.jpeg';
   static const String transcriptionBackground = 'assets/images/braidinghair.png';
-  
+
   // Random background image helper (legacy support)
   static String getRandomBackgroundImage() {
     final images = [
@@ -243,7 +127,7 @@ class DS {
     return images[math.Random().nextInt(images.length)];
   }
 
-  // Hero header with background image
+  // Hero header: warm tint panel with an optional faint photo behind the title.
   static Widget heroHeader({
     required BuildContext context,
     required String title,
@@ -254,25 +138,18 @@ class DS {
       height: 200,
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppTheme.lightPrimary,
-            AppTheme.lightAccent,
-          ],
-        ),
+        color: AppTheme.tintWarm,
         image: backgroundImage != null
             ? DecorationImage(
                 image: AssetImage(backgroundImage),
                 fit: BoxFit.cover,
-                opacity: 0.3,
+                opacity: 0.15,
               )
             : null,
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(AppTheme.spacingXL),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.end,
@@ -283,25 +160,11 @@ class DS {
                   const Spacer(),
                 ],
               ),
-              const SizedBox(height: AppTheme.spacingL),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.surfaceCard,
-                ),
-              ),
+              const SizedBox(height: 16),
+              Text(title, style: Theme.of(context).textTheme.displaySmall),
               if (subtitle != null) ...[
                 const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.surfaceCard,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
+                Text(subtitle, style: Theme.of(context).textTheme.bodyLarge),
               ],
             ],
           ),
@@ -318,48 +181,32 @@ class DS {
     VoidCallback? onTap,
     Widget? trailing,
   }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppTheme.spacingS),
-      child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spacingL,
-          vertical: AppTheme.spacingS,
-        ),
-        leading: CircleAvatar(
-          backgroundColor: AppTheme.lightAccent,
-          child: Text(
-            avatarText ?? title[0].toUpperCase(),
-            style: const TextStyle(
-              color: AppTheme.brandWhite,
-              fontWeight: FontWeight.w600,
+    return HearthCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      onTap: onTap,
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          HearthAvatar(avatarText ?? title[0].toUpperCase()),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: hearthCardTitleStyle),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: hearthCardBodyStyle,
+                ),
+              ],
             ),
           ),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            subtitle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.lightForeground.withOpacity(0.6),
-            ),
-          ),
-        ),
-        trailing: trailing ??
-            Icon(
-              Icons.chevron_right,
-              color: AppTheme.lightForeground.withOpacity(0.3),
-            ),
+          const SizedBox(width: 8),
+          trailing ?? const Icon(Icons.chevron_right, size: 20, color: AppTheme.brandPurple),
+        ],
       ),
     );
   }
@@ -374,46 +221,31 @@ class DS {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppTheme.spacingXXL),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppTheme.lightMuted,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 48,
-                color: AppTheme.lightPrimary,
-              ),
-            ),
-            const SizedBox(height: AppTheme.spacingL),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (message != null) ...[
-              const SizedBox(height: AppTheme.spacingS),
+        child: Builder(
+          builder: (context) => Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              HearthIconChip(icon, size: 72, iconSize: 32),
+              const SizedBox(height: 16),
               Text(
-                message,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.lightForeground.withOpacity(0.6),
-                ),
+                title,
+                style: Theme.of(context).textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),
+              if (message != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              if (action != null) ...[
+                const SizedBox(height: 24),
+                action,
+              ],
             ],
-            if (action != null) ...[
-              const SizedBox(height: AppTheme.spacingXL),
-              action,
-            ],
-          ],
+          ),
         ),
       ),
     );

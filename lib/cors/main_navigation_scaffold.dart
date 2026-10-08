@@ -16,6 +16,7 @@ import '../support_stage/support_stage.dart';
 import '../support_stage/support_stage_scope.dart';
 import '../widgets/ambient_background.dart';
 import '../app_router.dart';
+import '../design_system/hearth.dart';
 import 'main_navigation_scope.dart';
 import 'ui_theme.dart';
 
@@ -68,9 +69,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
       final user = await _analytics.waitForInitialAuthResolution();
 
       if (user == null) {
-        debugPrint(
-          '⚠️ Analytics: No authenticated user - screen view tracking skipped',
-        );
+        debugPrint('⚠️ Analytics: No authenticated user - screen view tracking skipped');
         return;
       }
 
@@ -291,77 +290,16 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
           ),
         ],
       ),
-      bottomNavigationBar: Material(
-        color: AppTheme.navBarBgLight,
-        elevation: 0,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: AppTheme.navBarBorderLight)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 32,
-                offset: const Offset(0, -12),
-              ),
-            ],
-          ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 72,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Expanded(
-                    child: _NavItem(
-                      icon: Icons.home_outlined,
-                      activeIcon: Icons.home_rounded,
-                      label: 'Home',
-                      isSelected: _index == 0,
-                      onTap: () => _onTabChanged(0),
-                    ),
-                  ),
-                  Expanded(
-                    child: _NavItem(
-                      icon: Icons.menu_book_outlined,
-                      activeIcon: Icons.menu_book_rounded,
-                      label: 'Learn',
-                      isSelected: _index == 1,
-                      onTap: () => _onTabChanged(1),
-                    ),
-                  ),
-                  Expanded(
-                    child: _NavItem(
-                      icon: Icons.favorite_outline_rounded,
-                      activeIcon: Icons.favorite_rounded,
-                      label: 'Journal',
-                      isSelected: _index == 2,
-                      onTap: () => _onTabChanged(2),
-                    ),
-                  ),
-                  Expanded(
-                    child: _NavItem(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      activeIcon: Icons.chat_bubble_rounded,
-                      label: 'Community',
-                      isSelected: _index == 3,
-                      onTap: () => _onTabChanged(3),
-                    ),
-                  ),
-                  Expanded(
-                    child: _NavItem(
-                      icon: Icons.person_outline_rounded,
-                      activeIcon: Icons.person_rounded,
-                      label: 'You',
-                      isSelected: _index == 4,
-                      onTap: () => _onTabChanged(4),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+      bottomNavigationBar: HearthBottomNav(
+        index: _index,
+        onTap: _onTabChanged,
+        items: const [
+          HearthNavItem(icon: Icons.home_outlined, label: 'Home'),
+          HearthNavItem(icon: Icons.menu_book_outlined, label: 'Learn'),
+          HearthNavItem(icon: Icons.favorite_border, label: 'Journal'),
+          HearthNavItem(icon: Icons.chat_bubble_outline, label: 'Community'),
+          HearthNavItem(icon: Icons.person_outline, label: 'You'),
+        ],
       ),
       ),
           );
@@ -371,105 +309,14 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
   }
 }
 
-/// Floating AI assistant button shown on the Home tab, opening the assistant.
+/// Floating Support button shown on the Home tab, opening the assistant.
 class _AssistantFab extends StatelessWidget {
   const _AssistantFab();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF663399), Color(0xFF8855BB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.brandPurple.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(30),
-          onTap: () => Navigator.of(context).pushNamed(Routes.assistant),
-          child: const Center(
-            child: Icon(
-              Icons.support_agent_rounded,
-              color: AppTheme.brandWhite,
-              size: 28,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _NavItem({
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final active = AppTheme.brandPurple;
-    final inactive = AppTheme.navInactiveLight;
-    final color = isSelected ? active : inactive;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedScale(
-              scale: isSelected ? 1.1 : 1,
-              duration: const Duration(milliseconds: 220),
-              child: Icon(
-                isSelected ? activeIcon : icon,
-                size: 22,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            // Scale-protect the label so it never clips on narrow screens.
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                maxLines: 1,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w300,
-                  letterSpacing: 0.4,
-                  color: color,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return HearthSupportFab(
+      onPressed: () => Navigator.of(context).pushNamed(Routes.assistant),
     );
   }
 }

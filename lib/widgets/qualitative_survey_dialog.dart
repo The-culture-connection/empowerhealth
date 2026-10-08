@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../services/qualitative_survey_service.dart';
 import '../services/database_service.dart';
 import '../services/analytics_service.dart';
@@ -40,36 +41,25 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.surfaceCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryActionGradient,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(23),
-                  topRight: Radius.circular(23),
-                ),
-              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Text(
                       widget.title,
-                      style: const TextStyle(
-                        color: AppTheme.brandWhite,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: AppTheme.brandWhite),
+                  const SizedBox(width: 12),
+                  HearthCircleButton(
+                    icon: Icons.close,
                     onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -79,18 +69,13 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
             // Questions
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(22),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Please rate your experience (1 = Strongly Disagree, 5 = Strongly Agree)',
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.5,
-                        color: AppTheme.textMuted,
-                        fontWeight: FontWeight.w300,
-                      ),
+                      style: hearthCardBodyStyle,
                     ),
                     const SizedBox(height: 24),
                     ...widget.questions.asMap().entries.map((entry) {
@@ -105,42 +90,16 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
 
             // Submit Button
             Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              decoration: const BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: AppTheme.borderLight, width: 1),
+                  top: BorderSide(color: AppTheme.borderWarm, width: 1),
                 ),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSubmitting || !_allQuestionsAnswered() ? null : _submitSurvey,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.brandPurple,
-                    foregroundColor: AppTheme.brandWhite,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    minimumSize: const Size(double.infinity, 52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                    ),
-                  ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
-                          ),
-                        )
-                      : const Text(
-                          'Submit',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                ),
+              child: HearthButton.primary(
+                label: 'Submit',
+                loading: _isSubmitting,
+                onPressed: !_allQuestionsAnswered() ? null : _submitSurvey,
               ),
             ),
           ],
@@ -160,23 +119,27 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
           Text(
             question,
             style: const TextStyle(
+              fontFamily: AppTheme.sansFamily,
               fontSize: 16,
-              height: 1.45,
-              fontWeight: FontWeight.w400,
-              color: AppTheme.textSecondary,
+              height: 22 / 16,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.ink,
             ),
           ),
           const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
-              // Shrink the 5 rating boxes to fit narrow screens (cap at 52).
-              final size = ((constraints.maxWidth - 8 * 4) / 5).clamp(40.0, 52.0);
+              // Shrink the 5 rating circles to fit narrow screens (44-48).
+              final size = ((constraints.maxWidth - 8 * 4) / 5).clamp(44.0, 48.0);
               return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List.generate(5, (i) {
               final value = i + 1;
               final isSelected = rating == value;
-              return GestureDetector(
+              return Semantics(
+                button: true,
+                selected: isSelected,
+                child: GestureDetector(
                 onTap: () {
                   setState(() {
                     _ratings[index] = value;
@@ -186,23 +149,24 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
                   width: size,
                   height: size,
                   decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.brandPurple : AppTheme.surfaceInput,
+                    color: isSelected ? AppTheme.brandPurple : AppTheme.surface,
                     border: Border.all(
-                      color: isSelected ? AppTheme.brandPurple : AppTheme.borderLight,
-                      width: 2,
+                      color: isSelected ? AppTheme.brandPurple : AppTheme.borderWarm,
                     ),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Text(
                       value.toString(),
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected ? AppTheme.brandWhite : AppTheme.textMuted,
+                        fontFamily: AppTheme.sansFamily,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected ? AppTheme.onPurple : AppTheme.ink,
                       ),
                     ),
                   ),
+                ),
                 ),
               );
             }),
@@ -267,8 +231,7 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
         }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Thank you for your feedback!'),
-            backgroundColor: Colors.green,
+            content: Text('Thank you for your feedback!'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -279,7 +242,6 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error submitting survey: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
         );
       }

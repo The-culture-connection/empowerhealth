@@ -126,3 +126,8 @@ Fill in one row per mockup as you finish it. "Match" = the running screen at 390
 
 | Dart file | Pattern used |
 |---|---|
+| lib/design_system/widgets.dart (`DS` helpers; no callers in lib/) | Rebuilt on HearthButton / HearthCard / HearthRowCard / HearthAvatar / HearthIconChip; hero header is a tint panel with the photo at 15% |
+| lib/widgets/trust_cue_banner.dart | Cream HearthNote with lock_outline (privacy note pattern from Visits-Upload) |
+| lib/widgets/ai_disclaimer_banner.dart | Lavender HearthNote (AI note pattern from Visits-Upload-Result) |
+
+Note: the local harness's iPhone 15 preset is 393×852, 3px wider than the 390×844 mockups; screens were compared at that size.

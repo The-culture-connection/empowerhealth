@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Create Your Profile: Referral dialog</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; background: #8E8794; font-family: 'Figtree', system-ui, sans-serif; color: #2D2733">
+<div role="dialog" aria-modal="true" aria-labelledby="s5b-title" style="display: flex; flex-direction: column; gap: 14px; padding: 24px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 28px">
+<h1 id="s5b-title" style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Need Help with Mental Health Support?</h1>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3F52">We can help connect you with resources for Mental Health Support. Would you like us to provide referrals?</p>
+<div style="display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 6px">
+<button type="button" style="height: 52px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #663399; font-size: 16px; font-weight: 700; white-space: nowrap">Not Now</button>
+<button type="button" style="height: 52px; padding: 0 22px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700; white-space: nowrap">Yes, Get Referrals</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

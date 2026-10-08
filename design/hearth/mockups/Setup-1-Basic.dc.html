@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Create Your Profile: Basic Information</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 2000px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="padding: 64px 20px 8px; display: flex; flex-direction: column; gap: 16px">
+<a href="#" aria-label="Back" style="width: 44px; height: 44px; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; font-weight: 400">Create Your Profile</h1>
+</div>
+</header>
+
+<div style="padding: 12px 20px 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">Step 1 of 7</p>
+<div role="progressbar" aria-label="Profile progress" aria-valuemin="0" aria-valuemax="7" aria-valuenow="1" style="display: flex; height: 6px; border-radius: 999px; background: #E6D5B8; overflow: hidden"><span style="width: 50px; border-radius: 999px; background: #663399"></span></div>
+</div>
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Basic Information</h2>
+</div>
+
+<div style="padding: 20px 20px 32px; display: flex; flex-direction: column; gap: 24px">
+
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3F52">Let's start with some basic information about you.</p>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h3 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 700">Research study (optional)</h3>
+<div style="display: flex; gap: 14px; align-items: flex-start; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<span id="s1-research-title" style="font-size: 16px; line-height: 22px; font-weight: 700">Join the EmpowerHealth Watch research study</span>
+<span style="font-size: 14px; line-height: 21px; color: #4A3F52">If you turn this on, after saving your profile you will complete a short research enrollment (study ID and baseline survey). Your name and email are not stored in the research dataset.</span>
+</div>
+<button type="button" role="switch" aria-checked="false" aria-labelledby="s1-research-title" style="flex: none; width: 52px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center"><span style="width: 52px; height: 32px; box-sizing: border-box; padding: 0 5px; border-radius: 999px; background: #F5F1E8; border: 1.5px solid #6B5C75; display: flex; align-items: center; justify-content: flex-start"><span style="width: 18px; height: 18px; border-radius: 50%; background: #6B5C75"></span></span></button>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h3 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 700">How did you hear about EmpowerHealth Watch?</h3>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="s1-source" style="font-size: 14px; line-height: 20px; font-weight: 600">Select an option</label>
+<button id="s1-source" type="button" aria-haspopup="listbox" style="display: flex; align-items: center; gap: 10px; box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; text-align: left; font-size: 15px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px"><span style="flex: 1; min-width: 0">Doula</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">This helps us understand how people find the app</p>
+</div>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="s1-username" style="font-size: 14px; line-height: 20px; font-weight: 600">Username</label>
+<div style="display: flex; align-items: center; gap: 10px; box-sizing: border-box; height: 52px; padding: 0 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>
+<input id="s1-username" type="text" value="jasmine_c" placeholder="Choose a username" style="flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; font-size: 15px; color: #2D2733">
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">This will be displayed in the community and reviews</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="s1-age" style="font-size: 14px; line-height: 20px; font-weight: 600">Age</label>
+<div style="display: flex; align-items: center; gap: 10px; box-sizing: border-box; height: 52px; padding: 0 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M5 20v-7h14v7"></path><path d="M3.5 20h17M12 13V9.500"></path><path d="M12 5c1 1.100 1 2.200 0 2.900-1-.700-1-1.800 0-2.900z"></path></svg>
+<input id="s1-age" type="text" inputmode="numeric" value="29" placeholder="Enter your age" style="flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; font-size: 15px; color: #2D2733">
+</div>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h3 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 700">Pregnancy Status</h3>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<label style="display: flex; align-items: center; gap: 14px; box-sizing: border-box; min-height: 56px; padding: 15px; background: #EFE0C6; border: 2px solid #663399; border-radius: 24px">
+<input type="radio" name="s1-status" checked style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399">
+<span style="font-size: 16px; line-height: 22px; font-weight: 700">I am currently pregnant</span>
+</label>
+<a href="#" style="display: flex; align-items: center; gap: 12px; box-sizing: border-box; min-height: 68px; padding: 12px 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; line-height: 20px; font-weight: 600">Due Date</span><span style="font-size: 15px; line-height: 22px; color: #4A3F52">March 11, 2027</span></span>
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M4 10h16M8 3v4M16 3v4"></path></svg>
+</a>
+<div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: #EDE7F3; border-radius: 24px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6"></path><circle cx="12" cy="7.600" r=".6"></circle></svg>
+<p style="margin: 0; font-size: 15px; line-height: 22px; font-weight: 600">Current Trimester: Second</p>
+</div>
+<label style="display: flex; align-items: center; gap: 14px; box-sizing: border-box; min-height: 56px; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<input type="radio" name="s1-status" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399">
+<span style="font-size: 16px; line-height: 22px; font-weight: 500">I am postpartum</span>
+</label>
+</div>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="s1-zip" style="font-size: 14px; line-height: 20px; font-weight: 600">Zip Code</label>
+<div style="display: flex; align-items: center; gap: 10px; box-sizing: border-box; height: 52px; padding: 0 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 21s-6.5-5.8-6.5-11a6.500 6.500 0 0 1 13 0c0 5.200-6.500 11-6.500 11z"></path><circle cx="12" cy="10" r="2.4"></circle></svg>
+<input id="s1-zip" type="text" inputmode="numeric" value="45202" placeholder="Enter your zip code" style="flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; font-size: 15px; color: #2D2733">
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="s1-city" style="font-size: 14px; line-height: 20px; font-weight: 600">City</label>
+<div style="display: flex; align-items: center; gap: 10px; box-sizing: border-box; height: 52px; padding: 0 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M4 20V10h7v10M11 20V4h9v16M3 20h18"></path><path d="M14.5 8h2M14.5 12h2M14.5 16h2M7 14h1M7 17h1"></path></svg>
+<input id="s1-city" type="text" value="Cincinnati" placeholder="Enter your city" style="flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; font-size: 15px; color: #2D2733">
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="s1-state" style="font-size: 14px; line-height: 20px; font-weight: 600">State</label>
+<div style="display: flex; align-items: center; gap: 10px; box-sizing: border-box; height: 52px; padding: 0 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M9 4L4 6v14l5-2 6 2 5-2V4l-5 2z"></path><path d="M9 4v14M15 6v14"></path></svg>
+<input id="s1-state" type="text" value="OH" placeholder="Enter your state (e.g., OH)" style="flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; font-size: 15px; color: #2D2733">
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="s1-insurance" style="font-size: 14px; line-height: 20px; font-weight: 600">Insurance Type</label>
+<button id="s1-insurance" type="button" aria-haspopup="listbox" style="display: flex; align-items: center; gap: 10px; box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; text-align: left; font-size: 15px; color: #6B5C75; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M12 8.500v7M8.500 12h7"></path></svg><span style="flex: 1; min-width: 0">Select your insurance type</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></button>
+</div>
+
+</div>
+
+<div style="margin-top: auto; padding: 16px 20px 32px; display: flex; gap: 12px">
+<button type="button" style="flex: 1; min-width: 0; height: 52px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Next</button>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2000}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

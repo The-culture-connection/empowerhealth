@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 2420px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="position: relative; overflow: hidden; padding: 64px 20px 4px; display: flex; flex-direction: column; gap: 12px">
+<span aria-hidden="true" style="position: absolute; top: -70px; right: -60px; width: 200px; height: 200px; border-radius: 50%; background: #EFE0C6"></span>
+<div style="position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+<h1 style="position: relative; margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 34px; line-height: 40px; font-weight: 400">Welcome, <span style="position: relative; display: inline-block">Mama<svg viewBox="0 0 96 10" preserveAspectRatio="none" fill="none" aria-hidden="true" style="position: absolute; left: 0; bottom: -7px; width: 100%; height: 10px"><path d="M2 7c18-6 36-6 52-2s28 3 40-2" stroke="#D4A574" stroke-width="3" stroke-linecap="round"></path></svg></span></h1>
+<a href="Home-MilestoneTracker.dc.html" aria-label="Milestone check-ins" style="position: relative; flex: none; width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg><span aria-hidden="true" style="position: absolute; top: 7px; right: 8px; width: 12px; height: 12px; box-sizing: border-box; border-radius: 50%; background: #663399; border: 2px solid #FAF8F4"></span></a>
+</div>
+<p style="position: relative; margin: 0; max-width: 300px; font-size: 16px; line-height: 23px; color: #4A3F52">You're supported, with clear answers and tools to speak up.</p>
+</header>
+
+<div style="padding: 20px 20px 0; display: flex; flex-direction: column; gap: 28px">
+
+<label style="display: flex; align-items: center; gap: 12px; height: 54px; box-sizing: border-box; padding: 0 18px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 999px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z"></path></svg>
+<input type="search" aria-label="Search" placeholder="Search symptoms or topics" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 15px; color: #2D2733">
+</label>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Your space</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<a href="Visits-List.dc.html" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<span style="width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2"></rect><path d="M9 9h6M9 13h6M9 17h3"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16px; line-height: 22px; font-weight: 700">My Visits &amp; What It Means</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Summaries &amp; notes</span></span>
+</a>
+<a href="Journal-Hub.dc.html" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<span style="width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16px; line-height: 22px; font-weight: 700">How I'm Feeling</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Your private space</span></span>
+</a>
+<a href="Birth-List.dc.html" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<span style="width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"></path><path d="M10 12h5M10 16h5"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16px; line-height: 22px; font-weight: 700">My Birth Choices</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">What's right for you</span></span>
+</a>
+<a href="Learn-Center.dc.html" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<span style="width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2z"></path><path d="M12 6v14"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16px; line-height: 22px; font-weight: 700">My Care Plan</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Your personalized path</span></span>
+</a>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Today's guidance</h2>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 22px; background: #EFE0C6; border-radius: 24px">
+<p style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 19px; line-height: 27px">Understand your care, prepare questions, and find support.</p>
+<a href="Support-CheckIn.dc.html" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 15px; font-weight: 700; color: #663399">See options<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<div style="display: flex; gap: 14px; align-items: flex-start">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 4px"><h3 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 700">Care Check-In</h3><p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">Tell us what you needed help with and whether you got it.</p></div>
+</div>
+<a href="Home-NeedsChecklist.dc.html" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 15px; font-weight: 700; color: #663399">Start check-in<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a>
+</div>
+<a href="Visits-List.dc.html" style="display: flex; gap: 14px; align-items: flex-start; padding: 18px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2"></rect><path d="M9 9h6M9 13h6M9 17h3"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; line-height: 18px; color: #6B5C75">My Visits</span><span style="font-size: 16px; line-height: 22px; font-weight: 700">Oct 7, 2026</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Latest summarized visit</span><span style="font-size: 14px; line-height: 21px; color: #4A3F52">Your routine visit went well. Your iron was a little low, so you'll start a supplement.</span></span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</section>
+
+<a href="Learn-Rights.dc.html" style="display: flex; gap: 14px; align-items: center; padding: 20px; background: #663399; border-radius: 24px; color: #FFFFFF">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #D4A574; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 4px"><span style="font-family: 'Young Serif', Georgia, serif; font-size: 19px; line-height: 25px">Know your rights</span><span style="font-size: 14px; line-height: 21px; color: #F5F1E8">Understand your options and feel confident speaking up.</span></span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Understand your care</h2>
+<a href="Care-Search.dc.html" style="display: flex; gap: 14px; align-items: center; padding: 18px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="M20 20l-4.5-4.5"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; line-height: 22px; font-weight: 700">Find your care team</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Search providers by ZIP, city, and type of care</span></span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<a href="Support-Assistant.dc.html" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<span style="width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"></path><path d="M7.5 15h9"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16px; line-height: 22px; font-weight: 700">What does this test mean?</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Labs and visit notes in plain language</span></span>
+</a>
+<a href="Home-PregnancyJourney.dc.html" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<span style="width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7"></path><circle cx="12" cy="17" r=".6"></circle></svg></span>
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16px; line-height: 22px; font-weight: 700">Is this normal?</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">What's typical, and when to reach out</span></span>
+</a>
+</div>
+</section>
+
+<a href="Home-PregnancyJourney.dc.html" style="display: flex; gap: 14px; align-items: flex-start; padding: 20px; background: #EFE0C6; border-radius: 24px">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #FAF8F4; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2z"></path><path d="M12 6v14"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px"><span style="font-family: 'Young Serif', Georgia, serif; font-size: 19px; line-height: 25px">Week&nbsp;18 • Second&nbsp;trimester</span><span style="font-size: 14px; line-height: 21px; color: #4A3F52">What to expect this week, what to ask, and when to call your provider.</span><span style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 15px; font-weight: 700; color: #663399">Open your trimester guide<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></span>
+</a>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">From the community</h2>
+<a href="Community-Feed.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<span style="display: flex; gap: 14px; align-items: flex-start">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px"><span style="font-size: 17px; line-height: 24px; font-weight: 700">Welcome to<br>EmpowerHealth Watch</span><span style="font-size: 14px; line-height: 21px; color: #4A3F52">You're not alone here. Connect with other moms, share your journey, and find support from those who understand.</span></span>
+</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 15px; font-weight: 700; color: #663399">Explore community<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></span>
+</a>
+</section>
+
+</div>
+
+<div style="margin-top: auto; display: flex; justify-content: flex-end; padding: 16px 20px">
+<a href="Support-Assistant.dc.html" aria-label="Support" style="width: 60px; height: 60px; box-sizing: border-box; border-radius: 50%; border: 3px solid #F5F1E8; background: #663399; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(45,39,51,0.2)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 14v-2a7 7 0 0 1 14 0v2"></path><rect x="3" y="13" width="4" height="6" rx="1.5"></rect><rect x="17" y="13" width="4" height="6" rx="1.5"></rect></svg></a>
+</div>
+<nav style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: #FAF8F4; border-top: 1px solid #E6D5B8; padding: 0 8px 26px">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 700; color: #663399"><span style="width: 24px; height: 3px; border-radius: 0 0 3px 3px; background: #D4A574; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg>Home</a>
+<a href="Learn-Center.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2z"></path><path d="M12 6v14"></path></svg>Learn</a>
+<a href="Journal-Hub.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg>Journal</a>
+<a href="Community-Feed.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>Community</a>
+<a href="You-Profile.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>You</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2420}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

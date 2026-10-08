@@ -1,0 +1,253 @@
+{
+  "about": "Phase map for the Hearth restyle. 'files' are the Dart files a phase restyles (paths relative to the repo root). 'mockups' are the reference artboards in design/hearth/mockups (PNG renders in design/hearth/png). scripts/hearth/verify.mjs reads this file.",
+  "exempt": [
+    "lib/cors/ui_theme.dart",
+    "lib/design_system/hearth.dart",
+    "lib/qa/",
+    "lib/services/",
+    "lib/models/",
+    "lib/firebase_options.dart",
+    ".g.dart"
+  ],
+  "legacy": [
+    {"file": "lib/Home/home_screen.dart", "class": "HomeScreen"},
+    {"file": "lib/Home/Appointments/appointments_screen.dart", "class": "AppointmentsScreen"},
+    {"file": "lib/Home/Appointments/detail_appointments.dart", "class": "AppointmentDetailScreen"},
+    {"file": "lib/Home/Learning Modules/Learning_modules_screen.dart", "class": "LearningModulesScreen"},
+    {"file": "lib/Home/Learning Modules/Learning_modules_detaile_screen.dart", "class": "LearningModulesDetaileScreen"},
+    {"file": "lib/Home/Learning Modules/Module_search_screen.dart", "class": "ModuleSearchScreen"},
+    {"file": "lib/Home/birth_plan_creator_screen.dart", "class": "BirthPlanCreatorScreen"},
+    {"file": "lib/birthplan/birth_plan_creator_screen.dart", "class": "BirthPlanCreatorScreen"},
+    {"file": "lib/Home/visit_summary_screen.dart", "class": "VisitSummaryScreen"},
+    {"file": "lib/visits/visit_summary_screen.dart", "class": "PastSummariesScreen"},
+    {"file": "lib/Home/appointment_checklist_screen.dart", "class": "AppointmentChecklistScreen"},
+    {"file": "lib/appointments/appointment_checklist_screen.dart", "class": "AppointmentChecklistScreen"},
+    {"file": "lib/Home/learning_todo_widget.dart", "class": "LearningTodoWidget"},
+    {"file": "lib/Home/Messages/Messages_screen.dart", "class": "MessagesScreen"},
+    {"file": "lib/Journal/Journal_entry_screen.dart", "class": "JournalEntryScreen"},
+    {"file": "lib/Community/forum_detail_screen.dart", "class": "ForumDetailScreen"},
+    {"file": "lib/Community/seed_mock_posts.dart", "class": "seedMockPosts"},
+    {"file": "lib/learning/learning_modules_screen.dart", "class": "LearningModulesScreen"},
+    {"file": "lib/learning/module_detail_screen.dart", "class": "ModuleDetailScreen"},
+    {"file": "lib/emotional_support/emotional_support_hub_screen.dart", "class": "EmotionalSupportHubScreen"},
+    {"file": "lib/emotional_support/emotional_support_emergency_hub_screen.dart", "class": "EmotionalSupportEmergencyHubScreen"},
+    {"file": "lib/emotional_support/emotional_support_pregnancy_loss_screen.dart", "class": "EmotionalSupportPregnancyLossScreen"},
+    {"file": "lib/emotional_support/emotional_support_checkin_screen.dart", "class": "EmotionalSupportCheckInScreen"},
+    {"file": "lib/emotional_support/widgets/home_emotional_support_card.dart", "class": "HomeEmotionalSupportCard"},
+    {"file": "lib/pregnancy_loss/pregnancy_loss_navigation_scaffold.dart", "class": "PregnancyLossNavigationScaffold"},
+    {"file": "lib/pregnancy_loss/pregnancy_loss_home_screen.dart", "class": "PregnancyLossHomeScreen"},
+    {"file": "lib/pregnancy_loss/widgets/pregnancy_loss_home_learning_hero_card.dart", "class": "PregnancyLossHomeLearningHeroCard"},
+    {"file": "lib/research/milestone_prompt_modal.dart", "class": "MilestonePromptModal"}
+  ],
+  "phases": [
+    {
+      "id": 1,
+      "name": "Theme foundation",
+      "files": ["lib/cors/ui_theme.dart", "lib/widgets/ambient_background.dart", "pubspec.yaml"],
+      "mockups": []
+    },
+    {
+      "id": 2,
+      "name": "Shared components and app chrome",
+      "files": [
+        "lib/design_system/hearth.dart",
+        "lib/design_system/widgets.dart",
+        "lib/cors/main_navigation_scaffold.dart",
+        "lib/widgets/ai_disclaimer_banner.dart",
+        "lib/widgets/trust_cue_banner.dart",
+        "lib/widgets/mama_approved_community_badge.dart",
+        "lib/widgets/qualitative_survey_dialog.dart",
+        "lib/widgets/step_scroll.dart"
+      ],
+      "mockups": []
+    },
+    {
+      "id": 3,
+      "name": "Sign in and onboarding",
+      "files": [
+        "lib/auth/auth_screen.dart",
+        "lib/auth/Login_screen.dart",
+        "lib/auth/Sign_up_screen.dart",
+        "lib/auth/terms_and_conditions_screen.dart",
+        "lib/auth/guest_guard.dart",
+        "lib/auth/guest_account_cta.dart",
+        "lib/privacy/consent_screen.dart",
+        "lib/profile/research/research_onboarding_screen.dart",
+        "lib/profile/research/baseline_research_form.dart",
+        "lib/profile/research/insurance_question.dart",
+        "lib/profile/research/pregnancy_postpartum_question.dart",
+        "lib/profile/research/recruitment_pathway_question.dart",
+        "lib/profile/research/recruitment_source_question.dart"
+      ],
+      "mockups": ["Start-Welcome", "Start-Terms", "Start-SignUp", "Start-Login", "Start-ResetPassword", "Start-GuestPrompt", "Start-Consent", "Start-Research", "Start-ResearchBaseline1", "Start-ResearchBaseline2", "Start-ResearchBaseline3", "Start-ResearchBaseline4", "Start-ResearchBaseline5", "Start-ResearchBaseline6"]
+    },
+    {
+      "id": 4,
+      "name": "Create your profile",
+      "files": [
+        "lib/profile/profile_creation_screen.dart",
+        "lib/profile/steps/basic_info_step.dart",
+        "lib/profile/steps/demographics_step.dart",
+        "lib/profile/steps/health_info_step.dart",
+        "lib/profile/steps/support_network_step.dart",
+        "lib/profile/steps/wellness_access_step.dart",
+        "lib/profile/steps/preferences_step.dart",
+        "lib/profile/steps/goals_step.dart"
+      ],
+      "mockups": ["Setup-1-Basic", "Setup-2-Demographics", "Setup-3-Health", "Setup-4-Support", "Setup-5-Wellness", "Setup-5b-Referral", "Setup-6-Preferences", "Setup-7-Goals"]
+    },
+    {
+      "id": 5,
+      "name": "Home",
+      "files": [
+        "lib/Home/home_screen_v2.dart",
+        "lib/Home/widgets/home_milestone_bell.dart",
+        "lib/Home/pregnancy_journey_screen.dart",
+        "lib/widgets/home_provider_search_entry.dart",
+        "lib/immediate_support/widgets/immediate_support_home_card.dart",
+        "lib/resources/app_resources_screen.dart",
+        "lib/care_survey/care_navigation_survey_screen.dart",
+        "lib/care_survey/care_checkin_support_screen.dart",
+        "lib/research/needs_checklist_screen.dart",
+        "lib/research/need_other_text_field.dart",
+        "lib/research/need_outcome_question_list.dart",
+        "lib/research/navigation_outcome_prompt.dart",
+        "lib/research/milestone_check_in_screen.dart",
+        "lib/research/milestone_tracker_sheet.dart",
+        "lib/research/micro_measure_prompt.dart"
+      ],
+      "mockups": ["Main", "Home-PregnancyJourney", "Home-NeedsChecklist", "Home-CareCheckIn-Support", "Home-CareCheckIn-3-Access", "Home-CareCheckIn-4-Outcome", "Home-CareCheckIn-5-Complete", "Home-Resources", "Home-MilestoneTracker", "Home-MilestoneCheckIn"]
+    },
+    {
+      "id": 6,
+      "name": "My visits",
+      "files": [
+        "lib/appointments/appointments_list_screen.dart",
+        "lib/appointments/upload_visit_summary_screen.dart",
+        "lib/appointments/visit_detail_screen.dart",
+        "lib/appointments/visit_summary_preview.dart",
+        "lib/appointments/suggested_learning_list.dart",
+        "lib/privacy/after_visit_privacy_screen.dart",
+        "lib/research/post_visit_summary_rating_modal.dart"
+      ],
+      "mockups": ["Visits-List", "Visits-List-Empty", "Visits-Upload-HowItWorks", "Visits-Upload", "Visits-Upload-Text", "Visits-Privacy", "Visits-Upload-Result", "Visits-Rating", "Visits-Detail", "Visits-Detail-Delete"]
+    },
+    {
+      "id": 7,
+      "name": "Learn",
+      "files": [
+        "lib/Home/Learning Modules/learning_modules_screen_v2.dart",
+        "lib/Home/Learning Modules/learning_module_detail_screen.dart",
+        "lib/Home/Learning Modules/rights_screen.dart",
+        "lib/Home/Learning Modules/rights_static_content.dart",
+        "lib/Home/Learning Modules/module_survey_dialog.dart",
+        "lib/Home/Learning Modules/birth_labor_education_topics.dart",
+        "lib/learning/notes_dialog.dart",
+        "lib/learning/module_notes.dart",
+        "lib/widgets/learning_module_formatted_content.dart",
+        "lib/widgets/medical_citations_section.dart",
+        "lib/widgets/module_quick_feedback.dart",
+        "lib/widgets/note_highlight_spans.dart",
+        "lib/research/post_module_rating_modal.dart"
+      ],
+      "mockups": ["Learn-Center", "Learn-Center-Archived", "Learn-Module", "Learn-Notes", "Learn-ModuleExit", "Learn-Survey", "Learn-Rating", "Learn-Rights", "Learn-RightsDetail"]
+    },
+    {
+      "id": 8,
+      "name": "Journal",
+      "files": ["lib/Journal/Journal_screen.dart", "lib/Journal/journal_learning_note_opener.dart"],
+      "mockups": ["Journal-Hub", "Journal-CheckIn", "Journal-Write", "Journal-LearningNotes", "Journal-Entry", "Journal-Empty"]
+    },
+    {
+      "id": 9,
+      "name": "Community",
+      "files": [
+        "lib/Community/community_screen.dart",
+        "lib/Community/create_post_screen.dart",
+        "lib/Community/post_detail_screen.dart",
+        "lib/widgets/community_survey_banner.dart"
+      ],
+      "mockups": ["Community-Feed", "Community-NewPost", "Community-Post", "Community-Report", "Community-Block", "Community-Delete"]
+    },
+    {
+      "id": 10,
+      "name": "Find your care",
+      "files": [
+        "lib/providers/provider_search_screen.dart",
+        "lib/providers/provider_quick_search_screen.dart",
+        "lib/providers/provider_search_entry_screen.dart",
+        "lib/providers/provider_search_results_screen.dart",
+        "lib/providers/mama_approved_providers_screen.dart",
+        "lib/widgets/provider_search_loading.dart"
+      ],
+      "mockups": ["Care-Search", "Care-Search-Quick", "Care-Search-Form", "Care-Loading", "Care-Results", "Care-Results-Empty", "Care-MamaApproved"]
+    },
+    {
+      "id": 11,
+      "name": "Provider profile and reviews",
+      "files": [
+        "lib/providers/provider_profile_screen.dart",
+        "lib/providers/provider_review_screen.dart",
+        "lib/providers/add_provider_screen.dart",
+        "lib/providers/provider_report_sheet.dart",
+        "lib/providers/share_provider_experience_screen.dart"
+      ],
+      "mockups": ["Care-Provider", "Care-Report", "Care-Review", "Care-ShareExperience", "Care-ShareExperience-NoResults", "Care-AddProvider", "Care-AddProvider-Success"]
+    },
+    {
+      "id": 12,
+      "name": "Birth plan",
+      "files": [
+        "lib/birthplan/birth_plans_list_screen.dart",
+        "lib/birthplan/comprehensive_birth_plan_screen.dart",
+        "lib/birthplan/birth_plan_display_screen.dart"
+      ],
+      "mockups": ["Birth-List", "Birth-List-Empty", "Birth-Builder-1-Support", "Birth-Builder-2-Space", "Birth-Builder-3-Comfort", "Birth-Builder-4-AfterBaby", "Birth-Builder-5-PlansChange", "Birth-Builder-Feedback", "Birth-Plan"]
+    },
+    {
+      "id": 13,
+      "name": "You and privacy",
+      "files": [
+        "lib/editprofile/edit_profile_screen.dart",
+        "lib/privacy/privacy_center_screen.dart",
+        "lib/privacy/blocked_users_screen.dart",
+        "lib/pregnancy_loss/widgets/support_stage_settings_tile.dart"
+      ],
+      "mockups": ["You-Profile", "You-Profile-Open", "You-EditProfile", "You-Profile-Guest", "You-Dialog-SupportStage", "You-Dialog-DeleteProfile", "You-Dialog-SignOut", "You-Privacy", "You-Privacy-Open", "You-BlockedUsers", "You-BlockedUsers-Empty", "You-Dialog-DeleteAccount"]
+    },
+    {
+      "id": 14,
+      "name": "Assistant and support",
+      "files": [
+        "lib/assistant/assistant_screen.dart",
+        "lib/immediate_support/immediate_support_hub_screen.dart",
+        "lib/immediate_support/immediate_support_checkin_screen.dart",
+        "lib/immediate_support/immediate_support_content.dart",
+        "lib/emotional_support/widgets/crisis_988_card.dart"
+      ],
+      "mockups": ["Support-Assistant-Empty", "Support-Assistant", "Support-CheckIn", "Support-Hub", "Support-Hub-Selected"]
+    },
+    {
+      "id": 15,
+      "name": "Pregnancy-loss support mode",
+      "files": [
+        "lib/pregnancy_loss/pregnancy_loss_transition_screen.dart",
+        "lib/pregnancy_loss/pregnancy_loss_preferences_screen.dart",
+        "lib/pregnancy_loss/pregnancy_loss_home_content.dart",
+        "lib/pregnancy_loss/widgets/pregnancy_loss_home_variant.dart",
+        "lib/pregnancy_loss/pregnancy_loss_support_hub_screen.dart",
+        "lib/pregnancy_loss/pregnancy_loss_provider_questions_screen.dart",
+        "lib/pregnancy_loss/pregnancy_loss_learning_screen.dart",
+        "lib/pregnancy_loss/pregnancy_loss_learning_topics.dart",
+        "lib/pregnancy_loss/widgets/pregnancy_loss_crisis_resources.dart"
+      ],
+      "mockups": ["Loss-StagePicker", "Loss-Transition", "Loss-Preferences", "Loss-Home", "Loss-Support", "Loss-ProviderQuestions", "Loss-Learn", "Loss-Learn-Topic", "Community-Feed-Loss"]
+    },
+    {
+      "id": 16,
+      "name": "Global sweep",
+      "files": ["*"],
+      "mockups": []
+    }
+  ]
+}

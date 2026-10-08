@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Write a Review</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 2300px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="padding: 64px 20px 8px; display: flex; flex-direction: column; gap: 16px">
+<a href="Care-Provider.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; font-weight: 400">Write a Review</h1>
+</div>
+</header>
+
+<div style="padding: 16px 20px 32px; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>
+<span style="flex: 1; font-size: 16px; line-height: 22px; font-weight: 700">Danielle Whitfield, CNM</span>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Overall Rating *</h2>
+<div role="radiogroup" aria-label="Overall Rating" style="display: flex; justify-content: center; gap: 6px">
+<button type="button" role="radio" aria-checked="false" aria-label="1 star" style="width: 52px; height: 52px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="46" height="46" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"></path></svg></button>
+<button type="button" role="radio" aria-checked="false" aria-label="2 stars" style="width: 52px; height: 52px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="46" height="46" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"></path></svg></button>
+<button type="button" role="radio" aria-checked="false" aria-label="3 stars" style="width: 52px; height: 52px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="46" height="46" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"></path></svg></button>
+<button type="button" role="radio" aria-checked="true" aria-label="4 stars" style="width: 52px; height: 52px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="46" height="46" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"></path></svg></button>
+<button type="button" role="radio" aria-checked="false" aria-label="5 stars" style="width: 52px; height: 52px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#C4956A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"></path></svg></button>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">How was your visit?</h2>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">These help other parents beyond stars alone.</p>
+</div>
+<div style="display: flex; flex-direction: column; padding: 8px 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<label style="display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 15px; line-height: 22px; color: #2D2733"><input type="checkbox" checked="checked" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399">I felt heard</label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 15px; line-height: 22px; color: #2D2733"><input type="checkbox" checked="checked" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399">I felt respected</label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 15px; line-height: 22px; color: #2D2733"><input type="checkbox" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399">Things were explained clearly</label>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">About you (optional)</h2>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">Helps others find perspectives like theirs. You can skip any section.</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; color: #4A3F52">Race / ethnicity</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" aria-pressed="true" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #EFE0C6; border: 2px solid #663399; color: #663399; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Black / African American</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Latina/o/x</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Asian / Pacific Islander</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Native American / Indigenous</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Middle Eastern / North African</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Haitian</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Nigerian</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Somali</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; color: #4A3F52">Language</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Spanish</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Arabic</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">French</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Haitian Creole</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Somali</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Mandarin</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Vietnamese</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Tagalog</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Portuguese</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Russian</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; color: #4A3F52">Cultural / community tags</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Spanish-speaking</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Arabic-speaking</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">French-speaking</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">LGBTQ+ affirming</button>
+<button type="button" aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Cultural competency certified</button>
+</div>
+</div>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="review-well" style="font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">What did they do especially well?</label>
+<textarea id="review-well" rows="3" placeholder="Optional. For example: listened without rushing…" style="box-sizing: border-box; width: 100%; height: 100px; padding: 14px 16px; resize: none; font-size: 15px; line-height: 22px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px"></textarea>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<label for="review-text" style="font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Anything else about your experience?</label>
+<textarea id="review-text" rows="6" placeholder="Share your experience with this provider..." style="box-sizing: border-box; width: 100%; height: 164px; padding: 14px 16px; resize: none; font-size: 15px; line-height: 22px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px"></textarea>
+</div>
+
+<label style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 14px 16px; background: #EFE0C6; border: 2px solid #663399; border-radius: 24px; font-size: 15px; line-height: 22px; font-weight: 600; color: #2D2733"><input type="checkbox" checked="checked" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399">I would recommend this provider</label>
+
+<button type="button" style="width: 100%; height: 52px; margin-top: 8px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Submit Review</button>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2300}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

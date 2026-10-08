@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Create Your Profile: Health Information</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 1260px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="padding: 64px 20px 8px; display: flex; flex-direction: column; gap: 16px">
+<a href="#" aria-label="Back" style="width: 44px; height: 44px; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; font-weight: 400">Create Your Profile</h1>
+</div>
+</header>
+
+<div style="padding: 12px 20px 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">Step 3 of 7</p>
+<div role="progressbar" aria-label="Profile progress" aria-valuemin="0" aria-valuemax="7" aria-valuenow="3" style="display: flex; height: 6px; border-radius: 999px; background: #E6D5B8; overflow: hidden"><span style="width: 150px; border-radius: 999px; background: #663399"></span></div>
+</div>
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Health Information</h2>
+</div>
+
+<div style="padding: 20px 20px 32px; display: flex; flex-direction: column; gap: 24px">
+
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3F52">Your health information helps us provide personalized care and resources.</p>
+
+<div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: #EDE7F3; border-radius: 24px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6"></path><circle cx="12" cy="7.600" r=".6"></circle></svg>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 14px; line-height: 20px; font-weight: 600; color: #4A3F52">Pregnancy Stage (Auto-calculated)</span>
+<span style="font-size: 16px; line-height: 22px; font-weight: 700">Second Trimester</span>
+</div>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h3 id="s3-conditions-h" style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 700">Chronic Conditions</h3>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #6B5C75">e.g., hypertension, diabetes, asthma</p>
+</div>
+<div style="display: flex; gap: 10px">
+<input id="s3-condition" type="text" aria-labelledby="s3-conditions-h" placeholder="Add a condition" style="flex: 1; min-width: 0; box-sizing: border-box; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<button type="button" style="flex: none; height: 52px; padding: 0 24px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Add</button>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h3 id="s3-medications-h" style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 700">Current Medications</h3>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #6B5C75">List all medications you are currently taking</p>
+</div>
+<div style="display: flex; gap: 10px">
+<input id="s3-medication" type="text" aria-labelledby="s3-medications-h" placeholder="Add a medication" style="flex: 1; min-width: 0; box-sizing: border-box; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<button type="button" style="flex: none; height: 52px; padding: 0 24px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Add</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px; box-sizing: border-box; min-height: 52px; padding: 3px 4px 3px 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<span style="flex: 1; min-width: 0; font-size: 15px; line-height: 22px">Prenatal vitamin</span>
+<button type="button" aria-label="Remove Prenatal vitamin" style="flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; box-sizing: border-box; min-height: 52px; padding: 3px 4px 3px 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<span style="flex: 1; min-width: 0; font-size: 15px; line-height: 22px">Iron supplement</span>
+<button type="button" aria-label="Remove Iron supplement" style="flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h3 id="s3-allergies-h" style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 700">Allergies</h3>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #6B5C75">List any known allergies</p>
+</div>
+<div style="display: flex; gap: 10px">
+<input id="s3-allergy" type="text" aria-labelledby="s3-allergies-h" placeholder="Add an allergy" style="flex: 1; min-width: 0; box-sizing: border-box; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<button type="button" style="flex: none; height: 52px; padding: 0 24px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Add</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px; box-sizing: border-box; min-height: 52px; padding: 3px 4px 3px 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+<span style="flex: 1; min-width: 0; font-size: 15px; line-height: 22px">Penicillin</span>
+<button type="button" aria-label="Remove Penicillin" style="flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+</div>
+</section>
+
+</div>
+
+<div style="margin-top: auto; padding: 16px 20px 32px; display: flex; gap: 12px">
+<button type="button" style="flex: 1; min-width: 0; height: 52px; border: 1.5px solid #663399; border-radius: 999px; background: transparent; color: #663399; font-size: 16px; font-weight: 700">Back</button>
+<button type="button" style="flex: 2; min-width: 0; height: 52px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Next</button>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1260}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

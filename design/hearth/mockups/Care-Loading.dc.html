@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Searching for providers</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 980px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="padding: 64px 20px 8px; display: flex; flex-direction: column; gap: 16px">
+<a href="Care-Search-Quick.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; font-weight: 400">Search results</h1>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3F52">Searching for providers near you…</p>
+</div>
+</header>
+
+<div style="padding: 16px 20px 32px; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">We match Ohio Medicaid and a national provider list to your ZIP, then apply the filters you chose.</p>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #6B5C75">Fields with * are required for the directory. Mama Approved™ appears when there are 3+ parent reviews averaging 4★+; tags come from the community, not insurers.</p>
+</div>
+</div>
+
+<section aria-live="polite" style="display: flex; flex-direction: column; align-items: center; padding: 28px 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<span style="width: 80px; height: 80px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.500"></circle><path d="M2.500 20c0-3.500 3-5.500 6.500-5.500s6.500 2 6.500 5.500"></path><path d="M16 4.800a3.500 3.500 0 0 1 0 6.400M18 14.800c2.200.700 3.500 2.400 3.500 5.200"></path></svg></span>
+<h2 style="margin: 20px 0 0; text-align: center; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Searching community directory...</h2>
+<p style="margin: 8px 0 0; text-align: center; font-size: 15px; line-height: 22px; color: #4A3F52">Including BIPOC and verified providers</p>
+<div role="progressbar" aria-label="Search progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="60" style="margin-top: 20px; align-self: stretch; height: 6px; border-radius: 999px; background: #E6D5B8; display: flex"><span style="width: 60%; height: 6px; border-radius: 999px; background: #663399"></span></div>
+<div aria-hidden="true" style="margin-top: 20px; align-self: stretch; display: flex; justify-content: space-between; gap: 4px">
+<span style="width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; background: #EFE0C6; border: 2px solid #663399; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"></circle><path d="M20 20l-4.5-4.5"></path></svg></span>
+<span style="width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; background: #EFE0C6; border: 2px solid #663399; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4.5 4.5 0 0 1 17 18z"></path></svg></span>
+<span style="width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; background: #EFE0C6; border: 3px solid #663399; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.500"></circle><path d="M2.500 20c0-3.500 3-5.500 6.500-5.500s6.500 2 6.500 5.500"></path><path d="M16 4.800a3.500 3.500 0 0 1 0 6.400M18 14.800c2.200.700 3.500 2.400 3.500 5.200"></path></svg></span>
+<span style="width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; background: #F5F1E8; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v3c0 4 5 4 5 8v5M17 4v3c0 4-5 4-5 8"></path></svg></span>
+<span style="width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; background: #F5F1E8; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z"></path></svg></span>
+<span style="width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; background: #F5F1E8; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></span>
+</div>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 8px; text-align: center">
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3F52">Finding providers who are right for you</p>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">Finding your care team, Jasmine...</p>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":980}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

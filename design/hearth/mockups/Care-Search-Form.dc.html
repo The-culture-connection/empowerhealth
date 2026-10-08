@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Expanded provider search</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 3380px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="padding: 64px 20px 8px; display: flex; flex-direction: column; gap: 16px">
+<a href="Care-Search.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; font-weight: 400">Find your care team</h1>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3F52">Trusted providers reviewed by mothers like you</p>
+</div>
+</header>
+
+<div style="padding: 16px 20px 32px; display: flex; flex-direction: column; gap: 16px">
+
+<section style="display: flex; flex-direction: column; gap: 16px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<h2 style="margin: 0; display: flex; align-items: center; gap: 8px; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.8-6.5-11a6.500 6.500 0 0 1 13 0c0 5.200-6.500 11-6.500 11z"></path><circle cx="12" cy="10" r="2.4"></circle></svg>Location</h2>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="f-zip" style="font-size: 14px; line-height: 20px; font-weight: 600">ZIP Code<span style="color: #663399"> *</span></label>
+<input id="f-zip" type="text" inputmode="numeric" maxlength="5" placeholder="Enter your ZIP code" value="45202" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="f-radius" style="font-size: 14px; line-height: 20px; font-weight: 600">Search Radius<span style="color: #663399"> *</span></label>
+<button type="button" id="f-radius" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">10 miles<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="f-state" style="font-size: 14px; line-height: 20px; font-weight: 600">State</label>
+<input id="f-state" type="text" value="Ohio" disabled="disabled" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #6B5C75; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="f-city" style="font-size: 14px; line-height: 20px; font-weight: 600">City<span style="color: #663399"> *</span></label>
+<input id="f-city" type="text" placeholder="Enter city name" value="Cincinnati" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+</section>
+
+<a href="#" style="display: flex; gap: 14px; align-items: flex-start; padding: 18px; background: #EFE0C6; border-radius: 24px">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #FAF8F4; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+<span style="font-size: 16px; line-height: 22px; font-weight: 700">Can't find your provider?</span>
+<span style="margin-top: 6px; font-size: 14px; line-height: 21px; color: #4A3F52">Add them here. It helps other mamas discover care that worked for you.</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 15px; font-weight: 700; color: #663399">Add a provider<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
+</span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 13px"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+
+<section style="display: flex; flex-direction: column; gap: 16px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Insurance &amp; Directory</h2>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="f-plan" style="font-size: 14px; line-height: 20px; font-weight: 600">Health Plan<span style="color: #663399"> *</span></label>
+<button type="button" id="f-plan" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">All plans<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">We'll search Ohio Medicaid with a general plan; turn on the national list below if you want NPI results too.</p>
+</div>
+<label style="display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+<input type="checkbox" checked="checked" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399">
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; line-height: 22px; font-weight: 600">Include the national provider list (NPI)</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Adds more providers beyond the Ohio Medicaid directory</span></span>
+</label>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<h2 style="margin: 0 0 4px; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Provider Type (Optional)</h2>
+<p id="f-type-help" style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">Optional. Leave blank for all types, or type a word like midwife or doula and tap to add.</p>
+<input type="text" aria-label="Provider Type" aria-describedby="f-type-help" placeholder="Type to filter provider types…" value="midwife" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" aria-pressed="true" style="display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 15px; border-radius: 999px; background: #EFE0C6; border: 2px solid #663399; color: #663399; font-size: 14px; font-weight: 700"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Nurse Midwife Individual</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; margin-top: 2px">
+<span style="font-size: 14px; line-height: 20px; font-weight: 600; color: #4A3F52">Selected</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="display: inline-flex; align-items: center; gap: 2px; height: 44px; box-sizing: border-box; padding: 0 4px 0 15px; border-radius: 999px; background: #EFE0C6; border: 2px solid #663399; color: #663399; font-size: 14px; font-weight: 700">Nurse Midwife Individual<button type="button" aria-label="Remove Nurse Midwife Individual" style="width: 32px; height: 36px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></span>
+<span style="display: inline-flex; align-items: center; gap: 2px; height: 44px; box-sizing: border-box; padding: 0 4px 0 15px; border-radius: 999px; background: #EFE0C6; border: 2px solid #663399; color: #663399; font-size: 14px; font-weight: 700">Doula<button type="button" aria-label="Remove Doula" style="width: 32px; height: 36px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></span>
+</div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<h2 style="margin: 0 0 4px; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Specialty (Optional)</h2>
+<p id="f-spec-help" style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">Optional: type a few letters to narrow specialties, then tap to add.</p>
+<input type="text" aria-label="Specialty" aria-describedby="f-spec-help" placeholder="Type to filter specialties…" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">Showing a few common types. Type to see more.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Birth Trauma</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Doula Services</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Family Planning</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Gynecologic Oncology</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Gynecology</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">High-Risk Pregnancy</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Infertility</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Lactation Consulting</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Maternal-Fetal Medicine</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Menopause</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Midwifery</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">OB-GYN</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Obstetrics</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Pelvic Health</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Perinatal Mental Health</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Postpartum Care</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Prenatal Care</button>
+<button type="button" style="height: 44px; padding: 0 16px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Reproductive Endocrinology</button>
+</div>
+</section>
+
+<div style="display: flex; gap: 14px; align-items: center; padding: 16px 18px; background: #EFE0C6; border-radius: 24px">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<span id="f-mama" style="display: flex; align-items: center; gap: 8px; font-size: 16px; line-height: 22px; font-weight: 700"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg>Mama Approved™ only</span>
+<span style="font-size: 13px; line-height: 18px; color: #4A3F52">3+ reviews averaging 4 stars or higher from moms in our community.</span>
+</div>
+<button type="button" role="switch" aria-checked="false" aria-labelledby="f-mama" style="flex: none; width: 52px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center"><span style="width: 52px; height: 32px; box-sizing: border-box; padding: 3px; border-radius: 999px; background: #C9B8A0; display: flex; align-items: center; justify-content: flex-start"><span style="width: 26px; height: 26px; border-radius: 50%; background: #FAF8F4"></span></span></button>
+</div>
+
+<button type="button" aria-expanded="true" style="width: 100%; box-sizing: border-box; min-height: 62px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px; font-size: 16px; line-height: 22px; font-weight: 700; color: #2D2733">Advanced Filters<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button>
+
+<section style="display: flex; flex-direction: column; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<div style="display: flex; gap: 14px; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #E6D5B8">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span id="f-tele" style="font-size: 15px; line-height: 22px; font-weight: 600">Telehealth available</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Virtual appointments offered</span></div>
+<button type="button" role="switch" aria-checked="false" aria-labelledby="f-tele" style="flex: none; width: 52px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center"><span style="width: 52px; height: 32px; box-sizing: border-box; padding: 3px; border-radius: 999px; background: #E6D5B8; display: flex; align-items: center; justify-content: flex-start"><span style="width: 26px; height: 26px; border-radius: 50%; background: #FAF8F4"></span></span></button>
+</div>
+<div style="display: flex; gap: 14px; align-items: center; padding: 16px 0; border-bottom: 1px solid #E6D5B8">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span id="f-preg" style="font-size: 15px; line-height: 22px; font-weight: 600">Accepts pregnant patients</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Prenatal care provided</span></div>
+<button type="button" role="switch" aria-checked="true" aria-labelledby="f-preg" style="flex: none; width: 52px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center"><span style="width: 52px; height: 32px; box-sizing: border-box; padding: 3px; border-radius: 999px; background: #663399; display: flex; align-items: center; justify-content: flex-end"><span style="width: 26px; height: 26px; border-radius: 50%; background: #FFFFFF"></span></span></button>
+</div>
+<div style="display: flex; gap: 14px; align-items: center; padding-top: 16px">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span id="f-newb" style="font-size: 15px; line-height: 22px; font-weight: 600">Accepts newborns</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Newborn care provided</span></div>
+<button type="button" role="switch" aria-checked="false" aria-labelledby="f-newb" style="flex: none; width: 52px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center"><span style="width: 52px; height: 32px; box-sizing: border-box; padding: 3px; border-radius: 999px; background: #E6D5B8; display: flex; align-items: center; justify-content: flex-start"><span style="width: 26px; height: 26px; border-radius: 50%; background: #FAF8F4"></span></span></button>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<h2 style="margin: 0 0 4px; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Identity &amp; Cultural Match</h2>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">Tags are community-added and may be pending verification</p>
+<button type="button" aria-expanded="false" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">1 selected<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="display: inline-flex; align-items: center; gap: 2px; height: 44px; box-sizing: border-box; padding: 0 4px 0 15px; border-radius: 999px; background: #EFE0C6; border: 2px solid #663399; color: #663399; font-size: 14px; font-weight: 700">Black / African American<button type="button" aria-label="Remove Black / African American" style="width: 32px; height: 36px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></span>
+</div>
+</section>
+
+<button type="button" style="margin-top: 8px; width: 100%; height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="M20 20l-4.5-4.5"></path></svg>Search Providers</button>
+
+<a href="#" style="box-sizing: border-box; min-height: 64px; padding: 10px 20px; display: flex; align-items: center; justify-content: center; gap: 10px; text-align: center; border: 1.5px solid #663399; border-radius: 32px; background: transparent; color: #663399; font-size: 15px; line-height: 21px; font-weight: 700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="10" cy="8" r="4"></circle><path d="M3 21c0-4 3-6 7-6 1.500 0 2.800.300 3.900.800M18 14v6M15 17h6"></path></svg><span>Still missing? Add your provider to the directory</span></a>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":3380}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

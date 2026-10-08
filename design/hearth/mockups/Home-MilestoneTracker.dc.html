@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Milestone check-ins sheet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; background: #8E8794; font-family: 'Figtree', system-ui, sans-serif; color: #2D2733">
+<div role="dialog" aria-label="Milestone check-ins" style="background: #F5F1E8; border-radius: 28px 28px 0 0; padding: 12px 20px 32px; display: flex; flex-direction: column; gap: 20px">
+<span aria-hidden="true" style="align-self: center; width: 40px; height: 4px; border-radius: 999px; background: #C9B8A0"></span>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Milestone check-ins</h1>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">Short research check-ins along your pregnancy or postpartum journey. Each row shows where you are and what is already completed.</p>
+</div>
+
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px">
+<li style="display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l3 3 5-6"></path></svg>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 16px; line-height: 22px; font-weight: 700">Early pregnancy</span>
+<span style="font-size: 13px; line-height: 18px; color: #6B5C75">Weeks 1–13</span>
+<span style="font-size: 13px; line-height: 18px; font-weight: 600; color: #663399">Completed</span>
+</div>
+</li>
+<li style="display: flex; gap: 12px; align-items: flex-start; padding: 15px; background: #FAF8F4; border: 2px solid #663399; border-radius: 24px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="9"></circle></svg>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px"><span style="font-size: 16px; line-height: 22px; font-weight: 700">Mid-pregnancy</span><span style="flex: none; padding: 3px 12px; border-radius: 999px; background: #EFE0C6; font-size: 12px; line-height: 18px; font-weight: 700; color: #4A3F52">Current window</span></div>
+<span style="font-size: 13px; line-height: 18px; color: #6B5C75">Weeks 14–27</span>
+<span style="font-size: 13px; line-height: 18px; color: #6B5C75">Not completed yet</span>
+</div>
+</li>
+<li style="display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="9"></circle></svg>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 16px; line-height: 22px; font-weight: 700">Late pregnancy</span>
+<span style="font-size: 13px; line-height: 18px; color: #6B5C75">Weeks 28–40</span>
+<span style="font-size: 13px; line-height: 18px; color: #6B5C75">Not completed yet</span>
+</div>
+</li>
+<li style="display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="9"></circle></svg>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 16px; line-height: 22px; font-weight: 700">After birth</span>
+<span style="font-size: 13px; line-height: 18px; color: #6B5C75">First weeks postpartum</span>
+<span style="font-size: 13px; line-height: 18px; color: #6B5C75">Not completed yet</span>
+</div>
+</li>
+</ul>
+
+<a href="Home-MilestoneCheckIn.dc.html" style="height: 52px; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Start check-in</a>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Support check-in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 1200px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="padding: 64px 20px 8px; display: flex; flex-direction: column; gap: 16px">
+<a href="#" aria-label="Back" style="width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; font-weight: 400">We're here with you</h1>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3F52">You do not have to explain everything.<br>Choose what kind of support would help right now.</p>
+</div>
+</header>
+
+<div style="padding: 16px 20px 16px; display: flex; flex-direction: column; gap: 16px">
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<label style="display: flex; align-items: center; gap: 14px; min-height: 56px; box-sizing: border-box; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px"><input type="checkbox" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399"><span style="font-size: 15px; line-height: 22px; font-weight: 500">Emotional support</span></label>
+<label style="display: flex; align-items: center; gap: 14px; min-height: 56px; box-sizing: border-box; padding: 15px; background: #EFE0C6; border: 2px solid #663399; border-radius: 24px"><input type="checkbox" checked="checked" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399"><span style="font-size: 15px; line-height: 22px; font-weight: 700">Help understanding what to do next</span></label>
+<label style="display: flex; align-items: center; gap: 14px; min-height: 56px; box-sizing: border-box; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px"><input type="checkbox" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399"><span style="font-size: 15px; line-height: 22px; font-weight: 500">Follow-up care questions</span></label>
+<label style="display: flex; align-items: center; gap: 14px; min-height: 56px; box-sizing: border-box; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px"><input type="checkbox" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399"><span style="font-size: 15px; line-height: 22px; font-weight: 500">Help talking to my provider</span></label>
+<label style="display: flex; align-items: center; gap: 14px; min-height: 56px; box-sizing: border-box; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px"><input type="checkbox" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399"><span style="font-size: 15px; line-height: 22px; font-weight: 500">Help finding support or resources</span></label>
+<label style="display: flex; align-items: center; gap: 14px; min-height: 56px; box-sizing: border-box; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px"><input type="checkbox" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399"><span style="font-size: 15px; line-height: 22px; font-weight: 500">Transportation or appointment help</span></label>
+<label style="display: flex; align-items: center; gap: 14px; min-height: 56px; box-sizing: border-box; padding: 15px; background: #EFE0C6; border: 2px solid #663399; border-radius: 24px"><input type="checkbox" checked="checked" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399"><span style="font-size: 15px; line-height: 22px; font-weight: 700">Something else I need</span></label>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<textarea rows="3" maxlength="500" aria-label="Something else I need" placeholder="Optional: only what you want to share" style="box-sizing: border-box; width: 100%; height: 94px; padding: 14px 16px; resize: none; font-size: 15px; line-height: 22px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">I keep forgetting my questions once I'm in the room with my midwife.</textarea>
+<span style="align-self: flex-end; font-size: 12px; line-height: 18px; color: #6B5C75">68/500</span>
+</div>
+
+</div>
+
+<div style="margin-top: auto; padding: 16px 20px 32px; display: flex; flex-direction: column; gap: 4px">
+<a href="Support-Hub.dc.html" role="button" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 52px; box-sizing: border-box; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Continue</a>
+<a href="Support-Hub.dc.html" role="button" style="align-self: center; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; color: #663399; font-size: 15px; font-weight: 700">Skip for now</a>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1200}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1125 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-10-07T22:10:00Z"
+ },
+ "title": "EmpowerHealth Watch — Hearth (full app)",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Start-Welcome.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Welcome",
+   "radius": 28
+  },
+  "Start-Terms.dc.html": {
+   "x": 470,
+   "y": 0,
+   "w": 390,
+   "h": 4680,
+   "title": "Terms & Conditions",
+   "radius": 28
+  },
+  "Start-SignUp.dc.html": {
+   "x": 940,
+   "y": 0,
+   "w": 390,
+   "h": 960,
+   "title": "Create Account",
+   "radius": 28
+  },
+  "Start-Login.dc.html": {
+   "x": 1410,
+   "y": 0,
+   "w": 390,
+   "h": 1000,
+   "title": "Login",
+   "radius": 28
+  },
+  "Start-ResetPassword.dc.html": {
+   "x": 1880,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Reset Password dialog",
+   "radius": 28
+  },
+  "Start-GuestPrompt.dc.html": {
+   "x": 2350,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Guest prompt sheet",
+   "radius": 28
+  },
+  "Start-Consent.dc.html": {
+   "x": 2820,
+   "y": 0,
+   "w": 390,
+   "h": 1820,
+   "title": "First-run consent",
+   "radius": 28
+  },
+  "Start-Research.dc.html": {
+   "x": 0,
+   "y": 5160,
+   "w": 390,
+   "h": 1000,
+   "title": "Research: Step 1 About you",
+   "radius": 28
+  },
+  "Start-ResearchBaseline1.dc.html": {
+   "x": 470,
+   "y": 5160,
+   "w": 390,
+   "h": 844,
+   "title": "Baseline 1 of 6: Age",
+   "radius": 28
+  },
+  "Start-ResearchBaseline2.dc.html": {
+   "x": 940,
+   "y": 5160,
+   "w": 390,
+   "h": 844,
+   "title": "Baseline 2 of 6: Pregnancy",
+   "radius": 28
+  },
+  "Start-ResearchBaseline3.dc.html": {
+   "x": 1410,
+   "y": 5160,
+   "w": 390,
+   "h": 844,
+   "title": "Baseline 3 of 6: Weeks",
+   "radius": 28
+  },
+  "Start-ResearchBaseline4.dc.html": {
+   "x": 1880,
+   "y": 5160,
+   "w": 390,
+   "h": 844,
+   "title": "Baseline 4 of 6: Insurance",
+   "radius": 28
+  },
+  "Start-ResearchBaseline5.dc.html": {
+   "x": 2350,
+   "y": 5160,
+   "w": 390,
+   "h": 844,
+   "title": "Baseline 5 of 6: Support",
+   "radius": 28
+  },
+  "Start-ResearchBaseline6.dc.html": {
+   "x": 2820,
+   "y": 5160,
+   "w": 390,
+   "h": 844,
+   "title": "Baseline 6 of 6: Advocacy",
+   "radius": 28
+  },
+  "Setup-1-Basic.dc.html": {
+   "x": 0,
+   "y": 6640,
+   "w": 390,
+   "h": 2000,
+   "title": "Setup 1 · Basic Information",
+   "radius": 28
+  },
+  "Setup-2-Demographics.dc.html": {
+   "x": 470,
+   "y": 6640,
+   "w": 390,
+   "h": 1400,
+   "title": "Setup 2 · Demographics",
+   "radius": 28
+  },
+  "Setup-3-Health.dc.html": {
+   "x": 940,
+   "y": 6640,
+   "w": 390,
+   "h": 1260,
+   "title": "Setup 3 · Health Information",
+   "radius": 28
+  },
+  "Setup-4-Support.dc.html": {
+   "x": 1410,
+   "y": 6640,
+   "w": 390,
+   "h": 1040,
+   "title": "Setup 4 · Support Network",
+   "radius": 28
+  },
+  "Setup-5-Wellness.dc.html": {
+   "x": 1880,
+   "y": 6640,
+   "w": 390,
+   "h": 1600,
+   "title": "Setup 5 · Wellness & Access",
+   "radius": 28
+  },
+  "Setup-5b-Referral.dc.html": {
+   "x": 2350,
+   "y": 6640,
+   "w": 390,
+   "h": 844,
+   "title": "Setup 5 · Referral dialog",
+   "radius": 28
+  },
+  "Setup-6-Preferences.dc.html": {
+   "x": 2820,
+   "y": 6640,
+   "w": 390,
+   "h": 1220,
+   "title": "Setup 6 · Preferences",
+   "radius": 28
+  },
+  "Setup-7-Goals.dc.html": {
+   "x": 3290,
+   "y": 6640,
+   "w": 390,
+   "h": 1440,
+   "title": "Setup 7 · Your Goals",
+   "radius": 28
+  },
+  "Main.dc.html": {
+   "x": 0,
+   "y": 9120,
+   "w": 390,
+   "h": 2420,
+   "title": "Home",
+   "radius": 28
+  },
+  "Home-PregnancyJourney.dc.html": {
+   "x": 470,
+   "y": 9120,
+   "w": 390,
+   "h": 1820,
+   "title": "Pregnancy journey",
+   "radius": 28
+  },
+  "Home-NeedsChecklist.dc.html": {
+   "x": 940,
+   "y": 9120,
+   "w": 390,
+   "h": 1640,
+   "title": "Care check-in 1: needs",
+   "radius": 28
+  },
+  "Home-CareCheckIn-Support.dc.html": {
+   "x": 1410,
+   "y": 9120,
+   "w": 390,
+   "h": 1640,
+   "title": "Care check-in 2: support",
+   "radius": 28
+  },
+  "Home-CareCheckIn-3-Access.dc.html": {
+   "x": 1880,
+   "y": 9120,
+   "w": 390,
+   "h": 900,
+   "title": "Care check-in 3: per need",
+   "radius": 28
+  },
+  "Home-CareCheckIn-4-Outcome.dc.html": {
+   "x": 2350,
+   "y": 9120,
+   "w": 390,
+   "h": 844,
+   "title": "Care check-in 4: overall",
+   "radius": 28
+  },
+  "Home-CareCheckIn-5-Complete.dc.html": {
+   "x": 2820,
+   "y": 9120,
+   "w": 390,
+   "h": 844,
+   "title": "Care check-in 5: thank you",
+   "radius": 28
+  },
+  "Home-Resources.dc.html": {
+   "x": 3290,
+   "y": 9120,
+   "w": 390,
+   "h": 3680,
+   "title": "Support resources",
+   "radius": 28
+  },
+  "Home-MilestoneTracker.dc.html": {
+   "x": 3760,
+   "y": 9120,
+   "w": 390,
+   "h": 844,
+   "title": "Milestone check-ins sheet",
+   "radius": 28
+  },
+  "Home-MilestoneCheckIn.dc.html": {
+   "x": 4230,
+   "y": 9120,
+   "w": 390,
+   "h": 844,
+   "title": "Milestone check-in",
+   "radius": 28
+  },
+  "Visits-List.dc.html": {
+   "x": 0,
+   "y": 13280,
+   "w": 390,
+   "h": 1440,
+   "title": "My visits",
+   "radius": 28
+  },
+  "Visits-List-Empty.dc.html": {
+   "x": 470,
+   "y": 13280,
+   "w": 390,
+   "h": 900,
+   "title": "My visits — none yet",
+   "radius": 28
+  },
+  "Visits-Upload-HowItWorks.dc.html": {
+   "x": 940,
+   "y": 13280,
+   "w": 390,
+   "h": 844,
+   "title": "How After-Visit Support works",
+   "radius": 28
+  },
+  "Visits-Upload.dc.html": {
+   "x": 1410,
+   "y": 13280,
+   "w": 390,
+   "h": 1280,
+   "title": "Add a visit — file chosen",
+   "radius": 28
+  },
+  "Visits-Upload-Text.dc.html": {
+   "x": 1880,
+   "y": 13280,
+   "w": 390,
+   "h": 1660,
+   "title": "Add a visit — type notes",
+   "radius": 28
+  },
+  "Visits-Privacy.dc.html": {
+   "x": 2350,
+   "y": 13280,
+   "w": 390,
+   "h": 1500,
+   "title": "Your privacy",
+   "radius": 28
+  },
+  "Visits-Upload-Result.dc.html": {
+   "x": 2820,
+   "y": 13280,
+   "w": 390,
+   "h": 3220,
+   "title": "Add a visit — summary ready",
+   "radius": 28
+  },
+  "Visits-Rating.dc.html": {
+   "x": 3290,
+   "y": 13280,
+   "w": 390,
+   "h": 844,
+   "title": "Rate your visit summary",
+   "radius": 28
+  },
+  "Visits-Detail.dc.html": {
+   "x": 3760,
+   "y": 13280,
+   "w": 390,
+   "h": 2680,
+   "title": "Visit detail",
+   "radius": 28
+  },
+  "Visits-Detail-Delete.dc.html": {
+   "x": 4230,
+   "y": 13280,
+   "w": 390,
+   "h": 844,
+   "title": "Delete this summary?",
+   "radius": 28
+  },
+  "Learn-Center.dc.html": {
+   "x": 0,
+   "y": 16980,
+   "w": 390,
+   "h": 3640,
+   "title": "Learning center",
+   "radius": 28
+  },
+  "Learn-Center-Archived.dc.html": {
+   "x": 470,
+   "y": 16980,
+   "w": 390,
+   "h": 1260,
+   "title": "Learning center — Archived",
+   "radius": 28
+  },
+  "Learn-Module.dc.html": {
+   "x": 940,
+   "y": 16980,
+   "w": 390,
+   "h": 2500,
+   "title": "Learning module",
+   "radius": 28
+  },
+  "Learn-Notes.dc.html": {
+   "x": 1410,
+   "y": 16980,
+   "w": 390,
+   "h": 844,
+   "title": "Add note dialog",
+   "radius": 28
+  },
+  "Learn-ModuleExit.dc.html": {
+   "x": 1880,
+   "y": 16980,
+   "w": 390,
+   "h": 844,
+   "title": "Module exit check-in sheet",
+   "radius": 28
+  },
+  "Learn-Survey.dc.html": {
+   "x": 2350,
+   "y": 16980,
+   "w": 390,
+   "h": 844,
+   "title": "Complete Survey dialog",
+   "radius": 28
+  },
+  "Learn-Rating.dc.html": {
+   "x": 2820,
+   "y": 16980,
+   "w": 390,
+   "h": 844,
+   "title": "Quick check-in rating dialog",
+   "radius": 28
+  },
+  "Learn-Rights.dc.html": {
+   "x": 3290,
+   "y": 16980,
+   "w": 390,
+   "h": 1900,
+   "title": "Know Your Rights",
+   "radius": 28
+  },
+  "Learn-RightsDetail.dc.html": {
+   "x": 3760,
+   "y": 16980,
+   "w": 390,
+   "h": 2000,
+   "title": "Rights topic detail",
+   "radius": 28
+  },
+  "Journal-Hub.dc.html": {
+   "x": 0,
+   "y": 21100,
+   "w": 390,
+   "h": 1380,
+   "title": "Journal",
+   "radius": 28
+  },
+  "Journal-CheckIn.dc.html": {
+   "x": 470,
+   "y": 21100,
+   "w": 390,
+   "h": 1440,
+   "title": "Journal · Quick check-in",
+   "radius": 28
+  },
+  "Journal-Write.dc.html": {
+   "x": 940,
+   "y": 21100,
+   "w": 390,
+   "h": 1740,
+   "title": "Journal · Write",
+   "radius": 28
+  },
+  "Journal-LearningNotes.dc.html": {
+   "x": 1410,
+   "y": 21100,
+   "w": 390,
+   "h": 1460,
+   "title": "Journal · Learning notes",
+   "radius": 28
+  },
+  "Journal-Entry.dc.html": {
+   "x": 1880,
+   "y": 21100,
+   "w": 390,
+   "h": 844,
+   "title": "Journal entry (dialog)",
+   "radius": 28
+  },
+  "Journal-Empty.dc.html": {
+   "x": 2350,
+   "y": 21100,
+   "w": 390,
+   "h": 1000,
+   "title": "Journal · No reflections yet",
+   "radius": 28
+  },
+  "Community-Feed.dc.html": {
+   "x": 0,
+   "y": 23320,
+   "w": 390,
+   "h": 1520,
+   "title": "Community",
+   "radius": 28
+  },
+  "Community-NewPost.dc.html": {
+   "x": 470,
+   "y": 23320,
+   "w": 390,
+   "h": 1020,
+   "title": "Create Post",
+   "radius": 28
+  },
+  "Community-Post.dc.html": {
+   "x": 940,
+   "y": 23320,
+   "w": 390,
+   "h": 1400,
+   "title": "Discussion (post opened)",
+   "radius": 28
+  },
+  "Community-Report.dc.html": {
+   "x": 1410,
+   "y": 23320,
+   "w": 390,
+   "h": 844,
+   "title": "Report Post (dialog)",
+   "radius": 28
+  },
+  "Community-Block.dc.html": {
+   "x": 1880,
+   "y": 23320,
+   "w": 390,
+   "h": 844,
+   "title": "Block user (dialog)",
+   "radius": 28
+  },
+  "Community-Delete.dc.html": {
+   "x": 2350,
+   "y": 23320,
+   "w": 390,
+   "h": 844,
+   "title": "Delete post (dialog)",
+   "radius": 28
+  },
+  "Care-Search.dc.html": {
+   "x": 0,
+   "y": 25320,
+   "w": 390,
+   "h": 1580,
+   "title": "Find your care team (hub)",
+   "radius": 28
+  },
+  "Care-Search-Quick.dc.html": {
+   "x": 470,
+   "y": 25320,
+   "w": 390,
+   "h": 2100,
+   "title": "Search providers (quick)",
+   "radius": 28
+  },
+  "Care-Search-Form.dc.html": {
+   "x": 940,
+   "y": 25320,
+   "w": 390,
+   "h": 3380,
+   "title": "Expanded search form",
+   "radius": 28
+  },
+  "Care-Loading.dc.html": {
+   "x": 1410,
+   "y": 25320,
+   "w": 390,
+   "h": 980,
+   "title": "Search results — loading",
+   "radius": 28
+  },
+  "Care-Results.dc.html": {
+   "x": 1880,
+   "y": 25320,
+   "w": 390,
+   "h": 3260,
+   "title": "Search results",
+   "radius": 28
+  },
+  "Care-Results-Empty.dc.html": {
+   "x": 2350,
+   "y": 25320,
+   "w": 390,
+   "h": 980,
+   "title": "Search results — no matches",
+   "radius": 28
+  },
+  "Care-MamaApproved.dc.html": {
+   "x": 2820,
+   "y": 25320,
+   "w": 390,
+   "h": 960,
+   "title": "Mama Approved providers",
+   "radius": 28
+  },
+  "Care-Provider.dc.html": {
+   "x": 0,
+   "y": 29180,
+   "w": 390,
+   "h": 3140,
+   "title": "Provider profile",
+   "radius": 28
+  },
+  "Care-Report.dc.html": {
+   "x": 470,
+   "y": 29180,
+   "w": 390,
+   "h": 960,
+   "title": "Report this listing (sheet)",
+   "radius": 28
+  },
+  "Care-Review.dc.html": {
+   "x": 940,
+   "y": 29180,
+   "w": 390,
+   "h": 2300,
+   "title": "Write a Review",
+   "radius": 28
+  },
+  "Care-ShareExperience.dc.html": {
+   "x": 1410,
+   "y": 29180,
+   "w": 390,
+   "h": 980,
+   "title": "Share Provider Experience",
+   "radius": 28
+  },
+  "Care-ShareExperience-NoResults.dc.html": {
+   "x": 1880,
+   "y": 29180,
+   "w": 390,
+   "h": 1000,
+   "title": "Share Experience: no results",
+   "radius": 28
+  },
+  "Care-AddProvider.dc.html": {
+   "x": 2350,
+   "y": 29180,
+   "w": 390,
+   "h": 2320,
+   "title": "Add a Provider",
+   "radius": 28
+  },
+  "Care-AddProvider-Success.dc.html": {
+   "x": 2820,
+   "y": 29180,
+   "w": 390,
+   "h": 900,
+   "title": "Add a Provider: submitted",
+   "radius": 28
+  },
+  "Birth-List.dc.html": {
+   "x": 0,
+   "y": 32800,
+   "w": 390,
+   "h": 844,
+   "title": "Birth plans",
+   "radius": 28
+  },
+  "Birth-List-Empty.dc.html": {
+   "x": 470,
+   "y": 32800,
+   "w": 390,
+   "h": 920,
+   "title": "Birth plans — none yet",
+   "radius": 28
+  },
+  "Birth-Builder-1-Support.dc.html": {
+   "x": 940,
+   "y": 32800,
+   "w": 390,
+   "h": 1880,
+   "title": "Builder 1 — Support team",
+   "radius": 28
+  },
+  "Birth-Builder-2-Space.dc.html": {
+   "x": 1410,
+   "y": 32800,
+   "w": 390,
+   "h": 1480,
+   "title": "Builder 2 — Birth space",
+   "radius": 28
+  },
+  "Birth-Builder-3-Comfort.dc.html": {
+   "x": 1880,
+   "y": 32800,
+   "w": 390,
+   "h": 3280,
+   "title": "Builder 3 — Comfort options",
+   "radius": 28
+  },
+  "Birth-Builder-4-AfterBaby.dc.html": {
+   "x": 2350,
+   "y": 32800,
+   "w": 390,
+   "h": 2540,
+   "title": "Builder 4 — After baby",
+   "radius": 28
+  },
+  "Birth-Builder-5-PlansChange.dc.html": {
+   "x": 2820,
+   "y": 32800,
+   "w": 390,
+   "h": 3480,
+   "title": "Builder 5 — If plans change",
+   "radius": 28
+  },
+  "Birth-Builder-Feedback.dc.html": {
+   "x": 3290,
+   "y": 32800,
+   "w": 390,
+   "h": 844,
+   "title": "Birth plan feedback dialog",
+   "radius": 28
+  },
+  "Birth-Plan.dc.html": {
+   "x": 3760,
+   "y": 32800,
+   "w": 390,
+   "h": 3700,
+   "title": "Your birth preferences",
+   "radius": 28
+  },
+  "You-Profile.dc.html": {
+   "x": 0,
+   "y": 36980,
+   "w": 390,
+   "h": 1900,
+   "title": "You — profile",
+   "radius": 28
+  },
+  "You-Profile-Open.dc.html": {
+   "x": 470,
+   "y": 36980,
+   "w": 390,
+   "h": 2800,
+   "title": "You — sections open",
+   "radius": 28
+  },
+  "You-EditProfile.dc.html": {
+   "x": 940,
+   "y": 36980,
+   "w": 390,
+   "h": 3880,
+   "title": "You — editing profile",
+   "radius": 28
+  },
+  "You-Profile-Guest.dc.html": {
+   "x": 1410,
+   "y": 36980,
+   "w": 390,
+   "h": 844,
+   "title": "You — guest",
+   "radius": 28
+  },
+  "You-Dialog-SupportStage.dc.html": {
+   "x": 1880,
+   "y": 36980,
+   "w": 390,
+   "h": 844,
+   "title": "Update support dialog",
+   "radius": 28
+  },
+  "You-Dialog-DeleteProfile.dc.html": {
+   "x": 2350,
+   "y": 36980,
+   "w": 390,
+   "h": 844,
+   "title": "Delete Profile dialog",
+   "radius": 28
+  },
+  "You-Dialog-SignOut.dc.html": {
+   "x": 2820,
+   "y": 36980,
+   "w": 390,
+   "h": 844,
+   "title": "Sign Out dialog",
+   "radius": 28
+  },
+  "You-Privacy.dc.html": {
+   "x": 3290,
+   "y": 36980,
+   "w": 390,
+   "h": 1720,
+   "title": "Privacy & Trust",
+   "radius": 28
+  },
+  "You-Privacy-Open.dc.html": {
+   "x": 3760,
+   "y": 36980,
+   "w": 390,
+   "h": 2240,
+   "title": "Privacy & Trust — info open",
+   "radius": 28
+  },
+  "You-BlockedUsers.dc.html": {
+   "x": 4230,
+   "y": 36980,
+   "w": 390,
+   "h": 844,
+   "title": "Blocked Users",
+   "radius": 28
+  },
+  "You-BlockedUsers-Empty.dc.html": {
+   "x": 4700,
+   "y": 36980,
+   "w": 390,
+   "h": 844,
+   "title": "Blocked Users — empty",
+   "radius": 28
+  },
+  "You-Dialog-DeleteAccount.dc.html": {
+   "x": 5170,
+   "y": 36980,
+   "w": 390,
+   "h": 844,
+   "title": "Delete Account dialog",
+   "radius": 28
+  },
+  "Support-Assistant-Empty.dc.html": {
+   "x": 0,
+   "y": 41340,
+   "w": 390,
+   "h": 1100,
+   "title": "AI Assistant (first open)",
+   "radius": 28
+  },
+  "Support-Assistant.dc.html": {
+   "x": 470,
+   "y": 41340,
+   "w": 390,
+   "h": 960,
+   "title": "AI Assistant",
+   "radius": 28
+  },
+  "Support-CheckIn.dc.html": {
+   "x": 940,
+   "y": 41340,
+   "w": 390,
+   "h": 1200,
+   "title": "Support check-in",
+   "radius": 28
+  },
+  "Support-Hub.dc.html": {
+   "x": 1410,
+   "y": 41340,
+   "w": 390,
+   "h": 2800,
+   "title": "Support for you",
+   "radius": 28
+  },
+  "Support-Hub-Selected.dc.html": {
+   "x": 1880,
+   "y": 41340,
+   "w": 390,
+   "h": 2200,
+   "title": "Support for you (your choices)",
+   "radius": 28
+  },
+  "Loss-StagePicker.dc.html": {
+   "x": 0,
+   "y": 44620,
+   "w": 390,
+   "h": 844,
+   "title": "Loss: support stage picker",
+   "radius": 28
+  },
+  "Loss-Transition.dc.html": {
+   "x": 470,
+   "y": 44620,
+   "w": 390,
+   "h": 844,
+   "title": "Loss: transition",
+   "radius": 28
+  },
+  "Loss-Preferences.dc.html": {
+   "x": 940,
+   "y": 44620,
+   "w": 390,
+   "h": 1200,
+   "title": "Loss: support preferences",
+   "radius": 28
+  },
+  "Loss-Home.dc.html": {
+   "x": 1410,
+   "y": 44620,
+   "w": 390,
+   "h": 1980,
+   "title": "Loss: Home tab",
+   "radius": 28
+  },
+  "Loss-Support.dc.html": {
+   "x": 1880,
+   "y": 44620,
+   "w": 390,
+   "h": 1960,
+   "title": "Loss: support options",
+   "radius": 28
+  },
+  "Loss-ProviderQuestions.dc.html": {
+   "x": 2350,
+   "y": 44620,
+   "w": 390,
+   "h": 880,
+   "title": "Loss: provider questions",
+   "radius": 28
+  },
+  "Loss-Learn.dc.html": {
+   "x": 2820,
+   "y": 44620,
+   "w": 390,
+   "h": 1160,
+   "title": "Loss: Learn tab",
+   "radius": 28
+  },
+  "Loss-Learn-Topic.dc.html": {
+   "x": 3290,
+   "y": 44620,
+   "w": 390,
+   "h": 3100,
+   "title": "Loss: learning guide",
+   "radius": 28
+  },
+  "Community-Feed-Loss.dc.html": {
+   "x": 3760,
+   "y": 44620,
+   "w": 390,
+   "h": 1180,
+   "title": "Loss: Community tab",
+   "radius": 28
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "Start-Welcome.dc.html",
+  "Start-Terms.dc.html",
+  "Start-SignUp.dc.html",
+  "Start-Login.dc.html",
+  "Start-ResetPassword.dc.html",
+  "Start-GuestPrompt.dc.html",
+  "Start-Consent.dc.html",
+  "Start-Research.dc.html",
+  "Start-ResearchBaseline1.dc.html",
+  "Start-ResearchBaseline2.dc.html",
+  "Start-ResearchBaseline3.dc.html",
+  "Start-ResearchBaseline4.dc.html",
+  "Start-ResearchBaseline5.dc.html",
+  "Start-ResearchBaseline6.dc.html",
+  "Setup-1-Basic.dc.html",
+  "Setup-2-Demographics.dc.html",
+  "Setup-3-Health.dc.html",
+  "Setup-4-Support.dc.html",
+  "Setup-5-Wellness.dc.html",
+  "Setup-5b-Referral.dc.html",
+  "Setup-6-Preferences.dc.html",
+  "Setup-7-Goals.dc.html",
+  "Home-PregnancyJourney.dc.html",
+  "Home-NeedsChecklist.dc.html",
+  "Home-CareCheckIn-Support.dc.html",
+  "Home-CareCheckIn-3-Access.dc.html",
+  "Home-CareCheckIn-4-Outcome.dc.html",
+  "Home-CareCheckIn-5-Complete.dc.html",
+  "Home-Resources.dc.html",
+  "Home-MilestoneTracker.dc.html",
+  "Home-MilestoneCheckIn.dc.html",
+  "Visits-List.dc.html",
+  "Visits-List-Empty.dc.html",
+  "Visits-Upload-HowItWorks.dc.html",
+  "Visits-Upload.dc.html",
+  "Visits-Upload-Text.dc.html",
+  "Visits-Privacy.dc.html",
+  "Visits-Upload-Result.dc.html",
+  "Visits-Rating.dc.html",
+  "Visits-Detail.dc.html",
+  "Visits-Detail-Delete.dc.html",
+  "Learn-Center.dc.html",
+  "Learn-Center-Archived.dc.html",
+  "Learn-Module.dc.html",
+  "Learn-Notes.dc.html",
+  "Learn-ModuleExit.dc.html",
+  "Learn-Survey.dc.html",
+  "Learn-Rating.dc.html",
+  "Learn-Rights.dc.html",
+  "Learn-RightsDetail.dc.html",
+  "Journal-Hub.dc.html",
+  "Journal-CheckIn.dc.html",
+  "Journal-Write.dc.html",
+  "Journal-LearningNotes.dc.html",
+  "Journal-Entry.dc.html",
+  "Journal-Empty.dc.html",
+  "Community-Feed.dc.html",
+  "Community-NewPost.dc.html",
+  "Community-Post.dc.html",
+  "Community-Report.dc.html",
+  "Community-Block.dc.html",
+  "Community-Delete.dc.html",
+  "Care-Search.dc.html",
+  "Care-Search-Quick.dc.html",
+  "Care-Search-Form.dc.html",
+  "Care-Loading.dc.html",
+  "Care-Results.dc.html",
+  "Care-Results-Empty.dc.html",
+  "Care-MamaApproved.dc.html",
+  "Care-Provider.dc.html",
+  "Care-Report.dc.html",
+  "Care-Review.dc.html",
+  "Care-ShareExperience.dc.html",
+  "Care-ShareExperience-NoResults.dc.html",
+  "Care-AddProvider.dc.html",
+  "Care-AddProvider-Success.dc.html",
+  "Birth-List.dc.html",
+  "Birth-List-Empty.dc.html",
+  "Birth-Builder-1-Support.dc.html",
+  "Birth-Builder-2-Space.dc.html",
+  "Birth-Builder-3-Comfort.dc.html",
+  "Birth-Builder-4-AfterBaby.dc.html",
+  "Birth-Builder-5-PlansChange.dc.html",
+  "Birth-Builder-Feedback.dc.html",
+  "Birth-Plan.dc.html",
+  "You-Profile.dc.html",
+  "You-Profile-Open.dc.html",
+  "You-EditProfile.dc.html",
+  "You-Profile-Guest.dc.html",
+  "You-Dialog-SupportStage.dc.html",
+  "You-Dialog-DeleteProfile.dc.html",
+  "You-Dialog-SignOut.dc.html",
+  "You-Privacy.dc.html",
+  "You-Privacy-Open.dc.html",
+  "You-BlockedUsers.dc.html",
+  "You-BlockedUsers-Empty.dc.html",
+  "You-Dialog-DeleteAccount.dc.html",
+  "Support-Assistant-Empty.dc.html",
+  "Support-Assistant.dc.html",
+  "Support-CheckIn.dc.html",
+  "Support-Hub.dc.html",
+  "Support-Hub-Selected.dc.html",
+  "Loss-StagePicker.dc.html",
+  "Loss-Transition.dc.html",
+  "Loss-Preferences.dc.html",
+  "Loss-Home.dc.html",
+  "Loss-Support.dc.html",
+  "Loss-ProviderQuestions.dc.html",
+  "Loss-Learn.dc.html",
+  "Loss-Learn-Topic.dc.html",
+  "Community-Feed-Loss.dc.html"
+ ],
+ "notes": {
+  "row1": {
+   "x": 0,
+   "y": -300,
+   "text": "1 · Sign in",
+   "kind": "title1",
+   "maxW": 3210
+  },
+  "row2": {
+   "x": 0,
+   "y": 4860,
+   "text": "2 · Research onboarding",
+   "kind": "title1",
+   "maxW": 3210
+  },
+  "row3": {
+   "x": 0,
+   "y": 6340,
+   "text": "3 · Create your profile",
+   "kind": "title1",
+   "maxW": 3680
+  },
+  "row4": {
+   "x": 0,
+   "y": 8820,
+   "text": "4 · Home",
+   "kind": "title1",
+   "maxW": 4620
+  },
+  "row5": {
+   "x": 0,
+   "y": 12980,
+   "text": "5 · My visits",
+   "kind": "title1",
+   "maxW": 4620
+  },
+  "row6": {
+   "x": 0,
+   "y": 16680,
+   "text": "6 · Learn",
+   "kind": "title1",
+   "maxW": 4150
+  },
+  "row7": {
+   "x": 0,
+   "y": 20800,
+   "text": "7 · Journal",
+   "kind": "title1",
+   "maxW": 2740
+  },
+  "row8": {
+   "x": 0,
+   "y": 23020,
+   "text": "8 · Community",
+   "kind": "title1",
+   "maxW": 2740
+  },
+  "row9": {
+   "x": 0,
+   "y": 25020,
+   "text": "9 · Find your care",
+   "kind": "title1",
+   "maxW": 3210
+  },
+  "row10": {
+   "x": 0,
+   "y": 28880,
+   "text": "10 · Provider profile and reviews",
+   "kind": "title1",
+   "maxW": 3210
+  },
+  "row11": {
+   "x": 0,
+   "y": 32500,
+   "text": "11 · Birth plan",
+   "kind": "title1",
+   "maxW": 4150
+  },
+  "row12": {
+   "x": 0,
+   "y": 36680,
+   "text": "12 · You",
+   "kind": "title1",
+   "maxW": 5560
+  },
+  "row13": {
+   "x": 0,
+   "y": 41040,
+   "text": "13 · Assistant and support",
+   "kind": "title1",
+   "maxW": 2270
+  },
+  "row14": {
+   "x": 0,
+   "y": 44320,
+   "text": "14 · Pregnancy loss support",
+   "kind": "title1",
+   "maxW": 4150
+  }
+ },
+ "designSystems": []
+}

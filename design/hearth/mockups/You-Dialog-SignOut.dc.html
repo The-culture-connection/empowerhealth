@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Sign Out dialog</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; background: #8E8794; font-family: 'Figtree', system-ui, sans-serif; color: #2D2733">
+<div role="alertdialog" aria-labelledby="dlg-title" aria-describedby="dlg-body" style="background: #FAF8F4; border-radius: 28px; padding: 24px 24px 16px; display: flex; flex-direction: column; gap: 12px">
+<h1 id="dlg-title" style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 22px; line-height: 28px; font-weight: 400">Sign Out</h1>
+<p id="dlg-body" style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3F52">Are you sure you want to sign out?</p>
+<div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px">
+<button style="min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #663399; font-size: 16px; font-weight: 700">Cancel</button>
+<button style="min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #663399; font-size: 16px; font-weight: 700">Sign Out</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

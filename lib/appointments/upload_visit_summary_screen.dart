@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../utils/text_cleanup.dart';
+import 'suggested_learning_list.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -44,6 +45,9 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   DateTime? _selectedDate;
   UserProfile? _userProfile;
   String? _generatedSummary;
+  // From the latest result: lessons generated for this visit.
+  String? _resultSummaryId;
+  List<Map> _resultModules = const [];
   bool _isLoading = false;
   String? _currentStep; // Track current processing step
   double _uploadProgress = 0.0; // Track upload progress
@@ -287,9 +291,36 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     return 'More from your visit';
   }
 
+  void _setResultLessons(Map<String, dynamic> result) {
+    final id = result['summaryId'];
+    _resultSummaryId = id is String && id.isNotEmpty ? id : null;
+    final modules = result['learningModules'];
+    _resultModules = modules is List ? modules.whereType<Map>().toList() : const [];
+  }
+
+  /// Tappable lessons for this visit (shown loading until each is ready).
+  List<Widget> _buildSuggestedLearning() {
+    if (_resultModules.isEmpty) return const [];
+    return [
+      const SizedBox(height: 16),
+      _visitSummarySectionCard(
+        label: 'Suggested Learning',
+        child: SuggestedLearningList(
+          key: ValueKey(_resultSummaryId),
+          summaryId: _resultSummaryId,
+          modules: _resultModules,
+        ),
+      ),
+    ];
+  }
+
   List<Widget> _buildVisitSummarySections(BuildContext context) {
     final chunks = _splitMarkdownByH2(_generatedSummary!);
-    final nonEmpty = chunks.where((c) => c.value.trim().isNotEmpty).toList();
+    // The tappable list below replaces the plain-text topics section.
+    final nonEmpty = chunks
+        .where((c) => c.value.trim().isNotEmpty)
+        .where((c) => _resultModules.isEmpty || !(c.key ?? '').toLowerCase().startsWith('suggested learning'))
+        .toList();
     if (nonEmpty.isEmpty) return [];
 
     final out = <Widget>[];
@@ -308,7 +339,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
   Widget _visitSummarySectionCard({
     required String label,
-    required String body,
+    String body = '',
+    Widget? child,
     bool showReadingLevel = false,
   }) {
     return Container(
@@ -359,6 +391,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
             ),
           ],
           const SizedBox(height: 14),
+          if (child != null) child else
           MarkdownBody(
             data: fixDoublePeriods(body),
             styleSheet: MarkdownStyleSheet(
@@ -900,6 +933,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
       setState(() {
         _generatedSummary = summaryText;
+        _setResultLessons(analysisResult);
         _isLoading = false;
         _currentStep = null;
         _uploadProgress = 0.0;
@@ -1063,6 +1097,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
       setState(() {
         _generatedSummary = summary;
+        _setResultLessons(analysisResult);
         _isLoading = false;
         _currentStep = null;
       });
@@ -1954,6 +1989,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
               ),
               const SizedBox(height: 16),
               ..._buildVisitSummarySections(context),
+              ..._buildSuggestedLearning(),
               const SizedBox(height: 12),
               Text(
                 'Still have questions? Write them down and ask your care team. You’re not bothering anyone.',

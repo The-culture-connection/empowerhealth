@@ -8,7 +8,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
 import 'visit_summary_preview.dart';
-import '../Journal/journal_learning_note_opener.dart';
+import 'suggested_learning_list.dart';
 
 /// Full-screen visit detail matching NewUI [VisitDetail.tsx] — replaces modal dialog.
 class VisitDetailScreen extends StatelessWidget {
@@ -728,7 +728,7 @@ class VisitDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     _newUiCard(
-                      child: _SuggestedLearningList(
+                      child: SuggestedLearningList(
                         summaryId: summaryId,
                         modules: (data['learningModules'] as List)
                             .whereType<Map>()
@@ -891,152 +891,5 @@ Future<void> confirmDeleteVisitSummary(
         ),
       );
     }
-  }
-}
-
-/// Suggested lessons from this visit. Each opens its lesson; while the lesson
-/// is still being saved or written it shows a loading row instead.
-class _SuggestedLearningList extends StatefulWidget {
-  const _SuggestedLearningList({required this.summaryId, required this.modules});
-
-  final String summaryId;
-  final List<Map> modules;
-
-  @override
-  State<_SuggestedLearningList> createState() => _SuggestedLearningListState();
-}
-
-class _SuggestedLearningListState extends State<_SuggestedLearningList> {
-  Stream<QuerySnapshot<Map<String, dynamic>>>? _lessons;
-  String? _opening;
-
-  @override
-  void initState() {
-    super.initState();
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      // Equality filters only, so no composite index is needed.
-      _lessons = FirebaseFirestore.instance
-          .collection('learning_tasks')
-          .where('userId', isEqualTo: uid)
-          .where('visitSummaryId', isEqualTo: widget.summaryId)
-          .snapshots();
-    }
-  }
-
-  static String _key(String s) => s.trim().toLowerCase();
-
-  static bool _hasContent(Object? content) {
-    if (content == null) return false;
-    if (content is String) return content.trim().isNotEmpty;
-    if (content is Map) return content.isNotEmpty;
-    if (content is List) return content.isNotEmpty;
-    return true;
-  }
-
-  Future<void> _open(String? id, String title) async {
-    setState(() => _opening = id ?? title);
-    try {
-      await openLearningNoteModule(context, moduleId: id, moduleTitle: title);
-    } finally {
-      if (mounted) setState(() => _opening = null);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: _lessons,
-      builder: (context, snapshot) {
-        final byTitle = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
-        for (final doc in snapshot.data?.docs ?? const []) {
-          if (doc.data()['moduleType'] != 'visit_based') continue;
-          byTitle[_key((doc.data()['title'] ?? '').toString())] = doc;
-        }
-        final loaded = snapshot.hasData || snapshot.hasError || _lessons == null;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var i = 0; i < widget.modules.length; i++)
-              _row(i + 1, widget.modules[i], byTitle, loaded),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _row(
-    int number,
-    Map m,
-    Map<String, QueryDocumentSnapshot<Map<String, dynamic>>> byTitle,
-    bool loaded,
-  ) {
-    final title = m['title']?.toString() ?? 'Topic';
-    final reason = (m['reason'] ?? m['description'] ?? '').toString();
-    final doc = byTitle[_key(title)];
-    final ready = doc != null && _hasContent(doc.data()['content']);
-    final busy = _opening != null && _opening == (doc?.id ?? title);
-    // Not found once loaded: older summaries may have no saved lesson; let the
-    // opener find it by title or fall back to the Learn tab.
-    final waiting = !loaded || (doc != null && !ready);
-
-    final text = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$number. $title',
-          style: TextStyle(
-            fontSize: 15,
-            height: 1.4,
-            fontWeight: FontWeight.w600,
-            color: waiting ? AppTheme.textMuted : AppTheme.brandPurple,
-          ),
-        ),
-        if (reason.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              reason,
-              style: const TextStyle(fontSize: 14, height: 1.45, color: AppTheme.textSecondary),
-            ),
-          ),
-        if (waiting)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              'Getting your lesson ready…',
-              style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
-            ),
-          ),
-      ],
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: waiting || busy ? null : () => _open(doc?.id, title),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: text),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: waiting || busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(Icons.chevron_right, color: AppTheme.brandPurple),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

@@ -5,6 +5,7 @@ import '../auth/guest_guard.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../utils/content_filter.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -88,7 +89,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter a title for your post'),
-          backgroundColor: AppTheme.brandGold,
         ),
       );
       return;
@@ -98,7 +98,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter some content for your post'),
-          backgroundColor: AppTheme.brandGold,
         ),
       );
       return;
@@ -172,8 +171,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Post created successfully!'),
-            backgroundColor: AppTheme.brandTurquoise,
+            content: Text('Post created successfully!'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -194,263 +192,148 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      appBar: AppTheme.newUiAppBar(context, title: 'Create Post'),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppTheme.backgroundWarm, AppTheme.surfaceCard],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // One-line privacy reminder (replaces the large trust card).
-                Row(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const HearthPushedHeader(title: 'Create Post'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.lock_outline,
-                        size: 16, color: AppTheme.textMuted),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Community posts are public. Please avoid sharing private health details.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.4,
-                          fontWeight: FontWeight.w300,
-                          color: AppTheme.textMuted,
+                    // One-line privacy reminder (replaces the large trust card).
+                    const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.only(top: 1),
+                          child: Icon(Icons.lock_outline,
+                              size: 18, color: AppTheme.textSecondary),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Community posts are public. Please avoid sharing private health details.',
+                            style: hearthCardBodyStyle,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Title Field — moved up so users can start writing immediately.
+                    TextField(
+                      controller: _titleController,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        hintText: 'Add a title',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Content Field
+                    TextField(
+                      controller: _contentController,
+                      maxLines: 8,
+                      decoration: InputDecoration(
+                        hintText: widget.contentPlaceholder ?? 'Write your post',
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.keyboard_hide,
+                              color: AppTheme.textMuted, size: 20),
+                          onPressed: () => FocusScope.of(context).unfocus(),
+                          tooltip: 'Dismiss keyboard',
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Category Selection — compact chips, below the writing fields.
+                    Text(
+                      'Category',
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _categories.map((category) {
+                        return HearthChoiceChip(
+                          label: category,
+                          selected: _selectedCategory == category,
+                          onSelected: () =>
+                              setState(() => _selectedCategory = category),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Anonymous option, directly above the Post button.
+                    HearthCard(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      // Plain Material switch: the adaptive one renders a
+                      // Cupertino switch on iOS that ignores the Hearth theme.
+                      child: SwitchListTile(
+                        value: _postAnonymously,
+                        onChanged: _isSubmitting
+                            ? null
+                            : (v) => setState(() => _postAnonymously = v),
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                        title: const Text(
+                          'Post anonymously',
+                          style: hearthCardTitleStyle,
+                        ),
+                        subtitle: const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Text(
+                            "Others will see “Anonymous” instead of your name.",
+                            style: hearthCaptionStyle,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Attribution summary so the user knows exactly how the post
+                    // will appear before publishing.
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                            _postAnonymously
+                                ? Icons.visibility_off_outlined
+                                : Icons.person_outline,
+                            size: 18,
+                            color: AppTheme.textMuted),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _postAnonymously
+                                ? 'Posting as Anonymous in “$_selectedCategory”. You can still delete it later.'
+                                : _authorName == null
+                                ? 'Your post will show your profile display name in “$_selectedCategory”.'
+                                : 'Posting publicly as $_authorName in “$_selectedCategory”.',
+                            style: hearthCaptionStyle,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Submit Button
+                    HearthButton.primary(
+                      label: 'Post',
+                      onPressed: _submitPost,
+                      loading: _isSubmitting,
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-
-                // Title Field — moved up so users can start writing immediately.
-                TextField(
-                  controller: _titleController,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    hintText: 'Add a title',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF663399),
-                        width: 2,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor: AppTheme.surfaceInput,
-                    contentPadding: const EdgeInsets.all(18),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Content Field
-                TextField(
-                  controller: _contentController,
-                  maxLines: 8,
-                  decoration: InputDecoration(
-                    hintText: widget.contentPlaceholder ?? 'Write your post',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF663399),
-                        width: 2,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor: AppTheme.surfaceInput,
-                    contentPadding: const EdgeInsets.all(18),
-                    suffixIcon: IconButton(
-                      icon: Icon(Icons.keyboard_hide,
-                          color: Colors.grey[400], size: 20),
-                      onPressed: () => FocusScope.of(context).unfocus(),
-                      tooltip: 'Dismiss keyboard',
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Category Selection — compact chips, below the writing fields.
-                const Text(
-                  'Category',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _categories.map((category) {
-                    final isSelected = _selectedCategory == category;
-                    return InkWell(
-                      onTap: () => setState(() => _selectedCategory = category),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: isSelected
-                              ? LinearGradient(
-                                  colors: [
-                                    AppTheme.brandGold.withOpacity(0.42),
-                                    AppTheme.gradientGoldEnd.withOpacity(0.28),
-                                  ],
-                                )
-                              : null,
-                          color: isSelected ? null : AppTheme.surfaceCard,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppTheme.brandGold.withOpacity(0.5)
-                                : AppTheme.borderLight,
-                          ),
-                        ),
-                        child: Text(
-                          category,
-                          style: TextStyle(
-                            color: isSelected
-                                ? AppTheme.textPrimary
-                                : AppTheme.textMuted,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-
-                // Anonymous option, directly above the Post button.
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceCard,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.borderLight),
-                  ),
-                  child: SwitchListTile.adaptive(
-                    value: _postAnonymously,
-                    onChanged: _isSubmitting
-                        ? null
-                        : (v) => setState(() => _postAnonymously = v),
-                    activeTrackColor: AppTheme.brandPurple,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                    title: const Text(
-                      'Post anonymously',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    subtitle: const Text(
-                      "Others will see “Anonymous” instead of your name.",
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: AppTheme.textMuted,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Attribution summary so the user knows exactly how the post
-                // will appear before publishing.
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                        _postAnonymously
-                            ? Icons.visibility_off_outlined
-                            : Icons.person_outline,
-                        size: 16,
-                        color: AppTheme.textMuted),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _postAnonymously
-                            ? 'Posting as Anonymous in “$_selectedCategory”. You can still delete it later.'
-                            : _authorName == null
-                            ? 'Your post will show your profile display name in “$_selectedCategory”.'
-                            : 'Posting publicly as $_authorName in “$_selectedCategory”.',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.4,
-                          color: AppTheme.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Submit Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submitPost,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.brandPurple,
-                      foregroundColor: AppTheme.brandWhite,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      minimumSize: const Size(double.infinity, 52),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                      ),
-                    ),
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
-                            ),
-                          )
-                        : const Text(
-                            'Post',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

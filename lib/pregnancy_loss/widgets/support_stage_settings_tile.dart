@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../cors/ui_theme.dart';
+import '../../design_system/hearth.dart';
 import '../../models/user_profile.dart';
 import '../../support_stage/support_stage.dart';
 import '../pregnancy_loss_navigation.dart';
@@ -13,53 +14,38 @@ class SupportStageSettingsTile extends StatelessWidget {
   final UserProfile profile;
 
   Future<void> _showPicker(BuildContext context) async {
-    final choice = await showModalBottomSheet<String>(
+    final choice = await showHearthSheet<String>(
       context: context,
-      backgroundColor: AppTheme.surfaceCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Update my current support stage',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Your app experience will update based on what feels most relevant now.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w300,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _option(ctx, SupportStage.pregnant, 'I am currently pregnant'),
-                _option(ctx, SupportStage.postpartum, 'I recently had my baby'),
-                _option(
-                  ctx,
-                  SupportStage.pregnancyLoss,
-                  'I experienced a pregnancy loss',
-                ),
-                _option(
-                  ctx,
-                  SupportStage.preferNotToAnswer,
-                  'I prefer not to answer',
-                ),
-              ],
-            ),
+        final textTheme = Theme.of(ctx).textTheme;
+        return SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Update my current support stage',
+                style: textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your app experience will update based on what feels most relevant now.',
+                style: textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 20),
+              _option(ctx, SupportStage.pregnant, 'I am currently pregnant'),
+              _option(ctx, SupportStage.postpartum, 'I recently had my baby'),
+              _option(
+                ctx,
+                SupportStage.pregnancyLoss,
+                'I experienced a pregnancy loss',
+              ),
+              _option(
+                ctx,
+                SupportStage.preferNotToAnswer,
+                'I prefer not to answer',
+              ),
+            ],
           ),
         );
       },
@@ -76,35 +62,23 @@ class SupportStageSettingsTile extends StatelessWidget {
 
     if (profile.isInPregnancyLossMode &&
         choice != SupportStage.pregnancyLoss) {
-      final confirm = await showDialog<bool>(
+      final confirm = await showHearthDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: AppTheme.surfaceCard,
-          title: Text(
-            'Update your support experience?',
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          content: Text(
+          title: const Text('Update your support experience?'),
+          content: const Text(
             'Your app experience will update based on what feels most relevant now.',
-            style: TextStyle(
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w300,
-              height: 1.45,
-            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Cancel', style: TextStyle(color: AppTheme.textMuted)),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.textSecondary,
+              ),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.brandPurple,
-              ),
               child: const Text('Update'),
             ),
           ],
@@ -123,17 +97,20 @@ class SupportStageSettingsTile extends StatelessWidget {
   }
 
   Widget _option(BuildContext ctx, String value, String label) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        label,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w300,
-          color: AppTheme.textPrimary,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: HearthCard(
+        radius: BorderRadius.circular(28),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        onTap: () => Navigator.pop(ctx, value),
+        child: Text(
+          label,
+          style: Theme.of(ctx)
+              .textTheme
+              .bodyLarge
+              ?.copyWith(color: AppTheme.ink),
         ),
       ),
-      onTap: () => Navigator.pop(ctx, value),
     );
   }
 
@@ -154,18 +131,36 @@ class SupportStageSettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(Icons.favorite_outline, color: AppTheme.brandPurple),
-      title: Text(
-        'Update my current support stage',
-        style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w400),
-      ),
-      subtitle: Text(
-        _stageLabel(profile.currentSupportStage),
-        style: TextStyle(color: AppTheme.textMuted, fontWeight: FontWeight.w300),
-      ),
-      trailing: Icon(Icons.chevron_right, color: AppTheme.textMuted),
+    return HearthCard(
+      color: AppTheme.ground,
+      radius: BorderRadius.circular(AppTheme.fieldRadius),
+      padding: const EdgeInsets.all(12),
       onTap: () => _showPicker(context),
+      child: Row(
+        children: [
+          const HearthIconChip(Icons.favorite_outline),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Update my current support stage',
+                  style: hearthCardTitleStyle,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _stageLabel(profile.currentSupportStage),
+                  style: hearthCaptionStyle,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right, size: 20, color: AppTheme.textMuted),
+        ],
+      ),
     );
   }
 }

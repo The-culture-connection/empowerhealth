@@ -12,6 +12,8 @@ import '../utils/pregnancy_utils.dart';
 import '../immediate_support/widgets/immediate_support_home_card.dart';
 import '../widgets/trust_cue_banner.dart';
 import '../pregnancy_loss/widgets/support_stage_settings_tile.dart';
+import '../design_system/hearth.dart';
+import '../support_stage/support_stage.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -321,7 +323,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            // Destructive actions are ink, not red.
+            style: TextButton.styleFrom(foregroundColor: AppTheme.ink),
             child: const Text('Delete'),
           ),
         ],
@@ -384,76 +387,38 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final weeksPregnant = PregnancyUtils.calculateWeeksPregnant(dueDate);
     final trimester = PregnancyUtils.calculateTrimester(dueDate);
     
+    final textTheme = Theme.of(context).textTheme;
+    final inLossMode = _userProfile?.isInPregnancyLossMode ?? false;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundWarm,
-        ),
-        child: SafeArea(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
               controller: _scrollController,
-              padding: const EdgeInsets.all(24), // p-6
+              padding: const EdgeInsets.only(bottom: 24),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header — full-width column so the subtitle wraps within
-                  // the viewport instead of overflowing at large text sizes.
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Your profile',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w400,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Manage your information and preferences',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                    ],
+                  // Loss mode has no decorative accents.
+                  HearthTabHeader(
+                    warmCircle: !inLossMode,
+                    title: 'Your profile',
+                    subtitle: 'Manage your information and preferences',
                   ),
-                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                   const TrustCueBanner(
                     message: 'Profile and health details are stored securely and used to personalize your experience.',
                   ),
                   const SizedBox(height: 24),
 
-                  // Profile hero — Flutter UIdesign soft lavender (not primary CTA purple)
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(32),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFFEBE4F3),
-                          Color(0xFFE0D5EB),
-                          Color(0xFFE8DFE8),
-                        ],
-                      ),
-                      border: Border.all(
-                        color: const Color(0x80E0D3E8),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
+                  // Profile hero on the warm tint.
+                  HearthFeatureCard(
                     // Avatar + name/metadata share one row (text Expanded);
                     // the Edit Profile button sits on its own row beneath so
                     // it never steals width from the name at large text sizes.
@@ -463,20 +428,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
+                            SizedBox(
                               width: 64,
                               height: 64,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(24),
-                                color: Colors.white.withOpacity(0.45),
-                              ),
-                              child: Text(
-                                _getInitials(userName),
-                                style: const TextStyle(
-                                  color: AppTheme.gradientPurpleEnd,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w500,
+                              child: DecoratedBox(
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.surface,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _getInitials(userName),
+                                    style: const TextStyle(
+                                      fontFamily: AppTheme.serifFamily,
+                                      fontSize: 26,
+                                      height: 32 / 26,
+                                      color: AppTheme.brandPurple,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -487,30 +456,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 children: [
                                   Text(
                                     userName,
-                                    style: const TextStyle(
-                                      color: AppTheme.textPrimary,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w400,
-                                    ),
+                                    style: hearthFeatureTitleStyle(),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     user?.email ?? '',
-                                    style: const TextStyle(
-                                      color: AppTheme.textMuted,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w300,
-                                    ),
+                                    style: hearthCardBodyStyle,
                                   ),
                                   if (dueDate != null) ...[
                                     const SizedBox(height: 8),
                                     Text(
                                       'Due date: ${DateFormat('MMMM d, yyyy').format(dueDate)}',
-                                      style: const TextStyle(
-                                        color: AppTheme.textLighter,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w300,
-                                      ),
+                                      style: hearthCardBodyStyle,
                                     ),
                                   ],
                                 ],
@@ -519,21 +476,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        FilledButton.icon(
+                        HearthButton.primary(
                           onPressed: () => _enterEditMode(
                             scrollTo: _basicInfoKey,
                             focus: _usernameFocus,
                           ),
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          label: const Text('Edit Profile'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppTheme.brandPurple,
-                            foregroundColor: AppTheme.brandWhite,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                          ),
+                          icon: Icons.edit_outlined,
+                          label: 'Edit Profile',
+                          expand: false,
                         ),
                       ],
                     ),
@@ -542,58 +492,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                   // Pregnancy Details Section
                   if (dueDate != null && weeksPregnant > 0) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Pregnancy Details',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: () =>
-                              _enterEditMode(scrollTo: _pregnancyEditKey),
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          label: const Text('Edit'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppTheme.brandPurple,
-                          ),
-                        ),
-                      ],
+                    HearthSectionHeading(
+                      'Pregnancy Details',
+                      trailing: HearthButton.text(
+                        onPressed: () =>
+                            _enterEditMode(scrollTo: _pregnancyEditKey),
+                        icon: Icons.edit_outlined,
+                        label: 'Edit',
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    Container(
+                    HearthCard(
                       padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceCard,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.grey.shade100),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
                       child: Column(
                         children: [
                           _InfoRow(
                             label: 'Current Week',
                             value: 'Week $weeksPregnant of 40',
-                            icon: Icons.calendar_today,
+                            icon: Icons.calendar_today_outlined,
                           ),
-                          const Divider(height: 32),
+                          const Divider(height: 33),
                           _InfoRow(
                             label: 'Due Date',
                             value: DateFormat('MMMM d, yyyy').format(dueDate),
                           ),
-                          const Divider(height: 32),
+                          const Divider(height: 33),
                           _InfoRow(
                             label: 'Trimester',
                             value: '$trimester Trimester',
@@ -607,36 +530,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   // Basic Information Section
                   SizedBox(key: _basicInfoKey),
                   if (_isEditing) ...[
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.brandPurple.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: AppTheme.brandPurple.withOpacity(0.25),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_note,
-                              color: AppTheme.brandPurple, size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              "You're editing your profile. Update your details "
-                              'below, then tap Save Changes.',
-                              style: TextStyle(
-                                fontSize: 13,
-                                height: 1.35,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: HearthNote(
+                        icon: Icons.edit_outlined,
+                        tone: HearthNoteTone.lavender,
+                        text: "You're editing your profile. Update your details "
+                            'below, then tap Save Changes.',
                       ),
                     ),
                   ],
+                  // Every section sits in one bordered card, split by dividers.
+                  HearthCard(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: _withDividers([
                   _buildSection('Basic Information', [
                 TextFormField(
                   controller: _usernameController,
@@ -690,9 +599,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                CheckboxListTile(
+                _checkTile(
                   key: _pregnancyEditKey,
-                  title: const Text('I am currently pregnant'),
+                  title: 'I am currently pregnant',
                   value: _isPregnant,
                   onChanged: (v) {
                     setState(() {
@@ -702,14 +611,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   },
                 ),
                 if (_isPregnant) ...[
-                  ListTile(
-                    title: const Text('Due Date'),
-                    subtitle: Text(
-                      _dueDate != null
-                          ? DateFormat('MMMM d, yyyy').format(_dueDate!)
-                          : 'Tap to select',
-                    ),
-                    trailing: const Icon(Icons.calendar_today),
+                  const SizedBox(height: 8),
+                  // Drawn as a field so it matches the inputs around it.
+                  InkWell(
+                    borderRadius: BorderRadius.circular(AppTheme.fieldRadius),
                     onTap: () async {
                       final date = await showDatePicker(
                         context: context,
@@ -719,11 +624,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       );
                       if (date != null) setState(() => _dueDate = date);
                     },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Due Date',
+                        suffixIcon: Icon(
+                          Icons.calendar_today_outlined,
+                          color: AppTheme.brandPurple,
+                        ),
+                      ),
+                      child: Text(
+                        _dueDate != null
+                            ? DateFormat('MMMM d, yyyy').format(_dueDate!)
+                            : 'Tap to select',
+                        style: textTheme.bodyLarge?.copyWith(color: AppTheme.ink),
+                      ),
+                    ),
                   ),
                 ],
                 const SizedBox(height: 8),
-                CheckboxListTile(
-                  title: const Text('I am postpartum'),
+                _checkTile(
+                  title: 'I am postpartum',
                   value: _isPostpartum,
                   onChanged: (v) {
                     setState(() {
@@ -901,57 +821,57 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ]),
               // Support Network Section
               _buildSection('Support Network', [
-                CheckboxListTile(
-                  title: const Text('Doula'),
+                _checkTile(
+                  title: 'Doula',
                   value: _hasDoula,
                   onChanged: (v) => setState(() => _hasDoula = v ?? false),
                 ),
-                CheckboxListTile(
-                  title: const Text('Partner or Spouse'),
+                _checkTile(
+                  title: 'Partner or Spouse',
                   value: _hasPartner,
                   onChanged: (v) => setState(() => _hasPartner = v ?? false),
                 ),
-                CheckboxListTile(
-                  title: const Text('Support Person'),
+                _checkTile(
+                  title: 'Support Person',
                   value: _hasSupportPerson,
                   onChanged: (v) => setState(() => _hasSupportPerson = v ?? false),
                 ),
-                CheckboxListTile(
-                  title: const Text('Primary OB/GYN or Midwife'),
+                _checkTile(
+                  title: 'Primary OB/GYN or Midwife',
                   value: _hasPrimaryProvider,
                   onChanged: (v) => setState(() => _hasPrimaryProvider = v ?? false),
                 ),
               ]),
-              
+
               // Wellness & Access Section
               _buildSection('Wellness & Access', [
-                CheckboxListTile(
-                  title: const Text('Reliable Transportation'),
+                _checkTile(
+                  title: 'Reliable Transportation',
                   value: _hasTransportation,
                   onChanged: (v) => setState(() => _hasTransportation = v ?? false),
                 ),
-                CheckboxListTile(
-                  title: const Text('Stable Housing'),
+                _checkTile(
+                  title: 'Stable Housing',
                   value: _hasStableHousing,
                   onChanged: (v) => setState(() => _hasStableHousing = v ?? false),
                 ),
-                CheckboxListTile(
-                  title: const Text('Adequate Food'),
+                _checkTile(
+                  title: 'Adequate Food',
                   value: _hasAccessToFood,
                   onChanged: (v) => setState(() => _hasAccessToFood = v ?? false),
                 ),
-                CheckboxListTile(
-                  title: const Text('Mental Health Support'),
+                _checkTile(
+                  title: 'Mental Health Support',
                   value: _hasMentalHealthSupport,
                   onChanged: (v) => setState(() => _hasMentalHealthSupport = v ?? false),
                 ),
-                CheckboxListTile(
-                  title: const Text('WIC Enrollment'),
+                _checkTile(
+                  title: 'WIC Enrollment',
                   value: _enrolledInWIC,
                   onChanged: (v) => setState(() => _enrolledInWIC = v ?? false),
                 ),
-                CheckboxListTile(
-                  title: const Text('Childcare Needs'),
+                _checkTile(
+                  title: 'Childcare Needs',
                   value: _needsChildcare,
                   onChanged: (v) => setState(() => _needsChildcare = v ?? false),
                 ),
@@ -986,8 +906,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   onChanged: (v) => setState(() => _birthPreference = v),
                 ),
                 const SizedBox(height: 16),
-                CheckboxListTile(
-                  title: const Text('I am interested in breastfeeding support'),
+                _checkTile(
+                  title: 'I am interested in breastfeeding support',
                   value: _interestedInBreastfeeding,
                   onChanged: (v) => setState(() => _interestedInBreastfeeding = v ?? false),
                 ),
@@ -1004,33 +924,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   'Birth preparation',
                 ], _healthLiteracyGoals),
               ]),
-              
+                      ]),
+                    ),
+                  ),
+
               const SizedBox(height: 24),
-              
+
               // Privacy & Settings Section
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceCard,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
+              HearthCard(
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Privacy & Settings',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    const HearthSectionHeading('Privacy & Settings'),
                     const SizedBox(height: 12),
                     // Custom row instead of ListTile so the title/supporting
                     // copy gets the full card width; icon and chevron stay in
                     // compact side columns.
                     InkWell(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                       onTap: () {
                         Navigator.of(context).pushNamed(Routes.privacyCenter);
                       },
@@ -1038,29 +950,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Row(
                           children: [
-                            const Icon(Icons.lock_outline, color: AppTheme.brandPurple),
-                            const SizedBox(width: 12),
-                            Expanded(
+                            const HearthIconChip(Icons.lock_outline),
+                            const SizedBox(width: 14),
+                            const Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     'Privacy & Trust Center',
-                                    style: Theme.of(context).textTheme.bodyLarge,
+                                    style: hearthCardTitleStyle,
                                   ),
-                                  const SizedBox(height: 2),
+                                  SizedBox(height: 2),
                                   Text(
                                     'Manage your privacy settings and data',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(color: AppTheme.textMuted),
+                                    style: hearthCaptionStyle,
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward_ios, size: 16),
+                            const Icon(Icons.chevron_right,
+                                size: 20, color: AppTheme.textMuted),
                           ],
                         ),
                       ),
@@ -1068,84 +978,94 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Save Button
-              ElevatedButton(
+              HearthButton.primary(
                 onPressed: _isSaving ? null : _saveProfile,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: AppTheme.brandWhite,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: _isSaving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
-                        ),
-                      )
-                    : const Text(
-                        'Save Changes',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
+                loading: _isSaving,
+                label: 'Save Changes',
               ),
-              
-              const SizedBox(height: 16),
-              
+
+              const SizedBox(height: 12),
+
               // Delete Profile Button
-              OutlinedButton(
+              HearthButton.destructive(
                 onPressed: _deleteProfile,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: const Text(
-                  'Delete Profile',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
+                label: 'Delete Profile',
               ),
-              
+
                   const SizedBox(height: 24),
-                  
-                  // Sign Out Button
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceCard,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.grey.shade100),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+
+                  // Sign Out row. Destructive actions are ink, not red.
+                  HearthCard(
+                    onTap: _signOut,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(
+                          width: 46,
+                          height: 46,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: AppTheme.tintWarm,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.logout,
+                                size: 22, color: AppTheme.ink),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Text(
+                            'Sign Out',
+                            style: hearthCardTitleStyle,
+                          ),
                         ),
                       ],
                     ),
-                    child: ListTile(
-                      leading: const Icon(Icons.logout, color: Colors.red),
-                      title: const Text(
-                        'Sign Out',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      onTap: _signOut,
+                  ),
+                      ],
                     ),
                   ),
-                  
-                  const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
         ),
+    );
+  }
+
+  /// Puts a warm divider between consecutive sections in the shared card.
+  List<Widget> _withDividers(List<Widget> sections) {
+    return [
+      for (var i = 0; i < sections.length; i++) ...[
+        if (i > 0) const Divider(height: 1),
+        sections[i],
+      ],
+    ];
+  }
+
+  Widget _checkTile({
+    Key? key,
+    required String title,
+    required bool value,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    return CheckboxListTile(
+      key: key,
+      contentPadding: EdgeInsets.zero,
+      controlAffinity: ListTileControlAffinity.leading,
+      title: Text(
+        title,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.ink),
       ),
+      value: value,
+      onChanged: onChanged,
     );
   }
 
@@ -1156,9 +1076,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return ExpansionTile(
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.bold, height: 1.25),
+        style: const TextStyle(
+          fontFamily: AppTheme.sansFamily,
+          fontSize: 16,
+          height: 22 / 16,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      childrenPadding: const EdgeInsets.symmetric(horizontal: 16),
+      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+      // The shared card draws the dividers, so the tile adds no borders.
+      shape: const Border(),
+      collapsedShape: const Border(),
+      textColor: AppTheme.brandPurple,
+      collapsedTextColor: AppTheme.ink,
+      iconColor: AppTheme.brandPurple,
+      collapsedIconColor: AppTheme.textMuted,
       initiallyExpanded: false,
       children: [
         const SizedBox(height: 8),
@@ -1178,7 +1112,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.ink),
+        ),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -1194,6 +1131,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.add),
+              style: IconButton.styleFrom(
+                backgroundColor: AppTheme.tintWarm,
+                foregroundColor: AppTheme.brandPurple,
+                fixedSize: const Size(52, 52),
+              ),
               onPressed: () {
                 if (controller.text.isNotEmpty) {
                   onAdd(controller.text);
@@ -1206,9 +1148,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           const SizedBox(height: 8),
           ...items.asMap().entries.map((entry) {
             return ListTile(
-              title: Text(entry.value),
+              contentPadding: const EdgeInsets.only(left: 4),
+              title: Text(
+                entry.value,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.ink),
+              ),
               trailing: IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Icons.close, size: 20, color: AppTheme.textMuted),
                 onPressed: () => onRemove(entry.key),
               ),
             );
@@ -1224,10 +1170,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       runSpacing: 8,
       children: options.map((option) {
         final isSelected = selected.contains(option);
-        return FilterChip(
-          label: Text(option),
+        return HearthChoiceChip(
+          label: option,
           selected: isSelected,
-          onSelected: (isSelected) {
+          onSelected: () {
+            // Tapping flips the current selection, as FilterChip did.
+            final isSelected = !selected.contains(option);
             setState(() {
               if (isSelected) {
                 if (!selected.contains(option)) {
@@ -1264,27 +1212,23 @@ class _InfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
+              Text(label, style: hearthCaptionStyle),
               const SizedBox(height: 4),
               Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
+                  fontFamily: AppTheme.sansFamily,
+                  fontSize: 15,
+                  height: 22 / 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.ink,
                 ),
               ),
             ],
           ),
         ),
         if (icon != null)
-          Icon(icon, color: Colors.grey[400], size: 20),
+          Icon(icon, color: AppTheme.textMuted, size: 20),
       ],
     );
   }

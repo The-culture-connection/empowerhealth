@@ -129,9 +129,16 @@ String extractPreviewText(String? summary) {
   }
 
   final lines = summary.split('\n');
+  // Skip headings and the standard disclaimer so the preview says something
+  // about this visit.
+  final disclaimer = RegExp(
+    r'^(EmpowerHealth Watch is a tool|This (summary|tool) (is|does) not|Not medical advice)',
+    caseSensitive: false,
+  );
   for (final line in lines) {
-    if (line.trim().isNotEmpty && !line.startsWith('#')) {
-      return line.trim();
+    final t = line.trim().replaceAll('**', '');
+    if (t.isNotEmpty && !t.startsWith('#') && !disclaimer.hasMatch(t)) {
+      return t;
     }
   }
 

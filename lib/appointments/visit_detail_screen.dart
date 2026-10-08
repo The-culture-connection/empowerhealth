@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/text_cleanup.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -154,10 +155,17 @@ class VisitDetailScreen extends StatelessWidget {
         'detail': [
           if (m['purpose'] != null) m['purpose'].toString(),
           if (m['instructions'] != null) m['instructions'].toString(),
-        ].where((e) => e.isNotEmpty).join('. '),
+        ].map(_asSentence).where((e) => e.isNotEmpty).join(' '),
       });
     }
     return out;
+  }
+
+  /// Trims and ends with exactly one period, so joined parts never read "..".
+  static String _asSentence(String text) {
+    final t = text.trim().replaceAll(RegExp(r'[.\s]+$'), '');
+    if (t.isEmpty) return '';
+    return RegExp(r'[!?]$').hasMatch(t) ? t : '$t.';
   }
 
   String _whatWasDiscussed() {
@@ -506,7 +514,7 @@ class VisitDetailScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     _newUiCard(
                       child: MarkdownBody(
-                        data: _actionsMarkdown()!,
+                        data: fixDoublePeriods(_actionsMarkdown()!),
                         styleSheet: MarkdownStyleSheet(
                           p: const TextStyle(
                             fontSize: 15,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/text_cleanup.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -628,7 +629,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
                     ),
                     const Divider(height: 24),
                     MarkdownBody(
-                      data: _generatedSummary!,
+                      data: fixDoublePeriods(_generatedSummary!),
                       styleSheet: MarkdownStyleSheet(
                         h2: const TextStyle(
                           fontSize: 18,
@@ -843,7 +844,7 @@ class PastSummariesScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               MarkdownBody(
-            data: data['summary'] ?? '',
+            data: fixDoublePeriods(data['summary'] ?? ''),
             styleSheet: MarkdownStyleSheet(
               h2: const TextStyle(
                 fontSize: 16,

@@ -123,10 +123,10 @@ class LearningModuleFormattedContent extends StatelessWidget {
         );
         continue;
       }
-      if (t.startsWith('• ') || t.startsWith('- ')) {
+      if (t.startsWith('• ') || t.startsWith('- ') || t.startsWith('* ')) {
         widgets.add(
           _BulletLine(
-            text: raw.startsWith('• ') || raw.startsWith('- ')
+            text: raw.startsWith('• ') || raw.startsWith('- ') || raw.startsWith('* ')
                 ? raw.substring(2).trim()
                 : t.substring(2).trim(),
             moduleTitle: moduleTitle,
@@ -642,11 +642,11 @@ class _ModuleBodyBlocks extends StatelessWidget {
         flushParagraph();
         continue;
       }
-      if (t.startsWith('• ') || t.startsWith('- ')) {
+      if (t.startsWith('• ') || t.startsWith('- ') || t.startsWith('* ')) {
         flushParagraph();
         widgets.add(
           _BulletLine(
-            text: line.replaceFirst(RegExp(r'^[•\-]\s*'), '').trim(),
+            text: line.replaceFirst(RegExp(r'^\s*[•\-*]\s*'), '').trim(),
             moduleTitle: moduleTitle,
             selectionControls: selectionControls,
           ),
@@ -683,21 +683,29 @@ class _RichSelectableParagraph extends StatelessWidget {
     fontWeight: FontWeight.w300,
   );
 
+  /// `**bold**` (group 1) or `*italic*` (group 2). Italic needs non-space
+  /// text right inside the asterisks, so a lone "*" or "a * b" stays as is.
+  static final _inline = RegExp(
+    r'\*\*(.+?)\*\*|(?<![*\w])\*(?![\s*])(.+?)(?<![\s*])\*(?![*\w])',
+  );
+
   static List<TextSpan> _spans(String input) {
     final spans = <TextSpan>[];
-    final re = RegExp(r'\*\*(.+?)\*\*');
     var start = 0;
-    for (final m in re.allMatches(input)) {
+    for (final m in _inline.allMatches(input)) {
       if (m.start > start) {
         spans.add(TextSpan(text: input.substring(start, m.start), style: _base));
       }
+      final bold = m.group(1);
       spans.add(
         TextSpan(
-          text: m.group(1),
-          style: _base.copyWith(
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-          ),
+          text: bold ?? m.group(2),
+          style: bold != null
+              ? _base.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                )
+              : _base.copyWith(fontStyle: FontStyle.italic),
         ),
       );
       start = m.end;
@@ -711,8 +719,10 @@ class _RichSelectableParagraph extends StatelessWidget {
     return spans;
   }
 
+  /// Text as displayed (markers removed); must match the spans' text exactly
+  /// because note highlights are located in this string.
   static String _plain(String input) =>
-      input.replaceAllMapped(RegExp(r'\*\*(.+?)\*\*'), (m) => m.group(1)!);
+      input.replaceAllMapped(_inline, (m) => m.group(1) ?? m.group(2)!);
 
   /// Inline note emblems are WidgetSpans, which occupy one placeholder
   /// character in the selectable text; strip them from selected text.

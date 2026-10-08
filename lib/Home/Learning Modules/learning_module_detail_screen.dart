@@ -59,6 +59,54 @@ class _LearningModuleDetailScreenState
   /// Opens the journal notes dialog for this module, optionally quoting the
   /// highlighted text. Notes land in users/{uid}/notes with moduleTitle +
   /// moduleId so the Journal can link them back to this module.
+  /// Saves this lesson to the Journal once (shows under Learning notes with an
+  /// "Open lesson" link). A second tap just confirms it's already saved.
+  Future<void> _saveLessonToJournal() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Please sign in to save lessons.')),
+      );
+      return;
+    }
+    final key = _noteModuleId ?? widget.title;
+    final notes = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('notes');
+    try {
+      final existing =
+          await notes.where('savedLessonKey', isEqualTo: key).limit(1).get();
+      if (existing.docs.isNotEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('This lesson is already saved in your Journal.')),
+        );
+        return;
+      }
+      await notes.add({
+        'content': 'Saved lesson: ${widget.title}',
+        'tag': NotesDialog.categoryForSection('learning_module'),
+        'moduleTitle': widget.title,
+        'moduleId': _noteModuleId,
+        'highlightedText': null,
+        'isFromModule': true,
+        'savedLesson': true,
+        'savedLessonKey': key,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Saved to your Journal.')),
+      );
+    } catch (e) {
+      debugPrint('Save lesson failed: $e');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('We couldn\'t save this lesson. Please try again.')),
+      );
+    }
+  }
+
   void _openNotesDialog({String? highlightedText}) {
     final highlight = highlightedText?.trim();
     showDialog<void>(
@@ -334,74 +382,23 @@ class _LearningModuleDetailScreenState
 
                       const SizedBox(height: 24),
 
-                      // Action buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Saved to favorites!'),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.bookmark_outline),
-                              label: const Text('Save'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF663399),
-                                side: const BorderSide(
-                                  color: Color(0xFF663399),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
+                      // Single save action: bookmarks the lesson in the
+                      // Journal (Learning notes), with a link back here.
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _saveLessonToJournal,
+                          icon: const Icon(Icons.bookmark_add_outlined),
+                          label: const Text('Save', maxLines: 1),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF663399),
+                            foregroundColor: AppTheme.brandWhite,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                showDialog<void>(
-                                  context: context,
-                                  builder: (context) => NotesDialog(
-                                    moduleTitle: widget.title,
-                                    moduleId:
-                                        widget.moduleId ?? widget.taskId,
-                                    preFilledText: widget.content,
-                                    initialTag: NotesDialog.categoryForSection(
-                                      'learning_module',
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.bookmark_add_outlined),
-                              // One line at narrow widths / large text.
-                              label: const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  'Save to Journal',
-                                  maxLines: 1,
-                                  softWrap: false,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF663399),
-                                foregroundColor: AppTheme.brandWhite,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
 
                       const SizedBox(height: 32),

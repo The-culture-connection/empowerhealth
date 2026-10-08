@@ -718,33 +718,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 feed,
               ],
             ),
-      // Inside the main tab shell the header "New post" button is the create
-      // action; the extra FAB sat on top of the translucent tab bar ("You").
-      floatingActionButton: embeddedInMainNav
-          ? null
-          : Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: AppTheme.encouragementGradient,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.brandGold.withOpacity(0.25),
-              blurRadius: 20,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(28),
-            onTap: _openCreatePost,
-            child: const Icon(Icons.edit, color: AppTheme.textPrimary, size: 24),
-          ),
-        ),
-      ),
+      // No floating create button: the header "New post" button is the only
+      // create action, so it isn't duplicated over the feed.
     );
   }
 

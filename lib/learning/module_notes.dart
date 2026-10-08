@@ -117,7 +117,11 @@ Stream<List<ModuleNote>> watchModuleNotes({
         subs.add(
           queries[i].snapshots().listen(
             (snap) {
-              latest[i] = snap.docs.map(ModuleNote.fromDoc).toList();
+              // "Save" bookmarks (savedLesson) aren't notes on the text.
+              latest[i] = snap.docs
+                  .where((d) => d.data()['savedLesson'] != true)
+                  .map(ModuleNote.fromDoc)
+                  .toList();
               emit();
             },
             onError: (Object e) {

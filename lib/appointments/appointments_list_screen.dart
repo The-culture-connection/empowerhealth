@@ -9,6 +9,8 @@ import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../immediate_support/widgets/immediate_support_home_card.dart';
 import 'visit_summary_preview.dart';
+import '../app_router.dart';
+import '../cors/main_navigation_scope.dart';
 
 class AppointmentsListScreen extends StatelessWidget {
   const AppointmentsListScreen({super.key});
@@ -653,11 +655,130 @@ class _MostRecentVisitCard extends StatelessWidget {
                         ),
                       ),
                 ],
+                _VisitLessonsSection(summaryId: doc.id),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Lessons the app generated from a visit summary, with a way to open them in
+/// the Learn tab (bottom tabs visible). Hidden when the visit has none.
+class _VisitLessonsSection extends StatefulWidget {
+  const _VisitLessonsSection({required this.summaryId, this.compact = false});
+
+  final String summaryId;
+  final bool compact;
+
+  @override
+  State<_VisitLessonsSection> createState() => _VisitLessonsSectionState();
+}
+
+class _VisitLessonsSectionState extends State<_VisitLessonsSection> {
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _lessons;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      // Equality filters only, so no composite index is needed.
+      _lessons = FirebaseFirestore.instance
+          .collection('learning_tasks')
+          .where('userId', isEqualTo: uid)
+          .where('visitSummaryId', isEqualTo: widget.summaryId)
+          .snapshots();
+    }
+  }
+
+  void _openLearn() {
+    if (!MainNavigationScope.goToTab(context, MainNavigationScope.tabLearn)) {
+      Navigator.pushNamed(context, Routes.learning);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stream = _lessons;
+    if (stream == null) return const SizedBox.shrink();
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final titles = (snapshot.data?.docs ?? const [])
+            .map((d) => d.data())
+            .where((d) => d['moduleType'] == 'visit_based' && d['isArchived'] != true)
+            .map((d) => (d['title'] ?? '').toString().trim())
+            .where((t) => t.isNotEmpty)
+            .toList();
+        if (titles.isEmpty) return const SizedBox.shrink();
+        final count = titles.length == 1 ? '1 lesson' : '${titles.length} lessons';
+        final openButton = TextButton.icon(
+          onPressed: _openLearn,
+          icon: const Icon(Icons.school_outlined, size: 18),
+          label: const Text('Open in Learn'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppTheme.brandPurple,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          ),
+        );
+        if (widget.compact) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 4,
+              children: [
+                Text(
+                  '$count from this visit',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                ),
+                openButton,
+              ],
+            ),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            Divider(height: 1, color: AppTheme.borderLight.withOpacity(0.45)),
+            const SizedBox(height: 12),
+            Text(
+              'LESSONS FROM THIS VISIT',
+              style: TextStyle(
+                fontSize: 11,
+                letterSpacing: 0.8,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.brandPurple.withOpacity(0.85),
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...titles.take(3).map(
+                  (t) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      t,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w300,
+                      ),
+                    ),
+                  ),
+                ),
+            if (titles.length > 3)
+              Text(
+                'and ${titles.length - 3} more',
+                style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+              ),
+            Align(alignment: Alignment.centerLeft, child: openButton),
+          ],
+        );
+      },
     );
   }
 }
@@ -757,6 +878,7 @@ class _PastVisitListTile extends StatelessWidget {
                           ),
                         ),
                       ],
+                      _VisitLessonsSection(summaryId: doc.id, compact: true),
                     ],
                   ),
                 ),

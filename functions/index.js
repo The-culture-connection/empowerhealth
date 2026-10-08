@@ -1875,6 +1875,16 @@ exports.summarizeAfterVisitPDF = onCall(
 );
 
 // Helper function to format summary for display (matches image format)
+/**
+ * Trims and ends text with exactly one period (keeps ! and ?), so joined
+ * parts never read "levels.. Take". Returns "" for empty input.
+ */
+function asSentence(text) {
+  const t = String(text ?? "").trim().replace(/[.\s]+$/, "");
+  if (!t) return "";
+  return /[!?]$/.test(t) ? t : `${t}.`;
+}
+
 function formatSummaryForDisplay(summary, learningModules = []) {
   if (summary == null || typeof summary !== "object" || Array.isArray(summary)) {
     return typeof summary === "string" ? summary : "";
@@ -1919,24 +1929,20 @@ function formatSummaryForDisplay(summary, learningModules = []) {
     }
     if (summary.medications && summary.medications.length > 0) {
       summary.medications.forEach((med) => {
-        let text = `Continue taking ${med.name}`;
-        if (med.purpose) text += ` (${med.purpose})`;
-        if (med.instructions) text += `. ${med.instructions}`;
-        actionsToTake.push(text);
+        actionsToTake.push([`Continue taking ${med.name}`, med.purpose, med.instructions]
+          .map(asSentence).filter(Boolean).join(" "));
       });
     }
     if (actionsToTake.length > 0) {
-      formatted += `## Actions To Take\n${actionsToTake.join(" ")}\n\n`;
+      formatted += `## Actions To Take\n${actionsToTake.map(asSentence).filter(Boolean).join(" ")}\n\n`;
     }
   }
 
   if (summary.medications && summary.medications.length > 0) {
     formatted += `## Medications Mentioned\n`;
     summary.medications.forEach((med) => {
-      let line = `**${med.name || "Medication"}**`;
-      if (med.purpose) line += `: ${med.purpose}`;
-      if (med.instructions) line += `. ${med.instructions}`;
-      formatted += `${line}\n`;
+      const detail = [med.purpose, med.instructions].map(asSentence).filter(Boolean).join(" ");
+      formatted += `- **${med.name || "Medication"}**${detail ? `: ${detail}` : ""}\n`;
     });
     formatted += `\n`;
   }

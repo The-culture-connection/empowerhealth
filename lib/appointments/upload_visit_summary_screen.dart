@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../utils/text_cleanup.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -39,7 +40,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   /// Picked document as PDF bytes (photos are converted to PDF on pick).
   /// Kept in memory rather than a temp file so it works on web and mobile.
   Uint8List? _selectedPdfBytes;
-  String? _pdfFileName; // display name
   String? _uploadFileName; // storage-safe name ending in .pdf
   DateTime? _selectedDate;
   UserProfile? _userProfile;
@@ -360,7 +360,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
           ],
           const SizedBox(height: 14),
           MarkdownBody(
-            data: body,
+            data: fixDoublePeriods(body),
             styleSheet: MarkdownStyleSheet(
               h2: TextStyle(
                 fontSize: 16,
@@ -572,7 +572,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     }
 
     Uint8List pdfBytes;
-    String displayName = pickedFile.name;
     if (isImage) {
       try {
         pdfBytes = await _imageBytesToPdfBytes(bytes);
@@ -583,7 +582,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         );
         return;
       }
-      displayName = '${pickedFile.name} (as PDF)';
     } else {
       pdfBytes = bytes;
     }
@@ -591,14 +589,13 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     if (!mounted) return;
     setState(() {
       _selectedPdfBytes = pdfBytes;
-      _pdfFileName = displayName;
       _uploadFileName = _storageSafePdfName(pickedFile.name);
       _avsUploadResearchSlug = isImage ? 'image_gallery' : 'pdf';
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('File selected: $_pdfFileName'),
+        content: Text(_avsUploadResearchSlug == 'pdf' ? 'Your document is ready to upload.' : 'Your photo is ready to upload.'),
         duration: const Duration(seconds: 3),
         backgroundColor: Colors.green,
       ),
@@ -665,7 +662,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         lower.contains('unreachable') ||
         lower.contains('no address associated') ||
         lower.contains('failed to fetch')) {
-      return '🌐 We couldn\'t connect. Please check your internet connection and try again.';
+      return 'We couldn\'t connect. Check your internet connection and try again.';
     }
     if (lower.contains('timeout') ||
         lower.contains('timed out') ||
@@ -675,10 +672,10 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     if (lower.contains('unauthenticated') ||
         lower.contains('not signed in') ||
         lower.contains('session expired')) {
-      return '🔒 Please sign in again, then try once more.';
+      return 'Please sign in again, then try once more.';
     }
     if (lower.contains('permission') || lower.contains('unauthorized')) {
-      return '🔒 We don\'t have permission to do that. Please sign in again and try once more.';
+      return 'Something went wrong with your sign-in. Please sign in again and try once more.';
     }
     if (lower.contains('quota') || lower.contains('resource-exhausted')) {
       return 'We\'re getting a lot of requests right now. Please try again in a few minutes.';
@@ -704,7 +701,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         SnackBar(
           content: Text(
             _selectedDate == null
-                ? '📅 Please choose your appointment date at the top first.'
+                ? 'Please choose your appointment date at the top first.'
                 : 'Please choose a file to upload.',
           ),
           backgroundColor: Colors.orange,
@@ -717,7 +714,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('🔒 Please log in to upload files'),
+          content: Text('Please sign in to add your visit summary.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -733,7 +730,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     setState(() {
       _isLoading = true;
       _generatedSummary = null;
-      _currentStep = '📤 Preparing upload...';
+      _currentStep = 'Getting your document ready…';
       _uploadProgress = 0.0;
     });
 
@@ -754,7 +751,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       
       // Upload to Firebase Storage with progress tracking
       print('📤 Uploading file to Firebase Storage: $storagePath');
-      setState(() => _currentStep = '📤 Uploading to cloud...');
+      setState(() => _currentStep = 'Uploading your document…');
       
       final uploadTask = storageRef.putData(
         pdfBytes,
@@ -775,7 +772,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         final progress = snapshot.bytesTransferred / snapshot.totalBytes;
         setState(() {
           _uploadProgress = progress;
-          _currentStep = '📤 Uploading... ${(progress * 100).toStringAsFixed(0)}%';
+          _currentStep = 'Uploading your document… ${(progress * 100).toStringAsFixed(0)}%';
         });
       }, onError: (_) {
         // Upload failures surface through `await uploadTask` below.
@@ -789,7 +786,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       print('📥 Download URL: $downloadUrl');
 
       // Save metadata to Firestore
-      setState(() => _currentStep = '💾 Saving file information...');
+      setState(() => _currentStep = 'Almost there…');
       final uploadDocRef = await _firestore
           .collection('users')
           .doc(userId)
@@ -807,7 +804,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       print('✅ File metadata saved to Firestore with ID: ${uploadDocRef.id}');
 
       // Now analyze the PDF with OpenAI
-      setState(() => _currentStep = '🤖 Analyzing PDF with AI... This may take a minute.');
+      setState(() => _currentStep = 'Reading your visit summary. This can take up to a minute.');
       
       // Prepare user profile data for context
       final userProfileData = _userProfile != null ? {
@@ -844,16 +841,16 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
               print('✅ Anonymous sign-in successful: ${currentUser?.uid}');
             } catch (anonError) {
               print('❌ Anonymous sign-in failed: $anonError');
-              throw Exception('🔒 Not signed in. Please log in before uploading PDFs.');
+              throw Exception('Please sign in before adding a visit summary.');
             }
           } else {
-            throw Exception('🔒 Not signed in. Please log in before uploading PDFs.');
+            throw Exception('Please sign in before adding a visit summary.');
           }
         }
       }
       
       if (currentUser == null) {
-        throw Exception('🔒 User session expired. Please log in again.');
+        throw Exception('Your sign-in expired. Please sign in again.');
       }
       
       // Force token refresh before calling function
@@ -909,7 +906,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         // Clear selected file to show success state
         _selectedPdfBytes = null;
         _uploadFileName = null;
-        _pdfFileName = null;
       });
       _scrollToSummary();
 
@@ -942,7 +938,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '✅ Analysis complete! ${todosCount > 0 ? "📝 $todosCount todos added. " : ""}${modulesCount > 0 ? "📚 $modulesCount learning modules created." : ""}'
+              'Your summary is ready.${todosCount > 0 ? " We added $todosCount next ${todosCount == 1 ? "step" : "steps"}." : ""}${modulesCount > 0 ? " $modulesCount new ${modulesCount == 1 ? "lesson is" : "lessons are"} waiting in Learn." : ""}'
             ),
             duration: const Duration(seconds: 4),
             backgroundColor: Colors.green,
@@ -965,7 +961,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       if (mounted) {
         final lowerMessage = e.toString().toLowerCase();
         final userFriendlyMessage = lowerMessage.contains('cancel')
-            ? '❌ Upload cancelled.'
+            ? 'Upload cancelled.'
             : _friendlyErrorMessage(
                 e,
                 fallback:
@@ -997,7 +993,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         SnackBar(
           content: Text(
             _selectedDate == null
-                ? '📅 Please choose your appointment date at the top first.'
+                ? 'Please choose your appointment date at the top first.'
                 : 'Please type or paste your visit notes first.',
           ),
           backgroundColor: Colors.orange,
@@ -1010,7 +1006,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('🔒 Please log in to analyze visit notes'),
+          content: Text('Please sign in to simplify your visit notes.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -1026,7 +1022,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     setState(() {
       _isLoading = true;
       _generatedSummary = null;
-      _currentStep = '🤖 Analyzing visit notes...';
+      _currentStep = 'Reading your notes. This can take up to a minute.';
     });
 
     try {
@@ -1081,7 +1077,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Analysis complete!'),
+            content: Text('Your summary is ready.'),
             duration: Duration(seconds: 3),
             backgroundColor: Colors.green,
           ),
@@ -1583,7 +1579,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'PDF Selected',
+                            'Ready to upload',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -1592,9 +1588,8 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            _pdfFileName ?? '',
+                            _avsUploadResearchSlug == 'pdf' ? 'Your document' : 'Your photo',
                             style: const TextStyle(fontSize: 14),
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -1605,7 +1600,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                         setState(() {
                           _selectedPdfBytes = null;
                           _uploadFileName = null;
-                          _pdfFileName = null;
                           _avsUploadResearchSlug = 'unknown';
                         });
                       },
@@ -1923,7 +1917,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
-                                      'We\'ll turn your visit summary into plain-language explanations. Medical terms will be simplified. Nothing is shared without your permission.',
+                                      'We\'ll explain your visit in everyday words, including any medical terms. Nothing is shared without your permission.',
                                       style: TextStyle(
                                         fontSize: 12,
                                         height: 1.45,
@@ -1978,7 +1972,6 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                     _generatedSummary = null;
                     _selectedPdfBytes = null;
                     _uploadFileName = null;
-                    _pdfFileName = null;
                     _selectedDate = null;
                     _avsUploadResearchSlug = 'unknown';
                   });

@@ -119,6 +119,19 @@ flutter:
     - family: Secondary
       fonts:
         - asset: assets/fonts/secondary.ttf
+    - family: YoungSerif
+      fonts:
+        - asset: assets/fonts/hearth/YoungSerif-Regular.ttf
+    - family: Figtree
+      fonts:
+        - asset: assets/fonts/hearth/Figtree-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/hearth/Figtree-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/hearth/Figtree-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/hearth/Figtree-Bold.ttf
+          weight: 700
 
 # App launcher icons (Android mipmap + iOS AppIcon.appiconset).
 # Run: dart run flutter_launcher_icons

@@ -1,101 +1,118 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Color roles (mobile UI):
-  // - Purple: primary actions only (submit, save, main navigation CTAs).
-  // - Gold / terracotta: encouragement and community cues (survey prompts, FAB compose, filters on community).
-  // - Red: reserve for true safety / emergency only (not validation or likes).
-  // - SnackBars: validation → brandGold; success → brandTurquoise; generic errors → brandPurple.
+  // Hearth palette (design/hearth/THEME_SPEC.md §1). Older token names stay so
+  // existing screens keep compiling; they point at the Hearth colour for their role.
+  // - Purple: primary actions, links, icons, selected outlines.
+  // - Gold: encouragement buttons, the active-tab bar, badges. Text on gold is ink.
+  // - Red (emergency): reserved for a true emergency control only.
 
-  // Brand palette matching NewUI design system
-  static const Color brandTurquoise = Color(0xFF23C0C2); // Secondary accent (not primary CTAs)
-  static const Color brandPurple = Color(0xFF663399); // #663399 — primary actions only
+  // Hearth tokens
+  /// Page ground.
+  static const Color ground = Color(0xFFF5F1E8);
+  /// Card and sheet surface.
+  static const Color surface = Color(0xFFFAF8F4);
+  /// Field inset inside a card.
+  static const Color surfaceInset = Color(0xFFF5F1E8);
+  /// Warm border for cards, fields and chips.
+  static const Color borderWarm = Color(0xFFE6D5B8);
+  /// Warm tint: icon chips, highlighted card, tags, selected fill.
+  static const Color tintWarm = Color(0xFFEFE0C6);
+  /// Outline of a filled star.
+  static const Color starStroke = Color(0xFF8F5F33);
+  /// Assistant bubbles and AI notes only.
+  static const Color lavender = Color(0xFFEDE7F3);
+  /// Headings and body text.
+  static const Color ink = Color(0xFF2D2733);
+  /// Text on purple.
+  static const Color onPurple = Color(0xFFFFFFFF);
+  static const Color onPurpleSecondary = Color(0xFFF5F1E8);
+  /// True emergency control only.
+  static const Color emergency = Color(0xFFD4183D);
+  /// Bottom sheet drag handle.
+  static const Color sheetHandle = Color(0xFFC9B8A0);
+  /// Modal scrim: ink at 45%.
+  static const Color scrim = Color(0x732D2733);
+
+  // Brand palette (re-pointed to Hearth roles)
+  @Deprecated('Hearth: use brandPurple')
+  static const Color brandTurquoise = Color(0xFF663399);
+  static const Color brandPurple = Color(0xFF663399);
   static const Color brandPurpleMid = Color(0xFF7744AA);
-  static const Color brandPurpleLight = Color(0xFF8855BB); // #8855BB (gradient end)
-  static const Color brandBlack = Color(0xFF2D2733); // #2d2733 (NewUI foreground)
-  static const Color brandGold = Color(0xFFD4A574); // #d4a574 — encouragement / community cues
-  static const Color brandGoldEnd = Color(0xFFE0B589);
+  static const Color brandPurpleLight = Color(0xFF8855BB);
+  static const Color brandBlack = ink;
+  static const Color brandGold = Color(0xFFD4A574);
+  static const Color brandGoldEnd = brandGold;
+  /// Empty-star outline only.
   static const Color brandTerracotta = Color(0xFFC4956A);
-  /// Stark white — use only for text/icons on purple or gold buttons
-  static const Color brandWhite = Color(0xFFFFFFFF);
-  /// NewUI page background — #faf8f4 (warm off-white)
-  static const Color backgroundWarm = Color(0xFFFAF8F4);
-  /// Warm card / sheet / panel surface
-  static const Color surfaceCard = Color(0xFFFAF7F0);
-  /// Input / inset fields (NewUI --input-background)
-  static const Color surfaceInput = Color(0xFFF3F3F5);
-  static const Color backgroundGradientStart = Color(0xFFFAF7F0);
-  static const Color backgroundGradientEnd = Color(0xFFF5F1E8);
-  
-  // NewUI specific colors
-  static const Color textPrimary = Color(0xFF2D2733); // #2d2733
-  static const Color textSecondary = Color(0xFF4A3F52); // #4a3f52
-  static const Color textMuted = Color(0xFF6B5C75); // #6b5c75
-  static const Color textLight = Color(0xFF8B7A95); // #8b7a95
-  static const Color textLighter = Color(0xFF9D8FB5); // #9d8fb5
-  static const Color textLightest = Color(0xFFA89CB5); // #a89cb5
-  static const Color textBarelyVisible = Color(0xFFB5A8C2); // #b5a8c2
-  
-  // Border colors
-  static const Color borderLight = Color(0xFFE8DFE8); // #e8dfe8
-  static const Color borderLighter = Color(0xFFEDE7F3); // #ede7f3
-  static const Color borderLightest = Color(0xFFF0E8F3); // #f0e8f3
-  /// Subtle purple-tinted border (NewUI --border)
-  static Color borderSubtlePurple = brandPurple.withOpacity(0.12);
+  /// Text and icons on purple.
+  static const Color brandWhite = onPurple;
+  static const Color backgroundWarm = ground;
+  static const Color surfaceCard = surface;
+  /// Field on the page ground.
+  static const Color surfaceInput = Color(0xFFFAF8F4);
+  static const Color backgroundGradientStart = surface;
+  static const Color backgroundGradientEnd = ground;
 
-  /// Lavender ambient glow (Flutter UIdesign / Layout.tsx)
-  static const Color ambientPurpleBlur = Color(0xFFB899D4);
-  /// Bottom nav inactive icon/label (Flutter UIdesign `MainShell` light)
-  static const Color navInactiveLight = Color(0xFFCBBEC9);
-  static const Color navBarBgLight = Color(0xF2FFFFFF);
-  static const Color navBarBorderLight = Color(0xFFE8E0F0);
-  
-  // Gradient colors
-  static const Color gradientPurpleStart = Color(0xFF8B7AA8); // #8b7aa8
-  static const Color gradientPurpleEnd = Color(0xFFB89FB5); // #b89fb5
-  static const Color gradientBeigeStart = Color(0xFFD4C5E0); // #d4c5e0
-  static const Color gradientBeigeEnd = Color(0xFFE0D5EB); // #e0d5eb
-  static const Color gradientGoldStart = Color(0xFFE6D5B8); // #e6d5b8
-  static const Color gradientGoldEnd = Color(0xFFD4A574); // #d4a574
+  // Text
+  static const Color textPrimary = ink;
+  static const Color textSecondary = Color(0xFF4A3F52);
+  /// Captions, placeholders, inactive nav.
+  static const Color textMuted = Color(0xFF6B5C75);
+  static const Color textLight = textMuted;
+  static const Color textLighter = textMuted;
+  static const Color textLightest = textMuted;
+  static const Color textBarelyVisible = textMuted;
 
-  // Backwards-compatible names used in code
-  static const Color _primary = brandPurple;
-  static const Color _secondary = brandTurquoise;
-  static const Color _surface = surfaceCard;
-  static const Color _text = brandBlack;
+  // Borders
+  static const Color borderLight = borderWarm;
+  static const Color borderLighter = borderWarm;
+  static const Color borderLightest = borderWarm;
+  static const Color borderSubtlePurple = borderWarm;
 
-  /// Primary CTA gradient (purple only)
+  @Deprecated('Hearth: use lavender (AI notes only) or ground')
+  static const Color ambientPurpleBlur = lavender;
+  static const Color navInactiveLight = textMuted;
+  static const Color navBarBgLight = surface;
+  static const Color navBarBorderLight = borderWarm;
+
+  // Former gradient stops, now single Hearth colours.
+  @Deprecated('Hearth: use lavender')
+  static const Color gradientPurpleStart = lavender;
+  @Deprecated('Hearth: use lavender')
+  static const Color gradientPurpleEnd = lavender;
+  @Deprecated('Hearth: use tintWarm')
+  static const Color gradientBeigeStart = tintWarm;
+  @Deprecated('Hearth: use tintWarm')
+  static const Color gradientBeigeEnd = tintWarm;
+  @Deprecated('Hearth: use tintWarm')
+  static const Color gradientGoldStart = tintWarm;
+  @Deprecated('Hearth: use brandGold')
+  static const Color gradientGoldEnd = brandGold;
+
+  /// Flat purple. Kept so older screens compile; use [brandPurple].
+  @Deprecated('Hearth: use brandPurple')
   static const LinearGradient primaryActionGradient = LinearGradient(
-    colors: [Color(0xFF663399), Color(0xFF7744AA), Color(0xFF8855BB)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
+    colors: [brandPurple, brandPurple],
   );
 
-  /// Encouragement / community / supportive actions (not primary navigation)
+  /// Flat gold. Kept so older screens compile; use [brandGold].
+  @Deprecated('Hearth: use brandGold')
   static const LinearGradient encouragementGradient = LinearGradient(
-    colors: [Color(0xFFD4A574), Color(0xFFE0B589)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
+    colors: [brandGold, brandGold],
   );
 
-  /// Soft purple shadow — NewUI shadow-[0_4px_20px_rgba(102,51,153,0.08)]
-  static List<BoxShadow> shadowSoft({double opacity = 0.08, double blur = 20, double y = 4}) => [
-        BoxShadow(
-          color: brandPurple.withOpacity(opacity),
-          blurRadius: blur,
-          offset: Offset(0, y),
-        ),
-      ];
+  /// Hearth cards have no shadow; returns none so older call sites stay flat.
+  @Deprecated('Hearth: cards have no shadow')
+  static List<BoxShadow> shadowSoft({double opacity = 0.08, double blur = 20, double y = 4}) =>
+      const [];
 
-  /// Medium lift — NewUI shadow-[0_8px_32px_rgba(102,51,153,0.12)]
-  static List<BoxShadow> shadowMedium({double opacity = 0.12, double blur = 32, double y = 8}) => [
-        BoxShadow(
-          color: brandPurple.withOpacity(opacity),
-          blurRadius: blur,
-          offset: Offset(0, y),
-        ),
-      ];
+  /// Hearth cards have no shadow; returns none so older call sites stay flat.
+  @Deprecated('Hearth: cards have no shadow')
+  static List<BoxShadow> shadowMedium({double opacity = 0.12, double blur = 32, double y = 8}) =>
+      const [];
 
+  /// Hearth card: surface fill, 1px warm border, radius 24, no shadow.
   static BoxDecoration cardDecoration({
     Color? color,
     double? radius,
@@ -103,144 +120,291 @@ class AppTheme {
     List<BoxShadow>? boxShadow,
   }) {
     return BoxDecoration(
-      color: color ?? surfaceCard,
+      color: color ?? surface,
       borderRadius: BorderRadius.circular(radius ?? radiusMedium),
-      border: border ? Border.all(color: borderLight.withOpacity(0.5)) : null,
-      boxShadow: boxShadow ?? shadowSoft(),
+      border: border ? Border.all(color: borderWarm) : null,
+      boxShadow: boxShadow,
     );
   }
 
-  static ThemeData light() {
-    final base = ThemeData(useMaterial3: true, brightness: Brightness.light);
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: _primary,
-      primary: _primary,
-      secondary: _secondary,
-      surface: _surface,
-      error: error,
-      brightness: Brightness.light,
-    );
+  // Font families (bundled in assets/fonts/hearth so the app looks right offline).
+  static const String serifFamily = 'YoungSerif';
+  static const String sansFamily = 'Figtree';
 
-    final relaxedBody = base.textTheme.bodyMedium?.copyWith(
-      height: 1.5,
-      fontWeight: FontWeight.w300,
+  static TextStyle _serif(double size, double lineHeight, {Color color = ink}) => TextStyle(
+        fontFamily: serifFamily,
+        fontSize: size,
+        height: lineHeight / size,
+        fontWeight: FontWeight.w400,
+        color: color,
+      );
+
+  static TextStyle _sans(
+    double size,
+    double lineHeight,
+    FontWeight weight, {
+    Color color = ink,
+  }) =>
+      TextStyle(
+        fontFamily: sansFamily,
+        fontSize: size,
+        height: lineHeight / size,
+        fontWeight: weight,
+        color: color,
+      );
+
+  /// Hearth text theme: Young Serif for display/headline, Figtree for the rest.
+  static TextTheme textTheme() => TextTheme(
+        // Tab-root title, pushed-screen title, section heading, feature-card title.
+        displayLarge: _serif(34, 40),
+        displayMedium: _serif(30, 36),
+        displaySmall: _serif(26, 32),
+        headlineLarge: _serif(26, 32),
+        headlineMedium: _serif(20, 26),
+        headlineSmall: _serif(19, 25),
+        // Card and row titles, field labels.
+        titleLarge: _sans(17, 24, FontWeight.w700),
+        titleMedium: _sans(16, 22, FontWeight.w700),
+        titleSmall: _sans(14, 20, FontWeight.w600),
+        // Body and captions.
+        bodyLarge: _sans(15, 22, FontWeight.w400, color: textSecondary),
+        bodyMedium: _sans(14, 21, FontWeight.w400, color: textSecondary),
+        bodySmall: _sans(13, 18, FontWeight.w400, color: textMuted),
+        // Button, chip, tag.
+        labelLarge: _sans(16, 22, FontWeight.w700),
+        labelMedium: _sans(14, 20, FontWeight.w600, color: textSecondary),
+        labelSmall: _sans(12, 18, FontWeight.w700, color: textSecondary),
+      );
+
+  static const double buttonHeight = 52;
+  static const double fieldRadius = 18;
+
+  static ThemeData light() {
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      fontFamily: sansFamily,
+    );
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: brandPurple,
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: brandPurple,
+      onPrimary: onPurple,
+      secondary: brandGold,
+      onSecondary: ink,
+      tertiary: brandPurpleMid,
+      surface: surface,
+      onSurface: ink,
+      onSurfaceVariant: textSecondary,
+      surfaceContainerLowest: surface,
+      surfaceContainerLow: surface,
+      surfaceContainer: surface,
+      surfaceContainerHigh: surface,
+      surfaceContainerHighest: ground,
+      surfaceTint: Colors.transparent,
+      outline: borderWarm,
+      outlineVariant: borderWarm,
+      error: emergency,
+      scrim: scrim,
+    );
+    final text = textTheme();
+    const stadium = StadiumBorder();
+    final buttonText = _sans(16, 22, FontWeight.w700);
+    final fieldBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(fieldRadius),
+      borderSide: const BorderSide(color: borderWarm),
     );
 
     return base.copyWith(
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: backgroundWarm,
+      scaffoldBackgroundColor: ground,
+      canvasColor: ground,
+      dividerColor: borderWarm,
       visualDensity: VisualDensity.standard,
       materialTapTargetSize: MaterialTapTargetSize.padded,
+      textTheme: text,
+      primaryTextTheme: text,
+      iconTheme: const IconThemeData(color: ink),
       appBarTheme: AppBarTheme(
-        backgroundColor: backgroundWarm,
-        foregroundColor: textPrimary,
+        backgroundColor: ground,
+        foregroundColor: ink,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
         centerTitle: true,
-        titleTextStyle: const TextStyle(
-          fontFamily: 'Primary',
-          fontSize: 20,
-          fontWeight: FontWeight.w400,
-          color: textPrimary,
-        ),
+        titleTextStyle: _serif(20, 26),
       ),
-      textTheme: base.textTheme
-          .apply(
-            bodyColor: _text,
-            displayColor: _text,
-            fontFamily: 'Secondary',
-          )
-          .copyWith(
-            displayLarge: base.textTheme.displayLarge?.copyWith(fontFamily: 'Primary'),
-            displayMedium: base.textTheme.displayMedium?.copyWith(fontFamily: 'Primary'),
-            displaySmall: base.textTheme.displaySmall?.copyWith(fontFamily: 'Primary'),
-            headlineLarge: base.textTheme.headlineLarge?.copyWith(fontFamily: 'Primary'),
-            headlineMedium: base.textTheme.headlineMedium?.copyWith(fontFamily: 'Primary'),
-            headlineSmall: base.textTheme.headlineSmall?.copyWith(fontFamily: 'Primary'),
-            titleLarge: base.textTheme.titleLarge?.copyWith(fontFamily: 'Primary'),
-            bodyLarge: base.textTheme.bodyLarge?.copyWith(height: 1.5, fontWeight: FontWeight.w300),
-            bodyMedium: relaxedBody,
-            bodySmall: base.textTheme.bodySmall?.copyWith(height: 1.45, fontWeight: FontWeight.w300),
-            labelLarge: base.textTheme.labelLarge?.copyWith(height: 1.35),
-          ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: brandPurple,
-          foregroundColor: brandWhite,
+          foregroundColor: onPurple,
           elevation: 0,
           shadowColor: Colors.transparent,
-          minimumSize: const Size(48, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusMedium),
-          ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
+          minimumSize: const Size(64, buttonHeight),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          shape: stadium,
+          textStyle: buttonText,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: brandPurple,
-          foregroundColor: brandWhite,
-          minimumSize: const Size(48, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusMedium),
-          ),
+          foregroundColor: onPurple,
+          minimumSize: const Size(64, buttonHeight),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          shape: stadium,
+          textStyle: buttonText,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: brandPurple,
-          side: BorderSide(color: brandPurple.withOpacity(0.38), width: 1.5),
-          minimumSize: const Size(48, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusMedium),
-          ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
+          side: const BorderSide(color: brandPurple, width: 1.5),
+          minimumSize: const Size(64, buttonHeight),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          shape: stadium,
+          textStyle: buttonText,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: brandPurple,
-          minimumSize: const Size(48, 40),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          minimumSize: const Size(48, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          textStyle: buttonText,
         ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(foregroundColor: ink),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surfaceInput,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: borderLight),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        border: fieldBorder,
+        enabledBorder: fieldBorder,
+        disabledBorder: fieldBorder,
+        focusedBorder: fieldBorder.copyWith(
+          borderSide: const BorderSide(color: brandPurple, width: 2),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: borderLight),
+        errorBorder: fieldBorder,
+        focusedErrorBorder: fieldBorder.copyWith(
+          borderSide: const BorderSide(color: brandPurple, width: 2),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius),
-          borderSide: BorderSide(color: _primary.withOpacity(0.35), width: 2),
+        hintStyle: _sans(15, 22, FontWeight.w400, color: textMuted),
+        labelStyle: _sans(15, 22, FontWeight.w400, color: textMuted),
+        floatingLabelStyle: _sans(14, 20, FontWeight.w600, color: brandPurple),
+        helperStyle: _sans(13, 18, FontWeight.w400, color: textMuted),
+        prefixIconColor: textMuted,
+        suffixIconColor: textMuted,
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: surface,
+        selectedColor: tintWarm,
+        disabledColor: ground,
+        checkmarkColor: brandPurple,
+        side: const BorderSide(color: borderWarm),
+        shape: stadium,
+        labelStyle: _sans(14, 20, FontWeight.w600, color: textSecondary),
+        secondaryLabelStyle: _sans(14, 20, FontWeight.w700, color: brandPurple),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        elevation: 0,
+        pressElevation: 0,
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? brandPurple : Colors.transparent,
+        ),
+        checkColor: const WidgetStatePropertyAll(onPurple),
+        side: const BorderSide(color: textMuted, width: 1.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? brandPurple : textMuted,
         ),
       ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? onPurple : surface,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? brandPurple : borderWarm,
+        ),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
       cardTheme: CardThemeData(
-        color: surfaceCard,
+        color: surface,
         elevation: 0,
         shadowColor: Colors.transparent,
-        // Flutter UIdesign `AppTheme.light` uses 20px card radius
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusMedium),
+          side: const BorderSide(color: borderWarm),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: ground,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        barrierColor: scrim,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusLarge)),
+        titleTextStyle: _serif(20, 26),
+        contentTextStyle: _sans(15, 22, FontWeight.w400, color: textSecondary),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: ground,
+        modalBackgroundColor: ground,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        modalElevation: 0,
+        modalBarrierColor: scrim,
+        dragHandleColor: sheetHandle,
+        dragHandleSize: Size(40, 4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(radiusLarge)),
+        ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         type: BottomNavigationBarType.fixed,
         selectedItemColor: brandPurple,
-        unselectedItemColor: textLightest,
-        backgroundColor: surfaceCard,
+        unselectedItemColor: textMuted,
+        backgroundColor: surface,
         elevation: 0,
         showUnselectedLabels: true,
+        selectedLabelStyle: _sans(11, 14, FontWeight.w700),
+        unselectedLabelStyle: _sans(11, 14, FontWeight.w500),
       ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: surfaceCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusLarge)),
+      dividerTheme: const DividerThemeData(color: borderWarm, thickness: 1, space: 1),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: brandPurple,
+        linearTrackColor: borderWarm,
+        circularTrackColor: Colors.transparent,
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: brandPurple,
+        selectionColor: brandPurple.withValues(alpha: 0.2),
+        selectionHandleColor: brandPurple,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusSmall),
+          side: const BorderSide(color: borderWarm),
+        ),
+        textStyle: _sans(15, 22, FontWeight.w400),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: ink,
+        contentTextStyle: _sans(14, 20, FontWeight.w500, color: onPurpleSecondary),
+        actionTextColor: brandGold,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusSmall)),
+        elevation: 0,
       ),
     );
   }
@@ -248,9 +412,10 @@ class AppTheme {
   static ThemeData dark() {
     final base = ThemeData(useMaterial3: true, brightness: Brightness.dark);
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: _primary,
-      primary: _primary,
-      secondary: _secondary,
+      seedColor: brandPurple,
+      primary: brandPurple,
+      // ignore: deprecated_member_use_from_same_package
+      secondary: brandTurquoise,
       brightness: Brightness.dark,
     );
     return base.copyWith(
@@ -265,7 +430,9 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          // ignore: deprecated_member_use_from_same_package
           foregroundColor: brandTurquoise,
+          // ignore: deprecated_member_use_from_same_package
           side: BorderSide(color: brandTurquoise.withOpacity(0.7), width: 1.5),
           minimumSize: const Size(48, 48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusMedium)),
@@ -282,22 +449,27 @@ class AppTheme {
   static const double spacingXL = 24.0;
   static const double spacingXXL = 32.0;
 
-  // Corner radii matching NewUI
-  static const double radiusSmall = 18.0; // rounded-[18px]
-  static const double radius = 20.0; // rounded-[20px]
-  static const double radiusMedium = 24.0; // rounded-[24px]
-  static const double radiusLarge = 28.0; // rounded-[28px]
-  static const double radiusXLarge = 32.0; // rounded-[32px]
+  /// Screen side padding (Hearth).
+  static const double screenPadding = 20.0;
 
-  // Common colors used across light UI
-  // These map to the brand palette above for consistency.
+  // Corner radii
+  static const double radiusSmall = 18.0;
+  static const double radius = 20.0;
+  static const double radiusMedium = 24.0;
+  static const double radiusLarge = 28.0;
+  static const double radiusXLarge = 32.0;
+
+  // Older role names, re-pointed to Hearth colours.
   static const Color lightPrimary = brandPurple;
-  static const Color lightSecondary = brandTurquoise;
+  @Deprecated('Hearth: use brandPurple')
+  static const Color lightSecondary = brandPurple;
   static const Color lightAccent = brandGold;
-  static const Color lightForeground = textPrimary;
-  static const Color lightBackground = backgroundWarm;
-  static const Color lightMuted = Color(0xFFF1F5F9); // neutral surface tint
-  static const Color error = Color(0xFFD4183D); // #d4183d (NewUI destructive)
+  static const Color lightForeground = ink;
+  static const Color lightBackground = ground;
+  @Deprecated('Hearth: use ground or surfaceInset')
+  static const Color lightMuted = ground;
+  /// Emergency only (see [emergency]).
+  static const Color error = emergency;
 
   // Responsive text sizing based on screen width
   static double responsiveFontSize(BuildContext context, {
@@ -309,7 +481,7 @@ class AppTheme {
     final base = baseSize ?? 18.0;
     final small = smallScreenMultiplier ?? 0.85; // 15% smaller on small screens
     final large = largeScreenMultiplier ?? 1.15; // 15% larger on large screens
-    
+
     if (screenWidth < 360) {
       // Small phones
       return base * small;
@@ -321,7 +493,7 @@ class AppTheme {
     return base;
   }
 
-  // Helper for responsive title text style
+  /// Serif title in ink (Hearth headings).
   static TextStyle responsiveTitleStyle(BuildContext context, {
     Color? color,
     FontWeight? fontWeight,
@@ -330,9 +502,9 @@ class AppTheme {
   }) {
     return TextStyle(
       fontSize: responsiveFontSize(context, baseSize: baseSize ?? 20),
-      fontWeight: fontWeight ?? FontWeight.w600,
-      color: color ?? brandPurple,
-      fontFamily: fontFamily ?? 'Primary',
+      fontWeight: fontWeight ?? FontWeight.w400,
+      color: color ?? ink,
+      fontFamily: fontFamily ?? serifFamily,
     );
   }
 
@@ -345,11 +517,12 @@ class AppTheme {
     return TextStyle(
       fontSize: responsiveFontSize(context, baseSize: baseSize ?? 16),
       fontWeight: fontWeight ?? FontWeight.w400,
-      color: color ?? brandBlack,
+      color: color ?? textSecondary,
+      fontFamily: sansFamily,
     );
   }
 
-  /// App bar aligned with NewUI: warm background, primary text (avoid solid purple bars on inner routes).
+  /// Plain app bar on the page ground with a serif title.
   static AppBar newUiAppBar(
     BuildContext context, {
     required String title,
@@ -361,17 +534,12 @@ class AppTheme {
     return AppBar(
       title: Text(
         title,
-        style: const TextStyle(
-          fontFamily: 'Primary',
-          fontSize: 20,
-          fontWeight: FontWeight.w400,
-          color: textPrimary,
-        ),
+        style: _serif(20, 26),
       ),
       leading: leading,
       centerTitle: centerTitle,
-      backgroundColor: backgroundWarm,
-      foregroundColor: textPrimary,
+      backgroundColor: ground,
+      foregroundColor: ink,
       elevation: 0,
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,

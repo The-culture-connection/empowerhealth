@@ -382,7 +382,7 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                     titleWidget: _GreetingTitle(
                       text: inLossMode
                           ? 'We\'re here with you$_kNbsp'
-                          : 'Welcome, Mama$_kNbsp',
+                          : 'Welcome',
                       underlineLastWord: !inLossMode,
                     ),
                     subtitle: inLossMode
@@ -877,15 +877,16 @@ class _GreetingTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.displayLarge;
     final trimmed = text.trim();
-    final split = trimmed.lastIndexOf(' ');
-    if (!underlineLastWord || split < 0) {
+    if (!underlineLastWord) {
       return Text(trimmed, style: style);
     }
+    // A one-word greeting gets the swash under the whole word.
+    final split = trimmed.lastIndexOf(' ');
     return Text.rich(
       TextSpan(
         style: style,
         children: [
-          TextSpan(text: trimmed.substring(0, split + 1)),
+          if (split >= 0) TextSpan(text: trimmed.substring(0, split + 1)),
           WidgetSpan(
             alignment: PlaceholderAlignment.baseline,
             baseline: TextBaseline.alphabetic,

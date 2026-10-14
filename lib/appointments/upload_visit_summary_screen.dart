@@ -6,6 +6,10 @@ import '../utils/text_cleanup.dart';
 import 'suggested_learning_list.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart'
+    show ImagePickerPlatform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -24,6 +28,9 @@ import '../widgets/ai_disclaimer_banner.dart';
 import '../widgets/feature_session_scope.dart';
 import '../privacy/after_visit_privacy_screen.dart';
 import 'visit_date_utils.dart';
+
+/// Where an Android upload comes from (photo picker or document picker).
+enum _PickSource { photo, file }
 
 class UploadVisitSummaryScreen extends StatefulWidget {
   const UploadVisitSummaryScreen({super.key});
@@ -462,6 +469,17 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   }
 
   Future<void> _pickPDF() async {
+    // Android: photos go through the system photo picker, which needs no media
+    // permission (Google Play photo and video permissions policy).
+    if (!kIsWeb && Platform.isAndroid) {
+      final choice = await _askPhotoOrFile();
+      if (choice == null) return;
+      if (choice == _PickSource.photo) {
+        await _pickPhotoWithPhotoPicker();
+        return;
+      }
+    }
+
     // FileType.any on Android is more reliable (some devices/emulators reject
     // custom extension filters). Web and iOS use the extension filter.
     final useAnyType = !kIsWeb && Platform.isAndroid;
@@ -555,6 +573,78 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       return;
     }
 
+    await _useSelectedFile(name: pickedFile.name, bytes: bytes, isImage: isImage);
+  }
+
+  /// Asks whether to add a photo (Android photo picker) or a PDF/other file.
+  Future<_PickSource?> _askPhotoOrFile() {
+    return showHearthSheet<_PickSource>(
+      context: context,
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Add your visit summary',
+            style: Theme.of(sheetContext).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: 16),
+          HearthRowCard(
+            icon: Icons.photo_library_outlined,
+            title: 'Choose a photo',
+            subtitle: 'From your photos',
+            onTap: () => Navigator.of(sheetContext).pop(_PickSource.photo),
+          ),
+          const SizedBox(height: 12),
+          HearthRowCard(
+            icon: Icons.description_outlined,
+            title: 'Choose a PDF or file',
+            subtitle: 'From your files',
+            onTap: () => Navigator.of(sheetContext).pop(_PickSource.file),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickPhotoWithPhotoPicker() async {
+    // image_picker_android defaults to the older gallery intent; the system
+    // photo picker needs no READ_MEDIA_* permission.
+    final platform = ImagePickerPlatform.instance;
+    if (platform is ImagePickerAndroid) platform.useAndroidPhotoPicker = true;
+
+    XFile? photo;
+    try {
+      photo = await ImagePicker().pickImage(source: ImageSource.gallery);
+    } catch (e) {
+      debugPrint('Photo picker error: $e');
+      _showPickError('We couldn\'t open your photos. Please try again.');
+      return;
+    }
+    // Cancelled by the user — expected, no message.
+    if (photo == null) return;
+
+    Uint8List bytes;
+    try {
+      bytes = await photo.readAsBytes();
+    } catch (e) {
+      debugPrint('Reading picked photo failed: $e');
+      _showPickError('We couldn\'t read that photo. Please try choosing it again.');
+      return;
+    }
+    if (bytes.isEmpty) {
+      _showPickError('We couldn\'t read that photo. Please try choosing it again.');
+      return;
+    }
+    await _useSelectedFile(name: photo.name, bytes: bytes, isImage: true);
+  }
+
+  /// Turns a picked photo into a PDF (PDFs pass through) and marks it ready to upload.
+  Future<void> _useSelectedFile({
+    required String name,
+    required Uint8List bytes,
+    required bool isImage,
+  }) async {
     Uint8List pdfBytes;
     if (isImage) {
       try {
@@ -573,7 +663,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     if (!mounted) return;
     setState(() {
       _selectedPdfBytes = pdfBytes;
-      _uploadFileName = _storageSafePdfName(pickedFile.name);
+      _uploadFileName = _storageSafePdfName(name);
       _avsUploadResearchSlug = isImage ? 'image_gallery' : 'pdf';
     });
 

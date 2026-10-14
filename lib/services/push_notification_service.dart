@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../app_router.dart';
 import '../constants/push_audience_topics.dart';
+import '../cors/main_navigation_scope.dart';
 import '../utils/pregnancy_utils.dart';
 import 'analytics_service.dart';
 import 'firebase_service.dart';
@@ -209,24 +210,23 @@ class PushNotificationService {
       debugPrint('[FCM] logNotificationOpened failed: $e');
     }
     if (type == 'beta_checklist') {
-      unawaited(_openNamedWhenReady(Routes.betaChecklist));
+      unawaited(_openOverHomeWhenReady(Routes.betaChecklist));
     }
   }
 
-  /// On cold start the navigator may not exist yet, so retry briefly.
-  Future<void> _openNamedWhenReady(String route) async {
-    for (var i = 0; i < 20; i++) {
-      final nav = appNavigatorKey.currentState;
-      if (nav != null) {
-        // Let the auth gate settle so the screen lands above the tabs.
-        await Future<void>.delayed(const Duration(milliseconds: 600));
-        if (FirebaseAuth.instance.currentUser == null) return;
-        unawaited(nav.pushNamed(route));
-        return;
+  /// Opens [route] above the Home tab so Back returns to Home. On cold start the
+  /// tabs appear only after sign-in, the profile check and consent, so wait for them.
+  Future<void> _openOverHomeWhenReady(String route) async {
+    for (var i = 0; i < 60; i++) {
+      if (FirebaseAuth.instance.currentUser != null &&
+          MainNavigationScope.isTabScaffoldMounted) {
+        // One more frame so the tabs have finished building.
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        if (MainNavigationScope.openOverTab(MainNavigationScope.tabHome, route)) return;
       }
       await Future<void>.delayed(const Duration(milliseconds: 500));
     }
-    debugPrint('[FCM] navigator not ready; could not open $route');
+    debugPrint('[FCM] tabs not ready; could not open $route');
   }
 
   /// `subscribeToTopic` on iOS requires an APNS token; retry in the background so cold start

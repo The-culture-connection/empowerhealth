@@ -39,6 +39,24 @@ class MainNavigationScope extends InheritedWidget {
     return true;
   }
 
+  /// True once a tab scaffold is on screen (after sign-in, profile and consent).
+  static bool get isTabScaffoldMounted => _topmostScopeElement() != null;
+
+  /// Closes everything above the tabs, selects [tabIndex], then pushes
+  /// [routeName] on top, so Back from that screen lands on the tab.
+  /// Used when a notification opens a screen. Returns false if no tabs are on screen.
+  static bool openOverTab(int tabIndex, String routeName) {
+    final element = _topmostScopeElement();
+    if (element == null) return false;
+    final tabsRoute = ModalRoute.of(element);
+    _closeRoutesAbove(tabsRoute);
+    (element.widget as MainNavigationScope).selectTab(tabIndex);
+    final navigator = tabsRoute?.navigator ?? Navigator.maybeOf(element);
+    if (navigator == null) return false;
+    navigator.pushNamed(routeName);
+    return true;
+  }
+
   // Close only routes above the one holding the tabs. After login the app
   // pushes the tab scaffold above the auth route, so popping while canPop()
   // would remove the tabs too and drop the user on the sign-in screen.

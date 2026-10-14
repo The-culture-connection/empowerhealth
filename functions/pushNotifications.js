@@ -13,6 +13,7 @@
 
 const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 
@@ -399,11 +400,101 @@ function newYorkDateKey(d = new Date()) {
   }).format(d);
 }
 
+/** Server-only settings doc (no client rules; the admin portal uses the callables below). */
+const BETA_PUSH_SETTINGS = db.collection("admin_settings").doc("beta_push");
+const BETA_PUSH_SCHEDULE_LABEL = "Daily at 6:00 PM Eastern";
+
+/** Reminders stay on unless an admin has switched them off (they shipped on). */
+async function readBetaPushSettings() {
+  const snap = await BETA_PUSH_SETTINGS.get();
+  const data = snap.exists ? snap.data() : {};
+  return {
+    enabled: data.enabled !== false,
+    updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null,
+    updatedBy: data.updatedBy || null,
+    lastRun: data.lastRun ?
+      {...data.lastRun, at: data.lastRun.at ? data.lastRun.at.toDate().toISOString() : null} :
+      null,
+  };
+}
+
 /**
- * Daily beta-tester nudge. Reads users/{uid}/beta/checklist (written by the app's
- * BetaChecklistService) and today's users/{uid}/beta_days/{date}; sends one push to
- * each tester who still has checklist items or today's 10-minute goal left.
+ * Finds every beta tester (users/{uid}/beta/checklist, written by the app's
+ * BetaChecklistService) who still has checklist items or today's 10-minute goal
+ * left, and sends each one push unless [dryRun].
  */
+async function runBetaChecklistReminders({dryRun}) {
+  const dateKey = newYorkDateKey();
+  const snap = await db.collectionGroup("beta").get();
+  const stats = {date: dateKey, testers: 0, eligible: 0, notified: 0, noTokens: 0, failed: 0};
+
+  for (const doc of snap.docs) {
+    if (doc.id !== "checklist") continue;
+    const userRef = doc.ref.parent.parent;
+    if (!userRef) continue;
+    stats.testers++;
+    try {
+      const data = doc.data() || {};
+      const completed = data.completed && typeof data.completed === "object" ? data.completed : {};
+      const totalItems = Number(data.totalItems) || 0;
+      // Recount rather than trust the stored `remaining`, which reflects the
+      // day it was written.
+      const itemsLeft = Math.max(0, totalItems - Object.keys(completed).length);
+      const today = await userRef.collection("beta_days").doc(dateKey).get();
+      const goalMet = today.exists && today.data()?.goalMet === true;
+      const remaining = itemsLeft + (goalMet ? 0 : 1);
+      if (remaining <= 0) continue;
+      stats.eligible++;
+      if (dryRun) continue;
+
+      const taskWord = remaining === 1 ? "task" : "tasks";
+      const body = goalMet ?
+        `You have ${remaining} beta ${taskWord} left. Tap to see what to try next.` :
+        `Spend 10 minutes in EmpowerHealth Watch today. You have ${remaining} beta ${taskWord} left.`;
+
+      const result = await sendToUserDevices(userRef.id, {
+        title: "Your beta checklist",
+        body,
+        data: {type: "beta_checklist"},
+      });
+      if (result.sent > 0) {
+        stats.notified++;
+      } else if (result.failures === 0) {
+        stats.noTokens++;
+      } else {
+        stats.failed++;
+      }
+    } catch (e) {
+      stats.failed++;
+      logger.warn("[push] beta checklist reminder failed", {uid: userRef.id, error: String(e)});
+    }
+  }
+  return stats;
+}
+
+async function recordBetaPushRun(source, stats) {
+  await BETA_PUSH_SETTINGS.set(
+    {lastRun: {...stats, source, at: admin.firestore.FieldValue.serverTimestamp()}},
+    {merge: true},
+  );
+}
+
+/** Admin or community manager, resolved the way the admin portal does (doc id = uid, else email field). */
+async function assertCanManagePush(request) {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in to the admin portal first.");
+  const email = (request.auth.token.email || "").toLowerCase();
+  for (const col of ["ADMIN", "COMMUNITY_MANAGERS"]) {
+    if ((await db.collection(col).doc(uid).get()).exists) return;
+    if (email) {
+      const byEmail = await db.collection(col).where("email", "==", email).limit(1).get();
+      if (!byEmail.empty) return;
+    }
+  }
+  throw new HttpsError("permission-denied", "Only admins and community managers can manage beta reminders.");
+}
+
+/** Daily beta-tester nudge; does nothing while an admin has reminders switched off. */
 exports.scheduledBetaChecklistReminder = onSchedule(
   {
     schedule: "0 18 * * *",
@@ -413,62 +504,48 @@ exports.scheduledBetaChecklistReminder = onSchedule(
     memory: "512MiB",
   },
   async () => {
-    const dateKey = newYorkDateKey();
-    const snap = await db.collectionGroup("beta").get();
-    let testers = 0;
-    let eligible = 0;
-    let notified = 0;
-    let noTokens = 0;
-    let failed = 0;
-
-    for (const doc of snap.docs) {
-      if (doc.id !== "checklist") continue;
-      const userRef = doc.ref.parent.parent;
-      if (!userRef) continue;
-      testers++;
-      try {
-        const data = doc.data() || {};
-        const completed = data.completed && typeof data.completed === "object" ? data.completed : {};
-        const totalItems = Number(data.totalItems) || 0;
-        // Recount rather than trust the stored `remaining`, which reflects the
-        // day it was written.
-        const itemsLeft = Math.max(0, totalItems - Object.keys(completed).length);
-        const today = await userRef.collection("beta_days").doc(dateKey).get();
-        const goalMet = today.exists && today.data()?.goalMet === true;
-        const remaining = itemsLeft + (goalMet ? 0 : 1);
-        if (remaining <= 0) continue;
-        eligible++;
-
-        const taskWord = remaining === 1 ? "task" : "tasks";
-        const body = goalMet
-          ? `You have ${remaining} beta ${taskWord} left. Tap to see what to try next.`
-          : `Spend 10 minutes in EmpowerHealth Watch today. You have ${remaining} beta ${taskWord} left.`;
-
-        const result = await sendToUserDevices(userRef.id, {
-          title: "Your beta checklist",
-          body,
-          data: {type: "beta_checklist"},
-        });
-        if (result.sent > 0) {
-          notified++;
-        } else if (result.failures === 0) {
-          noTokens++;
-        } else {
-          failed++;
-        }
-      } catch (e) {
-        failed++;
-        logger.warn("[push] beta checklist reminder failed", {uid: userRef.id, error: String(e)});
-      }
+    const settings = await readBetaPushSettings();
+    if (!settings.enabled) {
+      logger.info("[push] beta checklist reminders are switched off; skipping");
+      await recordBetaPushRun("schedule_skipped_off", {date: newYorkDateKey(), testers: 0, eligible: 0, notified: 0, noTokens: 0, failed: 0});
+      return;
     }
+    const stats = await runBetaChecklistReminders({dryRun: false});
+    await recordBetaPushRun("schedule", stats);
+    logger.info("[push] beta checklist reminders", stats);
+  },
+);
 
-    logger.info("[push] beta checklist reminders", {
-      date: dateKey,
-      testers,
-      eligible,
-      notified,
-      noTokens,
-      failed,
-    });
+exports.getBetaPushSettings = onCall({region: REGION}, async (request) => {
+  await assertCanManagePush(request);
+  return {...(await readBetaPushSettings()), schedule: BETA_PUSH_SCHEDULE_LABEL};
+});
+
+exports.setBetaPushSettings = onCall({region: REGION}, async (request) => {
+  await assertCanManagePush(request);
+  const enabled = request.data?.enabled;
+  if (typeof enabled !== "boolean") throw new HttpsError("invalid-argument", "enabled must be true or false.");
+  await BETA_PUSH_SETTINGS.set(
+    {
+      enabled,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: request.auth.token.email || request.auth.uid,
+    },
+    {merge: true},
+  );
+  logger.info("[push] beta checklist reminders switched", {enabled, by: request.auth.token.email || request.auth.uid});
+  return {...(await readBetaPushSettings()), schedule: BETA_PUSH_SCHEDULE_LABEL};
+});
+
+/** Preview (dryRun) how many testers would get a reminder now, or send it now. */
+exports.runBetaChecklistRemindersNow = onCall(
+  {region: REGION, timeoutSeconds: 300, memory: "512MiB"},
+  async (request) => {
+    await assertCanManagePush(request);
+    const dryRun = request.data?.dryRun !== false;
+    const stats = await runBetaChecklistReminders({dryRun});
+    if (!dryRun) await recordBetaPushRun("manual", stats);
+    logger.info("[push] beta checklist reminders (manual)", {dryRun, by: request.auth.token.email || request.auth.uid, ...stats});
+    return {dryRun, ...stats};
   },
 );

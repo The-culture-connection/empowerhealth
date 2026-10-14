@@ -8,6 +8,7 @@ import {
   type NotificationSegment,
 } from "../../lib/notifications";
 import { format } from "date-fns";
+import { BetaRemindersCard } from "../components/BetaRemindersCard";
 
 export function Notifications() {
   const [messageType, setMessageType] = useState("");
@@ -146,8 +147,10 @@ export function Notifications() {
           </p>
         </div>
 
+        <BetaRemindersCard />
+
         {error && (
-          <div className="mb-4 p-4 rounded-xl" style={{ 
+          <div className="mb-4 p-4 rounded-xl" style={{
             backgroundColor: '#fee2e2',
             color: '#dc2626',
           }}>

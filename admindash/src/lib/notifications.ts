@@ -76,6 +76,41 @@ export async function sendNotification(payload: NotificationPayload): Promise<vo
   });
 }
 
+/** Counts from one beta-reminder run (or preview). */
+export interface BetaPushRunStats {
+  date: string;
+  testers: number;
+  eligible: number;
+  notified: number;
+  noTokens: number;
+  failed: number;
+}
+
+export interface BetaPushSettings {
+  enabled: boolean;
+  schedule: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  lastRun: (BetaPushRunStats & { source: string; at: string | null }) | null;
+}
+
+/** Beta checklist reminder settings (callables in functions/pushNotifications.js). */
+export async function getBetaPushSettings(): Promise<BetaPushSettings> {
+  const fn = httpsCallable(functions, 'getBetaPushSettings');
+  return (await fn({})).data as BetaPushSettings;
+}
+
+export async function setBetaPushEnabled(enabled: boolean): Promise<BetaPushSettings> {
+  const fn = httpsCallable(functions, 'setBetaPushSettings');
+  return (await fn({ enabled })).data as BetaPushSettings;
+}
+
+/** dryRun = true only counts who would get a reminder; false sends it now. */
+export async function runBetaRemindersNow(dryRun: boolean): Promise<BetaPushRunStats & { dryRun: boolean }> {
+  const fn = httpsCallable(functions, 'runBetaChecklistRemindersNow', { timeout: 300_000 });
+  return (await fn({ dryRun })).data as BetaPushRunStats & { dryRun: boolean };
+}
+
 /**
  * Get notification delivery logs (callable fallback).
  */

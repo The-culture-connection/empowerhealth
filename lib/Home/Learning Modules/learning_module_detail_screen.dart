@@ -3,9 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../cors/ui_theme.dart' show AppTheme;
+import '../../design_system/hearth.dart';
+import '../../learning/module_notes.dart';
 import '../../learning/notes_dialog.dart';
 import '../../services/analytics_service.dart';
 import '../../services/database_service.dart';
+import '../../widgets/learning_module_formatted_content.dart';
+import '../../widgets/medical_citations_section.dart';
+import '../../widgets/module_quick_feedback.dart';
 import '../../widgets/qualitative_survey_dialog.dart';
 
 class LearningModuleDetailScreen extends StatefulWidget {
@@ -36,6 +41,86 @@ class _LearningModuleDetailScreenState
   DateTime? _viewStartTime;
   bool _hasTrackedView = false;
   bool _hasTrackedCompletion = false;
+  bool _exiting = false;
+
+  /// Text the user most recently selected in the module body. Kept after the
+  /// selection is cleared by focus loss (e.g. clicking the "Add note" button
+  /// on web) so the button can still attach it to the note.
+  final ValueNotifier<String> _selectedText = ValueNotifier<String>('');
+
+  String? get _noteModuleId => widget.moduleId ?? widget.taskId;
+
+  /// The user's notes on this lesson; drives the in-text highlights so a
+  /// newly saved note shows up right away.
+  late final Stream<List<ModuleNote>> _notesStream = watchModuleNotes(
+    moduleId: _noteModuleId,
+    moduleTitle: widget.title,
+  );
+
+  /// Opens the journal notes dialog for this module, optionally quoting the
+  /// highlighted text. Notes land in users/{uid}/notes with moduleTitle +
+  /// moduleId so the Journal can link them back to this module.
+  /// Saves this lesson to the Journal once (shows under Learning notes with an
+  /// "Open lesson" link). A second tap just confirms it's already saved.
+  Future<void> _saveLessonToJournal() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Please sign in to save lessons.')),
+      );
+      return;
+    }
+    final key = _noteModuleId ?? widget.title;
+    final notes = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('notes');
+    try {
+      final existing =
+          await notes.where('savedLessonKey', isEqualTo: key).limit(1).get();
+      if (existing.docs.isNotEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('This lesson is already saved in your Journal.')),
+        );
+        return;
+      }
+      await notes.add({
+        'content': 'Saved lesson: ${widget.title}',
+        'tag': NotesDialog.categoryForSection('learning_module'),
+        'moduleTitle': widget.title,
+        'moduleId': _noteModuleId,
+        'highlightedText': null,
+        'isFromModule': true,
+        'savedLesson': true,
+        'savedLessonKey': key,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Saved to your Journal.')),
+      );
+    } catch (e) {
+      debugPrint('Save lesson failed: $e');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('We couldn\'t save this lesson. Please try again.')),
+      );
+    }
+  }
+
+  void _openNotesDialog({String? highlightedText}) {
+    final highlight = highlightedText?.trim();
+    showDialog<void>(
+      context: context,
+      builder: (context) => NotesDialog(
+        moduleTitle: widget.title,
+        moduleId: _noteModuleId,
+        preFilledText:
+            (highlight == null || highlight.isEmpty) ? null : highlight,
+        initialTag: NotesDialog.categoryForSection('learning_module'),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -115,124 +200,139 @@ class _LearningModuleDetailScreenState
   @override
   void dispose() {
     _trackModuleExit();
+    _selectedText.dispose();
     super.dispose();
+  }
+
+  /// Shows the exit feedback modal, then leaves the screen. Guarded so it runs
+  /// once whether triggered by the back button or the system back gesture.
+  Future<void> _confirmExit() async {
+    if (_exiting) return;
+    _exiting = true;
+    await showModuleExitFeedbackSheet(
+      context,
+      feature: 'learning-modules',
+      sourceId: widget.moduleId ?? widget.taskId,
+      moduleTitle: widget.title,
+    );
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
-          ),
-        ),
-        child: SafeArea(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmExit();
+      },
+      child: Scaffold(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
           child: Column(
             children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.title,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Learning Module',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.note_add),
-                      tooltip: 'Add Note',
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) =>
-                              NotesDialog(moduleTitle: widget.title),
-                        );
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.share),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: widget.content));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Copied to clipboard!')),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+              HearthPushedHeader(
+                title: widget.title,
+                subtitle: 'Learning Module',
+                onBack: _confirmExit,
+                actions: [
+                  HearthCircleButton(
+                    icon: Icons.note_add_outlined,
+                    tooltip: 'Add Note',
+                    onPressed: () => _openNotesDialog(),
+                  ),
+                  HearthCircleButton(
+                    icon: Icons.ios_share,
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: widget.content));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Copied to clipboard!')),
+                      );
+                    },
+                  ),
+                ],
               ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Selectable text for highlighting
-                      Container(
+                      HearthCard(
                         padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.grey.shade100),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            const Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Icon(
-                                  Icons.auto_awesome,
+                                  Icons.auto_awesome_outlined,
                                   size: 18,
-                                  color: const Color(0xFF663399),
+                                  color: AppTheme.brandPurple,
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Long-press text to highlight and add a note',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF663399),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Long-press or drag across text to highlight it, then add a note',
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.sansFamily,
+                                      fontSize: 13,
+                                      height: 18 / 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.brandPurple,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
-                            _MarkdownStyleText(
-                              content: widget.content,
-                              moduleTitle: widget.title,
+                            const SizedBox(height: 4),
+                            // Always-visible fallback: on web the browser's
+                            // own context menu replaces Flutter's, so the
+                            // selection toolbar's "Add note" never appears.
+                            ValueListenableBuilder<String>(
+                              valueListenable: _selectedText,
+                              builder: (context, selected, _) {
+                                return TextButton.icon(
+                                  onPressed: () => _openNotesDialog(
+                                    highlightedText: selected,
+                                  ),
+                                  icon: const Icon(Icons.edit_outlined, size: 18),
+                                  label: Text(
+                                    selected.isEmpty
+                                        ? 'Add a note'
+                                        : 'Add note to highlighted text',
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppTheme.brandPurple,
+                                    minimumSize: const Size(0, 44),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontFamily: AppTheme.sansFamily,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            StreamBuilder<List<ModuleNote>>(
+                              stream: _notesStream,
+                              builder: (context, snapshot) {
+                                return LearningModuleFormattedContent(
+                                  content: widget.content,
+                                  moduleTitle: widget.title,
+                                  moduleId: _noteModuleId,
+                                  notes: snapshot.data ?? const <ModuleNote>[],
+                                  onAddNote: (text) =>
+                                      _openNotesDialog(highlightedText: text),
+                                  onSelectionTextChanged: (text) =>
+                                      _selectedText.value = text,
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -240,127 +340,57 @@ class _LearningModuleDetailScreenState
 
                       const SizedBox(height: 24),
 
-                      // Action buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Saved to favorites!'),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.bookmark_outline),
-                              label: const Text('Save'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF663399),
-                                side: const BorderSide(
-                                  color: Color(0xFF663399),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                Clipboard.setData(
-                                  ClipboardData(text: widget.content),
-                                );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Copied to clipboard!'),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.copy),
-                              label: const Text('Copy'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF663399),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                      // Single save action: bookmarks the lesson in the
+                      // Journal (Learning notes), with a link back here.
+                      HearthButton.primary(
+                        label: 'Save',
+                        icon: Icons.bookmark_add_outlined,
+                        onPressed: _saveLessonToJournal,
                       ),
 
-                      const SizedBox(height: 32),
-                      const Divider(),
-                      const SizedBox(height: 16),
-
-                      // Survey Section
-                      _buildNewSurveySection(),
                       const SizedBox(height: 24),
+
+                      // Medical citations (Guideline 1.4.1)
+                      MedicalCitationsSection(topic: widget.title),
+
+                      // Feedback now lives directly under the module content
+                      // (see ModuleQuickFeedback above) so it isn't overlooked.
                     ],
                   ),
                 ),
               ),
             ],
           ),
-        ),
+      ),
       ),
     );
   }
 
   /// Inline card that opens [QualitativeSurveyDialog] (replaces the old star-rating block).
   Widget _buildNewSurveySection() {
-    return Container(
-      width: double.infinity,
+    return HearthCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              Icon(Icons.feedback_outlined, color: AppTheme.brandPurple),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Module feedback',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF663399),
-                  ),
-                ),
+              HearthIconChip(Icons.rate_review_outlined),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text('Module feedback', style: hearthCardTitleStyle),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Share a quick rating about how clear and helpful this module was.',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            style: hearthCardBodyStyle,
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
+          HearthButton.secondary(
+              icon: Icons.rate_review_outlined,
+              label: 'Give feedback',
               onPressed: () {
                 showDialog<void>(
                   context: context,
@@ -376,14 +406,6 @@ class _LearningModuleDetailScreenState
                   ),
                 );
               },
-              icon: const Icon(Icons.rate_review_outlined),
-              label: const Text('Give feedback'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF663399),
-                side: const BorderSide(color: Color(0xFF663399)),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
           ),
         ],
       ),
@@ -460,7 +482,6 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please answer all questions'),
-          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -522,6 +543,8 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
         if (userId != null) {
           final userProfile = await _databaseService.getUserProfile(userId);
           await _analytics.logConfidenceSignalSubmitted(
+            sourceId: widget.taskId,
+            researchContentType: 'learning_module',
             understandMeaningScore: _understandingRating,
             knowNextStepScore: _nextStepsRating,
             confidenceScore: _confidenceRating,
@@ -535,8 +558,7 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Thank you for your feedback!'),
-            backgroundColor: Colors.green,
+            content: Text('Thank you for your feedback!'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -547,7 +569,6 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error submitting survey: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -562,38 +583,20 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
+        Text(label, style: hearthCardTitleStyle),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(5, (index) {
-            return GestureDetector(
-              onTap: () {
-                onRatingChanged(index + 1);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(
-                  index < rating ? Icons.star : Icons.star_border,
-                  size: 40,
-                  color: index < rating ? Colors.amber : Colors.grey,
-                ),
-              ),
-            );
-          }),
+        Center(
+          child: HearthStarRating(
+            value: rating,
+            size: 40,
+            onChanged: onRatingChanged,
+          ),
         ),
         const SizedBox(height: 8),
         Center(
           child: Text(
             rating == 0 ? 'Tap stars to rate' : '$rating out of 5 stars',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
+            style: hearthCaptionStyle,
           ),
         ),
       ],
@@ -603,47 +606,20 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
   @override
   Widget build(BuildContext context) {
     if (_hasSubmitted) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green.withOpacity(0.3)),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Thank you for completing the survey!',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.green,
-                ),
-              ),
-            ),
-          ],
-        ),
+      return const HearthNote(
+        icon: Icons.check,
+        title: 'Thank you for completing the survey!',
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Module Survey',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.brandPurple,
-          ),
-        ),
+        const HearthSectionHeading('Module Survey'),
         const SizedBox(height: 8),
         const Text(
           'Please rate your experience with this module:',
-          style: TextStyle(fontSize: 14, color: Colors.grey),
+          style: hearthCardBodyStyle,
         ),
         const SizedBox(height: 24),
         _buildStarRating(
@@ -668,196 +644,26 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
           },
         ),
         const SizedBox(height: 32),
-        const Text(
+        Text(
           'General Comments (Optional)',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          style: Theme.of(context).textTheme.labelMedium,
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _commentsController,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Share any additional thoughts or feedback...',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: AppTheme.brandPurple,
-                width: 2,
-              ),
-            ),
           ),
           maxLines: 4,
           minLines: 3,
         ),
         const SizedBox(height: 32),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _isSubmitting ? null : _submitSurvey,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.brandPurple,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text(
-                    'Submit Survey',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-          ),
+        HearthButton.primary(
+          label: 'Submit Survey',
+          loading: _isSubmitting,
+          onPressed: _submitSurvey,
         ),
       ],
-    );
-  }
-}
-
-class _MarkdownStyleText extends StatefulWidget {
-  final String content;
-  final String moduleTitle;
-
-  const _MarkdownStyleText({required this.content, required this.moduleTitle});
-
-  @override
-  State<_MarkdownStyleText> createState() => _MarkdownStyleTextState();
-}
-
-class _MarkdownStyleTextState extends State<_MarkdownStyleText> {
-  @override
-  Widget build(BuildContext context) {
-    // Fix $1 formatting issue - replace $1 with proper section breaks first
-    final cleanedContent = widget.content.replaceAll('\$1', '\n\n---\n\n');
-    final lines = cleanedContent.split('\n');
-    final widgets = <Widget>[];
-
-    for (var line in lines) {
-      if (line.trim().isEmpty) {
-        widgets.add(const SizedBox(height: 8));
-        continue;
-      }
-
-      if (line.startsWith('## ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 8),
-            child: Text(
-              line.substring(3),
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.brandPurple,
-              ),
-            ),
-          ),
-        );
-      } else if (line.startsWith('### ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 6),
-            child: Text(
-              line.substring(4),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-          ),
-        );
-      } else if (line.startsWith('• ') || line.startsWith('- ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(left: 16, bottom: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('• ', style: TextStyle(fontSize: 16)),
-                Expanded(
-                  child: Text(
-                    line.substring(2),
-                    style: const TextStyle(fontSize: 16, height: 1.5),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else if (line.trim() == '---' || line.trim().startsWith('---')) {
-        // Section divider
-        widgets.add(
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(thickness: 2, color: AppTheme.brandPurple),
-          ),
-        );
-      } else {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: SelectableText(
-              line,
-              style: const TextStyle(fontSize: 16, height: 1.5),
-              onSelectionChanged: (selection, cause) {
-                if (selection.isValid &&
-                    cause == SelectionChangedCause.longPress) {
-                  final selectedText = line
-                      .substring(
-                        selection.start.clamp(0, line.length),
-                        selection.end.clamp(0, line.length),
-                      )
-                      .trim();
-                  if (selectedText.length > 3) {
-                    ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Selected: ${selectedText.length > 40 ? selectedText.substring(0, 40) + "..." : selectedText}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).hideCurrentSnackBar();
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => NotesDialog(
-                                    preFilledText: selectedText,
-                                    moduleTitle: widget.moduleTitle,
-                                  ),
-                                );
-                              },
-                              child: const Text(
-                                'Add Note',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
-                        duration: const Duration(seconds: 5),
-                        backgroundColor: AppTheme.brandPurple,
-                      ),
-                    );
-                  }
-                }
-              },
-            ),
-          ),
-        );
-      }
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widgets,
     );
   }
 }

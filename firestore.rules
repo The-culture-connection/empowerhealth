@@ -71,6 +71,25 @@ service cloud.firestore {
     function isAdminAny() {
       return isAdmin() || isAdminByEmail();
     }
+
+    // True if the signed-in user has been banned by a moderator (Guideline 1.2).
+    // Banned users cannot create or modify community content.
+    function isBanned() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/banned_users/$(request.auth.uid));
+    }
+    
+    // Research dataset (REDCap-oriented): admins + research partners only (not community managers by role alone)
+    function canReadResearchCollections() {
+      return isAdmin() || isAdminByEmail() || isResearchPartner();
+    }
+    
+    function signedInUserStudyIdMatches(studyId) {
+      return isAuthenticated() &&
+        studyId is string &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studyId == studyId;
+    }
     
     // ============================================
     // ADMIN DASHBOARD COLLECTIONS
@@ -118,9 +137,10 @@ service cloud.firestore {
       allow read: if isAuthenticated();
     }
     
-    // Admin documents - all authenticated users can read, only admins can write
+    // Admin documents - public read for core legal/support docs, only admins can write
     match /admin_documents/{docId} {
-      allow read: if isAuthenticated();
+      // Public read for legal/support docs used on public documentation page
+      allow read: if docId in ['privacy_policy', 'terms_of_service', 'contact_support'] || isAuthenticated();
       allow write: if isAdminAny();
       
       match /history/{historyId} {
@@ -330,6 +350,67 @@ service cloud.firestore {
       }
     }
     
+    // Research collections (structured exports; study_id keyed; no Firebase UID in exports — see Cloud Functions)
+    match /research_participants/{studyId} {
+      allow read: if canReadResearchCollections();
+      allow create, update: if signedInUserStudyIdMatches(studyId) && request.resource.data.study_id == studyId;
+      allow delete: if false;
+    }
+    match /research_baseline/{studyId} {
+      allow read: if canReadResearchCollections();
+      allow create, update: if signedInUserStudyIdMatches(studyId) && request.resource.data.study_id == studyId;
+      allow delete: if false;
+    }
+    match /research_micro_measures/{docId} {
+      allow read: if canReadResearchCollections();
+      // Writes only via Cloud Functions (submitMicroMeasure).
+      allow create, update, delete: if false;
+    }
+    match /research_needs_checklists/{docId} {
+      allow read: if canReadResearchCollections();
+      // Writes only via Cloud Functions (submitNeedsChecklist).
+      allow create, update, delete: if false;
+    }
+    match /research_navigation_outcomes/{docId} {
+      allow read: if canReadResearchCollections();
+      // Writes only via Cloud Functions (submitNavigationOutcome).
+      allow create, update, delete: if false;
+    }
+    match /research_milestone_prompts/{docId} {
+      allow read: if canReadResearchCollections();
+      // Writes only via Cloud Functions (submitMilestoneCheckIn).
+      allow create, update, delete: if false;
+    }
+    match /research_app_activity/{docId} {
+      allow read: if canReadResearchCollections();
+      // Writes only via Cloud Functions (recordModuleCompletion, recordProviderReviewActivity, etc.).
+      allow create, update, delete: if false;
+    }
+
+    // Phase 7 — dashboard summary layer (Functions triggers + recompute only).
+    match /research_summary_global/{docId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_summary_by_study/{studyId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_summary_by_day/{dayKey} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_summary_by_pathway/{pathwayId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+
+    // Research config (pathway labels/codes) — read for onboarding; writes via Cloud Functions only.
+    match /research_config/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+    
     // Audit logs - only admins can read
     match /audit_logs/{logId} {
       allow read: if isAdminAny();
@@ -477,29 +558,53 @@ service cloud.firestore {
     
     // Community posts - users can read all posts, create their own
     match /community_posts/{postId} {
+      // Anonymous posts: isAnonymous (when present) must be a bool, and an
+      // anonymous post may only carry the literal author name 'Anonymous' so
+      // the poster's real name can never be stored on it.
+      function anonymityOk(d) {
+        return !('isAnonymous' in d) ||
+               d.isAnonymous == false ||
+               (d.isAnonymous == true &&
+                'authorName' in d && d.authorName == 'Anonymous');
+      }
+
       // Anyone authenticated can read posts
       allow read: if isAuthenticated();
-      
-      // Anyone authenticated can create posts (must include their userId)
-      allow create: if isAuthenticated() && 
+
+      // Anyone authenticated (and not banned) can create posts (must include their userId)
+      allow create: if isAuthenticated() && !isBanned() &&
                     request.resource.data.userId == request.auth.uid &&
                     // Validate required fields
                     request.resource.data.keys().hasAll(['userId', 'content', 'createdAt']) &&
                     // Limit content length
                     request.resource.data.content is string &&
-                    request.resource.data.content.size() <= 5000;
-      
-      // Post owners can update/delete their posts
-      // Any authenticated user can update posts to add replies or toggle likes
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || 
-        // Allow updates for adding replies or toggling likes
-        true
+                    request.resource.data.content.size() <= 5000 &&
+                    // Every post must be filed under a real category ("All" is only a filter)
+                    request.resource.data.category is string &&
+                    request.resource.data.category.size() > 0 &&
+                    request.resource.data.category.size() <= 80 &&
+                    request.resource.data.category != 'All' &&
+                    anonymityOk(request.resource.data);
+
+      // Owners can edit their own post but never reassign it to someone else.
+      // Everyone else (not banned) may only like or reply; this also stops a
+      // non-owner from rewriting userId to themselves and then deleting the post.
+      allow update: if isAuthenticated() && !isBanned() && (
+        (resource.data.userId == request.auth.uid &&
+         request.resource.data.userId == resource.data.userId &&
+         anonymityOk(request.resource.data)) ||
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['likes', 'replies', 'updatedAt'])
       );
       
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Owners can delete their own posts; moderators (ADMIN / COMMUNITY_MANAGERS
+      // role docs) can remove posts that break community guidelines.
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin() || isCommunityManager()
+      );
     }
-    
+
     // Post reports - users can create reports, admins can read
     match /post_reports/{reportId} {
       // Users can create reports
@@ -510,13 +615,52 @@ service cloud.firestore {
       // Users can read their own reports, admins can read all
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
-        isAdminAny()
+        hasAdminRole() || isAdminAny()
       );
-      
-      // No updates or deletes allowed
-      allow update, delete: if false;
+
+      // Moderators can triage (set status); no deletes.
+      allow update: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow delete: if false;
     }
-    
+
+    // Reply reports - users can flag objectionable replies (Guideline 1.2)
+    match /reply_reports/{reportId} {
+      allow create: if isAuthenticated() &&
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['postId', 'userId', 'reason', 'status']);
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        hasAdminRole() || isAdminAny()
+      );
+      allow update: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow delete: if false;
+    }
+
+    // Banned users - moderators ban abusive users here (Guideline 1.2). The
+    // isBanned() helper reads this to block banned users from posting.
+    match /banned_users/{bannedUid} {
+      // Users may read their own ban status; admins read all.
+      allow read: if isAuthenticated() && (
+        request.auth.uid == bannedUid || hasAdminRole() || isAdminAny()
+      );
+      // Only moderators/admins can ban or unban.
+      allow write: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+    }
+
+    // Moderation reports - generated when a user blocks an abusive user (Guideline 1.2).
+    // Notifies the developer/moderators of objectionable content for review.
+    match /moderation_reports/{reportId} {
+      allow create: if isAuthenticated() &&
+                    request.resource.data.reportedByUid == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['type', 'reportedByUid', 'status']);
+      allow read: if isAuthenticated() && (
+        resource.data.reportedByUid == request.auth.uid ||
+        hasAdminRole() || isAdminAny()
+      );
+      allow update: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow delete: if false;
+    }
+
     // Community comments (legacy - keeping for backwards compatibility)
     match /community/{postId}/comments/{commentId} {
       allow read: if isAuthenticated();
@@ -564,10 +708,13 @@ service cloud.firestore {
       // Updates: Regular users can update their own provider data (from reviews)
       // Admins can update any provider, including mamaApproved field
       allow update: if isAuthenticated() && (
-        // Admin can update anything, including mamaApproved
+        // Admin can update anything, including mamaApproved and directory visibility
         isAdminAny() ||
-        // Regular users can update but cannot set/change mamaApproved
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['mamaApproved', 'mamaApprovedCount']))
+        // Regular users can update but cannot set/change moderation / directory fields
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'mamaApproved', 'mamaApprovedCount', 'directoryHidden',
+          'directoryHiddenAt', 'directoryHiddenBy'
+        ]))
       );
       
       // Only admins can delete providers
@@ -577,12 +724,31 @@ service cloud.firestore {
     // Provider reviews - users can read all, create their own, update/delete their own
     match /reviews/{reviewId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() && !isBanned() &&
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.keys().hasAll(['providerId', 'userId', 'rating', 'createdAt']);
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      // Admins can update/delete any review
-      allow update, delete: if isAdminAny();
+      // Dashboard roles can moderate reviews (resolve / remove)
+      allow update, delete: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+    }
+    
+    // Search suppression for listings removed via moderation (Cloud Functions read/write only)
+    match /provider_search_blocks/{blockId} {
+      allow read, write: if false;
+    }
+    
+    // User reports about provider listings — admins triage in dashboard
+    // Note: createdAt often uses serverTimestamp(); do not require it in keys().hasAll.
+    match /provider_reports/{reportId} {
+      allow create: if isAuthenticated() &&
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['providerId', 'userId', 'reasonCategory', 'status']) &&
+                    request.resource.data.providerId is string &&
+                    request.resource.data.reasonCategory is string &&
+                    request.resource.data.status == 'open';
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow update: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow delete: if false;
     }
     
     // Provider submissions - users can create, admins can read/update
@@ -620,17 +786,16 @@ service cloud.firestore {
       allow write: if isAdminAny();
     }
     
-    // Provider identity claims - users can create, read their own, admins can read all
+    // Provider identity claims - users can create, read their own; dashboard roles can read/update for triage
     match /provider_identity_claims/{claimId} {
       allow create: if isAuthenticated() && 
                     request.resource.data.keys().hasAll(['providerId', 'userId', 'tagId', 'status', 'createdAt']);
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
-        // Admins can read all
+        hasAdminRole() ||
         isAdminAny()
       );
-      // Only admins can update (for verification)
-      allow update: if isAdminAny();
+      allow update: if isAuthenticated() && (hasAdminRole() || isAdminAny());
       allow delete: if false;
     }
     

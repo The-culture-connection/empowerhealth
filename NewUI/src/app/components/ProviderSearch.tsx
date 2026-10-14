@@ -119,21 +119,21 @@ export function ProviderSearch() {
           </div>
         </div>
 
-        {/* Trust Indicator */}
+        {/* Mama Approved Info */}
         <div className="relative bg-gradient-to-br from-[#f5eee0] via-[#faf8f4] to-[#ebe0d6] dark:from-[#2a2435] dark:via-[#2d2640] dark:to-[#3a3043] rounded-[20px] p-6 mb-8 shadow-[0_12px_40px_rgba(102,51,153,0.12),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_12px_48px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 overflow-hidden transition-all duration-500">
           {/* Subtle glow */}
           <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
             <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#d4a574] blur-[60px]"></div>
           </div>
-          
+
           <div className="relative flex items-start gap-3">
             <div className="w-10 h-10 rounded-[14px] bg-gradient-to-br from-[#f5eee0] to-[#ebe0d6] dark:from-[#3a3043] dark:to-[#4a3e5d] flex items-center justify-center shadow-[inset_0_2px_6px_rgba(0,0,0,0.06)]">
-              <Award className="w-5 h-5 text-[#d4a574] dark:text-[#e0b589] stroke-[1.5]" />
+              <Heart className="w-5 h-5 text-[#d4a574] dark:text-[#e0b589] stroke-[1.5]" />
             </div>
             <div>
-              <h3 className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-[450] mb-1 tracking-[-0.005em]">Mama Approved™ providers</h3>
+              <h3 className="text-[#2d2235] dark:text-[#f5f0f7] text-sm font-[450] mb-1 tracking-[-0.005em]">Mama Approved™</h3>
               <p className="text-[#75657d] dark:text-[#cbbec9] text-xs font-light leading-relaxed">
-                Verified by community trust indicators and identity transparency
+                Providers recommended by other mamas in your community
               </p>
             </div>
           </div>
@@ -151,7 +151,7 @@ export function ProviderSearch() {
                       <h3 className="text-[#2d2235] dark:text-[#f5f0f7] text-[17px] font-[450] tracking-[-0.005em]">{provider.name}</h3>
                       {provider.hasBlackMamaTag && (
                         <div className="px-2.5 py-1 rounded-full bg-gradient-to-br from-[#f5eee0] to-[#ebe0d6] dark:from-[#3a3043] dark:to-[#4a3e5d] flex items-center gap-1.5 shadow-sm">
-                          <Award className="w-3.5 h-3.5 text-[#d4a574] dark:text-[#e0b589] stroke-[1.5]" />
+                          <Heart className="w-3.5 h-3.5 text-[#d4a574] dark:text-[#e0b589] fill-[#d4a574] dark:fill-[#e0b589] stroke-[0.5]" />
                         </div>
                       )}
                     </div>

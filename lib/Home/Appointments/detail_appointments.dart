@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../cors/ui_theme.dart';
 
 class AppointmentDetailScreen extends StatelessWidget {
   const AppointmentDetailScreen({super.key});
@@ -6,7 +7,8 @@ class AppointmentDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Appointment Details')),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Appointment Details'),
       body: const Center(child: Text('Details coming soon.')),
     );
   }

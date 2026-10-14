@@ -69,6 +69,17 @@ service cloud.firestore {
       return isAdmin() || isAdminByEmail();
     }
     
+    function canReadResearchCollections() {
+      return isAdmin() || isAdminByEmail() || isResearchPartner();
+    }
+    
+    function signedInUserStudyIdMatches(studyId) {
+      return isAuthenticated() &&
+        studyId is string &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studyId == studyId;
+    }
+    
     // ============================================
     // ADMIN DASHBOARD COLLECTIONS
     // ============================================
@@ -115,9 +126,9 @@ service cloud.firestore {
       allow read: if isAuthenticated();
     }
     
-    // Admin documents - all authenticated users can read, only admins can write
+    // Admin documents — public read for legal/support docs (PublicDocs page, no auth); only admins can write
     match /admin_documents/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if docId in ['privacy_policy', 'terms_of_service', 'contact_support'] || isAuthenticated();
       allow write: if isAdminAny();
       
       match /history/{historyId} {
@@ -325,6 +336,61 @@ service cloud.firestore {
         // No updates or deletes - surveys are append-only
         allow update, delete: if false;
       }
+    }
+    
+    match /research_participants/{studyId} {
+      allow read: if canReadResearchCollections();
+      allow create, update: if signedInUserStudyIdMatches(studyId) && request.resource.data.study_id == studyId;
+      allow delete: if false;
+    }
+    match /research_baseline/{studyId} {
+      allow read: if canReadResearchCollections();
+      allow create, update: if signedInUserStudyIdMatches(studyId) && request.resource.data.study_id == studyId;
+      allow delete: if false;
+    }
+    match /research_micro_measures/{docId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_needs_checklists/{docId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_navigation_outcomes/{docId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_milestone_prompts/{docId} {
+      allow read: if canReadResearchCollections();
+      // Writes only via Cloud Functions (submitMilestoneCheckIn).
+      allow create, update, delete: if false;
+    }
+    match /research_app_activity/{docId} {
+      allow read: if canReadResearchCollections();
+      // Writes only via Cloud Functions (recordModuleCompletion, recordProviderReviewActivity, etc.).
+      allow create, update, delete: if false;
+    }
+
+    match /research_summary_global/{docId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_summary_by_study/{studyId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_summary_by_day/{dayKey} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+    match /research_summary_by_pathway/{pathwayId} {
+      allow read: if canReadResearchCollections();
+      allow create, update, delete: if false;
+    }
+
+    match /research_config/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
     }
     
     // Audit logs - only admins can read
@@ -561,10 +627,11 @@ service cloud.firestore {
       // Updates: Regular users can update their own provider data (from reviews)
       // Admins can update any provider, including mamaApproved field
       allow update: if isAuthenticated() && (
-        // Admin can update anything, including mamaApproved
         isAdminAny() ||
-        // Regular users can update but cannot set/change mamaApproved
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['mamaApproved', 'mamaApprovedCount']))
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'mamaApproved', 'mamaApprovedCount', 'directoryHidden',
+          'directoryHiddenAt', 'directoryHiddenBy'
+        ]))
       );
       
       // Only admins can delete providers
@@ -578,8 +645,25 @@ service cloud.firestore {
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.keys().hasAll(['providerId', 'userId', 'rating', 'createdAt']);
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      // Admins can update/delete any review
-      allow update, delete: if isAdminAny();
+      allow update, delete: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+    }
+    
+    // Search suppression for listings removed via moderation (Cloud Functions read/write only)
+    match /provider_search_blocks/{blockId} {
+      allow read, write: if false;
+    }
+    
+    // User reports about provider listings — admins triage in dashboard
+    match /provider_reports/{reportId} {
+      allow create: if isAuthenticated() &&
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['providerId', 'userId', 'reasonCategory', 'status']) &&
+                    request.resource.data.providerId is string &&
+                    request.resource.data.reasonCategory is string &&
+                    request.resource.data.status == 'open';
+      allow read: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow update: if isAuthenticated() && (hasAdminRole() || isAdminAny());
+      allow delete: if false;
     }
     
     // Provider submissions - users can create, admins can read/update
@@ -617,17 +701,16 @@ service cloud.firestore {
       allow write: if isAdminAny();
     }
     
-    // Provider identity claims - users can create, read their own, admins can read all
+    // Provider identity claims - users can create, read their own; dashboard roles can read/update for triage
     match /provider_identity_claims/{claimId} {
       allow create: if isAuthenticated() && 
                     request.resource.data.keys().hasAll(['providerId', 'userId', 'tagId', 'status', 'createdAt']);
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
-        // Admins can read all
+        hasAdminRole() ||
         isAdminAny()
       );
-      // Only admins can update (for verification)
-      allow update: if isAdminAny();
+      allow update: if isAuthenticated() && (hasAdminRole() || isAdminAny());
       allow delete: if false;
     }
     

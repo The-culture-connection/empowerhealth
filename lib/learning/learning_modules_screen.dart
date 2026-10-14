@@ -104,11 +104,8 @@ class _LearningModulesScreenState extends State<LearningModulesScreen> with Sing
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Learning Modules'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Learning Modules'),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -316,7 +313,7 @@ class _LearningModulesScreenState extends State<LearningModulesScreen> with Sing
           backgroundColor: type == 'rights' ? Colors.amber[700] : AppTheme.brandPurple,
           child: Icon(
             type == 'rights' ? Icons.gavel : Icons.book,
-            color: Colors.white,
+            color: AppTheme.brandWhite,
           ),
         ),
         title: Text(
@@ -403,7 +400,7 @@ class _LearningModulesScreenState extends State<LearningModulesScreen> with Sing
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.brandPurple,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.brandWhite,
             ),
             child: const Text('Generate'),
           ),

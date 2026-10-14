@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": "your-project-id",
+    "default": "empower-health-watch",
     "admindashboard": "empower-health-watch"
   },
   "targets": {},

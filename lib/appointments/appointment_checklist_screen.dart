@@ -72,11 +72,8 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Appointment Checklist'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Appointment Checklist'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -145,7 +142,7 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
               onPressed: _isLoading ? null : _generateChecklist,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.brandPurple,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.brandWhite,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: _isLoading
@@ -154,7 +151,7 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
                       ),
                     )
                   : const Text(
@@ -169,7 +166,7 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.surfaceCard,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
@@ -186,11 +183,15 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
                       children: [
                         const Icon(Icons.checklist, color: AppTheme.brandPurple),
                         const SizedBox(width: 8),
-                        const Text(
-                          'Your Personalized Checklist',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Flexible(
+                          child: const Text(
+                            'Your Personalized Checklist',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],

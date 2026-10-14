@@ -39,7 +39,7 @@ export function Profile() {
       {/* Pregnancy Information */}
       <section className="mb-8">
         <h2 className="mb-4 text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">Pregnancy details</h2>
-        <div className="bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] transition-all duration-300">
+        <div className="bg-[#faf8f4] dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] transition-all duration-300">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -70,7 +70,7 @@ export function Profile() {
       <section className="mb-8">
         <h2 className="mb-4 text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">My care team</h2>
         <div className="space-y-3">
-          <div className="bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] transition-all duration-300">
+          <div className="bg-[#faf8f4] dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] transition-all duration-300">
             <div className="flex items-start gap-3">
               <div className="w-11 h-11 rounded-[20px] bg-[#e8e0f0]/60 dark:bg-[#3d3547] flex items-center justify-center flex-shrink-0 transition-all duration-300">
                 <User className="w-5 h-5 text-[#9d8fb5] dark:text-[#b89fb5] stroke-[1.5] transition-colors" />
@@ -84,7 +84,7 @@ export function Profile() {
             </div>
           </div>
 
-          <button className="w-full bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 text-left">
+          <button className="w-full bg-[#faf8f4] dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 text-left">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-[20px] bg-[#e8e0f0]/60 dark:bg-[#3d3547] flex items-center justify-center transition-all duration-300">
                 <Users className="w-5 h-5 text-[#a89cb5] dark:text-[#9d8fb5] stroke-[1.5] transition-colors" />
@@ -98,7 +98,7 @@ export function Profile() {
       {/* Support System */}
       <section className="mb-8">
         <h2 className="mb-4 text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">My support system</h2>
-        <div className="bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] transition-all duration-300">
+        <div className="bg-[#faf8f4] dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] transition-all duration-300">
           <div className="space-y-4">
             <div>
               <label className="text-sm text-[#6b5c75] dark:text-[#b89fb5] mb-2 block font-light transition-colors">Birth partner</label>
@@ -123,7 +123,7 @@ export function Profile() {
       {/* Insurance */}
       <section className="mb-8">
         <h2 className="mb-4 text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">Insurance information</h2>
-        <div className="bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] transition-all duration-300">
+        <div className="bg-[#faf8f4] dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] transition-all duration-300">
           <div className="flex items-start gap-3">
             <div className="w-11 h-11 rounded-[20px] bg-[#dce8e4]/60 dark:bg-[#2d3836] flex items-center justify-center flex-shrink-0 transition-all duration-300">
               <Shield className="w-5 h-5 text-[#8ba39c] dark:text-[#89b5a6] stroke-[1.5] transition-colors" />
@@ -140,7 +140,7 @@ export function Profile() {
       {/* Preferences */}
       <section className="mb-8">
         <h2 className="mb-4 text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">App preferences</h2>
-        <div className="bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] transition-all duration-300">
+        <div className="bg-[#faf8f4] dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] transition-all duration-300">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -194,7 +194,7 @@ export function Profile() {
       </section>
 
       {/* Sign Out */}
-      <button className="w-full bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300">
+      <button className="w-full bg-[#faf8f4] dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300">
         <div className="flex items-center justify-center gap-2 text-[#6b5c75] dark:text-[#b89fb5] transition-colors">
           <LogOut className="w-5 h-5 stroke-[1.5]" />
           <span className="text-sm font-light">Sign out</span>

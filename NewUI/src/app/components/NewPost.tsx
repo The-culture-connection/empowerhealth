@@ -20,7 +20,7 @@ export function NewPost() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#f8f6f8] pb-24">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-5 py-4 sticky top-0 z-10">
+      <div className="bg-[#faf8f4] border-b border-gray-100 px-5 py-4 sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <Link to="/community" className="flex items-center gap-2 text-gray-600 hover:text-[#663399] transition-colors">
             <ArrowLeft className="w-5 h-5" />
@@ -45,7 +45,7 @@ export function NewPost() {
         </div>
 
         {/* Post Form */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-4">
+        <div className="bg-[#faf8f4] rounded-3xl p-6 shadow-sm border border-gray-100 mb-4">
           {/* Category Selection */}
           <div className="mb-6">
             <label className="block text-sm font-medium mb-3">Category</label>
@@ -74,7 +74,7 @@ export function NewPost() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Give your post a clear, descriptive title..."
-              className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 focus:bg-white transition-colors"
+              className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 focus:bg-[#faf8f4] transition-colors"
             />
             <p className="text-xs text-gray-500 mt-2">
               Example: "First time feeling movement - is this normal?"
@@ -89,7 +89,7 @@ export function NewPost() {
               onChange={(e) => setContent(e.target.value)}
               rows={12}
               placeholder="Share your thoughts, experiences, questions, or advice. Be as detailed as you'd like - your story could help another mother..."
-              className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 focus:bg-white transition-colors resize-none"
+              className="w-full px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 focus:bg-[#faf8f4] transition-colors resize-none"
             ></textarea>
             <p className="text-xs text-gray-500 mt-2">
               Take your time. There's no rush - share what feels comfortable.

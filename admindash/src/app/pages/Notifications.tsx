@@ -8,6 +8,7 @@ import {
   type NotificationSegment,
 } from "../../lib/notifications";
 import { format } from "date-fns";
+import { BetaRemindersCard } from "../components/BetaRemindersCard";
 
 export function Notifications() {
   const [messageType, setMessageType] = useState("");
@@ -35,6 +36,35 @@ export function Notifications() {
 
   useEffect(() => {
     if (messageType === "affirmation") setMessageType("");
+  }, [messageType]);
+
+  useEffect(() => {
+    const templates: Record<string, { title: string; body: string }> = {
+      learning: {
+        title: "New learning module available",
+        body: "A new learning module is ready for you in EmpowerHealth.",
+      },
+      todo: {
+        title: "Gentle reminder",
+        body: "You have open tasks waiting in your EmpowerHealth to-do list.",
+      },
+      trimester: {
+        title: "A new trimester milestone",
+        body: "You're entering a new stage. Open EmpowerHealth for guidance matched to this phase.",
+      },
+      community: {
+        title: "New activity in Community",
+        body: "Someone engaged with your community post in EmpowerHealth.",
+      },
+      birth_hospital_basics: {
+        title: "Birth and Hospital Basics",
+        body: "Get ready for the big day by reviewing Birth and Hospital Basics.",
+      },
+    };
+    const t = templates[messageType];
+    if (!t) return;
+    setTitle(t.title);
+    setBody(t.body);
   }, [messageType]);
 
   async function handleSend() {
@@ -96,6 +126,13 @@ export function Notifications() {
       icon: "💬",
       color: '#06b6d4',
     },
+    {
+      id: "birth_hospital_basics",
+      title: "32+ Weeks Birth Prep",
+      description: 'Late-pregnancy reminder: "Get ready for the big day by reviewing Birth and Hospital Basics"',
+      icon: "🏥",
+      color: "#c084fc",
+    },
   ];
 
   return (
@@ -110,8 +147,10 @@ export function Notifications() {
           </p>
         </div>
 
+        <BetaRemindersCard />
+
         {error && (
-          <div className="mb-4 p-4 rounded-xl" style={{ 
+          <div className="mb-4 p-4 rounded-xl" style={{
             backgroundColor: '#fee2e2',
             color: '#dc2626',
           }}>

@@ -6,6 +6,7 @@ export const WHITELIST: Record<ReportType, readonly string[]> = {
     "visit_summary_created",
     "visit_summary_viewed",
     "learning_module_viewed",
+    "know_your_rights_viewed",
     "learning_module_started",
     "learning_module_completed",
     "learning_module_survey_submitted",
@@ -20,6 +21,9 @@ export const WHITELIST: Record<ReportType, readonly string[]> = {
     "visit_summary_viewed",
     "micro_measure_submitted",
     "confidence_signal_submitted",
+    "provider_review_submitted",
+    "provider_listing_report_submitted",
+    "know_your_rights_viewed",
   ],
   care_navigation_success: [
     "provider_search_initiated",
@@ -27,6 +31,7 @@ export const WHITELIST: Record<ReportType, readonly string[]> = {
     "provider_contact_clicked",
     "provider_selected_success",
     "provider_review_submitted",
+    "know_your_rights_viewed",
   ],
   engagement_pathway: [
     "session_started",
@@ -53,6 +58,7 @@ export const WHITELIST: Record<ReportType, readonly string[]> = {
     "birth_plan_completed",
     "birth_plan_viewed",
     "birth_plan_exported",
+    "know_your_rights_viewed",
   ],
   care_preparation: [
     "birth_plan_completed",
@@ -64,6 +70,7 @@ export const WHITELIST: Record<ReportType, readonly string[]> = {
     "visit_summary_created",
     "visit_summary_viewed",
     "journal_entry_created",
+    "know_your_rights_viewed",
   ],
   community_support: [
     "community_post_created",
@@ -73,7 +80,10 @@ export const WHITELIST: Record<ReportType, readonly string[]> = {
     "journal_entry_created",
     "journal_mood_selected",
     "helpfulness_survey_submitted",
+    "provider_review_submitted",
+    "provider_listing_report_submitted",
   ],
+  user_recruitment_avenues: [],
 };
 
 export function whitelistSet(type: ReportType): Set<string> {

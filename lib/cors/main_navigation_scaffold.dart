@@ -9,8 +9,15 @@ import '../Community/community_screen.dart';
 import '../editprofile/edit_profile_screen.dart';
 import '../Home/Learning Modules/learning_modules_screen_v2.dart';
 import '../models/user_profile.dart';
+import '../pregnancy_loss/pregnancy_loss_learning_screen.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
+import '../support_stage/support_stage.dart';
+import '../support_stage/support_stage_scope.dart';
+import '../widgets/ambient_background.dart';
+import '../app_router.dart';
+import '../design_system/hearth.dart';
+import 'main_navigation_scope.dart';
 import 'ui_theme.dart';
 
 class MainNavigationScaffold extends StatefulWidget {
@@ -27,13 +34,22 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
   DateTime _tabEnteredAt = DateTime.now();
   DateTime? _featureSessionStartedAt;
 
-  final _pages = const [
-    HomeScreenV2(),
-    LearningModulesScreenV2(), // Learn tab
-    JournalScreen(),
-    CommunityScreen(),
-    EditProfileScreen(),
-  ];
+  List<Widget> _buildPages(UserProfile? profile) {
+    final loss = profile?.isInPregnancyLossMode ?? false;
+    return [
+      const HomeScreenV2(key: ValueKey('main_tab_home')),
+      loss
+          ? const PregnancyLossLearningScreen(key: ValueKey('main_tab_learn_loss'))
+          : const LearningModulesScreenV2(key: ValueKey('main_tab_learn_standard')),
+      const JournalScreen(key: ValueKey('main_tab_journal')),
+      CommunityScreen(
+        key: ValueKey('main_tab_community_${loss ? 'loss' : 'standard'}'),
+        communityStageFilter:
+            loss ? CommunityStage.pregnancyLoss : null,
+      ),
+      const EditProfileScreen(key: ValueKey('main_tab_profile')),
+    ];
+  }
 
   @override
   void initState() {
@@ -53,9 +69,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
       final user = await _analytics.waitForInitialAuthResolution();
 
       if (user == null) {
-        debugPrint(
-          '⚠️ Analytics: No authenticated user - screen view tracking skipped',
-        );
+        debugPrint('⚠️ Analytics: No authenticated user - screen view tracking skipped');
         return;
       }
 
@@ -228,146 +242,81 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return SupportStageScopeHost(
+      child: Builder(
+        builder: (context) {
+          final pages = _buildPages(SupportStageScope.profileOf(context));
+
+          return MainNavigationScope(
+      selectTab: _onTabChanged,
+      child: Scaffold(
+      extendBody: true,
       backgroundColor: AppTheme.backgroundWarm,
-      body: IndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.brandPurple.withOpacity(0.08),
-              blurRadius: 32,
-              offset: const Offset(0, -8),
-            ),
-          ],
-          border: Border(
-            top: BorderSide(color: AppTheme.borderLight, width: 1),
-          ),
-        ),
-        child: SafeArea(
-          child: Container(
-            height: 64,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _NavItem(
-                  icon: Icons.home_rounded,
-                  label: 'Home',
-                  isSelected: _index == 0,
-                  onTap: () => _onTabChanged(0),
-                ),
-                _NavItem(
-                  icon: Icons.book_outlined,
-                  label: 'Learn',
-                  isSelected: _index == 1,
-                  onTap: () => _onTabChanged(1),
-                ),
-                _NavItem(
-                  icon: Icons.favorite_outline,
-                  label: 'Journal',
-                  isSelected: _index == 2,
-                  onTap: () => _onTabChanged(2),
-                ),
-                _NavItem(
-                  icon: Icons.people_outline,
-                  label: 'Community',
-                  isSelected: _index == 3,
-                  onTap: () => _onTabChanged(3),
-                ),
-                _NavItem(
-                  icon: Icons.person_outline,
-                  label: 'Profile',
-                  isSelected: _index == 4,
-                  onTap: () => _onTabChanged(4),
-                ),
-              ],
+      // Floating AI assistant — Home tab only. The Scaffold positions it above
+      // the bottom nav bar (incl. its SafeArea inset); hide it while the
+      // keyboard is open so it never sits on top of text fields/content.
+      floatingActionButton:
+          _index == 0 && MediaQuery.viewInsetsOf(context).bottom == 0
+              ? const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: _AssistantFab(),
+                )
+              : null,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          AmbientBackground(showRadialWashes: _index != 1),
+          SafeArea(
+            bottom: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: 672,
+                      minHeight: constraints.maxHeight,
+                      maxHeight: constraints.maxHeight,
+                    ),
+                    child: IndexedStack(
+                      index: _index,
+                      sizing: StackFit.expand,
+                      children: pages,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
-        ),
+        ],
       ),
-      // Floating AI Assistant Button (matching NewUI)
-      floatingActionButton: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppTheme.gradientPurpleStart, AppTheme.gradientPurpleEnd],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.brandPurple.withOpacity(0.3),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(28),
-            onTap: () {
-              Navigator.pushNamed(context, '/assistant');
-            },
-            child: const Icon(
-              Icons.support_agent,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-        ),
+      bottomNavigationBar: HearthBottomNav(
+        index: _index,
+        onTap: _onTabChanged,
+        items: const [
+          HearthNavItem(icon: Icons.home_outlined, label: 'Home'),
+          HearthNavItem(icon: Icons.menu_book_outlined, label: 'Learn'),
+          HearthNavItem(icon: Icons.favorite_border, label: 'Journal'),
+          HearthNavItem(icon: Icons.chat_bubble_outline, label: 'Community'),
+          HearthNavItem(icon: Icons.person_outline, label: 'You'),
+        ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      ),
+          );
+        },
+      ),
     );
   }
 }
 
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
+/// Floating Support button shown on the Home tab, opening the assistant.
+class _AssistantFab extends StatelessWidget {
+  const _AssistantFab();
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isSelected ? AppTheme.brandPurple : AppTheme.textLightest,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: isSelected
-                    ? AppTheme.brandPurple
-                    : AppTheme.textLightest,
-                fontWeight: FontWeight.w300, // Lighter weight matching NewUI
-              ),
-            ),
-          ],
-        ),
-      ),
+    return HearthSupportFab(
+      onPressed: () => Navigator.of(context).pushNamed(Routes.assistant),
     );
   }
 }

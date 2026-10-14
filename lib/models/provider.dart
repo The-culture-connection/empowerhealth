@@ -18,12 +18,26 @@ class Provider {
   final bool? telehealth;
   final double? rating;
   final int? reviewCount;
+  /// Share of reviews (0.0–1.0) affirming each experience question; null when
+  /// no review data is available yet. These feed the Mama Approved™ score.
+  final double? feltHeardRate;
+  final double? feltRespectedRate;
+  final double? explainedClearlyRate;
   final bool mamaApproved;
   final int mamaApprovedCount;
   final List<IdentityTag> identityTags;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final String? source; // 'medicaid', 'npi', 'user_submission'
+  /// When true, admin hid this Firestore directory row from in-app search / merges.
+  final bool directoryHidden;
+  /// Single label when present (e.g. "Medicaid", "Commercial").
+  final String? acceptedHealthType;
+  /// Multiple accepted plan / payer types from Firestore.
+  final List<String> acceptedHealthTypes;
+  /// Miles from the searched ZIP to the nearest in-radius location
+  /// (= locations.first). Set by provider search results only; never stored.
+  final double? distanceMiles;
 
   Provider({
     this.id,
@@ -43,18 +57,116 @@ class Provider {
     this.telehealth,
     this.rating,
     this.reviewCount,
+    this.feltHeardRate,
+    this.feltRespectedRate,
+    this.explainedClearlyRate,
     this.mamaApproved = false,
     this.mamaApprovedCount = 0,
     this.identityTags = const [],
     this.createdAt,
     this.updatedAt,
     this.source,
+    this.directoryHidden = false,
+    this.acceptedHealthType,
+    this.acceptedHealthTypes = const [],
+    this.distanceMiles,
   });
 
+  /// Prefer [practiceName] for directory-style listings when set.
+  String get primaryDisplayName {
+    final p = (practiceName ?? '').trim();
+    if (p.isNotEmpty) return p;
+    return name;
+  }
+
+  /// Phone number formatted for display, e.g. `(513) 585-8222`.
+  String? get phoneDisplay => ProviderLocation.formatPhone(phone);
+
+  /// User-facing coverage / listing source for cards and profile.
+  String? get healthCoverageLabel {
+    if (acceptedHealthTypes.isNotEmpty) {
+      return acceptedHealthTypes.join(' · ');
+    }
+    final t = (acceptedHealthType ?? '').trim();
+    if (t.isNotEmpty) return t;
+    return sourceCoverageLabel(source);
+  }
+
+  static String? sourceCoverageLabel(String? source) {
+    switch (source) {
+      case 'medicaid':
+        return 'Ohio Medicaid directory';
+      case 'npi':
+        return 'NPI registry';
+      case 'user_submission':
+        return 'Community-submitted';
+      default:
+        if (source == null || source.isEmpty) return null;
+        return source;
+    }
+  }
+
+  /// Minimum reviews and average rating for the Mama Approved™ community badge.
+  static const int mamaApprovedMinReviewCount = 3;
+  static const double mamaApprovedMinAverageRating = 4.0;
+
+  /// One-sentence, user-facing explanation of the badge threshold. Keep in
+  /// sync with [qualifiesForMamaApproved].
+  static const String mamaApprovedCriteriaText =
+      'Mama Approved™ providers have 3+ reviews averaging 4 stars or higher '
+      'from moms in our community.';
+
+  /// Average affirm-rate across the three experience questions, or null when
+  /// none of them have review data yet. Shown as trust indicators on the
+  /// profile; not part of the badge threshold.
+  double? get experienceTrustRate {
+    final rates = [feltHeardRate, feltRespectedRate, explainedClearlyRate]
+        .whereType<double>()
+        .toList();
+    if (rates.isEmpty) return null;
+    return rates.reduce((a, b) => a + b) / rates.length;
+  }
+
+  /// Single source of truth for the Mama Approved™ threshold:
+  /// at least [mamaApprovedMinReviewCount] published reviews AND an average
+  /// rating of at least [mamaApprovedMinAverageRating].
+  ///
+  /// Averages are computed as sum / count, so a true 4.0 can come back as
+  /// 3.9999999999; a tiny epsilon absorbs that without ever letting a real
+  /// 3.99 qualify.
+  static bool qualifiesForMamaApproved({
+    required int? reviewCount,
+    required double? averageRating,
+  }) {
+    if ((reviewCount ?? 0) < mamaApprovedMinReviewCount) return false;
+    if (averageRating == null || averageRating.isNaN) return false;
+    return averageRating + 1e-9 >= mamaApprovedMinAverageRating;
+  }
+
+  /// Average rating for display, truncated (not rounded) to one decimal so a
+  /// 3.96 average reads "3.9" — never "4.0" next to a provider that has not
+  /// reached the 4.0 Mama Approved™ threshold.
+  static String formatAverageRating(double rating) {
+    final truncated = (rating * 10 + 1e-9).floorToDouble() / 10;
+    return truncated.toStringAsFixed(1);
+  }
+
+  /// Mama Approved™ in the app: earned from **community reviews** only and
+  /// derived from the current review count + average at display time (never
+  /// from the legacy, possibly stale Firestore `mamaApproved` flag).
+  bool get showsMamaApprovedBadge => qualifiesForMamaApproved(
+        reviewCount: reviewCount,
+        averageRating: rating,
+      );
+
   factory Provider.fromMap(Map<String, dynamic> map, {String? id}) {
+    final rawName = (map['name'] as String?)?.trim() ?? '';
+    final rawPractice = (map['practiceName'] as String?)?.trim() ?? '';
+    final resolvedName =
+        rawName.isNotEmpty ? rawName : (rawPractice.isNotEmpty ? rawPractice : '');
     return Provider(
       id: id ?? map['id'],
-      name: map['name'] ?? '',
+      name: resolvedName,
       specialty: map['specialty'],
       practiceName: map['practiceName'],
       npi: map['npi'],
@@ -87,7 +199,10 @@ class Provider {
       acceptsNewborns: map['acceptsNewborns'] as bool?,
       telehealth: map['telehealth'] as bool?,
       rating: map['rating']?.toDouble(),
-      reviewCount: map['reviewCount'] as int?,
+      reviewCount: (map['reviewCount'] as num?)?.toInt(),
+      feltHeardRate: (map['feltHeardRate'] as num?)?.toDouble(),
+      feltRespectedRate: (map['feltRespectedRate'] as num?)?.toDouble(),
+      explainedClearlyRate: (map['explainedClearlyRate'] as num?)?.toDouble(),
       mamaApproved: map['mamaApproved'] ?? false,
       mamaApprovedCount: map['mamaApprovedCount'] ?? 0,
       identityTags: (map['identityTags'] as List<dynamic>?)
@@ -110,6 +225,14 @@ class Provider {
           ? (map['updatedAt'] as Timestamp).toDate()
           : null,
       source: map['source'],
+      directoryHidden: map['directoryHidden'] == true,
+      acceptedHealthType: map['acceptedHealthType'] as String?,
+      acceptedHealthTypes: (map['acceptedHealthTypes'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          const [],
+      distanceMiles: (map['distanceMiles'] as num?)?.toDouble(),
     );
   }
 
@@ -131,12 +254,18 @@ class Provider {
       'telehealth': telehealth,
       'rating': rating,
       'reviewCount': reviewCount,
+      'feltHeardRate': feltHeardRate,
+      'feltRespectedRate': feltRespectedRate,
+      'explainedClearlyRate': explainedClearlyRate,
       'mamaApproved': mamaApproved,
       'mamaApprovedCount': mamaApprovedCount,
       'identityTags': identityTags.map((t) => t.toMap()).toList(),
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
       'source': source,
+      'directoryHidden': directoryHidden,
+      'acceptedHealthType': acceptedHealthType,
+      'acceptedHealthTypes': acceptedHealthTypes,
     };
   }
 
@@ -153,14 +282,24 @@ class Provider {
     String? email,
     String? website,
     bool? acceptingNewPatients,
+    bool? acceptsPregnantWomen,
+    bool? acceptsNewborns,
+    bool? telehealth,
     double? rating,
     int? reviewCount,
+    double? feltHeardRate,
+    double? feltRespectedRate,
+    double? explainedClearlyRate,
     bool? mamaApproved,
     int? mamaApprovedCount,
     List<IdentityTag>? identityTags,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? source,
+    bool? directoryHidden,
+    String? acceptedHealthType,
+    List<String>? acceptedHealthTypes,
+    double? distanceMiles,
   }) {
     return Provider(
       id: id ?? this.id,
@@ -180,12 +319,19 @@ class Provider {
       telehealth: telehealth ?? this.telehealth,
       rating: rating ?? this.rating,
       reviewCount: reviewCount ?? this.reviewCount,
+      feltHeardRate: feltHeardRate ?? this.feltHeardRate,
+      feltRespectedRate: feltRespectedRate ?? this.feltRespectedRate,
+      explainedClearlyRate: explainedClearlyRate ?? this.explainedClearlyRate,
       mamaApproved: mamaApproved ?? this.mamaApproved,
       mamaApprovedCount: mamaApprovedCount ?? this.mamaApprovedCount,
       identityTags: identityTags ?? this.identityTags,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       source: source ?? this.source,
+      directoryHidden: directoryHidden ?? this.directoryHidden,
+      acceptedHealthType: acceptedHealthType ?? this.acceptedHealthType,
+      acceptedHealthTypes: acceptedHealthTypes ?? this.acceptedHealthTypes,
+      distanceMiles: distanceMiles ?? this.distanceMiles,
     );
   }
 }
@@ -215,10 +361,52 @@ class ProviderLocation {
     this.distance,
   });
 
+  /// Some directory APIs return the street address as a stringified structure
+  /// like `[{'ADDRESS_1':'3113 BELLEVUE AVE','ADDRESS_2':''}]`. Extract the
+  /// human-readable street from that; otherwise return the value unchanged.
+  static String cleanAddress(dynamic raw) {
+    if (raw == null) return '';
+    final s = raw.toString().trim();
+    if (s.isEmpty) return '';
+    final looksRaw = s.contains('ADDRESS_1') ||
+        s.startsWith('[{') ||
+        s.startsWith('{') ||
+        s.startsWith('[');
+    if (!looksRaw) return s;
+
+    final parts = <String>[];
+    final m1 = RegExp('''ADDRESS_1["']?\\s*[:=]\\s*["']([^"']*)["']''')
+        .firstMatch(s);
+    final m2 = RegExp('''ADDRESS_2["']?\\s*[:=]\\s*["']([^"']*)["']''')
+        .firstMatch(s);
+    final a1 = m1?.group(1)?.trim() ?? '';
+    final a2 = m2?.group(1)?.trim() ?? '';
+    if (a1.isNotEmpty) parts.add(a1);
+    if (a2.isNotEmpty) parts.add(a2);
+    if (parts.isNotEmpty) return parts.join(', ');
+    // Unparseable structure — drop it rather than showing raw JSON.
+    return '';
+  }
+
+  /// Phone formatted as `(XXX) XXX-XXXX` when it has 10 digits.
+  static String? formatPhone(String? raw) {
+    if (raw == null) return null;
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 10) {
+      return '(${digits.substring(0, 3)}) '
+          '${digits.substring(3, 6)}-${digits.substring(6)}';
+    }
+    if (digits.length == 11 && digits.startsWith('1')) {
+      final d = digits.substring(1);
+      return '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
+    }
+    return raw;
+  }
+
   factory ProviderLocation.fromMap(Map<String, dynamic> map) {
     return ProviderLocation(
       id: map['id'],
-      address: map['address'] ?? '',
+      address: cleanAddress(map['address']),
       address2: map['address2'],
       city: map['city'] ?? '',
       state: map['state'] ?? 'OH',
@@ -251,6 +439,43 @@ class ProviderLocation {
     final zipCode = zip.length > 5 ? zip.substring(0, 5) : zip;
     parts.add('$city, $state $zipCode');
     return parts.join(', ');
+  }
+
+  /// ZIP normalized for display (5 digits when longer).
+  String get zipDisplay {
+    final z = zip.trim();
+    return z.length > 5 ? z.substring(0, 5) : z;
+  }
+
+  /// City, ST ZIP on one line (readable spacing).
+  String get cityStateZipLine {
+    final c = city.trim();
+    final s = state.trim();
+    return '$c, $s $zipDisplay'.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  /// Street line(s) without duplicating city/state when the API puts everything in [address].
+  List<String> get addressLines {
+    final zip5 = zipDisplay;
+    final cityLine = cityStateZipLine;
+    var street = address.trim();
+    final suite = (address2 ?? '').trim();
+    if (suite.isNotEmpty) {
+      street = street.isEmpty ? suite : '$street, $suite';
+    }
+    if (street.isEmpty) {
+      return cityLine.isNotEmpty ? [cityLine] : [];
+    }
+    final lower = street.toLowerCase();
+    final cityLower = city.trim().toLowerCase();
+    final hasCity = cityLower.isNotEmpty && lower.contains(cityLower);
+    final hasZip = zip5.isNotEmpty && lower.contains(zip5);
+    final hasState = state.trim().length == 2 &&
+        lower.contains(state.trim().toLowerCase());
+    if (hasCity && (hasZip || hasState)) {
+      return [street];
+    }
+    return [street, cityLine];
   }
 }
 

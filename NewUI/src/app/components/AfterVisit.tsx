@@ -11,14 +11,14 @@ export function AfterVisit() {
 
       <div className="relative p-6 pb-24 max-w-2xl mx-auto">
         {/* Back Navigation */}
-        <Link to="/" className="inline-flex items-center gap-2 mb-8 text-[#75657d] dark:text-[#cbbec9] hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors duration-300">
+        <Link to="/my-visits" className="inline-flex items-center gap-2 mb-8 text-[#75657d] dark:text-[#cbbec9] hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors duration-300">
           <ChevronLeft className="w-4 h-4 stroke-[1.5]" />
-          <span className="text-sm font-light tracking-wide">Home</span>
+          <span className="text-sm font-light tracking-wide">My Visits</span>
         </Link>
 
         {/* Document Header - Like a framed document */}
         <div className="mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-[#2a2435] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 mb-4 shadow-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#faf8f4] dark:bg-[#2a2435] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 mb-4 shadow-sm">
             <div className="w-1.5 h-1.5 rounded-full bg-[#d4a574]"></div>
             <span className="text-[#75657d] dark:text-[#cbbec9] text-xs tracking-[0.03em] font-light">Visit summary</span>
           </div>
@@ -27,7 +27,7 @@ export function AfterVisit() {
         </div>
 
         {/* Visit Details Card - Structured like a document on a table */}
-        <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-8 mb-6 shadow-[0_16px_48px_rgba(102,51,153,0.14),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
+        <div className="relative bg-[#faf8f4] dark:bg-[#2a2435] rounded-[24px] p-8 mb-6 shadow-[0_16px_48px_rgba(102,51,153,0.14),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
           {/* Provider Info */}
           <div className="flex items-start gap-4 pb-6 mb-6 border-b border-[#e8e0f0] dark:border-[#3a3043]">
             <div className="w-14 h-14 rounded-[16px] bg-gradient-to-br from-[#e8e0f0] to-[#d8cfe5] dark:from-[#3a3043] dark:to-[#4a3e5d] flex items-center justify-center shadow-[inset_0_2px_8px_rgba(0,0,0,0.06)]">
@@ -79,7 +79,7 @@ export function AfterVisit() {
         </div>
 
         {/* Notes Section - Like a written note */}
-        <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-8 mb-6 shadow-[0_16px_48px_rgba(102,51,153,0.14),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
+        <div className="relative bg-[#faf8f4] dark:bg-[#2a2435] rounded-[24px] p-8 mb-6 shadow-[0_16px_48px_rgba(102,51,153,0.14),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
           <h3 className="text-[#663399] dark:text-[#cbbec9] text-[11px] uppercase tracking-[0.08em] mb-4 font-medium">What we discussed</h3>
           
           <div className="space-y-4">

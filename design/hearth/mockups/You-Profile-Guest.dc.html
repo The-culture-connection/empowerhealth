@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — You tab, guest</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<main style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 32px 0; text-align: center">
+<span style="flex: none; width: 72px; height: 72px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg></span>
+<h1 style="margin: 20px 0 0; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; font-weight: 400">Create your free account</h1>
+<p style="margin: 10px 0 0; font-size: 15px; line-height: 22px; color: #4A3F52">You're exploring as a guest. Create a free account to build your profile, save progress, and get personalized support.</p>
+<div style="align-self: stretch; margin-top: 28px; display: flex; flex-direction: column; gap: 12px">
+<button style="width: 100%; height: 52px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Create account</button>
+<button style="width: 100%; height: 52px; border: 1.5px solid #663399; border-radius: 999px; background: transparent; color: #663399; font-size: 16px; font-weight: 700">Log in</button>
+</div>
+</main>
+
+<nav style="margin-top: auto; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: #FAF8F4; border-top: 1px solid #E6D5B8; padding: 0 8px 26px">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg>Home</a>
+<a href="Learn-Center.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2z"></path><path d="M12 6v14"></path></svg>Learn</a>
+<a href="Journal-Hub.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg>Journal</a>
+<a href="Community-Feed.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>Community</a>
+<a href="You-Profile.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 700; color: #663399"><span style="width: 24px; height: 3px; border-radius: 0 0 3px 3px; background: #D4A574; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>You</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

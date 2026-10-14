@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router";
+import { createBrowserRouter, Navigate, Outlet } from "react-router";
 import { Layout } from "./components/Layout";
 import { TechnologyLayout } from "./components/TechnologyLayout";
 import { Documentation } from "./pages/Documentation";
@@ -6,9 +6,18 @@ import { TechnologyOverview } from "./pages/TechnologyOverview";
 import { TechnologyInstructions } from "./pages/TechnologyInstructions";
 import { UsersAndRoles } from "./pages/UsersAndRoles";
 import { Analytics } from "./pages/Analytics";
+import { BetaAnalytics } from "./pages/BetaAnalytics";
 import { AnalyticsInfo } from "./pages/AnalyticsInfo";
 import { Reports } from "./pages/Reports";
+import { ResearchDashboard } from "./pages/ResearchDashboard";
+import { PublicDocs } from "./pages/PublicDocs";
 import { Notifications } from "./pages/Notifications";
+import { ModerationHub } from "./pages/ModerationHub";
+import { ProviderModeration } from "./pages/ProviderModeration";
+import { ProviderReportsAdmin } from "./pages/ProviderReportsAdmin";
+import { UserModerationAdmin } from "./pages/UserModerationAdmin";
+import { IdentityClaimsAdmin } from "./pages/IdentityClaimsAdmin";
+import { ProviderReportProviderDetail } from "./pages/ProviderReportProviderDetail";
 import { Login } from "./pages/Login";
 import { RoleRoute } from "../components/RoleRoute";
 
@@ -18,23 +27,35 @@ export const router = createBrowserRouter([
     Component: Login,
   },
   {
-    path: "/",
+    path: "/public-docs",
+    element: <PublicDocs />,
+  },
+  // Pathless shell so `/public-docs` never shares the `/` layout branch (Safari + older bundles were a risk).
+  {
     Component: Layout,
     children: [
-      { 
-        index: true, 
-        element: (
-          <RoleRoute allowedRoles={['admin', 'research_partner', 'community_manager']}>
-            <Analytics />
-          </RoleRoute>
-        )
+      {
+        index: true,
+        element: <Navigate to="/documentation" replace />,
       },
       {
         path: "analytics",
-        element: <Navigate to="/" replace />,
+        element: (
+          <RoleRoute allowedRoles={["admin", "research_partner", "community_manager"]}>
+            <Analytics />
+          </RoleRoute>
+        ),
       },
-      { 
-        path: "documentation", 
+      {
+        path: "beta-analytics",
+        element: (
+          <RoleRoute allowedRoles={["admin"]}>
+            <BetaAnalytics />
+          </RoleRoute>
+        ),
+      },
+      {
+        path: "documentation",
         element: (
           <RoleRoute allowedRoles={['admin', 'research_partner', 'community_manager']}>
             <Documentation />
@@ -83,13 +104,73 @@ export const router = createBrowserRouter([
           </RoleRoute>
         )
       },
-      { 
-        path: "notifications", 
+      {
+        path: "research",
         element: (
-          <RoleRoute allowedRoles={['admin', 'community_manager']}>
-            <Notifications />
+          <RoleRoute allowedRoles={['admin', 'research_partner']}>
+            <ResearchDashboard />
           </RoleRoute>
-        )
+        ),
+      },
+      {
+        path: "notifications",
+        element: <Navigate to="/moderation/push" replace />,
+      },
+      {
+        path: "moderation",
+        element: (
+          <RoleRoute allowedRoles={["admin", "community_manager"]}>
+            <Outlet />
+          </RoleRoute>
+        ),
+        children: [
+          { index: true, element: <ModerationHub /> },
+          { path: "push", element: <Notifications /> },
+          {
+            path: "providers",
+            element: (
+              <RoleRoute allowedRoles={["admin"]}>
+                <ProviderModeration />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: "reports/provider/:providerId",
+            element: (
+              <RoleRoute allowedRoles={["admin"]}>
+                <ProviderReportProviderDetail />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: "reports",
+            element: (
+              <RoleRoute allowedRoles={["admin"]}>
+                <ProviderReportsAdmin />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: "users",
+            element: (
+              <RoleRoute allowedRoles={["admin", "community_manager"]}>
+                <UserModerationAdmin />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: "identity-claims",
+            element: (
+              <RoleRoute allowedRoles={["admin"]}>
+                <IdentityClaimsAdmin />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: "identity_claims",
+            element: <Navigate to="/moderation/identity-claims" replace />,
+          },
+        ],
       },
     ],
   },

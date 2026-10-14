@@ -1,0 +1,9 @@
+# Used instead of the root .dockerignore when building admindash/Dockerfile.
+# Everything outside admindash/ is left out; the build needs only admindash/.
+*
+!admindash/
+admindash/node_modules
+admindash/dist
+admindash/functions/node_modules
+admindash/functions/lib
+admindash/.env*

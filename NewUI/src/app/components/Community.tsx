@@ -76,7 +76,7 @@ export function Community() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl mb-2 text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">Community</h1>
-        <p className="text-[#6b5c75] dark:text-[#c9bfd4] font-light transition-colors">Connect with others on the same journey</p>
+        <p className="text-[#6b5c75] dark:text-[#c9bfd4] font-light transition-colors">You're not alone on this journey</p>
       </div>
 
       {/* Safety Note */}
@@ -86,15 +86,15 @@ export function Community() {
           <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-[#d4c5e0] dark:bg-[#663399] blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#e6d5b8] dark:bg-[#d4a574] blur-3xl"></div>
         </div>
-        
+
         <div className="relative flex items-start gap-3">
           <div className="w-11 h-11 rounded-[20px] bg-white/40 dark:bg-[#3d3547]/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-300">
             <Heart className="w-5 h-5 text-[#6b5c75] dark:text-[#b89fb5] stroke-[1.5] transition-colors" />
           </div>
           <div>
-            <h2 className="text-lg mb-2 text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">A safe space</h2>
+            <h2 className="text-lg mb-2 text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">You're among friends</h2>
             <p className="text-[#6b5c75] dark:text-[#c9bfd4] text-sm font-light leading-relaxed transition-colors">
-              Share your experiences, ask questions, and support others. All discussions are moderated to keep this space respectful and supportive.
+              Share stories, ask questions, and support each other.
             </p>
           </div>
         </div>
@@ -106,10 +106,10 @@ export function Community() {
           {["All", "Questions", "Birth Stories", "Support", "Resources"].map((category) => (
             <button
               key={category}
-              className={`px-5 py-2.5 rounded-[20px] whitespace-nowrap transition-all duration-300 font-light shadow-[0_2px_12px_rgba(102,51,153,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.2)] ${
+              className={`px-5 py-3 rounded-[20px] whitespace-nowrap transition-all duration-300 font-light shadow-[0_2px_12px_rgba(102,51,153,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.2)] ${
                 category === "All"
-                  ? "bg-gradient-to-br from-[#8b7aa8] to-[#b89fb5] dark:from-[#9d8fb5] dark:to-[#d4a574] text-white"
-                  : "bg-white/80 dark:bg-[#2a2435] backdrop-blur-sm text-[#6b5c75] dark:text-[#c9bfd4] border border-[#e8e0f0]/50 dark:border-[#3d3547] hover:border-[#d4c5e0]/50 dark:hover:border-[#4a4057]"
+                  ? "bg-gradient-to-br from-[#663399] to-[#8855bb] text-white"
+                  : "bg-[#faf8f4] dark:bg-[#2a2435] backdrop-blur-sm text-[#6b5c75] dark:text-[#c9bfd4] border border-[#e8e0f0]/50 dark:border-[#3d3547] hover:border-[#d4c5e0]/50 dark:hover:border-[#4a4057]"
               }`}
             >
               {category}
@@ -122,14 +122,14 @@ export function Community() {
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">Recent discussions</h2>
-          <Link to="/community/new" className="text-sm text-[#9d8fb5] dark:text-[#9d8fb5] font-light hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors">New post</Link>
+          <Link to="/community/new" className="text-sm text-[#9d8fb5] dark:text-[#9d8fb5] font-light hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors">Start a conversation</Link>
         </div>
         <div className="space-y-3">
           {discussions.map((discussion, index) => (
             <Link
               key={index}
               to={`/community/${discussion.id}`}
-              className="bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 cursor-pointer block"
+              className="bg-[#faf8f4] dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-6 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#e8e0f0]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 cursor-pointer block"
             >
               <div className="flex items-start gap-4">
                 <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#8b7aa8] to-[#b89fb5] dark:from-[#9d8fb5] dark:to-[#d4a574] flex items-center justify-center flex-shrink-0 text-white text-sm shadow-sm transition-all duration-300">
@@ -169,13 +169,13 @@ export function Community() {
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">Trusted providers</h2>
-          <button className="text-sm text-[#9d8fb5] dark:text-[#9d8fb5] font-light hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors">See all</button>
+          <button className="text-sm text-[#9d8fb5] dark:text-[#9d8fb5] font-light hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors">Browse more</button>
         </div>
         <div className="space-y-3">
           {providers.map((provider, index) => (
             <div
               key={index}
-              className="bg-white/60 dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#ede7f3]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 cursor-pointer"
+              className="bg-[#faf8f4] dark:bg-[#2a2435] backdrop-blur-sm rounded-[28px] p-6 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#e8e0f0]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 cursor-pointer"
             >
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-[20px] bg-gradient-to-br from-[#8b7aa8] to-[#b89fb5] dark:from-[#9d8fb5] dark:to-[#d4a574] flex items-center justify-center flex-shrink-0 text-white shadow-sm transition-all duration-300">
@@ -226,11 +226,11 @@ export function Community() {
             <Sparkles className="w-5 h-5 text-[#d4a574] dark:text-[#e0b589] stroke-[1.5] transition-colors" />
           </div>
           <div className="flex-1">
-            <h3 className="mb-2 text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">Share your experience</h3>
+            <h3 className="mb-2 text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">Help another mama</h3>
             <p className="text-sm text-[#6b5c75] dark:text-[#c9bfd4] mb-3 font-light leading-relaxed transition-colors">
-              Help others by sharing anonymous feedback about your providers and birth experience.
+              Share what worked (or didn't) with your provider or birth team.
             </p>
-            <button className="text-sm text-[#9d8fb5] dark:text-[#9d8fb5] font-light hover:text-[#663399] dark:hover:text-[#d4a574] transition-colors">Submit feedback →</button>
+            <button className="px-5 py-2.5 rounded-[18px] bg-gradient-to-br from-[#d4a574] to-[#e0b589] text-white hover:shadow-[0_4px_16px_rgba(212,165,116,0.3)] transition-all duration-300 font-light text-sm">Share anonymously →</button>
           </div>
         </div>
       </div>

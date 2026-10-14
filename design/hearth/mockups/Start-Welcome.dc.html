@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Welcome</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="padding: 64px 20px 0; display: flex; flex-direction: column; align-items: center; text-align: center">
+<h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 40px; line-height: 46px; font-weight: 400">EmpowerHealth<br><span style="position: relative; display: inline-block">Watch<svg viewBox="0 0 96 10" preserveAspectRatio="none" fill="none" aria-hidden="true" style="position: absolute; left: 0; bottom: -7px; width: 100%; height: 10px"><path d="M2 7c18-6 36-6 52-2s28 3 40-2" stroke="#D4A574" stroke-width="3" stroke-linecap="round"></path></svg></span></h1>
+</header>
+
+<div role="img" aria-label="Welcome photo" style="flex: 1; margin: 32px 20px 24px; border-radius: 175px 175px 24px 24px; background: #EFE0C6; display: flex; align-items: center; justify-content: center">
+<span style="width: 72px; height: 72px; border-radius: 50%; background: #FAF8F4; display: flex; align-items: center; justify-content: center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="8.5" cy="10" r="1.5"></circle><path d="M21 16l-5-5-8 8"></path></svg></span>
+</div>
+
+<div style="padding: 0 20px 32px; display: flex; flex-direction: column; gap: 12px">
+<button style="width: 100%; height: 52px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Sign Up</button>
+<button style="width: 100%; height: 52px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Login</button>
+<button style="width: 100%; height: 52px; border: 1px solid #E6D5B8; border-radius: 999px; background: #FAF8F4; color: #663399; font-size: 16px; font-weight: 700">Explore as Guest</button>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

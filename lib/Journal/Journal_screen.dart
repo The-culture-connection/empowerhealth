@@ -1,11 +1,89 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
-import '../learning/notes_dialog.dart';
+import '../design_system/hearth.dart';
+import '../widgets/ambient_background.dart';
+import '../widgets/step_scroll.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
+import '../auth/guest_guard.dart';
+import 'journal_learning_note_opener.dart';
+
+/// ICU `a` is AM/PM — never use raw `at` inside [DateFormat] patterns or `a` is misread (e.g. "PMt").
+String _formatJournalCreatedAt(DateTime d) {
+  return '${DateFormat('MMMM d, yyyy').format(d)} at ${DateFormat('h:mm a').format(d)}';
+}
+
+enum _JournalEntryMode { hub, quick, write }
+
+/// What kind of reflection a `users/{uid}/notes` doc is, for the timeline
+/// filter. Quick check-ins are tagged 'Feelings'; notes saved from a lesson
+/// carry `isFromModule` / `moduleTitle`; everything else is a writing.
+enum _ReflectionKind { checkIn, writing, learningNote }
+
+enum _ReflectionFilter { all, checkIns, writings, learningNotes }
+
+_ReflectionKind _reflectionKindOf(Map<String, dynamic> data) {
+  final moduleTitle = data['moduleTitle'];
+  if (data['isFromModule'] == true ||
+      (moduleTitle is String && moduleTitle.trim().isNotEmpty)) {
+    return _ReflectionKind.learningNote;
+  }
+  if (data['tag'] == 'Feelings') return _ReflectionKind.checkIn;
+  return _ReflectionKind.writing;
+}
+
+bool _matchesReflectionFilter(_ReflectionKind kind, _ReflectionFilter filter) {
+  switch (filter) {
+    case _ReflectionFilter.all:
+      return true;
+    case _ReflectionFilter.checkIns:
+      return kind == _ReflectionKind.checkIn;
+    case _ReflectionFilter.writings:
+      return kind == _ReflectionKind.writing;
+    case _ReflectionFilter.learningNotes:
+      return kind == _ReflectionKind.learningNote;
+  }
+}
+
+/// Quick check-in moods, in picker order. The picker shows the nature icon;
+/// the emoji is still saved at the start of the entry so stored check-ins
+/// keep the same format.
+const List<({String emoji, String label, IconData icon})> _moods = [
+  (emoji: '\u{1F60A}', label: 'Joyful', icon: Icons.wb_sunny_outlined),
+  (emoji: '\u{1F60C}', label: 'Calm', icon: Icons.eco_outlined),
+  (emoji: '\u{1F610}', label: 'Okay', icon: Icons.waves),
+  (emoji: '\u{1F61F}', label: 'Worried', icon: Icons.cloud_outlined),
+  (emoji: '\u{1F622}', label: 'Tearful', icon: Icons.water_drop_outlined),
+];
+
+/// The mood a saved check-in starts with (`emoji label`), if any.
+({String emoji, String label, IconData icon})? _moodOf(String content) {
+  for (final mood in _moods) {
+    if (content.startsWith('${mood.emoji} ${mood.label}')) return mood;
+  }
+  return null;
+}
+
+/// Saved text without the leading mood emoji; the app shows moods as icons.
+String _withoutMoodEmoji(String content) {
+  final mood = _moodOf(content);
+  return mood == null ? content : content.substring(mood.emoji.length + 1);
+}
+
+/// Mood emojis that saved check-ins open with. Laid out offstage on web (see
+/// build) so CanvasKit fetches its color-emoji fallback font before an entry
+/// that contains one is opened.
+const String _moodEmojiWarmup = '\u{1F60A}\u{1F60C}\u{1F610}\u{1F61F}\u{1F622}';
+
+/// Recent reflections shown under "All"; a type filter shows every match
+/// among the most recent [_reflectionFetchLimit] notes.
+const int _allReflectionsShown = 10;
+const int _reflectionFetchLimit = 50;
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
@@ -16,9 +94,28 @@ class JournalScreen extends StatefulWidget {
 
 class _JournalScreenState extends State<JournalScreen> {
   final TextEditingController _entryController = TextEditingController();
+  final TextEditingController _quickNoteController = TextEditingController();
+  final StepScrollController _scrollController = StepScrollController();
   bool _isSaving = false;
+  _JournalEntryMode _entryMode = _JournalEntryMode.hub;
+  String? _quickMoodEmoji;
+  String? _quickMoodLabel;
+  String? _writePrompt;
+  _ReflectionFilter _reflectionFilter = _ReflectionFilter.all;
+  // Cached so filter / mood taps (setState) don't resubscribe the
+  // StreamBuilder and flash the loading spinner over the whole screen.
+  Stream<QuerySnapshot>? _notesStream;
+  String? _notesStreamUserId;
   final AnalyticsService _analytics = AnalyticsService();
   final DatabaseService _databaseService = DatabaseService();
+
+  static const List<String> _writePrompts = [
+    'How are you feeling today?',
+    'What brought you peace this week?',
+    'What concerns are on your mind?',
+    'What are you grateful for right now?',
+    'What do you want to remember about this moment?',
+  ];
 
   @override
   void initState() {
@@ -45,15 +142,18 @@ class _JournalScreenState extends State<JournalScreen> {
   @override
   void dispose() {
     _entryController.dispose();
+    _quickNoteController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _saveEntry() async {
+    if (!await requireAccount(context, action: 'save journal entries')) return;
+    if (!mounted) return;
     if (_entryController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('📝 Please enter some text before saving'),
-          backgroundColor: Colors.orange,
+          content: Text('Please enter some text before saving'),
         ),
       );
       return;
@@ -67,16 +167,22 @@ class _JournalScreenState extends State<JournalScreen> {
         throw Exception('User not authenticated');
       }
 
-      final entryRef = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('notes')
-          .add({
+      final data = <String, dynamic>{
         'content': _entryController.text.trim(),
         'tag': 'Journal entry',
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      if (_writePrompt != null && _writePrompt!.isNotEmpty) {
+        data['prompt'] = _writePrompt;
+        data['isFeelingPrompt'] = true;
+      }
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('notes')
+          .add(data);
 
       // Track journal entry creation
       try {
@@ -93,10 +199,11 @@ class _JournalScreenState extends State<JournalScreen> {
 
       if (mounted) {
         _entryController.clear();
+        _writePrompt = null;
+        setState(() => _entryMode = _JournalEntryMode.hub);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Entry saved to journal!'),
-            backgroundColor: Colors.green,
+            content: Text('Entry saved to journal!'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -105,8 +212,7 @@ class _JournalScreenState extends State<JournalScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Error saving entry: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            content: Text('Error saving entry: ${e.toString()}'),
           ),
         );
       }
@@ -117,7 +223,14 @@ class _JournalScreenState extends State<JournalScreen> {
     }
   }
 
-  Future<void> _saveFeelingEntry(String emoji, String label) async {
+  Future<void> _saveFeelingEntry(
+    String emoji,
+    String label, {
+    String? extraNote,
+    String prompt = 'How are you feeling today?',
+  }) async {
+    if (!await requireAccount(context, action: 'save journal entries')) return;
+    if (!mounted) return;
     setState(() => _isSaving = true);
 
     try {
@@ -126,14 +239,19 @@ class _JournalScreenState extends State<JournalScreen> {
         throw Exception('User not authenticated');
       }
 
-      final entryRef = await FirebaseFirestore.instance
+      final note = extraNote?.trim() ?? '';
+      final content = note.isEmpty
+          ? '$emoji $label'
+          : '$emoji $label\n\n$note';
+
+      await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('notes')
           .add({
-        'content': '$emoji $label',
+        'content': content,
         'tag': 'Feelings',
-        'prompt': 'How are you feeling today?',
+        'prompt': prompt,
         'isFeelingPrompt': true,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -153,10 +271,16 @@ class _JournalScreenState extends State<JournalScreen> {
       }
 
       if (mounted) {
+        setState(() {
+          _entryMode = _JournalEntryMode.hub;
+          _quickMoodEmoji = null;
+          _quickMoodLabel = null;
+          _quickNoteController.clear();
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ Feeling entry saved: $emoji $label'),
-            backgroundColor: Colors.green,
+            // The emoji is saved with the entry but never shown.
+            content: Text('Feeling entry saved: $emoji $label'.replaceFirst('$emoji ', '')),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -165,8 +289,7 @@ class _JournalScreenState extends State<JournalScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Error saving feeling: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            content: Text('Error saving feeling: ${e.toString()}'),
           ),
         );
       }
@@ -177,449 +300,425 @@ class _JournalScreenState extends State<JournalScreen> {
     }
   }
 
+  Future<void> _submitQuickCheckIn() async {
+    if (_quickMoodEmoji == null || _quickMoodLabel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tap a mood to save your check-in'),
+        ),
+      );
+      return;
+    }
+    await _saveFeelingEntry(
+      _quickMoodEmoji!,
+      _quickMoodLabel!,
+      extraNote: _quickNoteController.text,
+    );
+  }
+
+  void _resetToHub() {
+    setState(() {
+      _entryMode = _JournalEntryMode.hub;
+      _quickMoodEmoji = null;
+      _quickMoodLabel = null;
+      _quickNoteController.clear();
+      _writePrompt = null;
+      _entryController.clear();
+    });
+  }
+
+  void _openWriteMode() {
+    setState(() {
+      _entryMode = _JournalEntryMode.write;
+      _writePrompt = _writePrompts.first;
+      _entryController.text = '${_writePrompts.first}\n\n';
+    });
+  }
+
+  Widget _buildEntryMethodGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Choose how you\'d like to journal:',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 14),
+        // Equal-height tiles so the two choices line up when one subtitle wraps.
+        IntrinsicHeight(
+          child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _EntryMethodTile(
+                icon: Icons.favorite_border,
+                title: 'Quick check-in',
+                subtitle: 'Mood + optional note',
+                onTap: () => setState(() => _entryMode = _JournalEntryMode.quick),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _EntryMethodTile(
+                icon: Icons.edit_outlined,
+                title: 'Write',
+                subtitle: 'Longer reflection',
+                onTap: _openWriteMode,
+              ),
+            ),
+          ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Save + Cancel pair shared by the check-in and write cards.
+  Widget _buildSaveCancelRow({
+    required String saveLabel,
+    required VoidCallback onSave,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton(
+            onPressed: _isSaving ? null : onSave,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.brandGold,
+              foregroundColor: AppTheme.ink,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: _isSaving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.ink,
+                    ),
+                  )
+                : _OneLineButtonLabel(saveLabel),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Equal-width controls so Save and Cancel are balanced; labels
+        // stay on one line (scaled down if needed at large text sizes).
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _isSaving ? null : _resetToHub,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: const _OneLineButtonLabel('Cancel'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickCheckInCard() {
+    final textTheme = Theme.of(context).textTheme;
+    return HearthCard(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Quick check-in', style: textTheme.headlineMedium),
+          const SizedBox(height: 6),
+          Text('How are you feeling right now?', style: textTheme.bodyLarge),
+          const SizedBox(height: 18),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final mood in _moods)
+                Expanded(
+                  child: _SelectableMoodChip(
+                    icon: mood.icon,
+                    label: mood.label,
+                    selected: _quickMoodLabel == mood.label,
+                    onTap: () => setState(() {
+                      _quickMoodEmoji = mood.emoji;
+                      _quickMoodLabel = mood.label;
+                    }),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Add a note (optional)',
+            style: textTheme.labelMedium?.copyWith(color: AppTheme.ink),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _quickNoteController,
+            maxLines: 3,
+            style: textTheme.bodyLarge?.copyWith(color: AppTheme.ink),
+            decoration: const InputDecoration(
+              hintText: 'Anything you\'d like to remember…',
+              // Inset fill so the field reads as a well inside the card.
+              fillColor: AppTheme.surfaceInset,
+            ),
+          ),
+          const SizedBox(height: 18),
+          _buildSaveCancelRow(
+            saveLabel: 'Save check-in',
+            onSave: _submitQuickCheckIn,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWriteCard() {
+    final textTheme = Theme.of(context).textTheme;
+    return HearthCard(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Write', style: textTheme.headlineMedium),
+          const SizedBox(height: 6),
+          Text(
+            'Start from a gentle prompt or write freely.',
+            style: textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _writePrompts.map((p) {
+              final sel = _writePrompt == p;
+              return HearthChoiceChip(
+                label: p,
+                selected: sel,
+                // Re-tapping the chosen prompt does nothing, so it never
+                // wipes what has been written under it.
+                onSelected: sel
+                    ? null
+                    : () {
+                  setState(() {
+                    _writePrompt = p;
+                    _entryController.text = '$p\n\n';
+                    _entryController.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _entryController.text.length),
+                    );
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 18),
+          TextField(
+            controller: _entryController,
+            maxLines: 8,
+            style: textTheme.bodyLarge?.copyWith(color: AppTheme.ink),
+            decoration: const InputDecoration(
+              hintText: 'How are you feeling today? Add whatever feels right…',
+              // Inset fill so the field reads as a well inside the card.
+              fillColor: AppTheme.surfaceInset,
+            ),
+          ),
+          const SizedBox(height: 18),
+          _buildSaveCancelRow(saveLabel: 'Save entry', onSave: _saveEntry),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWarmEmptyReflections() {
+    return HearthCard(
+      padding: const EdgeInsets.all(22),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+        children: [
+          const HearthIconChip(Icons.favorite_border),
+          const SizedBox(height: 12),
+          Text(
+            'Your reflections will show up here',
+            textAlign: TextAlign.center,
+            style: hearthCardTitleStyle,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'There\'s no rush. Try a quick check-in above, or write a few words when you\'re ready.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ],
+        ),
+      ),
+    );
+  }
+
+  Stream<QuerySnapshot>? _notesStreamFor(String? userId) {
+    if (userId == null) {
+      _notesStream = null;
+      _notesStreamUserId = null;
+      return null;
+    }
+    if (_notesStream == null || _notesStreamUserId != userId) {
+      _notesStreamUserId = userId;
+      _notesStream = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('notes')
+          .orderBy('createdAt', descending: true)
+          .limit(_reflectionFetchLimit)
+          .snapshots();
+    }
+    return _notesStream;
+  }
+
+  Widget _buildReflectionFilterChips() {
+    const options = <_ReflectionFilter, String>{
+      _ReflectionFilter.all: 'All',
+      _ReflectionFilter.checkIns: 'Check-ins',
+      _ReflectionFilter.writings: 'Writings',
+      _ReflectionFilter.learningNotes: 'Learning notes',
+    };
+    // Wrap (not a horizontal scroller) so every option stays visible at
+    // large text sizes on narrow phones.
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: options.entries.map((option) {
+        final sel = _reflectionFilter == option.key;
+        return HearthChoiceChip(
+          label: option.value,
+          selected: sel,
+          primary: true,
+          onSelected: sel
+              ? null
+              : () => setState(() => _reflectionFilter = option.key),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildEmptyFilteredReflections() {
+    final message = switch (_reflectionFilter) {
+      _ReflectionFilter.checkIns =>
+        'No check-ins yet. Tap Quick check-in above to note how you feel.',
+      _ReflectionFilter.writings =>
+        'No writings yet. Tap Write above when you\'d like to reflect.',
+      _ReflectionFilter.learningNotes =>
+        'No learning notes yet. Notes you save while reading a lesson will show up here.',
+      _ReflectionFilter.all => '',
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Text(
+        message,
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
+    final embeddedInMainNav = MainNavigationScope.maybeOf(context) != null;
+    // Switching between the hub, quick check-in and write steps shows the new
+    // step from the top (the floating shortcuts work from anywhere in the list).
+    _scrollController.syncStep(_entryMode);
+    // With the shell's extendBody, padding.bottom = nav bar height while
+    // viewPadding.bottom is only the home-indicator inset the nested
+    // Scaffold already respects for FAB placement.
+    final mq = MediaQuery.of(context);
+    final fabNavLift = embeddedInMainNav
+        ? (mq.padding.bottom - mq.viewPadding.bottom).clamp(0.0, 200.0)
+        : 0.0;
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.backgroundWarm,
-        ),
-        child: SafeArea(
+    final content = SafeArea(
           child: Column(
             children: [
-              // Header (matching NewUI)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Your journal',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w400,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'A safe space for your thoughts and feelings',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textLight,
-                        fontWeight: FontWeight.w300,
-                      ),
-                    ),
-                  ],
-                ),
+              const HearthTabHeader(
+                title: 'Your journal',
+                subtitle: 'A private space for how you feel',
+                padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
               ),
-              
+
               // Content
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
-                  stream: userId != null
-                      ? FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(userId)
-                          .collection('notes')
-                          .orderBy('createdAt', descending: true)
-                          .limit(10)
-                          .snapshots()
-                      : null,
+                  stream: _notesStreamFor(userId),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    final entries = snapshot.hasData ? snapshot.data!.docs : [];
+                    final entries = snapshot.hasData
+                        ? snapshot.data!.docs
+                        : <QueryDocumentSnapshot>[];
+                    final visibleEntries = <MapEntry<QueryDocumentSnapshot,
+                        _ReflectionKind>>[];
+                    for (final doc in entries) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final kind = _reflectionKindOf(data);
+                      if (_matchesReflectionFilter(kind, _reflectionFilter)) {
+                        visibleEntries.add(MapEntry(doc, kind));
+                      }
+                    }
+                    final shownEntries =
+                        _reflectionFilter == _ReflectionFilter.all
+                            ? visibleEntries.take(_allReflectionsShown)
+                            : visibleEntries;
 
                     return SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Privacy Notice (matching NewUI)
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFFEBE4F3), // #ebe4f3
-                                  Color(0xFFF5F0F8), // #f5f0f8
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(28),
-                              border: Border.all(
-                                color: AppTheme.borderLighter.withOpacity(0.5),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(18),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.favorite,
-                                    color: AppTheme.textLightest,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Your journal is private. Only you can see what you write here.',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: AppTheme.textMuted,
-                                          fontWeight: FontWeight.w300,
-                                          height: 1.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                          // Compact privacy indicator (replaces the large card).
+                          const Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: _PrivatePill(label: 'Private to you'),
                           ),
                           const SizedBox(height: 24),
-                          // Today's Entry Section (matching NewUI)
-                          Container(
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFFFAF7FB), // #faf7fb
-                                  Color(0xFFF9F5FB), // #f9f5fb
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(32),
-                              border: Border.all(
-                                color: AppTheme.borderLightest.withOpacity(0.5),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.edit,
-                                      color: AppTheme.brandGold,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      "Today's entry",
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w400,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 20),
-                                const Text(
-                                  'Not sure where to start? Try a prompt:',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: AppTheme.textLight,
-                                    fontWeight: FontWeight.w300,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    'How are you feeling today?',
-                                    'What brought you peace this week?',
-                                    'What concerns are on your mind?',
-                                  ].map((prompt) => _PromptChip(
-                                    text: prompt,
-                                    onTap: () {
-                                      // Populate text box with prompt and add newline for user to continue
-                                      _entryController.text = '$prompt\n\n';
-                                      // Move cursor to end
-                                      _entryController.selection = TextSelection.fromPosition(
-                                        TextPosition(offset: _entryController.text.length),
-                                      );
-                                    },
-                                    onLongPress: () => _showFeelingPrompt(context, prompt),
-                                  )).toList(),
-                                ),
-                                const SizedBox(height: 16),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.8),
-                                    borderRadius: BorderRadius.circular(24),
-                                    border: Border.all(
-                                      color: AppTheme.borderLighter.withOpacity(0.5),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.03),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: TextField(
-                                    controller: _entryController,
-                                    maxLines: 6,
-                                    style: const TextStyle(
-                                      color: AppTheme.textSecondary,
-                                      fontWeight: FontWeight.w300,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: "What's on your mind today?",
-                                      hintStyle: const TextStyle(
-                                        color: AppTheme.textBarelyVisible,
-                                        fontWeight: FontWeight.w300,
-                                      ),
-                                      border: InputBorder.none,
-                                      contentPadding: const EdgeInsets.all(20),
-                                      suffixIcon: IconButton(
-                                        icon: const Icon(
-                                          Icons.keyboard_hide,
-                                          color: AppTheme.textBarelyVisible,
-                                          size: 20,
-                                        ),
-                                        onPressed: () => FocusScope.of(context).unfocus(),
-                                        tooltip: 'Dismiss keyboard',
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              AppTheme.gradientBeigeStart,
-                                              AppTheme.textLightest,
-                                            ],
-                                          ),
-                                          borderRadius: BorderRadius.circular(24),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: AppTheme.textLightest.withOpacity(0.25),
-                                              blurRadius: 20,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ],
-                                        ),
-                                        child: ElevatedButton(
-                                          onPressed: _isSaving ? null : _saveEntry,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.transparent,
-                                            shadowColor: Colors.transparent,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(vertical: 14),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(24),
-                                            ),
-                                          ),
-                                          child: _isSaving
-                                              ? const SizedBox(
-                                                  height: 20,
-                                                  width: 20,
-                                                  child: CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                                  ),
-                                                )
-                                              : const Text(
-                                                  'Save entry',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w300,
-                                                  ),
-                                                ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    OutlinedButton(
-                                      onPressed: _isSaving ? null : () {
-                                        _entryController.clear();
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: AppTheme.textLight,
-                                        side: BorderSide(
-                                          color: AppTheme.borderLighter.withOpacity(0.5),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 14,
-                                          horizontal: 20,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(24),
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'Cancel',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w300,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
+                          if (_entryMode == _JournalEntryMode.hub) ...[
+                            _buildEntryMethodGrid(),
+                          ] else if (_entryMode == _JournalEntryMode.quick) ...[
+                            _buildQuickCheckInCard(),
+                          ] else ...[
+                            _buildWriteCard(),
+                          ],
+                          const SizedBox(height: 28),
 
-                          // Mood Check Section (matching NewUI)
-                          const Text(
-                            'How are you feeling today?',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                              color: AppTheme.textMuted,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.6),
-                              borderRadius: BorderRadius.circular(28),
-                              border: Border.all(
-                                color: AppTheme.borderLighter.withOpacity(0.5),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                _MoodButton(
-                                  emoji: '😊',
-                                  label: 'Joyful',
-                                  onTap: () => _saveFeelingEntry('😊', 'Joyful'),
-                                ),
-                                _MoodButton(
-                                  emoji: '😌',
-                                  label: 'Calm',
-                                  onTap: () => _saveFeelingEntry('😌', 'Calm'),
-                                ),
-                                _MoodButton(
-                                  emoji: '😐',
-                                  label: 'Okay',
-                                  onTap: () => _saveFeelingEntry('😐', 'Okay'),
-                                ),
-                                _MoodButton(
-                                  emoji: '😟',
-                                  label: 'Worried',
-                                  onTap: () => _saveFeelingEntry('😟', 'Worried'),
-                                ),
-                                _MoodButton(
-                                  emoji: '😢',
-                                  label: 'Tearful',
-                                  onTap: () => _saveFeelingEntry('😢', 'Tearful'),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
+                          const HearthSectionHeading('Recent reflections'),
+                          const SizedBox(height: 14),
 
-                          // Recent Reflections Section (matching NewUI)
-                          const Text(
-                            'Recent reflections',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                              color: AppTheme.textMuted,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          
                           if (entries.isEmpty)
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(32.0),
-                                child: Column(
-                                  children: [
-                                    Icon(Icons.book_outlined, size: 64, color: Colors.grey[400]),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'No Journal Entries Yet',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Add notes from learning modules or create entries here',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(color: Colors.grey[500]),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          else
-                            ...entries.map((doc) {
+                            _buildWarmEmptyReflections()
+                          else ...[
+                            _buildReflectionFilterChips(),
+                            const SizedBox(height: 16),
+                            if (visibleEntries.isEmpty)
+                              _buildEmptyFilteredReflections(),
+                            ...shownEntries.map((entry) {
+                              final doc = entry.key;
                               final data = doc.data() as Map<String, dynamic>;
                               return _EntryCard(
                                 entryId: doc.id,
+                                kind: entry.value,
                                 content: data['content'] ?? '',
                                 tag: data['tag'] ?? 'Untagged',
                                 moduleTitle: data['moduleTitle'],
+                                moduleId: data['moduleId']?.toString(),
                                 highlightedText: data['highlightedText'],
                                 createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
                                 prompt: data['prompt'],
                                 isFeelingPrompt: data['isFeelingPrompt'] ?? false,
                               );
-                            }).toList(),
+                            }),
+                          ],
                           
-                          const SizedBox(height: 24),
-                          const SizedBox(height: 100), // Space for FABs
+                          // Clear the floating quick check-in / write buttons
+                          // (2 x 56 + gap + margin) so the last reflection card
+                          // and any save actions can scroll fully above them.
+                          const SizedBox(height: 160),
                         ],
                       ),
                     );
@@ -628,165 +727,256 @@ class _JournalScreenState extends State<JournalScreen> {
               ),
             ],
           ),
-        ),
-      ),
-      floatingActionButton: Column(
+        );
+
+    Widget body = embeddedInMainNav
+        ? content
+        : Stack(
+            fit: StackFit.expand,
+            children: [
+              const AmbientBackground(),
+              content,
+            ],
+          );
+    if (kIsWeb) {
+      // Flutter web (CanvasKit/skwasm) downloads its color-emoji fallback
+      // font the first time an emoji is laid out, showing a tofu box until
+      // it arrives. This screen is built eagerly in the main-nav
+      // IndexedStack, so laying the mood emojis out offstage here starts
+      // that download at app launch instead of when a saved check-in opens.
+      // iOS/Android use the system emoji font, so this is web-only.
+      body = Stack(
+        fit: StackFit.expand,
+        children: [
+          const Offstage(child: Text(_moodEmojiWarmup)),
+          body,
+        ],
+      );
+    }
+
+    return Scaffold(
+      backgroundColor:
+          embeddedInMainNav ? Colors.transparent : AppTheme.ground,
+      body: body,
+      // Shortcuts are only shown on the hub: inside the check-in / write cards
+      // they duplicate the current mode and could cover Save / Cancel.
+      floatingActionButton: _entryMode != _JournalEntryMode.hub
+          ? null
+          : Padding(
+        // This nested Scaffold does not know about the shell's translucent
+        // bottom nav (extendBody), so lift the buttons above it instead of
+        // letting them sit on top of the tab bar.
+        padding: EdgeInsets.only(bottom: fabNavLift),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.brandPurple.withOpacity(0.8),
-                  AppTheme.gradientPurpleEnd.withOpacity(0.8),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.brandPurple.withOpacity(0.3),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(28),
-                onTap: () => _showFeelingPrompt(context),
-                child: const Icon(Icons.favorite, color: Colors.white, size: 24),
-              ),
-            ),
+          _JournalShortcutButton(
+            icon: Icons.favorite_border,
+            color: AppTheme.brandPurpleMid,
+            onTap: () => setState(() => _entryMode = _JournalEntryMode.quick),
           ),
-          const SizedBox(height: 8),
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppTheme.gradientPurpleStart, AppTheme.gradientPurpleEnd],
-              ),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.brandPurple.withOpacity(0.3),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(28),
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const NotesDialog(),
-                  );
-                },
-                child: const Icon(Icons.add, color: Colors.white, size: 24),
-              ),
-            ),
+          const SizedBox(height: 10),
+          _JournalShortcutButton(
+            icon: Icons.add,
+            color: AppTheme.brandPurple,
+            onTap: _openWriteMode,
           ),
+        ],
+      ),
+      ),
+    );
+  }
+}
+
+/// Single-line button label that scales down rather than wrapping at large
+/// Dynamic Type / Bold Text sizes.
+class _OneLineButtonLabel extends StatelessWidget {
+  const _OneLineButtonLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        label,
+        maxLines: 1,
+        softWrap: false,
+      ),
+    );
+  }
+}
+
+/// "Private to you" pill under the journal header.
+class _PrivatePill extends StatelessWidget {
+  const _PrivatePill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const ShapeDecoration(
+        color: AppTheme.surface,
+        shape: StadiumBorder(side: BorderSide(color: AppTheme.borderWarm)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lock_outline, size: 15, color: AppTheme.textSecondary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: AppTheme.sansFamily,
+                  fontSize: 13,
+                  height: 18 / 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Round floating shortcut on the hub (quick check-in / write). The ground
+/// ring separates it from cards it floats over; Hearth keeps shadows for the
+/// Support button only.
+class _JournalShortcutButton extends StatelessWidget {
+  const _JournalShortcutButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color,
+      shape: const CircleBorder(
+        side: BorderSide(color: AppTheme.ground, width: 3),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 56,
+          height: 56,
+          child: Icon(icon, color: AppTheme.onPurple, size: 24),
+        ),
+      ),
+    );
+  }
+}
+
+class _EntryMethodTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _EntryMethodTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return HearthCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          HearthIconChip(icon),
+          const SizedBox(height: 14),
+          Text(title, style: hearthCardTitleStyle),
+          const SizedBox(height: 4),
+          Text(subtitle, style: hearthCaptionStyle),
         ],
       ),
     );
   }
-
-  void _showFeelingPrompt(BuildContext context, [String? customPrompt]) {
-    final feelingPrompts = [
-      'How are you feeling today?',
-      'What emotions are you experiencing right now?',
-      'What made you smile today?',
-      'What challenges are you facing?',
-      'What are you grateful for today?',
-      'How has your body been feeling?',
-      'What support do you need right now?',
-      'What are you looking forward to?',
-    ];
-
-    final prompt = customPrompt ?? feelingPrompts[(DateTime.now().millisecondsSinceEpoch % feelingPrompts.length)];
-
-    showDialog(
-      context: context,
-      builder: (context) => _FeelingPromptDialog(prompt: prompt),
-    );
-  }
 }
 
-class _PromptChip extends StatelessWidget {
-  final String text;
-  final VoidCallback onTap;
-  final VoidCallback? onLongPress;
-
-  const _PromptChip({required this.text, required this.onTap, this.onLongPress});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.8),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: AppTheme.borderLighter.withOpacity(0.5),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 12,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w300,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MoodButton extends StatelessWidget {
-  final String emoji;
+/// One mood in the quick check-in picker: a nature icon in a circle over its
+/// label. Selected moods get the warm tint and a purple ring.
+class _SelectableMoodChip extends StatelessWidget {
+  final IconData icon;
   final String label;
+  final bool selected;
   final VoidCallback onTap;
 
-  const _MoodButton({required this.emoji, required this.label, required this.onTap});
+  const _SelectableMoodChip({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        child: Column(
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 32)),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textLightest,
-                fontWeight: FontWeight.w300,
+    final color = selected ? AppTheme.brandPurple : AppTheme.textSecondary;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? AppTheme.tintWarm : AppTheme.ground,
+                  border: Border.all(
+                    color: selected ? AppTheme.brandPurple : AppTheme.borderWarm,
+                    width: selected ? 2 : 1,
+                  ),
+                ),
+                child: Icon(icon, size: 24, color: color),
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              // Five moods share one row, so long labels shrink rather than wrap.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontFamily: AppTheme.sansFamily,
+                    fontSize: 12,
+                    height: 16 / 12,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -795,9 +985,11 @@ class _MoodButton extends StatelessWidget {
 
 class _EntryCard extends StatelessWidget {
   final String entryId;
+  final _ReflectionKind kind;
   final String content;
   final String tag;
   final String? moduleTitle;
+  final String? moduleId;
   final String? highlightedText;
   final DateTime? createdAt;
   final String? prompt;
@@ -805,112 +997,145 @@ class _EntryCard extends StatelessWidget {
 
   const _EntryCard({
     required this.entryId,
+    required this.kind,
     required this.content,
     required this.tag,
     this.moduleTitle,
+    this.moduleId,
     this.highlightedText,
     this.createdAt,
     this.prompt,
     this.isFeelingPrompt = false,
   });
 
+  bool get _isLearningNote => kind == _ReflectionKind.learningNote;
+
+  IconData _kindIcon(
+    ({String emoji, String label, IconData icon})? mood,
+  ) {
+    switch (kind) {
+      case _ReflectionKind.checkIn:
+        return mood?.icon ?? Icons.favorite_border;
+      case _ReflectionKind.writing:
+        return Icons.edit_outlined;
+      case _ReflectionKind.learningNote:
+        return Icons.menu_book_outlined;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final title = moduleTitle?.trim();
+    // Check-ins show their mood as the nature icon, so the saved emoji is
+    // left out of the preview and the full entry.
+    final mood = kind == _ReflectionKind.checkIn ? _moodOf(content) : null;
+    // Learning notes preview what the user wrote; fall back to the
+    // highlighted passage when the note body is empty.
+    final preview = mood != null
+        ? content.substring(mood.emoji.length + 1)
+        : content.trim().isEmpty && highlightedText != null
+            ? highlightedText!
+            : content;
+
+    // Whole card is the tap target (incl. padding) and opens the full entry;
+    // the preview below is clamped to keep the timeline scannable.
+    return HearthCard(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: AppTheme.borderLighter.withOpacity(0.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () => _showEntryDetail(context),
-        borderRadius: BorderRadius.circular(24),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.gradientBeigeStart, AppTheme.gradientBeigeEnd],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.favorite, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+      onTap: () => _showEntryDetail(context),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, _isLearningNote ? 6 : 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          HearthIconChip(_kindIcon(mood)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Compact date ("Sep 26, 2026") + tag in a Wrap so the tag
+                // drops to the next line instead of truncating the date
+                // under Bold Text / larger Dynamic Type.
+                SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Icon(Icons.calendar_today, size: 14, color: Colors.grey[400]),
-                      const SizedBox(width: 4),
-                      if (createdAt != null)
-                        Text(
-                          DateFormat('MMMM d, yyyy').format(createdAt!),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textLightest,
-                            fontWeight: FontWeight.w300,
-                          ),
-                        ),
-                      if (isFeelingPrompt && prompt != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'feeling',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.purple.shade700,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.calendar_today_outlined,
+                              size: 14, color: AppTheme.textMuted),
+                          if (createdAt != null) ...[
+                            const SizedBox(width: 5),
+                            Text(
+                              DateFormat.yMMMd().format(createdAt!),
+                              style: hearthCaptionStyle,
                             ),
-                          ),
-                        ),
-                      ],
+                          ],
+                        ],
+                      ),
+                      if (isFeelingPrompt && prompt != null)
+                        const HearthTag('feeling'),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    content,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w300,
-                      height: 1.5,
-                    ),
+                ),
+                if (_isLearningNote && title != null && title.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(Icons.menu_book_outlined,
+                            size: 14, color: AppTheme.brandPurple),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: hearthCaptionStyle.copyWith(
+                            color: AppTheme.brandPurple,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
+                const SizedBox(height: 6),
+                Text(
+                  preview,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  // Check-ins and writings lead with the mood or prompt, so
+                  // they read as the card title; lesson notes read as body.
+                  style: _isLearningNote
+                      ? hearthCardBodyStyle
+                      : const TextStyle(
+                          fontFamily: AppTheme.sansFamily,
+                          fontSize: 15,
+                          height: 22 / 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.ink,
+                        ),
+                ),
+                if (_isLearningNote)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: _OpenLessonButton(
+                      moduleId: moduleId,
+                      moduleTitle: title,
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -920,13 +1145,91 @@ class _EntryCard extends StatelessWidget {
       context: context,
       builder: (context) => _EntryDetailDialog(
         entryId: entryId,
-        content: content,
+        content: _withoutMoodEmoji(content),
         tag: tag,
         moduleTitle: moduleTitle,
+        isLearningNote: _isLearningNote,
+        // Uses the card's context: the dialog's own context is gone once it
+        // pops itself before navigating to the lesson.
+        onOpenLesson: () => openLearningNoteModule(
+          context,
+          moduleId: moduleId,
+          moduleTitle: moduleTitle,
+        ),
         highlightedText: highlightedText,
         createdAt: createdAt,
         prompt: prompt,
         isFeelingPrompt: isFeelingPrompt,
+      ),
+    );
+  }
+}
+
+/// "Open lesson" action for journal notes taken inside a learning module.
+class _OpenLessonButton extends StatefulWidget {
+  final String? moduleId;
+  final String? moduleTitle;
+  final VoidCallback? onPressedOverride;
+
+  const _OpenLessonButton({
+    this.moduleId,
+    this.moduleTitle,
+    this.onPressedOverride,
+  });
+
+  @override
+  State<_OpenLessonButton> createState() => _OpenLessonButtonState();
+}
+
+class _OpenLessonButtonState extends State<_OpenLessonButton> {
+  bool _opening = false;
+
+  Future<void> _open() async {
+    if (widget.onPressedOverride != null) {
+      widget.onPressedOverride!();
+      return;
+    }
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      await openLearningNoteModule(
+        context,
+        moduleId: widget.moduleId,
+        moduleTitle: widget.moduleTitle,
+      );
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: _opening ? null : _open,
+      style: TextButton.styleFrom(
+        foregroundColor: AppTheme.brandPurple,
+        // Flush with the text above it, as in the card layout.
+        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+        minimumSize: const Size(44, 44),
+        tapTargetSize: MaterialTapTargetSize.padded,
+      ),
+      icon: _opening
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppTheme.brandPurple,
+              ),
+            )
+          : const Icon(Icons.arrow_forward, size: 18),
+      label: const Text(
+        'Open lesson',
+        style: TextStyle(
+          fontFamily: AppTheme.sansFamily,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -937,6 +1240,8 @@ class _EntryDetailDialog extends StatelessWidget {
   final String content;
   final String tag;
   final String? moduleTitle;
+  final bool isLearningNote;
+  final VoidCallback? onOpenLesson;
   final String? highlightedText;
   final DateTime? createdAt;
   final String? prompt;
@@ -947,6 +1252,8 @@ class _EntryDetailDialog extends StatelessWidget {
     required this.content,
     required this.tag,
     this.moduleTitle,
+    this.isLearningNote = false,
+    this.onOpenLesson,
     this.highlightedText,
     this.createdAt,
     this.prompt,
@@ -956,7 +1263,7 @@ class _EntryDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      clipBehavior: Clip.antiAlias,
       child: Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.8,
@@ -964,114 +1271,78 @@ class _EntryDetailDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                ),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Text(
-                    'Journal Entry',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+            ColoredBox(
+              color: AppTheme.brandPurple,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 12, 12),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Journal Entry',
+                        style: TextStyle(
+                          fontFamily: AppTheme.serifFamily,
+                          fontSize: 22,
+                          height: 28 / 22,
+                          color: AppTheme.onPurple,
+                        ),
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+                    IconButton(
+                      icon: const Icon(Icons.close, color: AppTheme.onPurple),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
               ),
             ),
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (isFeelingPrompt && prompt != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.pink.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.psychology, size: 16, color: Colors.pink.shade600),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                prompt!,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.pink.shade700,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      _DialogTintRow(
+                        icon: Icons.psychology_outlined,
+                        text: prompt!,
                       ),
                       const SizedBox(height: 16),
                     ],
                     if (moduleTitle != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF663399).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.school, size: 16, color: Color(0xFF663399)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'From: $moduleTitle',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF663399),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      _DialogTintRow(
+                        icon: Icons.menu_book_outlined,
+                        text: 'From: $moduleTitle',
                       ),
+                      if (isLearningNote && onOpenLesson != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: _OpenLessonButton(
+                            onPressedOverride: () {
+                              Navigator.of(context).pop();
+                              onOpenLesson!();
+                            },
+                          ),
+                        ),
                       const SizedBox(height: 16),
                     ],
                     if (highlightedText != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.yellow.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.yellow.shade200),
-                        ),
+                      HearthCard(
+                        radius: BorderRadius.circular(AppTheme.fieldRadius),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.format_quote, size: 16, color: Colors.orange.shade600),
+                                const Icon(Icons.format_quote,
+                                    size: 18, color: AppTheme.brandPurple),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Highlighted Text:',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.orange.shade700,
+                                  style: hearthCaptionStyle.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textSecondary,
                                   ),
                                 ),
                               ],
@@ -1079,10 +1350,9 @@ class _EntryDetailDialog extends StatelessWidget {
                             const SizedBox(height: 8),
                             Text(
                               highlightedText!,
-                              style: const TextStyle(
-                                fontSize: 14,
+                              style: hearthCardBodyStyle.copyWith(
                                 fontStyle: FontStyle.italic,
-                                color: Colors.black87,
+                                color: AppTheme.ink,
                               ),
                             ),
                           ],
@@ -1090,28 +1360,22 @@ class _EntryDetailDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                     ],
-                    const Text(
-                      'Your Notes:',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    const Text('Your Notes:', style: hearthCardTitleStyle),
                     const SizedBox(height: 8),
                     Text(
                       content,
                       style: const TextStyle(
+                        fontFamily: AppTheme.sansFamily,
                         fontSize: 15,
-                        height: 1.6,
+                        height: 24 / 15,
+                        color: AppTheme.ink,
                       ),
                     ),
                     if (createdAt != null) ...[
                       const SizedBox(height: 16),
                       Text(
-                        'Created: ${DateFormat('MMMM d, yyyy at h:mm a').format(createdAt!)}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[700],
+                        'Created: ${_formatJournalCreatedAt(createdAt!)}',
+                        style: hearthCaptionStyle.copyWith(
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1127,205 +1391,39 @@ class _EntryDetailDialog extends StatelessWidget {
   }
 }
 
-class _FeelingPromptDialog extends StatefulWidget {
-  final String prompt;
+/// Warm-tint label row at the top of the entry dialog (prompt, source lesson).
+class _DialogTintRow extends StatelessWidget {
+  const _DialogTintRow({required this.icon, required this.text});
 
-  const _FeelingPromptDialog({required this.prompt});
-
-  @override
-  State<_FeelingPromptDialog> createState() => _FeelingPromptDialogState();
-}
-
-class _FeelingPromptDialogState extends State<_FeelingPromptDialog> {
-  final TextEditingController _responseController = TextEditingController();
-  bool _isSaving = false;
-
-  @override
-  void dispose() {
-    _responseController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _saveFeelingEntry() async {
-    if (_responseController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please share your thoughts before saving'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isSaving = true);
-
-    try {
-      final userId = FirebaseAuth.instance.currentUser?.uid;
-      if (userId == null) {
-        throw Exception('User not authenticated');
-      }
-
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('notes')
-          .add({
-        'content': _responseController.text.trim(),
-        'tag': 'Emotional reflection',
-        'prompt': widget.prompt,
-        'isFeelingPrompt': true,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Feeling entry saved to journal!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() => _isSaving = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error saving entry: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
+  final IconData icon;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.tintWarm,
+        borderRadius: BorderRadius.circular(AppTheme.fieldRadius),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                ),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.favorite, color: Colors.white),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'How are you feeling?',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(icon, size: 18, color: AppTheme.brandPurple),
             ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.red.shade50, Colors.pink.shade50],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.pink.shade100),
-                      ),
-                      child: Text(
-                        widget.prompt,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Share your thoughts:',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: TextField(
-                        controller: _responseController,
-                        maxLines: 8,
-                        decoration: InputDecoration(
-                          hintText: 'Write your response here...',
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.all(16),
-                          hintStyle: TextStyle(color: Colors.grey[400]),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isSaving ? null : _saveFeelingEntry,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF663399),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : const Text(
-                                'Save Entry',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontFamily: AppTheme.sansFamily,
+                  fontSize: 14,
+                  height: 20 / 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.brandPurple,
                 ),
               ),
             ),

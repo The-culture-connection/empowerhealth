@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
+import 'module_notes.dart';
 import 'notes_dialog.dart';
 import '../widgets/ai_disclaimer_banner.dart';
+import '../widgets/learning_module_formatted_content.dart';
+import '../widgets/medical_citations_section.dart';
+import '../widgets/module_quick_feedback.dart';
 
 class ModuleDetailScreen extends StatefulWidget {
   final String title;
@@ -36,9 +39,14 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   final GlobalKey _contentKey = GlobalKey();
   String? _content;
   bool _isLoading = false;
+  bool _exiting = false;
   String? _error;
   UserProfile? _userProfile;
   String? _selectedText;
+
+  /// The user's notes on this lesson (highlighted in the text below).
+  late final Stream<List<ModuleNote>> _notesStream =
+      watchModuleNotes(moduleTitle: widget.title);
 
   @override
   void initState() {
@@ -128,22 +136,49 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     });
   }
 
+  /// Shows the exit feedback modal, then leaves the screen. Guarded so it runs
+  /// once whether triggered by the app-bar back or the system back gesture.
+  Future<void> _confirmExit() async {
+    if (_exiting) return;
+    _exiting = true;
+    await showModuleExitFeedbackSheet(
+      context,
+      feature: 'learning-modules',
+      moduleTitle: widget.title,
+    );
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.note_add),
-            tooltip: 'Add Note',
-            onPressed: () => _openNotesDialog(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmExit();
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.ground,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Back goes through maybePop so PopScope still shows the exit sheet.
+              HearthPushedHeader(
+                title: widget.title,
+                actions: [
+                  HearthCircleButton(
+                    icon: Icons.note_add_outlined,
+                    tooltip: 'Add Note',
+                    onPressed: () => _openNotesDialog(),
+                  ),
+                ],
+              ),
+              Expanded(child: _buildBody()),
+            ],
           ),
-        ],
+        ),
       ),
-      body: _buildBody(),
     );
   }
 
@@ -153,9 +188,9 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
+            CircularProgressIndicator(color: AppTheme.brandPurple),
             SizedBox(height: 16),
-            Text('Loading content...'),
+            Text('Loading content...', style: hearthCardBodyStyle),
           ],
         ),
       );
@@ -168,18 +203,19 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const HearthIconChip(Icons.info_outline, size: 64, iconSize: 30),
               const SizedBox(height: 16),
               Text(
                 'Error loading content',
-                style: Theme.of(context).textTheme.titleLarge,
+                style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 8),
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              ElevatedButton(
+              Text(_error!, textAlign: TextAlign.center, style: hearthCardBodyStyle),
+              const SizedBox(height: 20),
+              HearthButton.primary(
+                label: 'Try Again',
                 onPressed: _loadContent,
-                child: const Text('Try Again'),
+                expand: false,
               ),
             ],
           ),
@@ -188,30 +224,20 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     }
 
     if (_content == null) {
-      return const Center(child: Text('No content available'));
+      return const Center(child: Text('No content available', style: hearthCardBodyStyle));
     }
 
     return Stack(
       children: [
         SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Trimester badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.brandPurple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${widget.trimester} Trimester',
-                  style: const TextStyle(
-                    color: AppTheme.brandPurple,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              HearthTag(
+                '${widget.trimester} Trimester',
+                tone: HearthTagTone.tintPurple,
               ),
               const SizedBox(height: 16),
               
@@ -223,22 +249,24 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               const SizedBox(height: 16),
               
               // Content with markdown support and text selection
-              _SelectableMarkdownWidget(
-                content: _content!,
-                onTextSelected: (selectedText) {
-                  _openNotesDialog(highlightedText: selectedText);
-                },
+              StreamBuilder<List<ModuleNote>>(
+                stream: _notesStream,
+                builder: (context, snapshot) => _SelectableMarkdownWidget(
+                  content: _content!,
+                  moduleTitle: widget.title,
+                  notes: snapshot.data ?? const <ModuleNote>[],
+                  onTextSelected: (selectedText) {
+                    _openNotesDialog(highlightedText: selectedText);
+                  },
+                ),
               ),
-              
+
               const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
-              
-              // Survey Section
-              _ModuleReviewSection(
-                moduleTitle: widget.title,
-                taskId: null, // Will be passed from learning_modules_screen_v2 if available
-              ),
+
+              // Medical citations (Guideline 1.4.1)
+              MedicalCitationsSection(topic: widget.title),
+
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -309,7 +337,6 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please answer all questions'),
-          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -369,8 +396,7 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Thank you for your feedback!'),
-            backgroundColor: Colors.green,
+            content: Text('Thank you for your feedback!'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -381,7 +407,6 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error submitting survey: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -394,43 +419,23 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          style: Theme.of(context).textTheme.labelMedium,
         ),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(5, (index) {
-            return GestureDetector(
-              onTap: () {
-                onRatingChanged(index + 1);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(
-                  index < rating ? Icons.star : Icons.star_border,
-                  size: 40,
-                  color: index < rating 
-                      ? Colors.amber 
-                      : Colors.grey,
-                ),
-              ),
-            );
-          }),
+        Center(
+          child: HearthStarRating(
+            value: rating,
+            size: 40,
+            onChanged: (star) => onRatingChanged(star),
+          ),
         ),
         const SizedBox(height: 8),
         Center(
           child: Text(
-            rating == 0 
+            rating == 0
                 ? 'Tap stars to rate'
                 : '$rating out of 5 stars',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
+            style: hearthCaptionStyle,
           ),
         ),
       ],
@@ -440,25 +445,16 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
   @override
   Widget build(BuildContext context) {
     if (_hasSubmitted) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green.withOpacity(0.3)),
-        ),
-        child: const Row(
+      return const HearthCard(
+        padding: EdgeInsets.all(16),
+        child: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.green),
+            Icon(Icons.check_circle_outline, color: AppTheme.brandPurple),
             SizedBox(width: 12),
             Expanded(
               child: Text(
                 'Thank you for completing the survey!',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.green,
-                ),
+                style: hearthCardTitleStyle,
               ),
             ),
           ],
@@ -469,21 +465,11 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Module Survey',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.brandPurple,
-          ),
-        ),
+        const HearthSectionHeading('Module Survey'),
         const SizedBox(height: 8),
         const Text(
           'Please rate your experience with this module:',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey,
-          ),
+          style: hearthCardBodyStyle,
         ),
         const SizedBox(height: 24),
         _buildStarRating(
@@ -510,53 +496,25 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
           },
         ),
         const SizedBox(height: 32),
-        const Text(
+        Text(
           'General Comments (Optional)',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          style: Theme.of(context).textTheme.labelMedium,
         ),
         const SizedBox(height: 12),
+        // Border and fill come from the Hearth input theme.
         TextField(
           controller: _commentsController,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Share any additional thoughts or feedback...',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppTheme.brandPurple, width: 2),
-            ),
           ),
           maxLines: 4,
           minLines: 3,
         ),
         const SizedBox(height: 32),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _isSubmitting ? null : _submitSurvey,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.brandPurple,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text(
-                    'Submit Survey',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-          ),
+        HearthButton.primary(
+          label: 'Submit Survey',
+          onPressed: _isSubmitting ? null : _submitSurvey,
+          loading: _isSubmitting,
         ),
       ],
     );
@@ -566,11 +524,15 @@ class _ModuleReviewSectionState extends State<_ModuleReviewSection> {
 // Selectable markdown widget that allows text selection
 class _SelectableMarkdownWidget extends StatefulWidget {
   final String content;
+  final String moduleTitle;
   final Function(String) onTextSelected;
+  final List<ModuleNote> notes;
 
   const _SelectableMarkdownWidget({
     required this.content,
+    required this.moduleTitle,
     required this.onTextSelected,
+    this.notes = const <ModuleNote>[],
   });
 
   @override
@@ -578,19 +540,6 @@ class _SelectableMarkdownWidget extends StatefulWidget {
 }
 
 class _SelectableMarkdownWidgetState extends State<_SelectableMarkdownWidget> {
-  String? _selectedText;
-
-  String _stripMarkdown(String markdown) {
-    // Simple markdown stripping for text selection
-    return markdown
-        .replaceAll(RegExp(r'^#+\s+', multiLine: true), '')
-        .replaceAll(RegExp(r'\*\*(.*?)\*\*'), r'$1')
-        .replaceAll(RegExp(r'\*(.*?)\*'), r'$1')
-        .replaceAll(RegExp(r'`(.*?)`'), r'$1')
-        .replaceAll(RegExp(r'^[-*+]\s+', multiLine: true), '')
-        .trim();
-  }
-
   @override
   Widget build(BuildContext context) {
     // Fix $1 formatting issue - replace $1 with proper section breaks
@@ -600,36 +549,34 @@ class _SelectableMarkdownWidgetState extends State<_SelectableMarkdownWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Selectable text for highlighting (removed duplicate markdown display)
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
+        HearthCard(
+          padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.highlight, size: 18, color: AppTheme.brandPurple),
+                  const Icon(Icons.edit_outlined, size: 18, color: AppTheme.brandPurple),
                   const SizedBox(width: 8),
-                  Text(
-                    'Long-press text below to highlight and add a note',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.brandPurple,
+                  Expanded(
+                    child: Text(
+                      'Long-press text below to highlight and add a note',
+                      style: hearthCaptionStyle.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.brandPurple,
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              _FormattedSelectableText(
+              LearningModuleFormattedContent(
                 content: cleanedContent,
-                onTextSelected: (text) {
-                  widget.onTextSelected(text);
-                },
+                moduleTitle: widget.moduleTitle,
+                notes: widget.notes,
+                // Adds "Add note" to the selection context menu (the old
+                // custom selectionControls toolbar was ignored by Flutter).
+                onAddNote: (text) => widget.onTextSelected(text),
               ),
             ],
           ),
@@ -638,257 +585,3 @@ class _SelectableMarkdownWidgetState extends State<_SelectableMarkdownWidget> {
     );
   }
 }
-
-// Widget that displays formatted text with proper section breaks and selectable text
-class _FormattedSelectableText extends StatelessWidget {
-  final String content;
-  final Function(String) onTextSelected;
-
-  const _FormattedSelectableText({
-    required this.content,
-    required this.onTextSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final lines = content.split('\n');
-    final widgets = <Widget>[];
-
-    for (var line in lines) {
-      if (line.trim().isEmpty) {
-        widgets.add(const SizedBox(height: 8));
-        continue;
-      }
-
-      if (line.startsWith('## ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 8),
-            child: Text(
-              line.substring(3),
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.brandPurple,
-              ),
-            ),
-          ),
-        );
-      } else if (line.startsWith('### ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 6),
-            child: Text(
-              line.substring(4),
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        );
-      } else if (line.trim() == '---' || line.trim().startsWith('---')) {
-        // Section divider
-        widgets.add(
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(
-              thickness: 2,
-              color: AppTheme.brandPurple,
-            ),
-          ),
-        );
-      } else if (line.startsWith('• ') || line.startsWith('- ')) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(left: 16, bottom: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('• ', style: TextStyle(fontSize: 16)),
-                Expanded(
-                  child: SelectableText(
-                    line.substring(2),
-                    style: const TextStyle(fontSize: 16, height: 1.5),
-                    selectionControls: _CustomTextSelectionControls(
-                      onAddNote: (text) {
-                        onTextSelected(text);
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: SelectableText(
-              line,
-              style: const TextStyle(fontSize: 16, height: 1.5),
-              selectionControls: _CustomTextSelectionControls(
-                onAddNote: (text) {
-                  onTextSelected(text);
-                },
-              ),
-            ),
-          ),
-        );
-      }
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widgets,
-    );
-  }
-}
-
-// Custom text selection controls with "Add Note" option
-class _CustomTextSelectionControls extends MaterialTextSelectionControls {
-  final Function(String) onAddNote;
-
-  _CustomTextSelectionControls({required this.onAddNote});
-
-  @override
-  Widget buildToolbar(
-    BuildContext context,
-    Rect globalEditableRegion,
-    double textLineHeight,
-    Offset selectionMidpoint,
-    List<TextSelectionPoint> endpoints,
-    TextSelectionDelegate delegate,
-    ValueListenable<ClipboardStatus>? clipboardStatus,
-    Offset? lastSecondaryTapDownPosition,
-  ) {
-    final selectedText = delegate.textEditingValue.selection.textInside(delegate.textEditingValue.text);
-    return _CustomTextSelectionToolbar(
-      globalEditableRegion: globalEditableRegion,
-      textLineHeight: textLineHeight,
-      selectionMidpoint: selectionMidpoint,
-      endpoints: endpoints,
-      delegate: delegate,
-      clipboardStatus: clipboardStatus,
-      selectedText: selectedText,
-      onAddNote: (text) {
-        onAddNote(text);
-        delegate.hideToolbar();
-      },
-    );
-  }
-}
-
-class _CustomTextSelectionToolbar extends StatelessWidget {
-  final Rect globalEditableRegion;
-  final double textLineHeight;
-  final Offset selectionMidpoint;
-  final List<TextSelectionPoint> endpoints;
-  final TextSelectionDelegate delegate;
-  final ValueListenable<ClipboardStatus>? clipboardStatus;
-  final String selectedText;
-  final Function(String) onAddNote;
-
-  const _CustomTextSelectionToolbar({
-    required this.globalEditableRegion,
-    required this.textLineHeight,
-    required this.selectionMidpoint,
-    required this.endpoints,
-    required this.delegate,
-    this.clipboardStatus,
-    required this.selectedText,
-    required this.onAddNote,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints.tight(globalEditableRegion.size),
-      child: CustomSingleChildLayout(
-        delegate: _TextSelectionToolbarLayout(
-          globalEditableRegion: globalEditableRegion,
-          textLineHeight: textLineHeight,
-          selectionMidpoint: selectionMidpoint,
-          endpoints: endpoints,
-        ),
-        child: Material(
-          elevation: 1.0,
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.grey[850],
-          child: Wrap(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.copy, color: Colors.white, size: 20),
-                tooltip: 'Copy',
-                onPressed: () {
-                  delegate.copySelection(SelectionChangedCause.toolbar);
-                  delegate.hideToolbar();
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.note_add, color: Colors.white, size: 20),
-                tooltip: 'Add Note',
-                onPressed: () {
-                  if (selectedText.isNotEmpty) {
-                    onAddNote(selectedText);
-                  }
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.select_all, color: Colors.white, size: 20),
-                tooltip: 'Select All',
-                onPressed: () {
-                  delegate.selectAll(SelectionChangedCause.toolbar);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TextSelectionToolbarLayout extends SingleChildLayoutDelegate {
-  final Rect globalEditableRegion;
-  final double textLineHeight;
-  final Offset selectionMidpoint;
-  final List<TextSelectionPoint> endpoints;
-
-  _TextSelectionToolbarLayout({
-    required this.globalEditableRegion,
-    required this.textLineHeight,
-    required this.selectionMidpoint,
-    required this.endpoints,
-  });
-
-  @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    return constraints.loosen();
-  }
-
-  @override
-  Offset getPositionForChild(Size size, Size childSize) {
-    final toolbarHeight = childSize.height;
-    final toolbarWidth = childSize.width;
-    final double x = (selectionMidpoint.dx - (toolbarWidth / 2)).clamp(
-      globalEditableRegion.left,
-      globalEditableRegion.right - toolbarWidth,
-    );
-    final double y = (endpoints.first.point.dy - toolbarHeight - 8).clamp(
-      globalEditableRegion.top,
-      globalEditableRegion.bottom - toolbarHeight,
-    );
-    return Offset(x, y);
-  }
-
-  @override
-  bool shouldRelayout(_TextSelectionToolbarLayout oldDelegate) {
-    return globalEditableRegion != oldDelegate.globalEditableRegion ||
-        textLineHeight != oldDelegate.textLineHeight ||
-        selectionMidpoint != oldDelegate.selectionMidpoint ||
-        endpoints != oldDelegate.endpoints;
-  }
-}
-

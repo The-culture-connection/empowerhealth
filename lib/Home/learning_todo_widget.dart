@@ -6,6 +6,7 @@ import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
 import '../models/user_profile.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../learning/module_detail_screen.dart';
 
 class LearningTodoWidget extends StatefulWidget {
@@ -429,27 +430,18 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Learning Modules',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.brandPurple,
-                ),
-              ),
+              const HearthSectionHeading('Learning Modules'),
               if (_isGenerating && _totalModules > 0) ...[
                 const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.brandPurple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.brandPurple.withOpacity(0.3)),
-                  ),
+                // Lavender marks AI-generated content.
+                HearthCard(
+                  color: AppTheme.lavender,
+                  borderColor: null,
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -467,8 +459,7 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
                           Expanded(
                             child: Text(
                               'Generating personalized modules...',
-                              style: TextStyle(
-                                fontSize: 12,
+                              style: hearthCardBodyStyle.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.brandPurple,
                               ),
@@ -476,21 +467,20 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
                           ),
                           Text(
                             '$_completedModules/$_totalModules',
-                            style: TextStyle(
-                              fontSize: 12,
+                            style: hearthCardBodyStyle.copyWith(
                               fontWeight: FontWeight.w600,
                               color: AppTheme.brandPurple,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       LinearProgressIndicator(
                         value: _totalModules > 0 ? _completedModules / _totalModules : 0,
-                        backgroundColor: Colors.grey[200],
+                        backgroundColor: AppTheme.borderWarm,
                         valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
-                        minHeight: 4,
-                        borderRadius: BorderRadius.circular(2),
+                        minHeight: 6,
+                        borderRadius: BorderRadius.circular(999),
                       ),
                     ],
                   ),
@@ -502,18 +492,15 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           itemCount: _tasks.length,
           itemBuilder: (context, index) {
             final task = _tasks[index];
             final isCompleted = _completedTasks.contains(task.id);
-            
-            return Card(
+
+            return HearthCard(
               margin: const EdgeInsets.only(bottom: 12),
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: ListTile(
                 leading: Checkbox(
                   value: isCompleted,
@@ -522,10 +509,9 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
                 ),
                 title: Text(
                   task.title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
+                  style: hearthCardTitleStyle.copyWith(
                     decoration: isCompleted ? TextDecoration.lineThrough : null,
-                    color: isCompleted ? Colors.grey : Colors.black,
+                    color: isCompleted ? AppTheme.textMuted : AppTheme.ink,
                   ),
                 ),
                 subtitle: Column(
@@ -534,26 +520,24 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
                     const SizedBox(height: 4),
                     Text(
                       task.description,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isCompleted ? Colors.grey : Colors.black87,
+                      style: hearthCardBodyStyle.copyWith(
+                        color: isCompleted ? AppTheme.textMuted : AppTheme.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
                         Icon(
-                          task.isGenerated ? Icons.auto_awesome : Icons.lightbulb_outline,
+                          task.isGenerated ? Icons.auto_awesome_outlined : Icons.lightbulb_outline,
                           size: 14,
-                          color: task.isGenerated ? Colors.amber : AppTheme.brandPurple,
+                          color: AppTheme.brandPurple,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           task.isGenerated ? 'AI Generated' : 'Tap to generate',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: task.isGenerated ? Colors.amber[700] : AppTheme.brandPurple,
-                            fontWeight: FontWeight.w500,
+                          style: hearthCaptionStyle.copyWith(
+                            color: AppTheme.brandPurple,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -561,7 +545,7 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
                   ],
                 ),
                 trailing: task.isGenerated
-                    ? const Icon(Icons.arrow_forward_ios, size: 16)
+                    ? const Icon(Icons.chevron_right, size: 20, color: AppTheme.brandPurple)
                     : _isLoading
                         ? const SizedBox(
                             width: 20,

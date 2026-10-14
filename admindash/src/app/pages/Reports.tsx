@@ -1,5 +1,6 @@
 import { FileText, Download, Loader2, Calendar } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   generateReport,
@@ -25,6 +26,7 @@ const reports = [
     metrics: [
       "After Visit Summary usage",
       "Learning Module completion",
+      "Know your rights views",
       "Birth Plan usage",
       "Confidence signals",
     ],
@@ -35,7 +37,13 @@ const reports = [
     id: "self_advocacy_confidence" as ReportType,
     title: "Self Advocacy Confidence Report",
     description: "Tracks user empowerment and voice development throughout pregnancy",
-    metrics: ["Journal reflections", "Visit summaries", "Helpfulness surveys", "Milestone check-ins"],
+    metrics: [
+      "Journal reflections",
+      "Know your rights views",
+      "Visit summaries",
+      "Helpfulness surveys",
+      "Milestone check-ins",
+    ],
     color: "var(--success)",
     bgColor: "var(--success-light)",
   },
@@ -43,7 +51,7 @@ const reports = [
     id: "care_navigation_success" as ReportType,
     title: "Care Navigation Success Report",
     description: "Analyzes how well users find and access maternal healthcare resources",
-    metrics: ["Feature usage", "Outcome success", "Positive vs negative patterns"],
+    metrics: ["Feature usage", "Know your rights views", "Outcome success", "Positive vs negative patterns"],
     color: "#f59e0b",
     bgColor: "var(--warning-light)",
   },
@@ -51,7 +59,7 @@ const reports = [
     id: "care_preparation" as ReportType,
     title: "Care Preparation Report",
     description: "Evaluates how users prepare for key pregnancy milestones",
-    metrics: ["Pre-appointment use", "Labor milestone prep", "Postpartum support"],
+    metrics: ["Pre-appointment use", "Know your rights views", "Labor milestone prep", "Postpartum support"],
     color: "#8b5cf6",
     bgColor: "#f3e8ff",
   },
@@ -59,7 +67,7 @@ const reports = [
     id: "engagement_pathway" as ReportType,
     title: "Engagement Pathway Report",
     description: "Compares engagement patterns between navigator-assisted and self-directed users",
-    metrics: ["Learning modules", "Provider search", "Journal", "Community", "Birth plan"],
+    metrics: ["Learning modules", "Know your rights views", "Provider search", "Journal", "Community", "Birth plan"],
     color: "#06b6d4",
     bgColor: "#cffafe",
   },
@@ -70,6 +78,14 @@ const reports = [
     metrics: ["Peer interaction", "Support-seeking", "Content engagement"],
     color: "#ec4899",
     bgColor: "#fce7f3",
+  },
+  {
+    id: "user_recruitment_avenues" as ReportType,
+    title: "User Recruitment Avenues Report",
+    description: "Breaks down where new users heard about EmpowerHealth Watch",
+    metrics: ["Recruitment source mix", "Research participant count", "Missing source rate"],
+    color: "#0ea5e9",
+    bgColor: "#e0f2fe",
   },
 ];
 
@@ -128,6 +144,14 @@ export function Reports() {
           </h1>
           <p style={{ color: "var(--warm-400)" }}>
             Generate and export research reports on platform impact and usage
+          </p>
+          <p className="mt-3 text-sm rounded-xl border px-4 py-3" style={{ borderColor: "var(--lavender-200)", color: "var(--warm-600)" }}>
+            For <strong>REDCap-aligned</strong>, fixed-column research datasets keyed by <code>study_id</code>, use the{" "}
+            <Link to="/research" className="underline font-medium" style={{ color: "var(--eh-primary)" }}>
+              Research
+            </Link>{" "}
+            page (structured exports). This Reports area stays for holistic PDF-style narratives built from{" "}
+            <code>analytics_events</code> plus surveys.
           </p>
         </div>
 

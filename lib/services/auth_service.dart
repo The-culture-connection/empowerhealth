@@ -12,6 +12,51 @@ class AuthService {
   // Auth state changes stream
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  /// True when the active session is an anonymous "guest" (no real account).
+  bool get isGuest => _auth.currentUser?.isAnonymous ?? false;
+
+  /// Signs in anonymously so guests can browse non-account features without
+  /// providing personal information (App Store Guideline 5.1.1(v)). The guest
+  /// can later upgrade via [linkEmailToGuest] / Google / Apple, keeping the UID.
+  Future<User?> signInAnonymously() async {
+    try {
+      final credential = await _auth.signInAnonymously();
+      return credential.user;
+    } on FirebaseAuthException catch (e) {
+      if (kDebugMode) {
+        print('Anonymous sign in error: ${e.code} - ${e.message}');
+      }
+      throw _handleAuthException(e);
+    }
+  }
+
+  /// Upgrades the current anonymous guest to a permanent email/password account,
+  /// preserving their UID and any data. Falls back to a normal registration if
+  /// there is no anonymous session.
+  Future<User?> linkEmailToGuest(String email, String password) async {
+    final user = _auth.currentUser;
+    if (user == null || !user.isAnonymous) {
+      return registerWithEmail(email, password);
+    }
+    try {
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: password,
+      );
+      final result = await user.linkWithCredential(credential);
+      return result.user;
+    } on FirebaseAuthException catch (e) {
+      // If the email already belongs to an account, sign into it instead.
+      if (e.code == 'email-already-in-use' || e.code == 'credential-already-in-use') {
+        return signInWithEmail(email, password);
+      }
+      if (kDebugMode) {
+        print('Link email to guest error: ${e.code} - ${e.message}');
+      }
+      throw _handleAuthException(e);
+    }
+  }
+
   // Sign in with email and password
   Future<User?> signInWithEmail(String email, String password) async {
     try {

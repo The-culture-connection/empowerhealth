@@ -134,11 +134,11 @@ export function ProviderProfile() {
               {provider.mamaApproved && (
                 <button
                   onClick={() => setShowMamaApprovedInfo(!showMamaApprovedInfo)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/20 border border-white/30"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-br from-[#f5eee0]/30 to-[#ebe0d6]/30 border border-white/40"
                 >
-                  <Award className="w-4 h-4" />
-                  <span className="text-xs font-medium">Mama Approved™</span>
-                  <Info className="w-3.5 h-3.5" />
+                  <Heart className="w-3.5 h-3.5 fill-[#d4a574] stroke-[0.5] text-[#d4a574]" />
+                  <span className="text-xs font-[450]">Mama Approved™</span>
+                  <Info className="w-3 h-3" />
                 </button>
               )}
             </div>
@@ -146,10 +146,10 @@ export function ProviderProfile() {
             {showMamaApprovedInfo && (
               <div className="mt-4 p-4 bg-white/10 rounded-2xl border border-white/20 backdrop-blur-sm">
                 <p className="text-sm text-white/90 mb-2">
-                  <strong>Mama Approved™</strong> is a community experience-based trust indicator, not a medical certification.
+                  <strong>Mama Approved™</strong> means other mamas recommend this provider.
                 </p>
                 <p className="text-xs text-white/80">
-                  This provider has received consistently positive reviews from mothers in our community, with high ratings for feeling heard, respected, and supported.
+                  This isn't a medical certification—it's community feedback from mothers who felt heard, respected, and supported.
                 </p>
               </div>
             )}

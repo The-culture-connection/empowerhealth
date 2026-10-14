@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Birth Plan Feedback (after saving)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; background: #8E8794; font-family: 'Figtree', system-ui, sans-serif; color: #2D2733">
+<div role="dialog" aria-labelledby="bpf-title" style="background: #F5F1E8; border-radius: 28px; padding: 24px; display: flex; flex-direction: column; gap: 20px">
+
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<h1 id="bpf-title" style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Birth Plan Feedback</h1>
+<button aria-label="Close" style="flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">Please rate your experience (1 = Strongly Disagree, 5 = Strongly Agree)</p>
+
+<div style="display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<p id="bpf-q1" style="margin: 0; font-size: 16px; line-height: 23px; color: #2D2733">My birth plan reflects what matters most to me.</p>
+<div role="radiogroup" aria-labelledby="bpf-q1" style="display: flex; justify-content: space-between; gap: 8px">
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">1</button>
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">2</button>
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">3</button>
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">4</button>
+<button role="radio" aria-checked="true" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #663399; border: 0; font-size: 17px; font-weight: 700; color: #FFFFFF">5</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<p id="bpf-q2" style="margin: 0; font-size: 16px; line-height: 23px; color: #2D2733">I feel prepared to discuss my birth preferences.</p>
+<div role="radiogroup" aria-labelledby="bpf-q2" style="display: flex; justify-content: space-between; gap: 8px">
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">1</button>
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">2</button>
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">3</button>
+<button role="radio" aria-checked="true" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #663399; border: 0; font-size: 17px; font-weight: 700; color: #FFFFFF">4</button>
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">5</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<p id="bpf-q3" style="margin: 0; font-size: 16px; line-height: 23px; color: #2D2733">Creating this birth plan felt manageable.</p>
+<div role="radiogroup" aria-labelledby="bpf-q3" style="display: flex; justify-content: space-between; gap: 8px">
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">1</button>
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">2</button>
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">3</button>
+<button role="radio" aria-checked="false" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 17px; font-weight: 700; color: #4A3F52">4</button>
+<button role="radio" aria-checked="true" style="width: 48px; height: 48px; box-sizing: border-box; padding: 0; border-radius: 50%; background: #663399; border: 0; font-size: 17px; font-weight: 700; color: #FFFFFF">5</button>
+</div>
+</div>
+
+</div>
+
+<div style="padding-top: 20px; border-top: 1px solid #E6D5B8">
+<button style="width: 100%; height: 52px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Submit</button>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Care check-in: overall</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="padding: 64px 20px 8px; display: flex; flex-direction: column; gap: 16px">
+<a href="Home-CareCheckIn-3-Access.dc.html" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; line-height: 20px; font-weight: 600; color: #6B5C75"><span style="width: 44px; height: 44px; box-sizing: border-box; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></span>Back</a>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0 0 4px; align-self: flex-start; display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; font-size: 13px; line-height: 18px; font-weight: 600; color: #4A3F52"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: #D4A574"></span>Almost done</p>
+<h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; font-weight: 400">Overall, did you get the care and support you needed?</h1>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3F52">A quick big-picture check-in after the areas you picked.</p>
+</div>
+</header>
+
+<div style="padding: 16px 20px 32px; display: flex; flex-direction: column; gap: 10px">
+<button style="display: flex; align-items: center; min-height: 58px; padding: 16px 18px; text-align: left; font-size: 15px; line-height: 22px; font-weight: 600; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">Yes</button>
+<button style="display: flex; align-items: center; min-height: 58px; padding: 16px 18px; text-align: left; font-size: 15px; line-height: 22px; font-weight: 600; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">Mostly</button>
+<button style="display: flex; align-items: center; min-height: 58px; padding: 16px 18px; text-align: left; font-size: 15px; line-height: 22px; font-weight: 600; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">No</button>
+<button style="display: flex; align-items: center; min-height: 58px; padding: 16px 18px; text-align: left; font-size: 15px; line-height: 22px; font-weight: 600; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">Not sure yet</button>
+<button style="display: flex; align-items: center; min-height: 58px; padding: 16px 18px; text-align: left; font-size: 15px; line-height: 22px; font-weight: 600; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">Prefer not to say</button>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

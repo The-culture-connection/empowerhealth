@@ -6,6 +6,7 @@ export function ProviderSearchEntry() {
   const navigate = useNavigate();
   
   // TIER 1: Core filters
+  const [searchQuery, setSearchQuery] = useState("");
   const [zipCode, setZipCode] = useState("");
   const [city, setCity] = useState("");
   const [radius, setRadius] = useState("10");
@@ -42,7 +43,8 @@ export function ProviderSearchEntry() {
     "Aetna Better Health",
     "Humana Healthy Horizons",
     "Anthem Blue Cross Blue Shield",
-    "AmeriHealth Caritas"
+    "AmeriHealth Caritas",
+    "Other / Not sure"
   ];
 
   // Provider Types
@@ -128,16 +130,36 @@ export function ProviderSearchEntry() {
       </div>
 
       <div className="px-6 max-w-2xl mx-auto">
-        {/* Info Banner */}
-        <div className="mb-6 p-5 bg-gradient-to-br from-[#f0ead8] to-[#f5f0e8] rounded-[28px] border border-[#e8dfc8]/50 shadow-[0_2px_16px_rgba(0,0,0,0.04)]">
-          <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-[#c9b087] flex-shrink-0 mt-0.5 stroke-[1.5]" />
+        {/* Quick Search */}
+        <section className="mb-6">
+          <div className="bg-white/60 backdrop-blur-sm rounded-[32px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#ede7f3]/50">
+            <div className="flex items-center gap-2 mb-5">
+              <Search className="w-5 h-5 text-[#a89cb5] stroke-[1.5]" />
+              <h2 className="text-[#4a3f52] font-normal">Search by name or type</h2>
+            </div>
+
             <div>
-              <p className="text-sm text-[#6b5c75] mb-2 font-light leading-relaxed">
-                <strong className="font-normal">How search works:</strong> We search Ohio Medicaid directories + NPI registry, then add community trust indicators.
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Type provider name or specialty..."
+                className="w-full px-5 py-3.5 rounded-[20px] bg-[#f7f5f9] border border-[#e8e0f0]/50 focus:outline-none focus:ring-2 focus:ring-[#d4c5e0]/30 transition-colors text-[#4a3f52] placeholder:text-[#b5a8c2] font-light"
+              />
+              <p className="text-xs text-[#a89cb5] mt-2 font-light">
+                Example: "Dr. Johnson" or "Midwife" or "Birth Center"
               </p>
-              <p className="text-xs text-[#a89cb5] font-light leading-relaxed">
-                "Mama Approved™" and identity tags are community-powered filters.
+            </div>
+          </div>
+        </section>
+
+        {/* Info Banner */}
+        <div className="mb-6 p-5 bg-gradient-to-br from-[#f0ead8] to-[#f5f0e8] dark:from-[#2a2435] dark:to-[#2d2640] rounded-[28px] border border-[#e8dfc8]/50 dark:border-[#3a3043]/50 shadow-[0_2px_16px_rgba(0,0,0,0.04)]">
+          <div className="flex items-start gap-3">
+            <Heart className="w-5 h-5 text-[#d4a574] dark:text-[#e0b589] flex-shrink-0 mt-0.5 stroke-[1.5]" />
+            <div>
+              <p className="text-sm text-[#6b5c75] dark:text-[#cbbec9] font-light leading-relaxed">
+                We match Ohio Medicaid providers near you, with insights from other mamas.
               </p>
             </div>
           </div>
@@ -230,7 +252,7 @@ export function ProviderSearchEntry() {
                   onClick={() => toggleItem(type.id, providerTypes, setProviderTypes)}
                   className={`w-full text-left px-5 py-3.5 rounded-[20px] transition-all font-light ${
                     providerTypes.includes(type.id)
-                      ? "bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white shadow-[0_2px_12px_rgba(168,156,181,0.2)]"
+                      ? "bg-gradient-to-br from-[#663399] to-[#8855bb] text-white shadow-[0_2px_12px_rgba(102,51,153,0.2)]"
                       : "bg-[#f7f5f9] text-[#6b5c75] hover:bg-[#ede7f3]/50"
                   }`}
                 >
@@ -303,9 +325,9 @@ export function ProviderSearchEntry() {
           <div className="bg-gradient-to-br from-[#faf7fb] to-[#f9f5fb] rounded-[32px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border border-[#f0e8f3]/50">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-5 h-5 text-[#c9b087] stroke-[1.5]" />
-              <h2 className="text-[#4a3f52] font-normal">Community filters</h2>
+              <h2 className="text-[#4a3f52] font-normal">Community reviews</h2>
             </div>
-            <p className="text-sm text-[#8b7a95] mb-4 font-light">These are powered by reviews from other mothers</p>
+            <p className="text-sm text-[#8b7a95] mb-4 font-light">Filter by what other moms recommend</p>
             
             <div className="space-y-3">
               <button
@@ -374,15 +396,34 @@ export function ProviderSearchEntry() {
           </div>
         </section>
 
+        {/* Can't Find Provider */}
+        <div className="mb-6 p-5 bg-white dark:bg-[#2a2435] rounded-[28px] border border-[#e8e0f0]/50 dark:border-[#3a3043]/50 shadow-[0_2px_16px_rgba(0,0,0,0.04)]">
+          <div className="flex items-start gap-3">
+            <Plus className="w-5 h-5 text-[#d4a574] dark:text-[#e0b589] flex-shrink-0 mt-0.5 stroke-[1.5]" />
+            <div className="flex-1">
+              <h3 className="text-[#4a3f52] dark:text-[#f5f0f7] font-[450] text-sm mb-1">Can't find your provider?</h3>
+              <p className="text-sm text-[#8b7a95] dark:text-[#cbbec9] mb-3 font-light">
+                Help other mamas by adding a provider to our directory.
+              </p>
+              <Link
+                to="/providers/add"
+                className="inline-flex items-center gap-1 text-sm text-[#663399] dark:text-[#d4a574] font-[450] hover:underline"
+              >
+                Add a provider →
+              </Link>
+            </div>
+          </div>
+        </div>
+
         {/* Search Button */}
         <button
           onClick={handleSearch}
-          className="w-full py-4 rounded-[24px] bg-gradient-to-br from-[#d4c5e0] to-[#a89cb5] text-white hover:shadow-[0_4px_20px_rgba(168,156,181,0.25)] transition-all font-light shadow-[0_2px_12px_rgba(168,156,181,0.15)]"
+          className="w-full py-4 rounded-[24px] bg-gradient-to-br from-[#663399] via-[#7744aa] to-[#8855bb] text-white hover:shadow-[0_4px_20px_rgba(102,51,153,0.3)] transition-all font-light shadow-[0_2px_12px_rgba(102,51,153,0.2)]"
         >
           Search providers
         </button>
 
-        <p className="text-center text-sm text-[#a89cb5] mt-4 font-light">
+        <p className="text-center text-sm text-[#a89cb5] dark:text-[#9b8ba5] mt-4 font-light">
           All fields are optional. We'll show you the best matches.
         </p>
       </div>

@@ -51,22 +51,20 @@
 
 ### 3. **Appointments List Screen** ✅
 
-**New Screen:** Shows all past visit summaries in beautiful card list
+**Screens:** **`AppointmentsListScreen`** + **`VisitDetailScreen`** (`lib/appointments/visit_detail_screen.dart`) — matches **NewUI** `MyVisits.tsx` / `VisitDetail.tsx` (full-page detail, not a popup).
 
-**Features:**
-- ✅ Displays all visit summaries chronologically
-- ✅ Shows appointment date and preview
-- ✅ Tap card to view full summary in modal dialog
-- ✅ **Plus button (+) in top-right** to add new visit
-- ✅ Empty state with call-to-action
-- ✅ Real-time updates from Firestore
+**List features:**
+- ✅ **Single scroll:** header, reassurance card, visit sections, and **“Notes from past visits”** footer all scroll together (`SingleChildScrollView`, max width ~672)
+- ✅ Title **My Visits** with subtitle and reassurance card; **Most recent visit** / **Past visits** sections
+- ✅ Summaries ordered by **`createdAt`** (newest first), same-day duplicates merged; soft cards and preview text
+- ✅ **Preview line** uses `lib/appointments/visit_summary_preview.dart`: prefers structured **`summaryData`** (or a Map stored in **`summary`**) so list rows never show a raw `{questionsToAsk: ...}` string; corrupt string-only blobs are skipped in favor of structured fields or an empty preview
+- ✅ Tap row → **`VisitDetailScreen`**: purple header, About, What was discussed, Actions, **Questions to ask next time**, **Notes** (from AI `visitNotes` in `summaryData`), suggested learning, reminder
+- ✅ **Plus (+)** → upload flow
+- ✅ Real-time Firestore updates
 
-**UI Elements:**
-- Purple header with white text
-- Card-based layout with icons
-- Date formatting
-- Reading level indicator
-- Full-screen modal for viewing summaries
+**AI:** `functions/index.js` — JSON includes **`questionsToAsk`** and **`visitNotes`**; `formatSummaryForDisplay` writes `## Notes` bullets into the stored summary string.
+
+**Home tab:** **`HomeScreenV2`** uses **`orderBy('createdAt').limit(1)`** on **`visit_summaries`** so the **My Visits** widget always reflects the latest summarized visit, with a short preview line when summary text exists.
 
 **File:** `lib/appointments/appointments_list_screen.dart`
 
@@ -74,23 +72,24 @@
 
 ### 4. **Upload Visit Summary Screen** ✅
 
-**New Screen:** Beautiful PDF upload interface
+**Aligned with NewUI** `UploadVisitSummary.tsx`: warm background, soft blurs, back link to **My Visits**, title **After-Visit Support**, privacy gradient card (shield), **Appointment date** section with calendar card, **Upload PDF** / **Type Text** pills, dashed-style upload card with **Take photo** (camera), **Gallery**, and **Choose file** (PDF or image → single-page PDF via Syncfusion), processing info card, text mode with **Process Notes** CTA. Screen copy states literacy support (not diagnosis) and names document types (after-visit summary, discharge paperwork, provider notes). **Your privacy (plain language)** opens **`AfterVisitPrivacyScreen`** from the main body and from the one-time transparency dialog.
 
 **Flow:**
-1. **Select Appointment Date** (date picker with calendar icon)
-2. **Upload PDF** (large drag-and-drop style upload area)
-3. **Process & Analyze** (button becomes active when both selected)
-4. **View Summary** (displays structured summary with markdown)
-5. **Auto-Save** (stored in user's profile collection)
+1. **Select Appointment Date** (`showDatePicker`, formatted in the card)
+2. **Upload** or **Type Text** — camera, gallery, or file picker (PDF, JPG, PNG, HEIC, WebP); images are wrapped into one PDF page for the same Cloud Function pipeline
+3. **Process & Analyze** (existing Cloud Function + Storage flow unchanged)
+4. **View Summary** (markdown + disclaimer)
+5. Summaries stored under **`visit_summaries`** as today
+
+**How the feature works (upload & privacy):**
+- **`_imageBytesToTempPdf`** builds a full-page PDF from image bytes for any image-based path.
+- **Transparency dialog** can deep-link to **`lib/privacy/after_visit_privacy_screen.dart`** before dismiss.
+- **Result section cards** use the **exact `##` heading** from the generated markdown as each card’s purple label (so “Important Next Steps” and “Suggested Learning Topics” stay distinct—not a fixed three-title rotation that reused “Questions you may want to ask”).
+- **Visit detail** (`VisitDetailScreen`) supports user deletion of summaries and related uploads; see dossier §4 in **`admindash/FEATURES.md`** for the full After-Visit Support contract.
 
 **UI Features:**
-- ✅ Large, inviting upload area (purple bordered)
-- ✅ PDF selected confirmation (green box with file name)
-- ✅ Loading state with spinner
-- ✅ Success feedback
-- ✅ Beautiful summary display with sections
-- ✅ Education level indicator
-- ✅ "Done" button to return to list
+- ✅ No purple app bar; **Navigator** back row + `AppTheme.backgroundWarm`
+- ✅ Privacy + appointment + method toggle + upload/text panels match NewUI spacing and radii (~24–28)
 
 **File:** `lib/appointments/upload_visit_summary_screen.dart`
 

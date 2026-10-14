@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../cors/ui_theme.dart';
 
 class LearningModulesScreen extends StatelessWidget {
   const LearningModulesScreen({super.key});
@@ -6,8 +7,10 @@ class LearningModulesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Learning'),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(
+        context,
+        title: 'Learning',
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),

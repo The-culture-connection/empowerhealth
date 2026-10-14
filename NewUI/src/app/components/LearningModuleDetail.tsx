@@ -179,14 +179,14 @@ export function LearningModuleDetail() {
             {sections.map((section) => {
               const isCompleted = completedSections.includes(section.id);
               const isCurrent = currentSection === section.id;
-              
+
               return (
-                <button
+                <div
                   key={section.id}
                   onClick={() => setCurrentSection(section.id)}
-                  className={`w-full bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border transition-all text-left ${
-                    isCurrent 
-                      ? 'border-[#d4c5e0]/60 shadow-[0_4px_24px_rgba(168,156,181,0.15)]' 
+                  className={`w-full bg-white/60 backdrop-blur-sm rounded-[28px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.04)] border transition-all cursor-pointer ${
+                    isCurrent
+                      ? 'border-[#d4c5e0]/60 shadow-[0_4px_24px_rgba(168,156,181,0.15)]'
                       : 'border-[#ede7f3]/50 hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)]'
                   }`}
                 >
@@ -217,7 +217,7 @@ export function LearningModuleDetail() {
                     </div>
                     <ChevronRight className="w-5 h-5 text-[#b5a8c2] stroke-[1.5] flex-shrink-0" />
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

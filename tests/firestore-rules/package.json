@@ -1,0 +1,13 @@
+{
+  "name": "empowerhealth-firestore-rules-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:emulator": "firebase emulators:exec --only firestore --project demo-empowerhealth \"npm test\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.0"
+  }
+}

@@ -52,6 +52,25 @@ class DatabaseService {
     });
   }
 
+  /// Merge fields into the user doc (creates doc if missing — safe for first-time writes).
+  Future<void> mergeUserProfile(
+    String userId,
+    Map<String, dynamic> updates,
+  ) async {
+    try {
+      updates['updatedAt'] = Timestamp.now();
+      await _usersCollection.doc(userId).set(updates, SetOptions(merge: true));
+      if (kDebugMode) {
+        print('User profile merged successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error merging user profile: $e');
+      }
+      rethrow;
+    }
+  }
+
   // Update specific fields
   Future<void> updateUserProfile(
       String userId, Map<String, dynamic> updates) async {

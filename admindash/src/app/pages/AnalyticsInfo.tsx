@@ -186,9 +186,21 @@ const SECTIONS: FeatureSection[] = [
         event: "provider_review_submitted",
         feature: "provider-search",
         phase: "action",
-        behaviorMeasured: "User submitted a provider review (rating + optional text)",
+        behaviorMeasured:
+          "User submitted a provider review (rating, optional narrative, experience flags when present)",
         status: "tracked",
-        implementationNotes: "After successful Firestore submit on ProviderReviewScreen.",
+        implementationNotes:
+          "After successful Firestore submit on ProviderReviewScreen; metadata includes felt_heard, felt_respected, explained_clearly, has_what_went_well, review_text_length when applicable.",
+      },
+      {
+        id: "ps-provider_listing_report_submitted",
+        event: "provider_listing_report_submitted",
+        feature: "provider-search",
+        phase: "action",
+        behaviorMeasured: "User reported a provider listing for admin triage",
+        status: "tracked",
+        implementationNotes:
+          "After successful `provider_reports` write from provider report sheet; includes reason_category, reason_category_label, has_details.",
       },
       {
         id: "ps-provider_filter_applied",
@@ -366,6 +378,16 @@ const SECTIONS: FeatureSection[] = [
         behaviorMeasured: "Module detail opened",
         status: "tracked",
         implementationNotes: "Module detail screen.",
+      },
+      {
+        id: "lm-know_your_rights_viewed",
+        event: "know_your_rights_viewed",
+        feature: "learning-modules",
+        phase: "action",
+        behaviorMeasured: "Know Your Rights screen or topic viewed",
+        status: "tracked",
+        implementationNotes:
+          "Logged on Know Your Rights screen load plus static/AI topic opens (`source`: rights_screen | static_topic | ai_topic).",
       },
       {
         id: "lm-learning_module_started",
@@ -584,7 +606,7 @@ export function AnalyticsInfo() {
             </p>
           </div>
           <Link
-            to="/"
+            to="/analytics"
             className="px-4 py-2 rounded-lg text-sm"
             style={{ backgroundColor: "var(--lavender-100)", color: "var(--lavender-600)" }}
           >

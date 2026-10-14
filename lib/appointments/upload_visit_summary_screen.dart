@@ -1,21 +1,29 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import '../utils/text_cleanup.dart';
+import 'suggested_learning_list.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
 import '../services/analytics_service.dart';
+import '../services/research/research_firestore_service.dart';
 import '../models/user_profile.dart';
+import '../research/post_visit_summary_rating_modal.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../widgets/ai_disclaimer_banner.dart';
 import '../widgets/feature_session_scope.dart';
+import '../privacy/after_visit_privacy_screen.dart';
+import 'visit_date_utils.dart';
 
 class UploadVisitSummaryScreen extends StatefulWidget {
   const UploadVisitSummaryScreen({super.key});
@@ -31,17 +39,29 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  File? _selectedPDF;
-  String? _pdfFileName;
+  /// Picked document as PDF bytes (photos are converted to PDF on pick).
+  /// Kept in memory rather than a temp file so it works on web and mobile.
+  Uint8List? _selectedPdfBytes;
+  String? _uploadFileName; // storage-safe name ending in .pdf
   DateTime? _selectedDate;
   UserProfile? _userProfile;
   String? _generatedSummary;
+  // From the latest result: lessons generated for this visit.
+  String? _resultSummaryId;
+  List<Map> _resultModules = const [];
   bool _isLoading = false;
   String? _currentStep; // Track current processing step
   double _uploadProgress = 0.0; // Track upload progress
   String _inputMethod = 'pdf'; // 'pdf' or 'text'
+  /// Research `avs_upload_type` slug for the next successful AVS analysis (PDF vs gallery image).
+  String _avsUploadResearchSlug = 'unknown';
   final TextEditingController _manualTextController = TextEditingController();
   bool _saveOriginalText = false; // Default: don't save raw text
+  /// Anchors the generated summary so we can scroll it into view.
+  final GlobalKey _summaryKey = GlobalKey();
+
+  static const String _noSummaryMessage =
+      'We couldn\'t open your summary. Please try again in a moment.';
 
   @override
   void initState() {
@@ -49,6 +69,80 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     _trackScreenView();
     _loadUserProfile();
     _checkConsentAndShowPrivacyScreen();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowAfterVisitTransparency();
+    });
+  }
+
+  static const _transparencyPrefsKey = 'after_visit_transparency_v1';
+
+  Future<void> _maybeShowAfterVisitTransparency() async {
+    if (!mounted) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_transparencyPrefsKey) == true) return;
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) {
+          // Fill, radius and scrim come from the dialog theme.
+          return Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const HearthIconChip(Icons.spa_outlined),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          'How After-Visit Support works',
+                          style: Theme.of(ctx).textTheme.headlineMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'We simplify the language in paperwork or notes you choose to share. '
+                    'We don’t diagnose or tell you what to do medically. Your care team does that.',
+                    style: Theme.of(ctx).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: HearthButton.text(
+                      label: 'Your privacy (plain language)',
+                      onPressed: () {
+                        Navigator.of(ctx).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AfterVisitPrivacyScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  HearthButton.primary(
+                    label: 'I understand',
+                    onPressed: () async {
+                      await prefs.setBool(_transparencyPrefsKey, true);
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      debugPrint('Transparency dialog: $e');
+    }
   }
 
   Future<void> _trackScreenView() async {
@@ -116,10 +210,181 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     );
   }
 
+  /// Split AI markdown on `## ` headings so we can show NewUI-style section cards.
+  List<MapEntry<String?, String>> _splitMarkdownByH2(String md) {
+    final lines = md.split('\n');
+    final chunks = <MapEntry<String?, String>>[];
+    String? currentTitle;
+    final buf = StringBuffer();
+    void flush() {
+      final text = buf.toString().trim();
+      buf.clear();
+      if (text.isEmpty && currentTitle == null) return;
+      chunks.add(MapEntry(currentTitle, text));
+      currentTitle = null;
+    }
+
+    for (final line in lines) {
+      if (line.startsWith('## ')) {
+        flush();
+        currentTitle = line.substring(3).trim();
+      } else {
+        buf.writeln(line);
+      }
+    }
+    flush();
+    if (chunks.isEmpty && md.trim().isNotEmpty) {
+      return [MapEntry(null, md.trim())];
+    }
+    return chunks;
+  }
+
+  /// Use the real `##` heading from the model output. (Older code used fixed
+  /// labels by index, so every block after the third became "Questions You May Want to Ask".)
+  String _cardLabelForSummaryChunk(
+    MapEntry<String?, String> chunk,
+    int index,
+    int total,
+  ) {
+    final fromMd = chunk.key?.trim();
+    if (fromMd != null && fromMd.isNotEmpty) {
+      return fromMd;
+    }
+    if (total <= 1) return 'In simpler words';
+    if (index == 0) return 'In simpler words';
+    return 'More from your visit';
+  }
+
+  void _setResultLessons(Map<String, dynamic> result) {
+    final id = result['summaryId'];
+    _resultSummaryId = id is String && id.isNotEmpty ? id : null;
+    final modules = result['learningModules'];
+    _resultModules = modules is List ? modules.whereType<Map>().toList() : const [];
+  }
+
+  /// Tappable lessons for this visit (shown loading until each is ready).
+  List<Widget> _buildSuggestedLearning() {
+    if (_resultModules.isEmpty) return const [];
+    return [
+      const SizedBox(height: 16),
+      _visitSummarySectionCard(
+        label: 'Suggested Learning',
+        child: SuggestedLearningList(
+          key: ValueKey(_resultSummaryId),
+          summaryId: _resultSummaryId,
+          modules: _resultModules,
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _buildVisitSummarySections(BuildContext context) {
+    final chunks = _splitMarkdownByH2(_generatedSummary!);
+    // The tappable list below replaces the plain-text topics section.
+    final nonEmpty = chunks
+        .where((c) => c.value.trim().isNotEmpty)
+        .where((c) => _resultModules.isEmpty || !(c.key ?? '').toLowerCase().startsWith('suggested learning'))
+        .toList();
+    if (nonEmpty.isEmpty) return [];
+
+    final out = <Widget>[];
+    for (var i = 0; i < nonEmpty.length; i++) {
+      if (i > 0) out.add(const SizedBox(height: 16));
+      out.add(
+        _visitSummarySectionCard(
+          label: _cardLabelForSummaryChunk(nonEmpty[i], i, nonEmpty.length),
+          body: nonEmpty[i].value.trim(),
+          showReadingLevel: i == 0,
+        ),
+      );
+    }
+    return out;
+  }
+
+  Widget _visitSummarySectionCard({
+    required String label,
+    String body = '',
+    Widget? child,
+    bool showReadingLevel = false,
+  }) {
+    return HearthCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: hearthCaptionStyle.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.brandPurple,
+            ),
+          ),
+          if (showReadingLevel) ...[
+            const SizedBox(height: 12),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppTheme.tintWarm,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 1),
+                      child: Icon(Icons.menu_book_outlined, size: 16, color: AppTheme.brandPurple),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Adjusted toward ${_userProfile?.educationLevel ?? "6th grade"} reading level where possible.',
+                        style: hearthCaptionStyle.copyWith(color: AppTheme.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (child != null) child else
+          MarkdownBody(
+            data: fixDoublePeriods(body),
+            styleSheet: MarkdownStyleSheet(
+              h2: hearthCardTitleStyle,
+              h3: hearthCardTitleStyle.copyWith(fontSize: 15),
+              p: hearthCardBodyStyle,
+              strong: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.ink),
+              listBullet: hearthCardBodyStyle.copyWith(color: AppTheme.brandPurple),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _manualTextController.dispose();
     super.dispose();
+  }
+
+  Future<void> _maybePromptVisitSummaryMicroMeasure(String contentId, String contentType) async {
+    final p = _userProfile;
+    if (p == null || !p.isResearchParticipant || !mounted) return;
+    final sid = await ResearchFirestoreService.instance.ensureStudyId(p);
+    if (!mounted || sid == null) return;
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => PostVisitSummaryRatingModal(
+        studyId: sid,
+        contentId: contentId,
+        contentType: contentType,
+      ),
+    );
   }
 
   Future<void> _loadUserProfile() async {
@@ -139,193 +404,266 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     }
   }
 
-  Future<void> _pickPDF() async {
+  /// One page, image scaled to fill the page (visit paperwork photos).
+  /// Returns the PDF bytes in memory so this works on web and mobile alike.
+  Future<Uint8List> _imageBytesToPdfBytes(Uint8List bytes) async {
+    final document = PdfDocument();
     try {
-      print('📄 Opening file picker...');
-      
-      // On Android, use withData: true to get bytes directly (more reliable)
-      // Add timeout to prevent hanging
-      FilePickerResult? result;
-      
+      final page = document.pages.add();
+      final bitmap = PdfBitmap(bytes);
+      final pageSize = page.getClientSize();
+      page.graphics.drawImage(
+        bitmap,
+        Rect.fromLTWH(0, 0, pageSize.width, pageSize.height),
+      );
+      final List<int> out = await document.save();
+      return Uint8List.fromList(out);
+    } finally {
+      document.dispose();
+    }
+  }
+
+  /// Storage-safe file name ending in `.pdf` (we always upload a PDF).
+  String _storageSafePdfName(String originalName) {
+    var base = originalName;
+    final dot = base.lastIndexOf('.');
+    if (dot > 0) base = base.substring(0, dot);
+    base = base.replaceAll(RegExp(r'[^\w\-]'), '_');
+    if (base.isEmpty) base = 'visit_summary';
+    return '$base.pdf';
+  }
+
+  /// Read the picked file's bytes. Web (and `withData: true`) gives bytes
+  /// directly; on mobile we fall back to reading the cached file path.
+  Future<Uint8List?> _readPickedBytes(PlatformFile pickedFile) async {
+    if (pickedFile.bytes != null) return pickedFile.bytes;
+    if (!kIsWeb && pickedFile.path != null) {
+      final f = File(pickedFile.path!);
+      if (await f.exists()) {
+        return await f.readAsBytes();
+      }
+    }
+    return null;
+  }
+
+  void _showPickError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Retry',
+          textColor: AppTheme.brandWhite,
+          onPressed: () => _pickPDF(),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickPDF() async {
+    // FileType.any on Android is more reliable (some devices/emulators reject
+    // custom extension filters). Web and iOS use the extension filter.
+    final useAnyType = !kIsWeb && Platform.isAndroid;
+
+    FilePickerResult? result;
+    try {
       try {
-        // Try with document picker first (better for Android 10+)
-        // Use FileType.any on Android emulator as it's more reliable
         result = await FilePicker.platform.pickFiles(
-          type: Platform.isAndroid ? FileType.any : FileType.custom,
-          allowedExtensions: Platform.isAndroid ? null : ['pdf'],
-          withData: true, // Load file data directly - more reliable on Android
+          type: useAnyType ? FileType.any : FileType.custom,
+          allowedExtensions: useAnyType
+              ? null
+              : ['pdf', 'jpg', 'jpeg', 'png', 'heic', 'webp'],
+          withData: true, // Load file data directly (required on web)
           allowMultiple: false,
         ).timeout(
-          const Duration(seconds: 60), // Increased timeout for emulator
-          onTimeout: () {
-            print('⏱️ File picker timed out after 60 seconds');
-            throw TimeoutException('⏱️ File picker timed out. Please try again.');
-          },
+          const Duration(seconds: 60),
+          onTimeout: () => throw TimeoutException('File picker timed out'),
         );
-        print('📄 File picker completed (first attempt)');
       } catch (e) {
-        if (e is TimeoutException) {
-          print('⏱️ Timeout: $e');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('⏱️ File picker timed out. Please try again.'),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 3),
-                action: SnackBarAction(
-                  label: 'Retry',
-                  textColor: Colors.white,
-                  onPressed: () => _pickPDF(),
-                ),
-              ),
-            );
-          }
-          return;
-        }
-        print('❌ Error with custom file type: $e');
-        print('📄 Trying fallback: any file type...');
+        if (e is TimeoutException) rethrow;
+        debugPrint('File picker (custom type) failed, trying any type: $e');
         // Fallback: try picking any file
-        try {
-          result = await FilePicker.platform.pickFiles(
-            type: FileType.any,
-            withData: true,
-            allowMultiple: false,
-          ).timeout(
-            const Duration(seconds: 30),
-            onTimeout: () {
-              print('⏱️ File picker fallback timed out');
-              throw TimeoutException('⏱️ File picker timed out. Please try again.');
-            },
-          );
-          print('📄 File picker completed (fallback attempt)');
-        } catch (e2) {
-          if (e2 is TimeoutException) {
-            print('⏱️ Fallback timeout: $e2');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('⏱️ File picker timed out. Please try again.'),
-                  backgroundColor: Colors.orange,
-                  action: SnackBarAction(
-                    label: 'Retry',
-                    textColor: Colors.white,
-                    onPressed: () => _pickPDF(),
-                  ),
-                ),
-              );
-            }
-            return;
-          }
-          print('❌ Fallback also failed: $e2');
-          rethrow;
-        }
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.any,
+          withData: true,
+          allowMultiple: false,
+        ).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () => throw TimeoutException('File picker timed out'),
+        );
       }
-
-      print('📄 File picker returned: ${result != null}');
-      print('📄 File picker result: ${result != null ? "File selected" : "Cancelled"}');
-      
-      if (result != null && result.files.isNotEmpty) {
-        final pickedFile = result.files.first;
-        print('📄 Result files count: ${result.files.length}');
-        print('📄 File name: ${pickedFile.name}');
-        print('📄 File path: ${pickedFile.path}');
-        print('📄 File size: ${pickedFile.size} bytes');
-        print('📄 File extension: ${pickedFile.extension}');
-        print('📄 Has bytes: ${pickedFile.bytes != null}');
-        
-        // Check if it's a PDF (more lenient check for Android)
-        final fileName = pickedFile.name.toLowerCase();
-        final extension = pickedFile.extension?.toLowerCase() ?? '';
-        final isPdf = extension == 'pdf' || fileName.endsWith('.pdf');
-        
-        if (!isPdf) {
-          print('❌ Selected file is not a PDF: $fileName (extension: $extension)');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('❌ Please select a PDF file. Selected: ${pickedFile.name}'),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 4),
-                action: SnackBarAction(
-                  label: 'Retry',
-                  textColor: Colors.white,
-                  onPressed: () => _pickPDF(),
-                ),
-              ),
-            );
-          }
-          return;
-        }
-        
-        File? finalFile;
-        
-        // Prefer using bytes (more reliable on Android)
-        if (pickedFile.bytes != null) {
-          print('📄 Saving file from bytes...');
-          final tempDir = await getTemporaryDirectory();
-          final tempFile = File('${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}');
-          await tempFile.writeAsBytes(pickedFile.bytes!);
-          finalFile = tempFile;
-          print('📄 Temp file created: ${tempFile.path}');
-        } else if (pickedFile.path != null) {
-          print('📄 Using file path: ${pickedFile.path}');
-          final file = File(pickedFile.path!);
-          
-          // Verify file exists
-          if (await file.exists()) {
-            finalFile = file;
-            print('📄 File exists and verified');
-          } else {
-            print('❌ File does not exist at path: ${pickedFile.path}');
-            throw Exception('Selected file does not exist. Please try again.');
-          }
-        } else {
-          print('❌ Both file path and bytes are null!');
-          throw Exception('Could not access file data. Please try selecting the file again.');
-        }
-        
-        // Update state with the file
-        if (finalFile != null) {
-          setState(() {
-            _selectedPDF = finalFile;
-            _pdfFileName = pickedFile.name;
-          });
-          
-          print('📄 State updated with PDF file: $_pdfFileName');
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('PDF selected: $_pdfFileName'),
-                duration: const Duration(seconds: 3),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        }
-      } else {
-        print('📄 File picker cancelled by user or no file selected');
-        // Don't show error for user cancellation - it's expected behavior
-        // Only show message if it seems like an error occurred
-      }
-    } catch (e, stackTrace) {
-      print('❌ Error selecting PDF: $e');
-      print('❌ Stack trace: $stackTrace');
+    } on TimeoutException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error selecting PDF: ${e.toString()}'),
-            duration: const Duration(seconds: 5),
-            backgroundColor: Colors.red,
+            content: const Text('The file picker took too long to open. Please try again.'),
+            duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'Retry',
-              textColor: Colors.white,
+              textColor: AppTheme.brandWhite,
               onPressed: () => _pickPDF(),
             ),
           ),
         );
       }
+      return;
+    } catch (e) {
+      debugPrint('File picker error: $e');
+      _showPickError('We couldn\'t open your files. Please try again.');
+      return;
     }
+
+    // Cancelled by the user — expected, no message.
+    if (result == null || result.files.isEmpty) return;
+
+    final pickedFile = result.files.first;
+    final fileName = pickedFile.name.toLowerCase();
+    final extension = pickedFile.extension?.toLowerCase() ?? '';
+    final isPdf = extension == 'pdf' || fileName.endsWith('.pdf');
+    const imageExts = ['jpg', 'jpeg', 'png', 'heic', 'webp'];
+    final isImage = imageExts.contains(extension) ||
+        imageExts.any((ext) => fileName.endsWith('.$ext'));
+
+    if (!isPdf && !isImage) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Please choose a PDF or a photo (JPG, PNG, HEIC, WebP). Selected: ${pickedFile.name}',
+            ),
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: AppTheme.brandWhite,
+              onPressed: () => _pickPDF(),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    Uint8List? bytes;
+    try {
+      bytes = await _readPickedBytes(pickedFile);
+    } catch (e) {
+      debugPrint('Reading picked file failed: $e');
+    }
+    if (bytes == null || bytes.isEmpty) {
+      _showPickError('We couldn\'t read that file. Please try choosing it again.');
+      return;
+    }
+
+    Uint8List pdfBytes;
+    if (isImage) {
+      try {
+        pdfBytes = await _imageBytesToPdfBytes(bytes);
+      } catch (e) {
+        debugPrint('Image to PDF conversion failed: $e');
+        _showPickError(
+          'We couldn\'t read that photo. Please try a JPG or PNG, or a PDF instead.',
+        );
+        return;
+      }
+    } else {
+      pdfBytes = bytes;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectedPdfBytes = pdfBytes;
+      _uploadFileName = _storageSafePdfName(pickedFile.name);
+      _avsUploadResearchSlug = isImage ? 'image_gallery' : 'pdf';
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_avsUploadResearchSlug == 'pdf' ? 'Your document is ready to upload.' : 'Your photo is ready to upload.'),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Display text for any successful analysis response, fresh or duplicate.
+  /// Falls back to the saved summary doc when the response only has an id.
+  /// Returns null when there is nothing usable to show.
+  Future<String?> _summaryFromResult(Map<String, dynamic> result) async {
+    final raw = result['summary'];
+    if (raw is String && raw.trim().isNotEmpty) return raw;
+    final summaryId = result['summaryId'];
+    final userId = _auth.currentUser?.uid;
+    if (summaryId is String && summaryId.isNotEmpty && userId != null) {
+      try {
+        final doc = await _firestore
+            .collection('users')
+            .doc(userId)
+            .collection('visit_summaries')
+            .doc(summaryId)
+            .get();
+        final stored = doc.data()?['summary'];
+        if (stored is String && stored.trim().isNotEmpty) return stored;
+      } catch (e) {
+        debugPrint('Could not load visit summary $summaryId: $e');
+      }
+    }
+    return null;
+  }
+
+  /// Bring the generated summary into view once it has been laid out.
+  void _scrollToSummary() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _summaryKey.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  /// Shown when the server returned an existing summary (duplicate: true).
+  void _showDuplicateSummarySnackBar() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('You already had a summary for this visit, so we opened it.'),
+        duration: Duration(seconds: 4),
+      ),
+    );
+  }
+
+  /// Plain-language message for upload/analysis failures (never a raw exception).
+  String _friendlyErrorMessage(Object e, {required String fallback}) {
+    if (e is VisitSummaryException) return e.message;
+    final lower = e.toString().toLowerCase();
+    if (lower.contains('unable to resolve host') ||
+        lower.contains('network') ||
+        lower.contains('connection') ||
+        lower.contains('unavailable') ||
+        lower.contains('unreachable') ||
+        lower.contains('no address associated') ||
+        lower.contains('failed to fetch')) {
+      return 'We couldn\'t connect. Check your internet connection and try again.';
+    }
+    if (lower.contains('timeout') ||
+        lower.contains('timed out') ||
+        lower.contains('deadline')) {
+      return 'This is taking longer than expected. Please try again.';
+    }
+    if (lower.contains('unauthenticated') ||
+        lower.contains('not signed in') ||
+        lower.contains('session expired')) {
+      return 'Please sign in again, then try once more.';
+    }
+    if (lower.contains('permission') || lower.contains('unauthorized')) {
+      return 'Something went wrong with your sign-in. Please sign in again and try once more.';
+    }
+    if (lower.contains('quota') || lower.contains('resource-exhausted')) {
+      return 'We\'re getting a lot of requests right now. Please try again in a few minutes.';
+    }
+    return fallback;
   }
 
   Future<bool> _checkAIFeaturesBeforeProcessing() async {
@@ -341,11 +679,14 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   }
 
   Future<void> _processPDF() async {
-    if (_selectedPDF == null || _selectedDate == null) {
+    if (_selectedPdfBytes == null || _selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('📅 Please select both date and PDF'),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: Text(
+            _selectedDate == null
+                ? 'Please choose your appointment date at the top first.'
+                : 'Please choose a file to upload.',
+          ),
         ),
       );
       return;
@@ -355,8 +696,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('🔒 Please log in to upload files'),
-          backgroundColor: Colors.red,
+          content: Text('Please sign in to add your visit summary.'),
         ),
       );
       return;
@@ -371,29 +711,28 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     setState(() {
       _isLoading = true;
       _generatedSummary = null;
-      _currentStep = '📤 Preparing upload...';
+      _currentStep = 'Getting your document ready…';
       _uploadProgress = 0.0;
     });
 
     try {
       print('📄 Starting PDF upload to Firebase Storage...');
       
-      // Read PDF file
-      setState(() => _currentStep = '📄 Reading PDF file...');
-      final pdfBytes = await _selectedPDF!.readAsBytes();
+      // PDF bytes were read (and photos converted) at pick time
+      final pdfBytes = _selectedPdfBytes!;
       print('📄 PDF size: ${pdfBytes.length} bytes');
 
       // Create storage path: visit_summaries/{userId}/{timestamp}_{fileName}
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = _pdfFileName ?? 'visit_summary.pdf';
-      final storagePath = 'visit_summaries/$userId/$timestamp\_$fileName';
+      final fileName = _uploadFileName ?? 'visit_summary.pdf';
+      final storagePath = 'visit_summaries/$userId/${timestamp}_$fileName';
       
       // Create storage reference
       final storageRef = _storage.ref().child(storagePath);
       
       // Upload to Firebase Storage with progress tracking
       print('📤 Uploading file to Firebase Storage: $storagePath');
-      setState(() => _currentStep = '📤 Uploading to cloud...');
+      setState(() => _currentStep = 'Uploading your document…');
       
       final uploadTask = storageRef.putData(
         pdfBytes,
@@ -401,7 +740,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
           contentType: 'application/pdf',
           customMetadata: {
             'userId': userId,
-            'appointmentDate': _selectedDate!.toIso8601String(),
+            'appointmentDate': visitAppointmentCalendarKey(_selectedDate!),
             'fileName': fileName,
             'uploadedAt': DateTime.now().toIso8601String(),
           },
@@ -410,11 +749,14 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
 
       // Listen to upload progress
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        if (!mounted || snapshot.totalBytes <= 0) return;
         final progress = snapshot.bytesTransferred / snapshot.totalBytes;
         setState(() {
           _uploadProgress = progress;
-          _currentStep = '📤 Uploading... ${(progress * 100).toStringAsFixed(0)}%';
+          _currentStep = 'Uploading your document… ${(progress * 100).toStringAsFixed(0)}%';
         });
+      }, onError: (_) {
+        // Upload failures surface through `await uploadTask` below.
       });
 
       // Wait for upload to complete
@@ -425,7 +767,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       print('📥 Download URL: $downloadUrl');
 
       // Save metadata to Firestore
-      setState(() => _currentStep = '💾 Saving file information...');
+      setState(() => _currentStep = 'Almost there…');
       final uploadDocRef = await _firestore
           .collection('users')
           .doc(userId)
@@ -434,7 +776,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
         'fileName': fileName,
         'storagePath': storagePath,
         'downloadUrl': downloadUrl,
-        'appointmentDate': Timestamp.fromDate(_selectedDate!),
+        'appointmentDate': visitAppointmentFirestoreTimestamp(_selectedDate!),
         'fileSize': pdfBytes.length,
         'status': 'uploaded',
         'createdAt': FieldValue.serverTimestamp(),
@@ -443,7 +785,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       print('✅ File metadata saved to Firestore with ID: ${uploadDocRef.id}');
 
       // Now analyze the PDF with OpenAI
-      setState(() => _currentStep = '🤖 Analyzing PDF with AI... This may take a minute.');
+      setState(() => _currentStep = 'Reading your visit summary. This can take up to a minute.');
       
       // Prepare user profile data for context
       final userProfileData = _userProfile != null ? {
@@ -480,16 +822,16 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
               print('✅ Anonymous sign-in successful: ${currentUser?.uid}');
             } catch (anonError) {
               print('❌ Anonymous sign-in failed: $anonError');
-              throw Exception('🔒 Not signed in. Please log in before uploading PDFs.');
+              throw Exception('Please sign in before adding a visit summary.');
             }
           } else {
-            throw Exception('🔒 Not signed in. Please log in before uploading PDFs.');
+            throw Exception('Please sign in before adding a visit summary.');
           }
         }
       }
       
       if (currentUser == null) {
-        throw Exception('🔒 User session expired. Please log in again.');
+        throw Exception('Your sign-in expired. Please sign in again.');
       }
       
       // Force token refresh before calling function
@@ -501,46 +843,67 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       }
       
       print('👤 Current user: ${currentUser.uid}');
-      print('📅 Appointment date: ${_selectedDate!.toIso8601String()}');
-      
+      print('📅 Appointment date (calendar): ${visitAppointmentCalendarKey(_selectedDate!)}');
+
       // Call Firebase Function to analyze PDF
       final analysisResult = await _functionsService.analyzeVisitSummaryPDF(
         storagePath: storagePath,
         downloadUrl: downloadUrl,
-        appointmentDate: _selectedDate!.toIso8601String(),
+        appointmentDate: visitAppointmentCalendarKey(_selectedDate!),
         educationLevel: _userProfile?.educationLevel,
         userProfile: userProfileData,
       );
 
       print('✅ PDF analysis completed successfully');
 
+      final isDuplicate = analysisResult['duplicate'] == true;
+      final summaryIdValue = analysisResult['summaryId'];
+      final avsSummaryId = summaryIdValue is String ? summaryIdValue : null;
+
       // Update upload status
-      await uploadDocRef.update({
-        'status': 'analyzed',
-        'summaryId': analysisResult['summaryId'],
-        'analyzedAt': FieldValue.serverTimestamp(),
-      });
+      try {
+        await uploadDocRef.update({
+          'status': 'analyzed',
+          'summaryId': avsSummaryId,
+          'analyzedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        print('⚠️ Could not update upload status (non-critical): $e');
+      }
+
+      final summaryText = await _summaryFromResult(analysisResult);
+      if (summaryText == null) {
+        throw const VisitSummaryException(_noSummaryMessage);
+      }
+      if (!mounted) return;
 
       setState(() {
-        _generatedSummary = analysisResult['summary'];
+        _generatedSummary = summaryText;
+        _setResultLessons(analysisResult);
         _isLoading = false;
         _currentStep = null;
         _uploadProgress = 0.0;
         // Clear selected file to show success state
-        _selectedPDF = null;
-        _pdfFileName = null;
+        _selectedPdfBytes = null;
+        _uploadFileName = null;
       });
+      _scrollToSummary();
+
+      if (isDuplicate) {
+        // Nothing new was created, so no creation analytics or rating prompt.
+        _showDuplicateSummarySnackBar();
+        return;
+      }
 
       // Track visit summary creation
       try {
         final analytics = AnalyticsService();
-        final summaryId = analysisResult['summaryId'] as String?;
-        if (summaryId != null) {
+        if (avsSummaryId != null) {
           await analytics.logVisitSummaryCreated(
-            summaryId: summaryId,
-            appointmentType: 'prenatal',
+            summaryId: avsSummaryId,
             timeToComplete: DateTime.now().difference(_selectedDate ?? DateTime.now()).inSeconds,
             userProfile: _userProfile,
+            avsUploadType: _avsUploadResearchSlug,
           );
         }
       } catch (e) {
@@ -550,56 +913,47 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       // Show success message with counts
       final todosCount = (analysisResult['todos'] as List?)?.length ?? 0;
       final modulesCount = (analysisResult['learningModules'] as List?)?.length ?? 0;
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '✅ Analysis complete! ${todosCount > 0 ? "📝 $todosCount todos added. " : ""}${modulesCount > 0 ? "📚 $modulesCount learning modules created." : ""}'
+              'Your summary is ready.${todosCount > 0 ? " We added $todosCount next ${todosCount == 1 ? "step" : "steps"}." : ""}${modulesCount > 0 ? " $modulesCount new ${modulesCount == 1 ? "lesson is" : "lessons are"} waiting in Learn." : ""}'
             ),
             duration: const Duration(seconds: 4),
-            backgroundColor: Colors.green,
           ),
         );
       }
 
+      if (avsSummaryId != null && avsSummaryId.isNotEmpty) {
+        await _maybePromptVisitSummaryMicroMeasure(avsSummaryId, 'visit_summary_avs');
+      }
+
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _currentStep = null;
         _uploadProgress = 0.0;
       });
-      
+
       if (mounted) {
-        final errorMessage = e.toString();
-        String userFriendlyMessage = errorMessage;
-        
-        // Provide user-friendly error messages with emojis
-        final lowerMessage = errorMessage.toLowerCase();
-        if (lowerMessage.contains('unable to resolve host') || 
-            lowerMessage.contains('network') ||
-            lowerMessage.contains('connection') ||
-            lowerMessage.contains('unavailable') ||
-            lowerMessage.contains('no address associated')) {
-          userFriendlyMessage = '🌐 Network connection error. Please check your internet connection and try again.';
-        } else if (lowerMessage.contains('permission') || lowerMessage.contains('unauthorized')) {
-          userFriendlyMessage = '🔒 Permission denied. Please ensure you are logged in and try again.';
-        } else if (lowerMessage.contains('quota') || lowerMessage.contains('storage')) {
-          userFriendlyMessage = '💾 Storage quota exceeded. Please contact support.';
-        } else if (lowerMessage.contains('cancel')) {
-          userFriendlyMessage = '❌ Upload cancelled.';
-        } else {
-          userFriendlyMessage = '❌ Upload failed: ${e.toString()}';
-        }
-        
+        final lowerMessage = e.toString().toLowerCase();
+        final userFriendlyMessage = lowerMessage.contains('cancel')
+            ? 'Upload cancelled.'
+            : _friendlyErrorMessage(
+                e,
+                fallback:
+                    'We couldn\'t upload and simplify your file. Please try again in a moment.',
+              );
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(userFriendlyMessage),
             duration: const Duration(seconds: 6),
-            backgroundColor: Colors.red,
             action: SnackBarAction(
               label: 'Retry',
-              textColor: Colors.white,
+              textColor: AppTheme.brandWhite,
               onPressed: () => _processPDF(),
             ),
           ),
@@ -611,11 +965,15 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
   }
 
   Future<void> _processManualText() async {
+    if (_isLoading) return;
     if (_selectedDate == null || _manualTextController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('📅 Please select date and enter visit notes'),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: Text(
+            _selectedDate == null
+                ? 'Please choose your appointment date at the top first.'
+                : 'Please type or paste your visit notes first.',
+          ),
         ),
       );
       return;
@@ -625,8 +983,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('🔒 Please log in to analyze visit notes'),
-          backgroundColor: Colors.red,
+          content: Text('Please sign in to simplify your visit notes.'),
         ),
       );
       return;
@@ -641,7 +998,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
     setState(() {
       _isLoading = true;
       _generatedSummary = null;
-      _currentStep = '🤖 Analyzing visit notes...';
+      _currentStep = 'Reading your notes. This can take up to a minute.';
     });
 
     try {
@@ -664,44 +1021,84 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       // The function already saves to Firestore, so we don't need to save again
       final analysisResult = await _functionsService.analyzeVisitSummaryText(
         visitText: visitText,
-        appointmentDate: _selectedDate!.toIso8601String(),
+        appointmentDate: visitAppointmentCalendarKey(_selectedDate!),
         educationLevel: _userProfile?.educationLevel,
         userProfile: userProfileData,
         saveOriginalText: _saveOriginalText,
       );
 
       // Note: The Cloud Function already saves the summary to Firestore
-      // We only need to handle the response for display
+      // We only need to handle the response for display. A duplicate
+      // (same notes, same date) comes back in the same shape with duplicate: true.
+      final isDuplicate = analysisResult['duplicate'] == true;
+      final summary = await _summaryFromResult(analysisResult);
+      if (summary == null) {
+        throw const VisitSummaryException(_noSummaryMessage);
+      }
+      if (!mounted) return;
 
       setState(() {
-        _generatedSummary = analysisResult['summary'];
+        _generatedSummary = summary;
+        _setResultLessons(analysisResult);
         _isLoading = false;
         _currentStep = null;
       });
+      _scrollToSummary();
+
+      if (isDuplicate) {
+        // Nothing new was created, so no creation analytics or rating prompt.
+        _showDuplicateSummarySnackBar();
+        return;
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Analysis complete!'),
+            content: Text('Your summary is ready.'),
             duration: Duration(seconds: 3),
-            backgroundColor: Colors.green,
           ),
         );
       }
+
+      final textSummaryIdValue = analysisResult['summaryId'];
+      final textSummaryId = textSummaryIdValue is String ? textSummaryIdValue : null;
+      if (textSummaryId != null && textSummaryId.isNotEmpty) {
+        try {
+          await AnalyticsService().logVisitSummaryCreated(
+            summaryId: textSummaryId,
+            userProfile: _userProfile,
+            avsUploadType: 'notes_typed',
+          );
+        } catch (e) {
+          print('Error tracking visit summary creation (text): $e');
+        }
+        await _maybePromptVisitSummaryMicroMeasure(textSummaryId, 'visit_summary_avs');
+      }
     } catch (e) {
+      debugPrint('Visit notes analysis error: $e');
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _currentStep = null;
       });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _friendlyErrorMessage(
+              e,
+              fallback:
+                  'We couldn\'t simplify your notes right now. Please try again in a moment.',
+            ),
           ),
-        );
-      }
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: AppTheme.brandWhite,
+            onPressed: () => _processManualText(),
+          ),
+        ),
+      );
     }
   }
 
@@ -711,290 +1108,247 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
       feature: 'appointment-summarizing',
       entrySource: 'upload_visit_summary',
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Understand Your Visit'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header
-            Text(
-              'Understand Your Visit',
-              style: AppTheme.responsiveTitleStyle(
-                context,
-                baseSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.brandPurple,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Add notes from your appointment',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-
-            // Appointment Date Picker
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[300]!),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                leading: const Icon(Icons.calendar_today, color: AppTheme.brandPurple),
-                title: const Text(
-                  'Appointment Date',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(
-                  _selectedDate != null
-                      ? '${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}'
-                      : 'Tap to select date',
-                  style: TextStyle(
-                    color: _selectedDate != null ? Colors.black87 : Colors.grey,
-                  ),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                    lastDate: DateTime.now(),
-                  );
-                  if (date != null) {
-                    setState(() {
-                      _selectedDate = date;
-                    });
-                  }
-                },
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Input Method Selector
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _inputMethod = 'pdf'),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _inputMethod == 'pdf' 
-                              ? AppTheme.brandPurple 
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
+        backgroundColor: AppTheme.ground,
+        body: SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 672),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const HearthPushedHeader(
+                          backLabel: 'My Visits',
+                          title: 'After-Visit Support',
+                          subtitle:
+                              'Doctor visits can be overwhelming. We’re here to help you understand paperwork in plain language: after-visit summaries, discharge instructions, provider notes, and similar documents. This is literacy support, not a diagnosis.',
+                          padding: EdgeInsets.only(top: 20, bottom: 4),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: HearthButton.text(
+                            label: 'Your privacy (plain language)',
+                            onPressed: () {
+                              Navigator.push<void>(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const AfterVisitPrivacyScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        HearthFeatureCard(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const HearthIconChip(
+                                Icons.shield_outlined,
+                                tone: HearthChipTone.surface,
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'We help simplify the documents you share',
+                                      style: hearthCardTitleStyle,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'This tool makes medical language easier to understand. It does not provide medical advice, diagnoses, or replace your healthcare provider.',
+                                      style: hearthCardBodyStyle,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const HearthSectionHeading('Appointment date'),
+                        const SizedBox(height: 14),
+                        HearthCard(
+                          padding: const EdgeInsets.all(16),
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.now(),
+                              firstDate: DateTime.now()
+                                  .subtract(const Duration(days: 365)),
+                              lastDate: DateTime.now(),
+                            );
+                            if (date != null) {
+                              setState(() => _selectedDate = date);
+                            }
+                          },
+                          child: Row(
+                            children: [
+                              const HearthIconChip(Icons.calendar_today_outlined),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Text(
+                                  _selectedDate != null
+                                      ? MaterialLocalizations.of(context)
+                                          .formatFullDate(_selectedDate!)
+                                      : 'Tap to select date',
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.sansFamily,
+                                    fontSize: 16,
+                                    height: 22 / 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: _selectedDate != null
+                                        ? AppTheme.ink
+                                        : AppTheme.textMuted,
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.expand_more,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
                           children: [
-                            Icon(
-                              Icons.picture_as_pdf,
-                              color: _inputMethod == 'pdf' 
-                                  ? Colors.white 
-                                  : Colors.grey[600],
-                              size: 20,
+                            Expanded(
+                              child: _MethodPill(
+                                selected: _inputMethod == 'pdf',
+                                icon: Icons.upload_outlined,
+                                label: 'From file',
+                                onTap: () =>
+                                    setState(() => _inputMethod = 'pdf'),
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Upload PDF',
-                              style: TextStyle(
-                                color: _inputMethod == 'pdf' 
-                                    ? Colors.white 
-                                    : Colors.grey[600],
-                                fontWeight: _inputMethod == 'pdf' 
-                                    ? FontWeight.w600 
-                                    : FontWeight.normal,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _MethodPill(
+                                selected: _inputMethod == 'text',
+                                icon: Icons.text_fields,
+                                label: 'Type notes',
+                                onTap: () =>
+                                    setState(() => _inputMethod = 'text'),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _inputMethod = 'text'),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _inputMethod == 'text' 
-                              ? AppTheme.brandPurple 
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.text_fields,
-                              color: _inputMethod == 'text' 
-                                  ? Colors.white 
-                                  : Colors.grey[600],
-                              size: 20,
+                        const SizedBox(height: 16),
+                        if (_inputMethod == 'text')
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 16),
+                            child: HearthNote(
+                              icon: Icons.lock_outline,
+                              text:
+                                  'Recommended for privacy: your text won\'t be stored unless you choose to save it.',
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Type Text',
-                              style: TextStyle(
-                                color: _inputMethod == 'text' 
-                                    ? Colors.white 
-                                    : Colors.grey[600],
-                                fontWeight: _inputMethod == 'text' 
-                                    ? FontWeight.w600 
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+                          ),
 
-            // Privacy Note for Manual Text
-            if (_inputMethod == 'text')
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Row(
+            // PDF Upload Section
+            if (_inputMethod == 'pdf' && _selectedPdfBytes == null) ...[
+              HearthCard(
+                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+                child: Column(
                   children: [
-                    Icon(Icons.lock_outline, color: Colors.blue.shade700, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Recommended for privacy: Your text won\'t be stored unless you choose to save it.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.blue.shade900,
-                        ),
-                      ),
+                    const HearthIconChip(
+                      Icons.cloud_upload_outlined,
+                      size: 80,
+                      iconSize: 36,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'PDF or image file',
+                      textAlign: TextAlign.center,
+                      style: hearthCardTitleStyle.copyWith(fontSize: 17, height: 24 / 17),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose a PDF or image (JPG, PNG, HEIC, WebP) from Files',
+                      textAlign: TextAlign.center,
+                      style: hearthCardBodyStyle,
+                    ),
+                    const SizedBox(height: 20),
+                    HearthButton.primary(
+                      icon: Icons.description_outlined,
+                      label: 'Choose file',
+                      expand: false,
+                      onPressed: _pickPDF,
                     ),
                   ],
                 ),
               ),
-            const SizedBox(height: 16),
-
-            // PDF Upload Section
-            if (_inputMethod == 'pdf' && _selectedPDF == null) ...[
-              GestureDetector(
-                onTap: _pickPDF,
-                child: Container(
-                  padding: const EdgeInsets.all(48),
-                  decoration: BoxDecoration(
-                    color: AppTheme.brandPurple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppTheme.brandPurple,
-                      width: 2,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.cloud_upload_outlined,
-                        size: 80,
-                        color: AppTheme.brandPurple,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Upload Visit Summary PDF',
-                        style: AppTheme.responsiveTitleStyle(
-                          context,
-                          baseSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.brandPurple,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Tap to select PDF file from your device',
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: Text(
+                  'After-visit summaries, discharge paperwork, and provider notes work well. Remove sensitive information you do not want analyzed.',
+                  textAlign: TextAlign.center,
+                  style: hearthCaptionStyle,
                 ),
               ),
             ] else if (_inputMethod == 'pdf') ...[
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green, width: 2),
-                ),
+              HearthCard(
+                padding: const EdgeInsets.all(16),
+                color: AppTheme.tintWarm,
+                borderColor: AppTheme.brandPurple,
+                borderWidth: 2,
                 child: Row(
                   children: [
-                    const Icon(Icons.picture_as_pdf, color: Colors.green, size: 48),
-                    const SizedBox(width: 16),
+                    const HearthIconChip(
+                      Icons.description_outlined,
+                      tone: HearthChipTone.surface,
+                    ),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'PDF Selected',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.green,
-                            ),
+                          const Row(
+                            children: [
+                              Icon(Icons.check, size: 18, color: AppTheme.brandPurple),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Ready to upload',
+                                  style: hearthCardTitleStyle,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text(
-                            _pdfFileName ?? '',
-                            style: const TextStyle(fontSize: 14),
-                            overflow: TextOverflow.ellipsis,
+                            _avsUploadResearchSlug == 'pdf' ? 'Your document' : 'Your photo',
+                            style: hearthCardBodyStyle,
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.red),
+                    const SizedBox(width: 8),
+                    HearthCircleButton(
+                      icon: Icons.close,
                       onPressed: () {
                         setState(() {
-                          _selectedPDF = null;
-                          _pdfFileName = null;
+                          _selectedPdfBytes = null;
+                          _uploadFileName = null;
+                          _avsUploadResearchSlug = 'unknown';
                         });
                       },
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-              // Process Button
+              // Process Button. Theme gives the purple stadium; the child keeps
+              // the live step text while uploading.
               ElevatedButton(
-                onPressed: (_selectedDate != null && !_isLoading)
+                onPressed: !_isLoading
                     ? _processPDF
                     : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
                 child: _isLoading
                     ? Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1004,7 +1358,7 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
                             ),
                           ),
                           if (_currentStep != null) ...[
@@ -1020,115 +1374,136 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                           ],
                         ],
                       )
-                    : const Text(
-                        'Upload Visit Summary',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600                      ),
-                    ),
+                    : const Text('Upload Visit Summary'),
               ),
             ] else ...[
-              // Manual Text Input Section
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
+              HearthCard(
+                padding: const EdgeInsets.all(20),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Visit Notes',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
                     TextField(
                       controller: _manualTextController,
+                      // Rebuild so the Simplify button reflects typed/pasted text.
+                      onChanged: (_) => setState(() {}),
                       maxLines: 10,
-                      decoration: InputDecoration(
+                      style: const TextStyle(
+                        fontFamily: AppTheme.sansFamily,
+                        fontSize: 15,
+                        height: 22 / 15,
+                        color: AppTheme.ink,
+                      ),
+                      // Inset fill because the field sits inside a card.
+                      decoration: const InputDecoration(
                         hintText: 'Type or paste your visit notes here...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        contentPadding: const EdgeInsets.all(12),
+                        fillColor: AppTheme.surfaceInset,
+                        contentPadding: EdgeInsets.all(16),
                       ),
                     ),
                     const SizedBox(height: 12),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text(
+                      title: Text(
                         'Save my original text',
-                        style: TextStyle(fontSize: 14),
+                        style: hearthCardTitleStyle.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
                       ),
-                      subtitle: const Text(
+                      subtitle: Text(
                         'By default, only the summary is saved. Check this to also save your original notes.',
-                        style: TextStyle(fontSize: 12),
+                        style: hearthCaptionStyle,
                       ),
                       value: _saveOriginalText,
-                      onChanged: (value) => setState(() => _saveOriginalText = value ?? false),
+                      onChanged: (value) =>
+                          setState(() => _saveOriginalText = value ?? false),
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
+                    const SizedBox(height: 8),
+                    Builder(
+                      builder: (context) {
+                        final isReady = _selectedDate != null &&
+                            _manualTextController.text.trim().isNotEmpty;
+                        // Keep the filled style while loading so the white
+                        // spinner/progress text stays readable.
+                        final canRun = isReady || _isLoading;
+                        return Material(
+                          color: canRun ? AppTheme.brandPurple : AppTheme.borderWarm,
+                          shape: const StadiumBorder(),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            // Stay tappable when not ready so the user is told what is missing
+                            // (date or notes) instead of a silently dead button.
+                            onTap: _isLoading ? null : _processManualText,
+                            child: Container(
+                              height: 52,
+                              alignment: Alignment.center,
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: _isLoading
+                                  ? Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                              AppTheme.brandWhite,
+                                            ),
+                                          ),
+                                        ),
+                                        if (_currentStep != null) ...[
+                                          const SizedBox(width: 12),
+                                          Flexible(
+                                            child: Text(
+                                              _currentStep!,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color: AppTheme.brandWhite,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    )
+                                  : Text(
+                                      'Simplify this visit',
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.sansFamily,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: canRun
+                                            ? AppTheme.brandWhite
+                                            : AppTheme.textMuted,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    if (_selectedDate == null && !_isLoading) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Choose your appointment date above to continue.',
+                        textAlign: TextAlign.center,
+                        style: hearthCaptionStyle,
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: (_selectedDate != null && 
-                           _manualTextController.text.trim().isNotEmpty && 
-                           !_isLoading)
-                    ? _processManualText
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isLoading
-                    ? Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          ),
-                          if (_currentStep != null) ...[
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _currentStep!,
-                                style: const TextStyle(fontSize: 14),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ],
-                      )
-                    : const Text(
-                        'Analyze Visit Notes',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-              ),
-              
+
               // Show current step and progress below button if loading
               if (_isLoading && _currentStep != null) ...[
                 const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.brandPurple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                HearthCard(
+                  padding: const EdgeInsets.all(14),
+                  color: AppTheme.tintWarm,
+                  borderColor: null,
+                  radius: BorderRadius.circular(AppTheme.fieldRadius),
                   child: Column(
                     children: [
                       Row(
@@ -1146,20 +1521,25 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
                             child: Text(
                               _currentStep!,
                               style: const TextStyle(
+                                fontFamily: AppTheme.sansFamily,
                                 fontSize: 14,
                                 color: AppTheme.brandPurple,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                         ],
                       ),
                       if (_uploadProgress > 0) ...[
-                        const SizedBox(height: 8),
-                        LinearProgressIndicator(
-                          value: _uploadProgress,
-                          backgroundColor: AppTheme.brandPurple.withOpacity(0.2),
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: _uploadProgress,
+                            minHeight: 6,
+                            backgroundColor: AppTheme.borderWarm,
+                            valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.brandPurple),
+                          ),
                         ),
                       ],
                     ],
@@ -1168,115 +1548,123 @@ class _UploadVisitSummaryScreenState extends State<UploadVisitSummaryScreen> {
               ],
             ],
 
-            const SizedBox(height: 24),
+                        const SizedBox(height: 20),
+                        const HearthNote(
+                          icon: Icons.info_outline,
+                          title: 'We\'re making this easier to understand',
+                          text:
+                              'We\'ll explain your visit in everyday words, including any medical terms. Nothing is shared without your permission.',
+                        ),
+                        const SizedBox(height: 4),
 
-            // Generated Summary Display
+            // Generated Summary Display — sectioned like NewUI
             if (_generatedSummary != null) ...[
-              // AI Disclaimer Banner
-              const AIDisclaimerBanner(
-                customMessage: 'This summary helps you understand your visit.',
-                customSubMessage: 'It does not replace medical advice from your provider.',
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.2),
-                      spreadRadius: 2,
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.green, size: 28),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Your Visit Summary',
-                            style: AppTheme.responsiveTitleStyle(
-                              context,
-                              baseSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Adjusted to ${_userProfile?.educationLevel ?? "6th grade"} reading level',
-                              style: const TextStyle(fontSize: 12, color: Colors.blue),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 24),
-                    MarkdownBody(
-                      data: _generatedSummary!,
-                      styleSheet: MarkdownStyleSheet(
-                        h2: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.brandPurple,
-                        ),
-                        h3: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        p: const TextStyle(fontSize: 15, height: 1.6),
-                        listBullet: const TextStyle(
-                          fontSize: 15,
-                          color: AppTheme.brandPurple,
-                        ),
-                      ),
-                    ),
-                  ],
+              KeyedSubtree(
+                key: _summaryKey,
+                child: const AIDisclaimerBanner(
+                  customMessage: 'This summary helps you understand your visit.',
+                  customSubMessage: 'It is not medical advice and does not replace your provider.',
                 ),
               ),
+              const SizedBox(height: 4),
+              Text(
+                'Below is a gentle breakdown of what you shared. If anything feels unclear, bring these notes to your next visit.',
+                textAlign: TextAlign.center,
+                style: hearthCaptionStyle,
+              ),
               const SizedBox(height: 16),
-              OutlinedButton.icon(
+              ..._buildVisitSummarySections(context),
+              ..._buildSuggestedLearning(),
+              const SizedBox(height: 12),
+              Text(
+                'Still have questions? Write them down and ask your care team. You’re not bothering anyone.',
+                textAlign: TextAlign.center,
+                style: hearthCaptionStyle,
+              ),
+              const SizedBox(height: 16),
+              HearthButton.secondary(
                 onPressed: () {
                   setState(() {
                     _generatedSummary = null;
-                    _selectedPDF = null;
-                    _pdfFileName = null;
+                    _selectedPdfBytes = null;
+                    _uploadFileName = null;
                     _selectedDate = null;
+                    _avsUploadResearchSlug = 'unknown';
                   });
                 },
-                icon: const Icon(Icons.upload_file),
-                label: const Text('Upload Another File'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.brandPurple,
-                  side: const BorderSide(color: AppTheme.brandPurple),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
+                icon: Icons.add,
+                label: 'Add another visit summary',
               ),
             ],
           ],
         ),
       ),
     ),
-  );
+  ),
+),
+        ),
+    );
+  }
+}
+
+class _MethodPill extends StatelessWidget {
+  const _MethodPill({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  /// Full-width version of the Hearth choice chip (tint + purple outline when
+  /// selected), centred so the two pills read as a segmented choice.
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? AppTheme.brandPurple : AppTheme.textSecondary;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? AppTheme.tintWarm : AppTheme.surface,
+        shape: StadiumBorder(
+          side: selected
+              ? const BorderSide(color: AppTheme.brandPurple, width: 2)
+              : const BorderSide(color: AppTheme.borderWarm),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 20, color: fg),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppTheme.sansFamily,
+                      fontSize: 15,
+                      height: 20 / 15,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                      color: fg,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

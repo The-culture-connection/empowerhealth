@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Guest account prompt</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; background: #8E8794; font-family: 'Figtree', system-ui, sans-serif; color: #2D2733">
+<div role="dialog" aria-labelledby="gp-title" style="background: #F5F1E8; border-radius: 28px 28px 0 0; padding: 12px 20px 32px; display: flex; flex-direction: column; gap: 20px">
+<span style="align-self: center; width: 40px; height: 4px; border-radius: 999px; background: #C9B8A0"></span>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<h1 id="gp-title" style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Create a free account</h1>
+<p style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3F52">You're exploring as a guest. Create a free account to post in the community and save your progress. You can keep browsing without one.</p>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<button style="width: 100%; height: 52px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Create account</button>
+<button style="align-self: center; min-height: 44px; padding: 0 16px; border: 0; background: transparent; color: #6B5C75; font-size: 15px; font-weight: 700">Maybe later</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

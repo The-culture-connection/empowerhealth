@@ -137,7 +137,7 @@ export function ProviderSearchResults() {
             return (
               <div
                 key={provider.id}
-                className="bg-white/60 backdrop-blur-sm rounded-[32px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-[#ede7f3]/50 overflow-hidden hover:shadow-[0_6px_32px_rgba(0,0,0,0.08)] transition-all"
+                className="bg-[#faf8f4] backdrop-blur-sm rounded-[32px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-[#ede7f3]/50 overflow-hidden hover:shadow-[0_6px_32px_rgba(0,0,0,0.08)] transition-all"
               >
                 <div className="p-6">
                   {/* Header */}

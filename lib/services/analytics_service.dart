@@ -18,7 +18,12 @@ import '../models/helpfulness_survey.dart';
 import '../models/milestone_checkin.dart';
 import '../models/care_navigation_outcome.dart';
 import '../utils/pregnancy_utils.dart';
+import '../beta/beta_checklist_service.dart';
 import 'analytics/realtime_analytics_service.dart';
+import 'database_service.dart';
+import 'research/research_app_activity_service.dart';
+import 'research/research_firestore_service.dart';
+import 'research/research_milestone_service.dart';
 
 /// Queued analytics event
 class _QueuedEvent {
@@ -38,6 +43,25 @@ class _QueuedEvent {
     this.userProfile,
   }) : queuedAt = DateTime.now(),
        retryCount = 0;
+}
+
+/// Server-validated slug for `health_made_simple_access` (max 64 chars, alphanumeric + `:` `_`).
+String _healthMadeSimpleAccessSlug({String? source, String? topicId}) {
+  final s0 = (source ?? 'unknown').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+  final tid = topicId?.trim();
+  final parts = <String>[s0];
+  if (tid != null && tid.isNotEmpty) {
+    parts.add(tid.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_'));
+  }
+  var s = parts.join(':');
+  if (s.length > 64) s = s.substring(0, 64);
+  return s.isEmpty ? 'unknown' : s;
+}
+
+/// Firebase Analytics custom params must be [String] or [num], not [bool].
+String _firebaseAnalyticsBoolString(dynamic value) {
+  if (value is bool) return value ? 'true' : 'false';
+  return value.toString().toLowerCase() == 'true' ? 'true' : 'false';
 }
 
 class AnalyticsService {
@@ -319,6 +343,7 @@ class AnalyticsService {
     int? durationMs,
     UserProfile? userProfile,
   }) async {
+    try { BetaChecklistService.instance.recordEvent(eventName); } catch (_) {}
     try {
       // Check if user is authenticated and auth is ready
       final user = FirebaseAuth.instance.currentUser;
@@ -677,7 +702,9 @@ class AnalyticsService {
             analyticsParams[key] = value.length > 100
                 ? value.substring(0, 100)
                 : value;
-          } else if (value is num || value is bool) {
+          } else if (value is bool) {
+            analyticsParams[key] = value ? 'true' : 'false';
+          } else if (value is num) {
             analyticsParams[key] = value;
           } else if (value != null) {
             // Convert other types to string
@@ -714,14 +741,19 @@ class AnalyticsService {
               : int.tryParse(metadata['pregnancy_week'].toString()) ?? 0;
         }
         if (metadata['navigator'] != null) {
-          analyticsParams['navigator'] = metadata['navigator'] is bool
-              ? metadata['navigator']
-              : metadata['navigator'].toString().toLowerCase() == 'true';
+          analyticsParams['navigator'] = _firebaseAnalyticsBoolString(
+            metadata['navigator'],
+          );
         }
         if (metadata['self_directed'] != null) {
-          analyticsParams['self_directed'] = metadata['self_directed'] is bool
-              ? metadata['self_directed']
-              : metadata['self_directed'].toString().toLowerCase() == 'true';
+          analyticsParams['self_directed'] = _firebaseAnalyticsBoolString(
+            metadata['self_directed'],
+          );
+        }
+        if (metadata['provider_selected'] != null) {
+          analyticsParams['provider_selected'] = _firebaseAnalyticsBoolString(
+            metadata['provider_selected'],
+          );
         }
       }
 
@@ -957,6 +989,7 @@ class AnalyticsService {
     int? knowNextStepScore,
     int? confidenceScore,
     UserProfile? userProfile,
+    String? researchContentType,
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -999,6 +1032,40 @@ class AnalyticsService {
         },
         userProfile: userProfile,
       );
+
+      if (userProfile != null && userProfile.isResearchParticipant) {
+        final rs = ResearchFirestoreService.instance;
+        final sid = await rs.ensureStudyId(userProfile);
+        final u = understandMeaningScore;
+        final n = knowNextStepScore;
+        final c = confidenceScore;
+        if (sid != null &&
+            u != null &&
+            n != null &&
+            c != null &&
+            u >= 1 &&
+            u <= 5 &&
+            n >= 1 &&
+            n <= 5 &&
+            c >= 1 &&
+            c <= 5) {
+          await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+          final cid = (sourceId != null && sourceId.trim().isNotEmpty)
+              ? sourceId.trim()
+              : 'analytics_${feature}_unspecified';
+          final ctype = researchContentType ??
+              (feature == 'user-feedback' ? 'user_feedback' : 'micro_measure');
+          await rs.recordMicroMeasure(
+            studyId: sid,
+            understand: u,
+            nextStep: n,
+            confidence: c,
+            contentId: cid,
+            contentType: ctype,
+            microTsClientIso: DateTime.now().toUtc().toIso8601String(),
+          );
+        }
+      }
 
       print('✅ Analytics: Micro measure saved');
     } catch (e) {
@@ -1065,6 +1132,7 @@ class AnalyticsService {
   /// Save milestone checkin to specialized collection
   Future<void> saveMilestoneCheckin({
     String? phase,
+    int? milestoneType,
     bool? hadHealthQuestion,
     bool? feltClearOnNextStep,
     bool? appHelpedTakeNextStep,
@@ -1111,6 +1179,25 @@ class AnalyticsService {
         },
         userProfile: userProfile,
       );
+
+      if (userProfile != null && userProfile.isResearchParticipant) {
+        final rs = ResearchFirestoreService.instance;
+        final sid = await rs.ensureStudyId(userProfile);
+        if (sid != null &&
+            hadHealthQuestion != null &&
+            feltClearOnNextStep != null &&
+            appHelpedTakeNextStep != null) {
+          await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+          final mt = milestoneType ?? ResearchMilestoneService.milestoneTypeFromLegacyPhase(phase);
+          await ResearchMilestoneService.instance.submitMilestoneCheckIn(
+            studyId: sid,
+            milestoneType: mt,
+            milestoneHealthQuestion: hadHealthQuestion,
+            milestoneClearNextStep: feltClearOnNextStep,
+            milestoneAppHelpedNextStep: appHelpedTakeNextStep,
+          );
+        }
+      }
 
       print('✅ Analytics: Milestone checkin saved');
     } catch (e) {
@@ -1193,6 +1280,44 @@ class AnalyticsService {
     );
   }
 
+  Future<void> logKnowYourRightsViewed({
+    String? source,
+    String? topicId,
+    String? topicTitle,
+    UserProfile? userProfile,
+  }) async {
+    await logEvent(
+      eventName: 'know_your_rights_viewed',
+      feature: 'learning-modules',
+      parameters: {
+        if (source != null) 'source': source,
+        if (topicId != null) 'topic_id': topicId,
+        if (topicTitle != null) 'topic_title': topicTitle,
+      },
+      userProfile: userProfile,
+    );
+
+    UserProfile? p = userProfile;
+    if (p == null) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        p = await DatabaseService().getUserProfile(uid);
+      }
+    }
+    if (p != null && p.isResearchParticipant) {
+      final rs = ResearchFirestoreService.instance;
+      final sid = await rs.ensureStudyId(p);
+      if (sid != null) {
+        await rs.syncParticipantAndBaseline(studyId: sid, profile: p);
+        final slug = _healthMadeSimpleAccessSlug(source: source, topicId: topicId);
+        await ResearchAppActivityService.instance.recordHealthMadeSimpleAccess(
+          studyId: sid,
+          healthMadeSimpleAccess: slug,
+        );
+      }
+    }
+  }
+
   Future<void> logLearningModuleStarted({
     required String moduleId,
     String? moduleTopic,
@@ -1227,6 +1352,19 @@ class AnalyticsService {
       },
       userProfile: userProfile,
     );
+
+    if (userProfile != null && userProfile.isResearchParticipant) {
+      final rs = ResearchFirestoreService.instance;
+      final sid = await rs.ensureStudyId(userProfile);
+      if (sid != null) {
+        await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+        await ResearchAppActivityService.instance.recordModuleCompletion(
+          studyId: sid,
+          moduleId: moduleId,
+          moduleCompletion: 1,
+        );
+      }
+    }
   }
 
   Future<void> logLearningModuleVideoPlayed({
@@ -1279,6 +1417,7 @@ class AnalyticsService {
   Future<void> logVisitSummaryCreated({
     required String summaryId,
     String? appointmentType,
+    String? avsUploadType,
     String? providerType,
     int? timeToComplete,
     UserProfile? userProfile,
@@ -1289,11 +1428,25 @@ class AnalyticsService {
       parameters: {
         'summary_id': summaryId,
         if (appointmentType != null) 'appointment_type': appointmentType,
+        if (avsUploadType != null) 'avs_upload_type': avsUploadType,
         if (providerType != null) 'provider_type': providerType,
         if (timeToComplete != null) 'time_to_complete': timeToComplete,
       },
       userProfile: userProfile,
     );
+
+    if (userProfile != null && userProfile.isResearchParticipant) {
+      final rs = ResearchFirestoreService.instance;
+      final sid = await rs.ensureStudyId(userProfile);
+      if (sid != null) {
+        await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+        final slug = avsUploadType ?? 'unknown';
+        await ResearchAppActivityService.instance.recordAvsUploadActivity(
+          studyId: sid,
+          avsUploadType: slug,
+        );
+      }
+    }
   }
 
   Future<void> logVisitSummaryViewed({
@@ -1550,6 +1703,11 @@ class AnalyticsService {
   Future<void> logProviderReviewSubmitted({
     required String providerId,
     int? rating,
+    bool? feltHeard,
+    bool? feltRespected,
+    bool? explainedClearly,
+    bool? hasWhatWentWell,
+    int? reviewTextLength,
     UserProfile? userProfile,
   }) async {
     await logEvent(
@@ -1558,9 +1716,59 @@ class AnalyticsService {
       parameters: {
         'provider_id': providerId,
         if (rating != null) 'rating': rating,
+        if (feltHeard != null) 'felt_heard': feltHeard,
+        if (feltRespected != null) 'felt_respected': feltRespected,
+        if (explainedClearly != null) 'explained_clearly': explainedClearly,
+        if (hasWhatWentWell != null) 'has_what_went_well': hasWhatWentWell,
+        if (reviewTextLength != null) 'review_text_length': reviewTextLength,
       },
       userProfile: userProfile,
     );
+
+    if (userProfile != null && userProfile.isResearchParticipant) {
+      final rs = ResearchFirestoreService.instance;
+      final sid = await rs.ensureStudyId(userProfile);
+      if (sid != null) {
+        await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+        await ResearchAppActivityService.instance.recordProviderReviewActivity(
+          studyId: sid,
+          providerReviewActivity: 1,
+        );
+      }
+    }
+  }
+
+  Future<void> logProviderListingReportSubmitted({
+    required String providerId,
+    required String reasonCategory,
+    String? reasonCategoryLabel,
+    required bool hasDetails,
+    UserProfile? userProfile,
+  }) async {
+    await logEvent(
+      eventName: 'provider_listing_report_submitted',
+      feature: 'provider-search',
+      parameters: {
+        'provider_id': providerId,
+        'reason_category': reasonCategory,
+        if (reasonCategoryLabel != null && reasonCategoryLabel.isNotEmpty)
+          'reason_category_label': reasonCategoryLabel,
+        'has_details': hasDetails,
+      },
+      userProfile: userProfile,
+    );
+
+    if (userProfile != null && userProfile.isResearchParticipant) {
+      final rs = ResearchFirestoreService.instance;
+      final sid = await rs.ensureStudyId(userProfile);
+      if (sid != null) {
+        await rs.syncParticipantAndBaseline(studyId: sid, profile: userProfile);
+        await ResearchAppActivityService.instance.recordProviderReviewActivity(
+          studyId: sid,
+          providerReviewActivity: 2,
+        );
+      }
+    }
   }
 
   Future<void> logProviderSelectedSuccess({
@@ -1745,6 +1953,7 @@ class AnalyticsService {
     int? knowNextStepScore,
     int? confidenceScore,
     UserProfile? userProfile,
+    String? researchContentType,
   }) async {
     // Save to specialized micro_measures collection
     await saveMicroMeasure(
@@ -1754,6 +1963,7 @@ class AnalyticsService {
       knowNextStepScore: knowNextStepScore,
       confidenceScore: confidenceScore,
       userProfile: userProfile,
+      researchContentType: researchContentType,
     );
   }
 
@@ -1775,6 +1985,7 @@ class AnalyticsService {
 
   Future<void> logMilestoneCheckinSubmitted({
     String? phase,
+    int? milestoneType,
     bool? hadHealthQuestion,
     bool? feltClearOnNextStep,
     bool? appHelpedTakeNextStep,
@@ -1783,6 +1994,7 @@ class AnalyticsService {
     // Save to specialized milestone_checkins collection
     await saveMilestoneCheckin(
       phase: phase,
+      milestoneType: milestoneType,
       hadHealthQuestion: hadHealthQuestion,
       feltClearOnNextStep: feltClearOnNextStep,
       appHelpedTakeNextStep: appHelpedTakeNextStep,

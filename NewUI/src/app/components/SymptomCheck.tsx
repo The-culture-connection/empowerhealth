@@ -49,7 +49,7 @@ export function SymptomCheck() {
 
         {/* Header - Journal style */}
         <div className="mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-[#2a2435] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 mb-4 shadow-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#faf8f4] dark:bg-[#2a2435] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 mb-4 shadow-sm">
             <div className="w-1.5 h-1.5 rounded-full bg-[#d4a574]"></div>
             <span className="text-[#75657d] dark:text-[#cbbec9] text-xs tracking-[0.03em] font-light">Daily check-in</span>
           </div>
@@ -58,7 +58,7 @@ export function SymptomCheck() {
         </div>
 
         {/* Symptom Checklist - Like a journal page */}
-        <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-8 mb-6 shadow-[0_16px_48px_rgba(102,51,153,0.14),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
+        <div className="relative bg-[#faf8f4] dark:bg-[#2a2435] rounded-[24px] p-8 mb-6 shadow-[0_16px_48px_rgba(102,51,153,0.14),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
           {/* Subtle page-like lines */}
           <div className="absolute left-8 top-0 bottom-0 w-px bg-[#e8e0f0] dark:bg-[#3a3043] opacity-30"></div>
           
@@ -102,7 +102,7 @@ export function SymptomCheck() {
         </div>
 
         {/* Additional Notes - Optional writing space */}
-        <div className="relative bg-white dark:bg-[#2a2435] rounded-[24px] p-8 mb-6 shadow-[0_16px_48px_rgba(102,51,153,0.14),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
+        <div className="relative bg-[#faf8f4] dark:bg-[#2a2435] rounded-[24px] p-8 mb-6 shadow-[0_16px_48px_rgba(102,51,153,0.14),_inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.4)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 transition-all duration-500">
           <h3 className="text-[#663399] dark:text-[#cbbec9] text-[11px] uppercase tracking-[0.08em] mb-4 font-medium">Anything else?</h3>
           <p className="text-[#75657d] dark:text-[#cbbec9] text-sm font-light mb-4 leading-relaxed">
             Share any details that feel important. This is optional.
@@ -121,7 +121,7 @@ export function SymptomCheck() {
             Save check-in
           </button>
           
-          <button className="w-full py-4 px-6 rounded-[18px] bg-white dark:bg-[#2a2435] text-[#75657d] dark:text-[#cbbec9] text-[15px] font-light shadow-[0_8px_32px_rgba(102,51,153,0.1)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 hover:shadow-[0_12px_48px_rgba(102,51,153,0.14)] hover:translate-y-[-2px] transition-all duration-300 tracking-[-0.005em]">
+          <button className="w-full py-4 px-6 rounded-[18px] bg-[#faf8f4] dark:bg-[#2a2435] text-[#75657d] dark:text-[#cbbec9] text-[15px] font-light shadow-[0_8px_32px_rgba(102,51,153,0.1)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] border border-[#e8e0f0]/40 dark:border-[#3a3043]/40 hover:shadow-[0_12px_48px_rgba(102,51,153,0.14)] hover:translate-y-[-2px] transition-all duration-300 tracking-[-0.005em]">
             Skip for today
           </button>
         </div>

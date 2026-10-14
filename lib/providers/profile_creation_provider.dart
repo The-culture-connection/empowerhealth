@@ -8,6 +8,7 @@ class ProfileCreationProvider extends ChangeNotifier {
   String username = '';
   int age = 18;
   bool isPregnant = false;
+  String? recruitmentSource;
   DateTime? dueDate;
   bool isPostpartum = false;
   DateTime? deliveryDate;
@@ -16,6 +17,9 @@ class ProfileCreationProvider extends ChangeNotifier {
   String city = '';
   String state = 'OH'; // Default to Ohio
   String insuranceType = '';
+
+  /// Opt-in on Basic Information (step 1); drives `UserProfile.isResearchParticipant`.
+  bool enrollInResearchStudy = false;
 
   // Demographics
   String? raceEthnicity;
@@ -75,11 +79,17 @@ class ProfileCreationProvider extends ChangeNotifier {
     }
   }
 
+  void updateEnrollInResearchStudy(bool value) {
+    enrollInResearchStudy = value;
+    notifyListeners();
+  }
+
   // Update methods
   void updateBasicInfo({
     String? username,
     int? age,
     bool? isPregnant,
+    String? recruitmentSource,
     DateTime? dueDate,
     bool? isPostpartum,
     DateTime? deliveryDate,
@@ -91,6 +101,7 @@ class ProfileCreationProvider extends ChangeNotifier {
   }) {
     if (username != null) this.username = username;
     if (age != null) this.age = age;
+    if (recruitmentSource != null) this.recruitmentSource = recruitmentSource;
     if (isPregnant != null) {
       this.isPregnant = isPregnant;
       if (isPregnant) {
@@ -103,7 +114,7 @@ class ProfileCreationProvider extends ChangeNotifier {
       this.dueDate = dueDate;
       // Auto-update pregnancy stage when due date changes
       if (isPregnant ?? this.isPregnant) {
-        this.pregnancyStage = _calculateTrimester(dueDate);
+        pregnancyStage = _calculateTrimester(dueDate);
       }
     }
     if (isPostpartum != null) {
@@ -215,6 +226,8 @@ class ProfileCreationProvider extends ChangeNotifier {
       username: username,
       age: age,
       isPregnant: isPregnant,
+      recruitmentSource: recruitmentSource,
+      isResearchParticipant: enrollInResearchStudy,
       dueDate: dueDate,
       isPostpartum: isPostpartum,
       deliveryDate: deliveryDate,
@@ -252,6 +265,8 @@ class ProfileCreationProvider extends ChangeNotifier {
     _currentStep = 0;
     username = '';
     age = 18;
+    enrollInResearchStudy = false;
+    recruitmentSource = null;
     isPregnant = false;
     dueDate = null;
     isPostpartum = false;

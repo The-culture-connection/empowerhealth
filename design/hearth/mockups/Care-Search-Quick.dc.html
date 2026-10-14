@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Search providers</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 2100px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="padding: 64px 20px 8px; display: flex; flex-direction: column; gap: 16px">
+<a href="Care-Search.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; font-weight: 400">Search providers</h1>
+</div>
+</header>
+
+<div style="padding: 16px 20px 32px; display: flex; flex-direction: column; gap: 20px">
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">ZIP 45202 · 10 mi · Cincinnati · All plans · 1 cultural tag(s)</p>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">Search by provider name or type (both optional). Leave blank to see everyone nearby.</p>
+</div>
+
+<div style="display: flex; gap: 10px; align-items: center">
+<label style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 54px; box-sizing: border-box; padding: 0 16px; background: #FAF8F4; border: 2px solid #663399; border-radius: 999px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="11" cy="11" r="6"></circle><path d="M20 20l-4.5-4.5"></path></svg>
+<input type="search" aria-label="Search by name or type" placeholder="Search by name or type (optional)…" value="nurse" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 15px; color: #2D2733">
+</label>
+<button style="flex: none; height: 52px; padding: 0 22px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Search</button>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; color: #4A3F52">Suggestions</h2>
+<div style="display: flex; flex-direction: column; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px; overflow: hidden">
+<a href="#" style="display: flex; align-items: center; min-height: 48px; box-sizing: border-box; padding: 11px 16px; font-size: 15px; line-height: 22px; color: #2D2733; border-bottom: 1px solid #E6D5B8">Certified Registered Nurse Anesthetist Individual</a>
+<a href="#" style="display: flex; align-items: center; min-height: 48px; box-sizing: border-box; padding: 11px 16px; font-size: 15px; line-height: 22px; color: #2D2733; border-bottom: 1px solid #E6D5B8">Clinical Nurse Specialist Individual</a>
+<a href="#" style="display: flex; align-items: center; min-height: 48px; box-sizing: border-box; padding: 11px 16px; font-size: 15px; line-height: 22px; color: #2D2733; border-bottom: 1px solid #E6D5B8">Non-agency Nurse -- Rn Or Lpn</a>
+<a href="#" style="display: flex; align-items: center; min-height: 48px; box-sizing: border-box; padding: 11px 16px; font-size: 15px; line-height: 22px; color: #2D2733; border-bottom: 1px solid #E6D5B8">Nurse Midwife Individual</a>
+<a href="#" style="display: flex; align-items: center; min-height: 48px; box-sizing: border-box; padding: 11px 16px; font-size: 15px; line-height: 22px; color: #2D2733">Nurse Practitioner Individual</a>
+</div>
+</section>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="q-zip" style="font-size: 14px; line-height: 20px; font-weight: 600">ZIP</label>
+<input id="q-zip" type="text" inputmode="numeric" maxlength="5" value="45202" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="q-city" style="font-size: 14px; line-height: 20px; font-weight: 600">City</label>
+<input id="q-city" type="text" value="Cincinnati" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="q-plan" style="font-size: 14px; line-height: 20px; font-weight: 600">Insurance / plan</label>
+<button id="q-plan" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; font-size: 15px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">All plans<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="q-radius" style="font-size: 14px; line-height: 20px; font-weight: 600">Radius</label>
+<button id="q-radius" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; font-size: 15px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">10 mi<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+</div>
+
+<div style="display: flex; gap: 14px; align-items: center">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<span id="q-mama" style="font-size: 16px; line-height: 22px; font-weight: 700">Mama Approved™ only</span>
+<span style="font-size: 13px; line-height: 18px; color: #6B5C75">3+ reviews averaging 4 stars or higher from moms in our community.</span>
+</div>
+<button role="switch" aria-checked="false" aria-labelledby="q-mama" style="flex: none; width: 52px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center"><span style="width: 52px; height: 32px; box-sizing: border-box; padding: 3px; border-radius: 999px; background: #E6D5B8; display: flex; align-items: center; justify-content: flex-start"><span style="width: 26px; height: 26px; border-radius: 50%; background: #FAF8F4"></span></span></button>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="q-spec" style="font-size: 14px; line-height: 20px; font-weight: 600">Specialty (optional)</label>
+<input id="q-spec" type="text" placeholder="e.g. high-risk pregnancy" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 8px">
+<button aria-expanded="true" style="width: 100%; min-height: 44px; padding: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; border: 0; background: transparent; font-size: 14px; line-height: 20px; font-weight: 600; color: #2D2733">Race/ethnicity, language &amp; cultural tags<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 15l6-6 6 6"></path></svg></button>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #4A3F52">Cultural / identity</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button aria-pressed="true" style="display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 15px; border-radius: 999px; background: #EFE0C6; border: 2px solid #663399; color: #663399; font-size: 14px; font-weight: 700"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Black / African American</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Latina/o/x</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Asian / Pacific Islander</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Native American / Indigenous</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Middle Eastern / North African</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Haitian</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Nigerian</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Somali</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Spanish-speaking</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Arabic-speaking</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">French-speaking</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">LGBTQ+ affirming</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Cultural competency certified</button>
+</div>
+<p style="margin: 8px 0 0; font-size: 13px; line-height: 18px; color: #4A3F52">Language</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Spanish</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Arabic</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">French</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Haitian Creole</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Somali</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Mandarin</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Vietnamese</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Tagalog</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Portuguese</button>
+<button style="height: 44px; padding: 0 16px; border-radius: 999px; background: #FAF8F4; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600">Russian</button>
+</div>
+</section>
+
+<a href="Care-Search-Form.dc.html" style="box-sizing: border-box; height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1.5px solid #663399; border-radius: 999px; background: transparent; color: #663399; font-size: 16px; font-weight: 700"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg>Expanded search (all filters)</a>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2100}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

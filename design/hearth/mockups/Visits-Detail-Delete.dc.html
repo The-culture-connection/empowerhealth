@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Delete this summary?</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; background: #8E8794; font-family: 'Figtree', system-ui, sans-serif; color: #2D2733">
+<div role="alertdialog" aria-labelledby="del-title" aria-describedby="del-body" style="display: flex; flex-direction: column; gap: 14px; padding: 24px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 28px">
+<h1 id="del-title" style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Delete this summary?</h1>
+<p id="del-body" style="margin: 0; font-size: 15px; line-height: 22px; color: #4A3F52">This removes the plain-language summary and your uploaded file record from your account. To-dos created from this visit are removed when possible; you can archive any that remain from Learning.</p>
+<div style="display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-top: 6px">
+<button style="min-height: 44px; padding: 0 8px; border: 0; background: transparent; font-size: 16px; font-weight: 700; color: #663399">Cancel</button>
+<button style="height: 52px; padding: 0 28px; border: 1.5px solid #2D2733; border-radius: 999px; background: transparent; color: #2D2733; font-size: 16px; font-weight: 700">Delete</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

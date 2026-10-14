@@ -14,6 +14,8 @@ export default defineConfig({
     alias: {
       // Alias @ to the src directory
       '@': path.resolve(__dirname, './src'),
+      // Shared research schema (same module compiled into admin Cloud Functions)
+      '@research': path.resolve(__dirname, './functions/src/research'),
     },
   },
 

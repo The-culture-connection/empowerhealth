@@ -18,6 +18,13 @@ import { NewPost } from "./components/NewPost";
 import { SymptomCheck } from "./components/SymptomCheck";
 import { CarePlan } from "./components/CarePlan";
 import { CareNavigationSurvey } from "./components/CareNavigationSurvey";
+import { MyVisits } from "./components/MyVisits";
+import { VisitDetail } from "./components/VisitDetail";
+import { UploadVisitSummary } from "./components/UploadVisitSummary";
+import { BirthPlanBuilder } from "./components/BirthPlanBuilder";
+import { KnowYourRights } from "./components/KnowYourRights";
+import { VisitSummarySimplified } from "./components/VisitSummarySimplified";
+import { PregnancyJourney } from "./components/PregnancyJourney";
 
 export const router = createBrowserRouter([
   {
@@ -28,7 +35,9 @@ export const router = createBrowserRouter([
       { path: "learning", Component: Learning },
       { path: "learning/:moduleId", Component: LearningModuleDetail },
       { path: "after-visit", Component: AfterVisit },
+      { path: "birth-plan-builder", Component: BirthPlanBuilder },
       { path: "birth-plan", Component: BirthPlan },
+      { path: "birth-plan/:planId", Component: BirthPlan },
       { path: "journal", Component: Journal },
       { path: "community", Component: Community },
       { path: "community/new", Component: NewPost },
@@ -42,6 +51,12 @@ export const router = createBrowserRouter([
       { path: "symptom-check", Component: SymptomCheck },
       { path: "care-plan", Component: CarePlan },
       { path: "care-check-in", Component: CareNavigationSurvey },
+      { path: "my-visits", Component: MyVisits },
+      { path: "my-visits/upload", Component: UploadVisitSummary },
+      { path: "my-visits/:visitId", Component: VisitDetail },
+      { path: "my-visits/:visitId/summary", Component: VisitSummarySimplified },
+      { path: "know-your-rights", Component: KnowYourRights },
+      { path: "pregnancy-journey", Component: PregnancyJourney },
     ],
   },
 ]);

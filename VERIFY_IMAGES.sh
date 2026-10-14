@@ -45,3 +45,5 @@ fi
 echo ""
 echo "💡 To make this script executable, run:"
 echo "   chmod +x VERIFY_IMAGES.sh"
+
+

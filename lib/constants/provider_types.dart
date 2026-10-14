@@ -142,8 +142,8 @@ class ProviderTypes {
     return {
       'passed': passed,
       'message': passed 
-        ? '✅ "$displayName" → "$expectedId"'
-        : '❌ "$displayName" → expected "$expectedId" but got "$actualId"',
+        ? '"$displayName" → "$expectedId"'
+        : '"$displayName" → expected "$expectedId" but got "$actualId"',
     };
   }
 

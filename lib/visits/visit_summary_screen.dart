@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/text_cleanup.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,9 +8,12 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'dart:io';
 import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
+import '../services/research/research_firestore_service.dart';
 import '../models/user_profile.dart';
+import '../research/post_visit_summary_rating_modal.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/ai_disclaimer_banner.dart';
+import '../widgets/trust_cue_banner.dart';
 
 class VisitSummaryScreen extends StatefulWidget {
   const VisitSummaryScreen({super.key});
@@ -44,6 +48,24 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
     super.initState();
     _loadUserProfile();
     _checkConsentAndShowPrivacyScreen();
+  }
+
+  Future<void> _maybePromptVisitSummaryMicroMeasure(String contentId, String contentType) async {
+    final p = _userProfile;
+    if (p == null || !p.isResearchParticipant || !mounted) return;
+    final sid = await ResearchFirestoreService.instance.ensureStudyId(p);
+    if (!mounted || sid == null) return;
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => PostVisitSummaryRatingModal(
+        studyId: sid,
+        contentId: contentId,
+        contentType: contentType,
+        headline: 'After your visit summary',
+      ),
+    );
   }
 
   Future<void> _checkConsentAndShowPrivacyScreen() async {
@@ -189,18 +211,18 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
       // Save to user's profile under visit_summaries subcollection
       final userId = _auth.currentUser!.uid;
       
-      // Normalize appointment date to UTC midnight to prevent timezone issues
+      // Same calendar date as picker, stored as noon UTC (avoids "day before" in US TZs)
       DateTime? normalizedDate;
       if (_selectedDate != null) {
-        // Create UTC date at midnight to match Firebase function behavior
         normalizedDate = DateTime.utc(
           _selectedDate!.year,
           _selectedDate!.month,
           _selectedDate!.day,
+          12,
         );
       }
       
-      await FirebaseFirestore.instance
+      final summaryDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('visit_summaries')
@@ -229,6 +251,8 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
         _generatedSummary = result['summary'];
         _isLoading = false;
       });
+
+      await _maybePromptVisitSummaryMicroMeasure(summaryDoc.id, 'visit_summary_notes');
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -244,16 +268,18 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Appointment Visit Summary'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Appointment Visit Summary'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const TrustCueBanner(
+              message: 'Visit summaries may include health information. They are stored securely for your account only.',
+              subMessage: 'Do not use this screen for emergencies. Call 911 or your care team.',
+            ),
+            const SizedBox(height: 16),
             // Header
             Text(
               'Upload Visit Summary',
@@ -397,7 +423,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.brandWhite,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: _isLoading
@@ -406,7 +432,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
                         ),
                       )
                     : const Text(
@@ -513,7 +539,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
               onPressed: _isLoading ? null : _generateSummary,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.brandPurple,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.brandWhite,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: _isLoading
@@ -522,7 +548,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
                       ),
                     )
                   : const Text(
@@ -551,7 +577,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.surfaceCard,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
@@ -568,11 +594,15 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
                       children: [
                         const Icon(Icons.medical_information, color: AppTheme.brandPurple),
                         const SizedBox(width: 8),
-                        const Text(
-                          'Your Visit Summary',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        const Flexible(
+                          child: Text(
+                            'Your Visit Summary',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -599,7 +629,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
                     ),
                     const Divider(height: 24),
                     MarkdownBody(
-                      data: _generatedSummary!,
+                      data: fixDoublePeriods(_generatedSummary!),
                       styleSheet: MarkdownStyleSheet(
                         h2: const TextStyle(
                           fontSize: 18,
@@ -646,11 +676,15 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
             children: [
               Icon(Icons.psychology, color: Colors.amber),
               SizedBox(width: 8),
-              Text(
-                'Emotional Analysis',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              Flexible(
+                child: Text(
+                  'Emotional Analysis',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -735,11 +769,8 @@ class PastSummariesScreen extends StatelessWidget {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Past Visit Summaries'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Past Visit Summaries'),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('visit_summaries')
@@ -813,7 +844,7 @@ class PastSummariesScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               MarkdownBody(
-            data: data['summary'] ?? '',
+            data: fixDoublePeriods(data['summary'] ?? ''),
             styleSheet: MarkdownStyleSheet(
               h2: const TextStyle(
                 fontSize: 16,

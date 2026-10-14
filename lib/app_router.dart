@@ -12,16 +12,19 @@ import 'assistant/assistant_screen.dart';
 import 'editprofile/edit_profile_screen.dart';
 import 'privacy/privacy_center_screen.dart';
 import 'privacy/consent_screen.dart';
-import 'Home/Appointments/appointments_screen.dart';
-import 'Home/Learning Modules/learning_modules_screen_v2.dart';
+import 'appointments/appointments_list_screen.dart';
+import 'learning/learning_route_gate.dart';
 import 'Home/Messages/Messages_screen.dart';
 import 'profile/profile_creation_screen.dart';
 import 'providers/provider_search_screen.dart';
 import 'providers/provider_search_entry_screen.dart';
-import 'providers/provider_search_results_screen.dart';
-import 'providers/provider_profile_screen.dart';
 import 'providers/add_provider_screen.dart';
 import 'care_survey/care_navigation_survey_screen.dart';
+import 'immediate_support/immediate_support_checkin_screen.dart';
+import 'resources/app_resources_screen.dart';
+import 'Home/pregnancy_journey_screen.dart';
+import 'Home/Learning Modules/rights_screen.dart';
+import 'beta/beta_checklist_screen.dart';
 
 class Routes {
   static const auth = '/auth';
@@ -50,12 +53,26 @@ class Routes {
   static const providerProfile = '/providers/profile';
   static const addProvider = '/providers/add';
   static const careSurvey = '/care-survey';
+  static const immediateSupport = '/immediate-support';
+  static const emotionalSupportCheckin = '/immediate-support';
+  static const resources = '/resources';
+  static const pregnancyJourney = '/pregnancy-journey';
+  static const rights = '/rights';
+  static const betaChecklist = '/beta-checklist';
 }
+
+/// Root navigator, for navigation that starts outside the widget tree
+/// (e.g. a tapped push notification).
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 class AppRouter {
   static String get auth => Routes.auth;
 
-  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+  // Pages carry their RouteSettings so the route name is known to observers.
+  static Route<dynamic> onGenerateRoute(RouteSettings settings) =>
+      MaterialPageRoute(builder: (_) => _screen(settings), settings: settings);
+
+  static Widget _screen(RouteSettings settings) {
     switch (settings.name) {
       case Routes.auth:
         return _page(const AuthScreen());
@@ -78,7 +95,10 @@ class AppRouter {
       case Routes.community:
         return _page(const CommunityScreen());
       case Routes.assistant:
-        return _page(const AssistantScreen());
+        final initialPrompt = settings.arguments is String
+            ? settings.arguments as String
+            : null;
+        return _page(AssistantScreen(initialPrompt: initialPrompt));
       case Routes.editProfile:
         return _page(const EditProfileScreen());
       case Routes.privacyCenter:
@@ -88,9 +108,9 @@ class AppRouter {
 
       // Home subroutes
       case Routes.appointments:
-        return _page(const AppointmentsScreen());
+        return _page(const AppointmentsListScreen());
       case Routes.learning:
-        return _page(const LearningModulesScreenV2());
+        return _page(const LearningRouteGate());
       case Routes.messages:
         return _page(const MessagesScreen());
       case Routes.providers:
@@ -101,10 +121,34 @@ class AppRouter {
         return _page(const AddProviderScreen());
       case Routes.careSurvey:
         return _page(const CareNavigationSurveyScreen());
+      case Routes.immediateSupport:
+      case Routes.emotionalSupportCheckin:
+        final entrySource = settings.arguments is String
+            ? settings.arguments as String
+            : 'route';
+        return _page(ImmediateSupportCheckInScreen(entrySource: entrySource));
+      case Routes.resources:
+        final args = settings.arguments;
+        String? highlightId;
+        String? category;
+        if (args is Map<String, dynamic>) {
+          highlightId = args['highlightResourceId'] as String?;
+          category = args['categoryFilter'] as String?;
+        }
+        return _page(AppResourcesScreen(
+          highlightResourceId: highlightId,
+          categoryFilter: category,
+        ));
+      case Routes.pregnancyJourney:
+        return _page(const PregnancyJourneyScreen());
+      case Routes.rights:
+        return _page(const RightsScreen());
+      case Routes.betaChecklist:
+        return _page(const BetaChecklistScreen());
       default:
         return _page(const AuthScreen());
     }
   }
 
-  static PageRoute _page(Widget child) => MaterialPageRoute(builder: (_) => child);
+  static Widget _page(Widget child) => child;
 }

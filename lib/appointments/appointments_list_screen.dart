@@ -1,193 +1,225 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import 'upload_visit_summary_screen.dart';
-import '../widgets/ai_disclaimer_banner.dart';
+import 'visit_detail_screen.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
+import '../immediate_support/widgets/immediate_support_home_card.dart';
+import 'visit_summary_preview.dart';
+import '../app_router.dart';
+import '../cors/main_navigation_scope.dart';
 
 class AppointmentsListScreen extends StatelessWidget {
   const AppointmentsListScreen({super.key});
-
-  Future<void> _logVisitSummaryViewed(String summaryId) async {
-    try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return;
-      final profile = await DatabaseService().getUserProfile(uid);
-      await AnalyticsService().logVisitSummaryViewed(
-        summaryId: summaryId,
-        userProfile: profile,
-      );
-    } catch (_) {}
-  }
 
   @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundWarm,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header (matching NewUI)
-              Padding(
-                padding: const EdgeInsets.all(24), // p-6
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
+          child: userId == null
+              ? Center(
+                  child: Text(
+                    'Sign in to see visit summaries',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 32),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 672),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            'After Visit Summary',
-                            style: TextStyle(
-                              fontSize: 24, // text-2xl
-                              fontWeight: FontWeight.w400, // font-normal
-                              color: AppTheme.textSecondary, // text-[#4a3f52]
+                          HearthPushedHeader(
+                            title: 'My Visits',
+                            subtitle: 'Summaries in plain language, newest first',
+                            actions: [
+                              _AddVisitButton(
+                                tooltip: 'Add visit summary',
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (context) =>
+                                          const UploadVisitSummaryScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                            child: ImmediateSupportHomeCard(
+                              entrySource: 'after_visit',
+                              compact: true,
                             ),
                           ),
-                          const SizedBox(height: 8), // mb-2
-                          Text(
-                            'Your visit explained in simple terms',
-                            style: TextStyle(
-                              fontSize: 14, // text-sm
-                              color: AppTheme.textLight, // text-[#8b7a95]
-                              fontWeight: FontWeight.w300, // font-light
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 1),
+                                  child: Icon(
+                                    Icons.favorite_border,
+                                    color: AppTheme.brandPurple,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Plain-language summaries to support you. Not medical advice.',
+                                    style: hearthCaptionStyle,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                          _VisitSummariesList(
+                            userId: userId,
+                            onOpenDetail: (summaryId, data) async {
+                              await logVisitSummaryViewed(summaryId);
+                              if (!context.mounted) return;
+                              await Navigator.push<void>(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (context) => VisitDetailScreen(
+                                    summaryId: summaryId,
+                                    data: data,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
                     ),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Color(0xFFD4C5E0),
-                            Color(0xFFA89CB5),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.add, color: Colors.white),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const UploadVisitSummaryScreen(),
-                            ),
-                          );
-                        },
-                        tooltip: 'Add Visit Summary',
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+      ),
+    );
+  }
+}
 
-              // Content
-              Expanded(
-                child: StreamBuilder<QuerySnapshot>(
+/// The header's add action: the one filled purple circle on this screen.
+class _AddVisitButton extends StatelessWidget {
+  const _AddVisitButton({required this.tooltip, required this.onPressed});
+
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.brandPurple,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: IconButton(
+        icon: const Icon(Icons.add, color: AppTheme.onPurple, size: 24),
+        onPressed: onPressed,
+        tooltip: tooltip,
+      ),
+    );
+  }
+}
+
+Future<void> logVisitSummaryViewed(String summaryId) async {
+  try {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final profile = await DatabaseService().getUserProfile(uid);
+    await AnalyticsService().logVisitSummaryViewed(
+      summaryId: summaryId,
+      userProfile: profile,
+    );
+  } catch (_) {}
+}
+
+class _VisitSummariesList extends StatelessWidget {
+  const _VisitSummariesList({
+    required this.userId,
+    required this.onOpenDetail,
+  });
+
+  final String? userId;
+  final Future<void> Function(String summaryId, Map<String, dynamic> data)
+      onOpenDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    if (userId == null) {
+      return Center(
+        child: Text(
+          'Sign in to see visit summaries',
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+      );
+    }
+    return StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('users')
                       .doc(userId)
                       .collection('visit_summaries')
-                      .orderBy('appointmentDate', descending: true)
+                      .orderBy('createdAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    if (snapshot.hasError ||
+                        !snapshot.hasData ||
+                        snapshot.data!.docs.isEmpty) {
+                      final text = Theme.of(context).textTheme;
                       return Center(
                         child: Padding(
-                          padding: const EdgeInsets.all(24.0),
+                          padding: const EdgeInsets.fromLTRB(20, 48, 20, 24),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Color(0xFF663399),
-                                      Color(0xFF8855BB),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(40),
-                                ),
-                                child: const Icon(
-                                  Icons.medical_information_outlined,
-                                  size: 40,
-                                  color: Colors.white,
-                                ),
+                              const HearthIconChip(
+                                Icons.add_box_outlined,
+                                size: 80,
+                                iconSize: 32,
                               ),
                               const SizedBox(height: 24),
                               Text(
-                                'No Visit Summaries Yet',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w400,
-                                  color: AppTheme.textSecondary,
-                                ),
+                                'No visits yet',
+                                textAlign: TextAlign.center,
+                                style: text.headlineMedium,
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Upload your first appointment summary to get started',
+                                'When you add an after-visit summary, it will show up here.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: AppTheme.textMuted,
-                                  fontWeight: FontWeight.w300,
-                                ),
+                                style: text.bodyLarge,
                               ),
                               const SizedBox(height: 24),
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Color(0xFFD4C5E0),
-                                      Color(0xFFA89CB5),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                child: ElevatedButton.icon(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => const UploadVisitSummaryScreen(),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.add, color: Colors.white),
-                                  label: const Text(
-                                    'Add Visit Summary',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 14,
+                              HearthButton.primary(
+                                expand: false,
+                                icon: Icons.add,
+                                label: 'Upload visit summary',
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const UploadVisitSummaryScreen(),
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(24),
-                                    ),
-                                  ),
-                                ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -281,16 +313,29 @@ class AppointmentsListScreen extends StatelessWidget {
                       }
                     }
                     
-                    // Sort by appointment date (most recent first)
+                    // Sort by most recently summarized (createdAt), then appointment date
                     uniqueDocs.sort((a, b) {
                       final aData = a.data() as Map<String, dynamic>;
                       final bData = b.data() as Map<String, dynamic>;
+                      final ac = aData['createdAt'];
+                      final bc = bData['createdAt'];
+                      DateTime? aCreated;
+                      DateTime? bCreated;
+                      if (ac is Timestamp) aCreated = ac.toDate();
+                      if (bc is Timestamp) bCreated = bc.toDate();
+                      if (aCreated != null && bCreated != null) {
+                        final c = bCreated.compareTo(aCreated);
+                        if (c != 0) return c;
+                      } else if (aCreated != null) {
+                        return -1;
+                      } else if (bCreated != null) {
+                        return 1;
+                      }
+
                       final aDate = aData['appointmentDate'];
                       final bDate = bData['appointmentDate'];
-                      
                       DateTime? aTime;
                       DateTime? bTime;
-                      
                       if (aDate is Timestamp) {
                         aTime = aDate.toDate();
                       } else if (aDate is String) {
@@ -300,7 +345,6 @@ class AppointmentsListScreen extends StatelessWidget {
                           aTime = DateTime(1970);
                         }
                       }
-                      
                       if (bDate is Timestamp) {
                         bTime = bDate.toDate();
                       } else if (bDate is String) {
@@ -310,476 +354,427 @@ class AppointmentsListScreen extends StatelessWidget {
                           bTime = DateTime(1970);
                         }
                       }
-                      
                       if (aTime == null && bTime == null) return 0;
                       if (aTime == null) return 1;
                       if (bTime == null) return -1;
-                      return bTime.compareTo(aTime); // Descending
+                      return bTime.compareTo(aTime);
                     });
-                    
-                    return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 24), // px-6
-                      itemCount: uniqueDocs.length,
-                      itemBuilder: (context, index) {
-                        final doc = uniqueDocs[index];
-                        final data = doc.data() as Map<String, dynamic>;
-                        final appointmentDate = data['appointmentDate'];
-                        // Prefer formatted summary string, fallback to summaryData if needed
-                        final summary = data['summary'] is String && (data['summary'] as String).isNotEmpty
-                            ? data['summary'] as String
-                            : (data['summaryData'] is Map
-                                ? _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>)
-                                : (data['summary']?.toString() ?? null));
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 20), // space-y-5
-                          padding: const EdgeInsets.all(24), // p-6
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(32), // rounded-[32px]
-                            border: Border.all(
-                              color: AppTheme.borderLighter.withOpacity(0.5),
+                    final latestDoc =
+                        uniqueDocs.isNotEmpty ? uniqueDocs.first : null;
+                    final pastDocs = uniqueDocs.length > 1
+                        ? uniqueDocs.sublist(1)
+                        : <DocumentSnapshot>[];
+
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (latestDoc != null) ...[
+                            const Padding(
+                              padding: EdgeInsets.only(top: 24, bottom: 14),
+                              child: HearthSectionHeading('Most recent visit'),
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 24,
-                                offset: const Offset(0, 4),
+                            _MostRecentVisitCard(
+                              doc: latestDoc,
+                              onOpen: onOpenDetail,
+                            ),
+                          ],
+                          const Padding(
+                            padding: EdgeInsets.only(top: 24, bottom: 14),
+                            child: HearthSectionHeading('Past visits'),
+                          ),
+                          if (pastDocs.isEmpty && latestDoc != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                'No older visits yet.',
+                                style: hearthCardBodyStyle,
                               ),
-                            ],
-                          ),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(32),
-                            onTap: () async {
-                              await _logVisitSummaryViewed(doc.id);
-                              if (!context.mounted) return;
-                              _showSummaryDialog(context, doc.id, data);
-                            },
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 48, // w-12
-                                  height: 48, // h-12
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Color(0xFFE8E0F0), // from-[#e8e0f0]
-                                        Color(0xFFEDE7F3), // to-[#ede7f3]
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(20), // rounded-[20px]
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    Icons.medical_information,
-                                    color: Color(0xFF8B7AA8), // text-[#8b7aa8]
-                                    size: 20, // w-5 h-5
-                                  ),
-                                ),
-                                const SizedBox(width: 16), // gap-4
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Visit on ${_formatDate(appointmentDate)}',
-                                        style: TextStyle(
-                                          fontSize: 16, // text-base
-                                          fontWeight: FontWeight.w400, // font-normal
-                                          color: Color(0xFF2D2733), // text-[#2d2733]
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4), // mb-1
-                                      Text(
-                                        data['readingLevel'] ?? '6th grade level',
-                                        style: TextStyle(
-                                          fontSize: 12, // text-xs
-                                          color: Color(0xFF9D8FB5), // text-[#9d8fb5]
-                                          fontWeight: FontWeight.w300, // font-light
-                                        ),
-                                      ),
-                                      if (summary != null) ...[
-                                        const SizedBox(height: 8), // mb-2
-                                        Text(
-                                          _extractPreviewText(summary),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 14, // text-sm
-                                            color: Color(0xFF6B5C75), // text-[#6b5c75]
-                                            fontWeight: FontWeight.w300, // font-light
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.chevron_right,
-                                  color: Color(0xFFB5A8C2), // text-[#b5a8c2]
-                                  size: 20, // w-5 h-5
-                                ),
-                              ],
+                            ),
+                          ...pastDocs.map(
+                            (doc) => _PastVisitListTile(
+                              doc: doc,
+                              onOpenDetail: onOpenDetail,
                             ),
                           ),
-                        );
-                      },
+                          const SizedBox(height: 12),
+                          const _PastVisitNotesFooter(),
+                        ],
+                      ),
                     );
                   },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+                );
   }
+}
 
-  String _formatDate(dynamic date) {
-    if (date == null) return 'Unknown date';
-    if (date is Timestamp) {
-      final dt = date.toDate();
-      return DateFormat('MMMM d, yyyy').format(dt);
-    }
-    if (date is String) {
-      try {
-        final dt = DateTime.parse(date);
-        if (date.contains('T')) {
-          final dateOnly = date.split('T')[0];
-          final parts = dateOnly.split('-');
-          if (parts.length == 3) {
-            return DateFormat('MMMM d, yyyy').format(DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2])));
-          }
-        }
-        return DateFormat('MMMM d, yyyy').format(dt);
-      } catch (e) {
-        return date;
-      }
-    }
-    return date.toString();
-  }
+class _MostRecentVisitCard extends StatelessWidget {
+  const _MostRecentVisitCard({
+    required this.doc,
+    required this.onOpen,
+  });
 
-  String _formatSummaryFromMap(Map<String, dynamic> summaryMap) {
-    final buffer = StringBuffer();
-    
-    if (summaryMap['howBabyIsDoing'] != null) {
-      buffer.writeln('## How Your Baby Is Doing');
-      buffer.writeln(summaryMap['howBabyIsDoing']);
-      buffer.writeln();
-    }
-    
-    if (summaryMap['howYouAreDoing'] != null) {
-      buffer.writeln('## How You Are Doing');
-      buffer.writeln(summaryMap['howYouAreDoing']);
-      buffer.writeln();
-    }
-    
-    if (summaryMap['nextSteps'] != null) {
-      buffer.writeln('## Actions To Take');
-      buffer.writeln(summaryMap['nextSteps']);
-      buffer.writeln();
-    }
-    
-    if (summaryMap['followUpInstructions'] != null) {
-      buffer.writeln(summaryMap['followUpInstructions']);
-      buffer.writeln();
-    }
-    
-    if (summaryMap['keyMedicalTerms'] != null && 
-        summaryMap['keyMedicalTerms'] is List) {
-      buffer.writeln('## Key Medical Terms Explained');
-      for (final term in summaryMap['keyMedicalTerms'] as List) {
-        if (term is Map) {
-          buffer.writeln('**${term['term']}**: ${term['explanation']}');
-        }
-      }
-      buffer.writeln();
-    }
-    
-    if (summaryMap['questionsToAsk'] != null && 
-        summaryMap['questionsToAsk'] is List) {
-      buffer.writeln('## Questions to Ask at Your Next Visit');
-      for (int i = 0; i < (summaryMap['questionsToAsk'] as List).length; i++) {
-        buffer.writeln('${i + 1}. ${summaryMap['questionsToAsk'][i]}');
-      }
-      buffer.writeln();
-    }
-    
-    return buffer.toString();
-  }
+  final DocumentSnapshot doc;
+  final Future<void> Function(String summaryId, Map<String, dynamic> data)
+      onOpen;
 
-  String _extractActionsToTake(String? summary) {
-    if (summary == null) return 'No actions available';
-    
-    final actionsMatch = RegExp(r'## Actions To Take\n(.*?)(?=\n## |$)', dotAll: true)
-        .firstMatch(summary);
-    
-    if (actionsMatch != null) {
-      return actionsMatch.group(1)?.trim() ?? 'No actions available';
-    }
-    
-    final lines = summary.split('\n');
-    final firstSection = lines.takeWhile((line) => 
-      !line.startsWith('##') || line.startsWith('## Actions To Take')
-    ).join('\n');
-    
-    return firstSection.isNotEmpty ? firstSection : 'No actions available';
-  }
+  @override
+  Widget build(BuildContext context) {
+    final data = doc.data() as Map<String, dynamic>;
+    final appointmentDate = data['appointmentDate'];
+    final questions = _questionsFromSummaryData(data);
 
-  bool _hasActionsToTake(String? summary) {
-    if (summary == null) return false;
-    return summary.contains('## Actions To Take');
-  }
-
-  String _extractPreviewText(String? summary) {
-    if (summary == null) return '';
-    
-    final babyMatch = RegExp(r'## How Your Baby Is Doing\n(.*?)(?=\n## |$)', dotAll: true)
-        .firstMatch(summary);
-    if (babyMatch != null) {
-      final content = babyMatch.group(1)?.trim() ?? '';
-      final firstSentence = content.split('.').first;
-      if (firstSentence.length > 0 && firstSentence.length < 100) {
-        return firstSentence + '.';
-      }
-      return content.length > 100 ? content.substring(0, 100) + '...' : content;
-    }
-    
-    final lines = summary.split('\n');
-    for (final line in lines) {
-      if (line.trim().isNotEmpty && !line.startsWith('#')) {
-        return line.trim();
-      }
-    }
-    
-    return summary.split('\n').first.replaceAll('#', '').trim();
-  }
-
-  void _showSummaryDialog(
-    BuildContext context,
-    String summaryId,
-    Map<String, dynamic> data,
-  ) {
-    // Prefer formatted summary string, fallback to formatting summaryData if needed
-    String? summaryString;
-    
-    if (data['summary'] is String && (data['summary'] as String).isNotEmpty) {
-      // Use the formatted summary string
-      summaryString = data['summary'] as String;
-    } else if (data['summaryData'] is Map) {
-      // Format the raw summaryData Map
-      summaryString = _formatSummaryFromMap(data['summaryData'] as Map<String, dynamic>);
-    } else if (data['summary'] is Map) {
-      // Format if summary itself is a Map
-      summaryString = _formatSummaryFromMap(data['summary'] as Map<String, dynamic>);
-    } else if (data['summary'] != null) {
-      // Fallback to string representation
-      summaryString = data['summary'].toString();
-    }
-    
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return HearthCard(
+      onTap: () async => onOpen(doc.id, data),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
-                child: Row(
+              const HearthIconChip(Icons.calendar_today_outlined),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.medical_information, color: Colors.white),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Visit on ${_formatDate(data['appointmentDate'])}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+                    Text(
+                      _formatDateShort(appointmentDate),
+                      style: _visitDateStyle,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
+                    const SizedBox(height: 4),
+                    Text(
+                      _providerSubtitleLine(data),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: hearthCaptionStyle.copyWith(
+                        fontSize: 14,
+                        height: 20 / 14,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // AI Disclaimer Banner
-                      const AIDisclaimerBanner(
-                        customMessage: 'This summary helps you understand your visit.',
-                        customSubMessage: 'It does not replace medical advice from your provider.',
-                      ),
-                      const SizedBox(height: 16),
-                      if (summaryString != null) ...[
-                        const Text(
-                          'Actions To Take',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF663399),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        MarkdownBody(
-                          data: _extractActionsToTake(summaryString),
-                          styleSheet: MarkdownStyleSheet(
-                            p: const TextStyle(fontSize: 15, height: 1.6),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-                      
-                      if (data['learningModules'] != null && 
-                          (data['learningModules'] as List).isNotEmpty) ...[
-                        const Text(
-                          'Suggested Learning Topics',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF663399),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ...((data['learningModules'] as List).asMap().entries.map((entry) {
-                          final index = entry.key + 1;
-                          final module = entry.value as Map<String, dynamic>;
-                          final title = module['title'] ?? 'Learning Topic';
-                          final reason = module['reason'] ?? module['description'] ?? 'This is important based on your visit.';
-                          final hasContent = module['content'] != null;
-                          
-                          if (!hasContent) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                children: [
-                                  const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF663399)),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      '$index. $title (Generating...)',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        height: 1.6,
-                                        color: Colors.grey[600],
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                          
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              '$index. $title ($reason)',
-                              style: const TextStyle(fontSize: 15, height: 1.6),
-                            ),
-                          );
-                        })),
-                      ] else if (data['summary'] != null && 
-                          (data['learningModules'] == null || (data['learningModules'] as List).isEmpty)) ...[
-                        const Text(
-                          'Suggested Learning Topics',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF663399),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF663399)),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Generating personalized learning topics...',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Colors.grey[600],
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      
-                      if (summaryString != null && 
-                          !_hasActionsToTake(summaryString)) ...[
-                        const SizedBox(height: 16),
-                        MarkdownBody(
-                          data: summaryString,
-                          styleSheet: MarkdownStyleSheet(
-                            h2: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF663399),
-                            ),
-                            h3: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            p: const TextStyle(fontSize: 15, height: 1.6),
-                            listBullet: const TextStyle(
-                              fontSize: 15,
-                              color: Color(0xFF663399),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
             ],
           ),
+          if (questions.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: AppTheme.borderWarm),
+            const SizedBox(height: 14),
+            const Row(
+              children: [
+                Icon(
+                  Icons.chat_bubble_outline,
+                  size: 16,
+                  color: AppTheme.brandPurple,
+                ),
+                SizedBox(width: 8),
+                Text('Questions to ask', style: _cardLabelStyle),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...questions.take(2).map(
+                  (q) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _Dot(color: AppTheme.brandGold),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(q, style: hearthCardBodyStyle),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+          ],
+          _VisitLessonsSection(summaryId: doc.id),
+        ],
+      ),
+    );
+  }
+}
+
+/// Visit date on list cards: 17/24 bold ink.
+const TextStyle _visitDateStyle = TextStyle(
+  fontFamily: AppTheme.sansFamily,
+  fontSize: 17,
+  height: 24 / 17,
+  fontWeight: FontWeight.w700,
+  color: AppTheme.ink,
+);
+
+/// Small purple label inside a card ("Questions to ask").
+const TextStyle _cardLabelStyle = TextStyle(
+  fontFamily: AppTheme.sansFamily,
+  fontSize: 13,
+  height: 20 / 13,
+  fontWeight: FontWeight.w700,
+  color: AppTheme.brandPurple,
+);
+
+/// 6px bullet, nudged down to sit on the first line of 14/21 text.
+class _Dot extends StatelessWidget {
+  const _Dot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: SizedBox(
+        width: 6,
+        height: 6,
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
       ),
     );
   }
 }
+
+/// Lessons the app generated from a visit summary, with a way to open them in
+/// the Learn tab (bottom tabs visible). Hidden when the visit has none.
+class _VisitLessonsSection extends StatefulWidget {
+  const _VisitLessonsSection({required this.summaryId, this.compact = false});
+
+  final String summaryId;
+  final bool compact;
+
+  @override
+  State<_VisitLessonsSection> createState() => _VisitLessonsSectionState();
+}
+
+class _VisitLessonsSectionState extends State<_VisitLessonsSection> {
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _lessons;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      // Equality filters only, so no composite index is needed.
+      _lessons = FirebaseFirestore.instance
+          .collection('learning_tasks')
+          .where('userId', isEqualTo: uid)
+          .where('visitSummaryId', isEqualTo: widget.summaryId)
+          .snapshots();
+    }
+  }
+
+  void _openLearn() {
+    if (!MainNavigationScope.goToTab(context, MainNavigationScope.tabLearn)) {
+      Navigator.pushNamed(context, Routes.learning);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stream = _lessons;
+    if (stream == null) return const SizedBox.shrink();
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final titles = (snapshot.data?.docs ?? const [])
+            .map((d) => d.data())
+            .where((d) => d['moduleType'] == 'visit_based' && d['isArchived'] != true)
+            .map((d) => (d['title'] ?? '').toString().trim())
+            .where((t) => t.isNotEmpty)
+            .toList();
+        if (titles.isEmpty) return const SizedBox.shrink();
+        final count = titles.length == 1 ? '1 lesson' : '${titles.length} lessons';
+        final openButton = HearthButton.text(
+          onPressed: _openLearn,
+          icon: Icons.school_outlined,
+          label: 'Open in Learn',
+        );
+        if (widget.compact) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                Text('$count from this visit', style: hearthCaptionStyle),
+                openButton,
+              ],
+            ),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: AppTheme.borderWarm),
+            const SizedBox(height: 14),
+            const Text('Lessons from this visit', style: _cardLabelStyle),
+            const SizedBox(height: 10),
+            ...titles.take(3).map(
+                  (t) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(t, style: hearthCardBodyStyle),
+                  ),
+                ),
+            if (titles.length > 3)
+              Text('and ${titles.length - 3} more', style: hearthCaptionStyle),
+            Align(alignment: Alignment.centerLeft, child: openButton),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PastVisitListTile extends StatelessWidget {
+  const _PastVisitListTile({
+    required this.doc,
+    required this.onOpenDetail,
+  });
+
+  final DocumentSnapshot doc;
+  final Future<void> Function(String summaryId, Map<String, dynamic> data)
+      onOpenDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = doc.data() as Map<String, dynamic>;
+    final appointmentDate = data['appointmentDate'];
+    final preview = previewLineFromVisitSummary(data);
+
+    return HearthCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      onTap: () async {
+        await onOpenDetail(doc.id, data);
+      },
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const HearthIconChip(Icons.description_outlined),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _formatDateShort(appointmentDate),
+                  style: _visitDateStyle,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Visit summary · ${data['readingLevel'] ?? '6th grade reading level'}',
+                  style: hearthCaptionStyle,
+                ),
+                if (preview != null && preview.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    preview,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: hearthCardBodyStyle,
+                  ),
+                ],
+                _VisitLessonsSection(summaryId: doc.id, compact: true),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(
+              Icons.chevron_right,
+              color: AppTheme.textSecondary,
+              size: 22,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PastVisitNotesFooter extends StatelessWidget {
+  const _PastVisitNotesFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return const HearthFeatureCard(
+      padding: EdgeInsets.all(18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          HearthIconChip(Icons.description_outlined, tone: HearthChipTone.surface),
+          SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Notes from past visits', style: hearthCardTitleStyle),
+                SizedBox(height: 4),
+                Text(
+                  'Your visit history helps you track your journey and prepare for future appointments.',
+                  style: hearthCardBodyStyle,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+List<String> _questionsFromSummaryData(Map<String, dynamic> data) {
+  final sd = data['summaryData'];
+  if (sd is! Map<String, dynamic>) return [];
+  final q = sd['questionsToAsk'];
+  if (q is List) {
+    return q
+        .map((e) => e.toString().trim())
+        .where((s) => s.isNotEmpty)
+        .take(3)
+        .toList();
+  }
+  if (q is String && q.trim().isNotEmpty) {
+    return [q.trim()];
+  }
+  return [];
+}
+
+String _providerSubtitleLine(Map<String, dynamic> data) {
+  final sd = data['summaryData'];
+  if (sd is Map<String, dynamic>) {
+    for (final key in ['providerName', 'doctorName', 'clinicianName']) {
+      final v = sd[key];
+      if (v != null && v.toString().trim().isNotEmpty) {
+        return v.toString().trim();
+      }
+    }
+  }
+  final top = data['providerName'];
+  if (top != null && top.toString().trim().isNotEmpty) {
+    return top.toString().trim();
+  }
+  final rl = data['readingLevel'] ?? '6th grade reading level';
+  return 'Visit summary · $rl';
+}
+
+/// Compact date for list rows (less calendar-heavy than long-form).
+String _formatDateShort(dynamic date) {
+  if (date == null) return 'Date not set';
+  if (date is Timestamp) {
+    return DateFormat('MMM d, yyyy').format(date.toDate());
+  }
+  if (date is String) {
+    try {
+      final dt = DateTime.parse(date);
+      return DateFormat('MMM d, yyyy').format(dt);
+    } catch (e) {
+      return date;
+    }
+  }
+  return date.toString();
+}
+

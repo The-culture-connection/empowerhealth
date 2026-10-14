@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../cors/ui_theme.dart';
 
 class AppointmentsScreen extends StatelessWidget {
   const AppointmentsScreen({super.key});
@@ -6,15 +7,8 @@ class AppointmentsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: const Text(
-            'Appointments',
-            style: TextStyle(fontSize: 20),
-          ),
-        ),
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Appointments'),
       body: Stack(
         fit: StackFit.expand,
         children: [

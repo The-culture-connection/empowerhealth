@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Add a Provider</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 2320px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="padding: 64px 20px 8px; display: flex; align-items: center; gap: 12px">
+<a href="#" aria-label="Back" style="flex: none; width: 44px; height: 44px; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+<span style="flex: 1; font-size: 14px; line-height: 20px; color: #4A3F52">Cancel</span>
+<button style="flex: none; height: 44px; padding: 0 24px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 15px; font-weight: 700">Submit</button>
+</header>
+
+<div style="padding: 12px 20px 32px; display: flex; flex-direction: column; gap: 16px">
+
+<section style="display: flex; flex-direction: column; gap: 8px; padding: 24px; background: #663399; border-radius: 24px; color: #FFFFFF">
+<h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; font-weight: 400">Add a Provider</h1>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #F5F1E8">Can't find your provider? Help other mothers by adding them to our community directory. We'll review and publish soon.</p>
+</section>
+
+<div style="display: flex; align-items: flex-start; gap: 12px; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6"></path><circle cx="12" cy="7.6" r=".6"></circle></svg>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 14px; line-height: 21px; font-weight: 700">Before you add:</p>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">Search carefully to avoid duplicates. Our team will verify the information before publishing.</p>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">All submissions go through a moderation process to ensure accuracy and safety.</p>
+</div>
+</div>
+
+<section style="margin-top: 8px; display: flex; flex-direction: column; gap: 16px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Basic Information</h2>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="ap-name" style="font-size: 14px; line-height: 20px; font-weight: 600">Provider Name <span style="color: #663399">*</span></label>
+<input id="ap-name" type="text" placeholder="Dr. Jane Smith or Smith Family Practice" value="Hollis Family Birth Center" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span id="ap-type-label" style="font-size: 14px; line-height: 20px; font-weight: 600">Provider Type <span style="color: #663399">*</span></span>
+<button type="button" aria-haspopup="listbox" aria-labelledby="ap-type-label" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 14px 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px"><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Free Standing Birth Center</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span id="ap-spec-label" style="font-size: 14px; line-height: 20px; font-weight: 600">Specialty <span style="color: #663399">*</span></span>
+<button type="button" aria-haspopup="listbox" aria-labelledby="ap-spec-label" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 14px 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px"><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Midwifery</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></button>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 16px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Location</h2>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="ap-street" style="font-size: 14px; line-height: 20px; font-weight: 600">Street Address <span style="color: #663399">*</span></label>
+<input id="ap-street" type="text" placeholder="123 Main Street" value="305 Sycamore Street" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="ap-city" style="font-size: 14px; line-height: 20px; font-weight: 600">City <span style="color: #663399">*</span></label>
+<input id="ap-city" type="text" placeholder="Cleveland" value="Cincinnati" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="ap-state" style="font-size: 14px; line-height: 20px; font-weight: 600">State</label>
+<input id="ap-state" type="text" value="Ohio" disabled="disabled" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #6B5C75; -webkit-text-fill-color: #6B5C75; opacity: 1; background: #EFE0C6; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="ap-zip" style="font-size: 14px; line-height: 20px; font-weight: 600">ZIP Code <span style="color: #663399">*</span></label>
+<input id="ap-zip" type="text" inputmode="numeric" maxlength="5" placeholder="44115" value="45202" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 16px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Contact Information (Optional)</h2>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">Help others contact this provider</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="ap-phone" style="font-size: 14px; line-height: 20px; font-weight: 600">Phone Number</label>
+<input id="ap-phone" type="tel" placeholder="(216) 555-0100" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="ap-email" style="font-size: 14px; line-height: 20px; font-weight: 600">Email</label>
+<input id="ap-email" type="email" placeholder="office@provider.com" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="ap-web" style="font-size: 14px; line-height: 20px; font-weight: 600">Website</label>
+<input id="ap-web" type="url" placeholder="www.provider.com" style="box-sizing: border-box; width: 100%; height: 52px; padding: 0 16px; font-size: 15px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400"><label for="ap-notes">Additional Notes (Optional)</label></h2>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">Share anything that might be helpful for other mothers</p>
+</div>
+<textarea id="ap-notes" rows="4" placeholder="Example: Accepts Medicaid, Spanish-speaking staff, evening appointments available..." style="box-sizing: border-box; width: 100%; height: 124px; padding: 14px 16px; resize: none; font-size: 15px; line-height: 22px; color: #2D2733; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px"></textarea>
+</section>
+
+<p style="margin: 0; padding: 16px; background: #EFE0C6; border-radius: 24px; font-size: 14px; line-height: 21px; font-weight: 500; color: #2D2733">Moderation process: All provider submissions are reviewed by our team to ensure accuracy and prevent spam. This usually takes 1-2 business days.</p>
+
+<button style="width: 100%; height: 52px; margin-top: 8px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Submit for Review</button>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2320}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

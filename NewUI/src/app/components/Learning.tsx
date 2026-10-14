@@ -11,6 +11,7 @@ export function Learning() {
       darkColor: "dark:from-[#3d3547] dark:to-[#4a4057]",
       iconColor: "text-[#8b7aa8] dark:text-[#b89fb5]",
       progress: 60,
+      link: "/learning/week-24",
     },
     {
       icon: Pill,
@@ -47,6 +48,7 @@ export function Learning() {
       darkColor: "dark:from-[#3d3547] dark:to-[#453d50]",
       iconColor: "text-[#9d8fb5] dark:text-[#b89fb5]",
       progress: 15,
+      link: "/know-your-rights",
     },
     {
       icon: Heart,
@@ -80,7 +82,7 @@ export function Learning() {
             
             <div className="relative">
               <div className="flex items-start gap-4 mb-5">
-                <div className="w-12 h-12 rounded-[20px] bg-white/60 dark:bg-[#3d3547]/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-[0_4px_16px_rgba(102,51,153,0.15)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-300">
+                <div className="w-12 h-12 rounded-[20px] bg-[#faf8f4]/80 dark:bg-[#3d3547]/60 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-[0_4px_16px_rgba(102,51,153,0.15)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-300">
                   <BookOpen className="w-6 h-6 text-[#663399] dark:text-[#b89fb5] stroke-[1.5] transition-colors" />
                 </div>
                 <div className="flex-1">
@@ -104,10 +106,14 @@ export function Learning() {
         <div className="space-y-3">
           {modules.map((module, index) => {
             const Icon = module.icon;
+            const ModuleWrapper = module.link ? Link : 'div';
+            const wrapperProps = module.link ? { to: module.link } : {};
+
             return (
-              <div
+              <ModuleWrapper
                 key={index}
-                className="bg-white dark:bg-[#2a2435] rounded-[28px] p-5 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#e8dfe8] dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 cursor-pointer"
+                {...wrapperProps}
+                className="block bg-[#faf8f4] dark:bg-[#2a2435] rounded-[28px] p-6 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#e8e0f0]/50 dark:border-[#3d3547] hover:shadow-[0_8px_32px_rgba(102,51,153,0.12)] dark:hover:shadow-[0_8px_32px_rgba(157,143,181,0.15)] hover:border-[#d4c5e0] dark:hover:border-[#4a4057] transition-all duration-300 cursor-pointer"
               >
                 <div className="flex items-start gap-4">
                   <div className={`w-12 h-12 rounded-[20px] bg-gradient-to-br ${module.lightColor} ${module.darkColor} flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-300`}>
@@ -135,7 +141,7 @@ export function Learning() {
                   </div>
                   <ChevronRight className="w-5 h-5 text-[#b5a8c2] dark:text-[#9d8fb5] stroke-[1.5] transition-colors" />
                 </div>
-              </div>
+              </ModuleWrapper>
             );
           })}
         </div>
@@ -144,7 +150,7 @@ export function Learning() {
       {/* Resources */}
       <section className="mb-6">
         <h2 className="mb-4 text-[#4a3f52] dark:text-[#c9bfd4] font-normal text-base tracking-wide transition-colors">Our approach</h2>
-        <div className="bg-gradient-to-br from-white via-[#fdfbfc] to-[#fef9f5] dark:from-[#2d2438] dark:via-[#2a2435] dark:to-[#2f2638] rounded-[28px] p-6 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#f0e8f3] dark:border-[#3d3547] transition-all duration-300">
+        <div className="bg-gradient-to-br from-[#faf8f4] via-[#fdfbfc] to-[#fef9f5] dark:from-[#2d2438] dark:via-[#2a2435] dark:to-[#2f2638] rounded-[28px] p-6 shadow-[0_4px_20px_rgba(102,51,153,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3)] border border-[#e8e0f0]/50 dark:border-[#3d3547] transition-all duration-300">
           <h3 className="mb-2 text-[#2d2733] dark:text-[#f5f0f7] font-normal transition-colors">Plain language promise</h3>
           <p className="text-sm text-[#6b5c75] dark:text-[#c9bfd4] font-light leading-relaxed transition-colors">
             All our content is written at a 6th grade reading level. No confusing medical jargon—just clear, supportive guidance that helps you understand your care.

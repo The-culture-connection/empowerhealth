@@ -6,6 +6,8 @@ import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/analytics_service.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
+import 'auth_error_messages.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -37,15 +39,18 @@ class _LoginScreenState extends State<LoginScreen> {
         title: const Text('Reset Password'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text('Enter your email address and we\'ll send you a password reset link.'),
             const SizedBox(height: 16),
-            TextField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                hintText: 'your.email@example.com',
+            _AuthField(
+              label: 'Email',
+              child: TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  hintText: 'your.email@example.com',
+                ),
               ),
             ),
           ],
@@ -62,15 +67,18 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
     );
-    
+
     if (result == true && emailController.text.isNotEmpty) {
       try {
-        await _authService.sendPasswordResetEmail(emailController.text.trim());
+        final email = emailController.text.trim();
+        await _authService.sendPasswordResetEmail(email);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Password reset email sent! Check your inbox.'),
-              backgroundColor: Colors.green,
+            SnackBar(
+              content: Text(
+                'We sent a reset link to $email. If you don\'t see it in a few minutes, check your spam or junk folder.',
+              ),
+              duration: const Duration(seconds: 8),
             ),
           );
         }
@@ -78,13 +86,21 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: ${e.toString()}'),
-              backgroundColor: AppTheme.error,
+              content: Text(AuthErrorMessages.forError(e)),
             ),
           );
         }
       }
     }
+  }
+
+  void _showAuthError(Object e, {String fallback = AuthErrorMessages.generic}) {
+    if (AuthErrorMessages.isUserCancellation(e)) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(AuthErrorMessages.forError(e, fallback: fallback)),
+      ),
+    );
   }
 
   Future<void> _signInWithGoogle() async {
@@ -110,12 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppTheme.error,
-          ),
-        );
+        _showAuthError(e, fallback: AuthErrorMessages.googleFailed);
       }
     } finally {
       if (mounted) {
@@ -147,12 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppTheme.error,
-          ),
-        );
+        _showAuthError(e, fallback: AuthErrorMessages.appleFailed);
       }
     } finally {
       if (mounted) {
@@ -195,12 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppTheme.error,
-          ),
-        );
+        _showAuthError(e);
       }
     } finally {
       if (mounted) {
@@ -211,45 +212,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return FeatureSessionScope(
       feature: 'authentication-onboarding',
       entrySource: 'login',
       child: Scaffold(
-      backgroundColor: AppTheme.backgroundWarm,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.white,
-              Color(0xFFF8F6F8), // #f8f6f8
-            ],
-          ),
-        ),
-        child: SafeArea(
+        backgroundColor: AppTheme.ground,
+        body: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
+              child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 400),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(32), // rounded-3xl
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 24,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: AppTheme.borderLight,
-                    width: 1,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(32), // p-8
+                child: HearthCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -260,205 +236,124 @@ class _LoginScreenState extends State<LoginScreen> {
                         Center(
                           child: Column(
                             children: [
-                              Container(
-                                width: 64,
-                                height: 64,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      AppTheme.brandPurple,
-                                      AppTheme.brandPurpleLight,
-                                    ],
-                                  ),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    '🤰',
-                                    style: TextStyle(fontSize: 32),
-                                  ),
-                                ),
+                              const HearthIconChip(
+                                Icons.favorite_border,
+                                size: 72,
+                                iconSize: 32,
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 'Welcome Back',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w400, // font-normal
-                                  color: AppTheme.textPrimary,
-                                ),
+                                textAlign: TextAlign.center,
+                                style: textTheme.displaySmall,
                               ),
                               const SizedBox(height: 8),
-                              Text(
+                              const Text(
                                 'Sign in to continue your journey',
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
+                                  fontFamily: AppTheme.sansFamily,
                                   fontSize: 14,
+                                  height: 21 / 14,
                                   color: AppTheme.textMuted,
-                                  fontWeight: FontWeight.w300, // font-light
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 24),
                         // Email field
-                        TextFormField(
-                          controller: _email,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
-                            labelText: 'Email',
-                            labelStyle: TextStyle(color: AppTheme.textMuted),
-                            filled: true,
-                            fillColor: Color(0xFFF9FAFB), // bg-gray-50
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24), // rounded-2xl
-                              borderSide: BorderSide(color: AppTheme.borderLight),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide(color: AppTheme.borderLight),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide(
-                                color: AppTheme.brandPurple.withOpacity(0.3),
-                                width: 2,
+                        _AuthField(
+                          label: 'Email',
+                          child: TextFormField(
+                            controller: _email,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              fillColor: AppTheme.surfaceInset,
+                              suffixIcon: IconButton(
+                                icon: const Icon(
+                                  Icons.keyboard_hide,
+                                  color: AppTheme.textMuted,
+                                  size: 20,
+                                ),
+                                onPressed: () => FocusScope.of(context).unfocus(),
+                                tooltip: 'Dismiss keyboard',
                               ),
                             ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                Icons.keyboard_hide,
-                                color: Colors.grey[400],
-                                size: 20,
-                              ),
-                              onPressed: () => FocusScope.of(context).unfocus(),
-                              tooltip: 'Dismiss keyboard',
-                            ),
+                            validator: (v) => (v == null || v.isEmpty) ? 'Enter your email' : null,
                           ),
-                          validator: (v) => (v == null || v.isEmpty) ? 'Enter your email' : null,
                         ),
                         const SizedBox(height: 16),
                         // Password field
-                        TextFormField(
-                          controller: _password,
-                          obscureText: true,
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            labelStyle: TextStyle(color: AppTheme.textMuted),
-                            filled: true,
-                            fillColor: Color(0xFFF9FAFB), // bg-gray-50
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24), // rounded-2xl
-                              borderSide: BorderSide(color: AppTheme.borderLight),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide(color: AppTheme.borderLight),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide(
-                                color: AppTheme.brandPurple.withOpacity(0.3),
-                                width: 2,
+                        _AuthField(
+                          label: 'Password',
+                          child: TextFormField(
+                            controller: _password,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              fillColor: AppTheme.surfaceInset,
+                              suffixIcon: IconButton(
+                                icon: const Icon(
+                                  Icons.keyboard_hide,
+                                  color: AppTheme.textMuted,
+                                  size: 20,
+                                ),
+                                onPressed: () => FocusScope.of(context).unfocus(),
+                                tooltip: 'Dismiss keyboard',
                               ),
                             ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                Icons.keyboard_hide,
-                                color: Colors.grey[400],
-                                size: 20,
-                              ),
-                              onPressed: () => FocusScope.of(context).unfocus(),
-                              tooltip: 'Dismiss keyboard',
-                            ),
+                            validator: (v) => (v == null || v.isEmpty) ? 'Enter your password' : null,
                           ),
-                          validator: (v) => (v == null || v.isEmpty) ? 'Enter your password' : null,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () => _showForgotPasswordDialog(),
                             style: TextButton.styleFrom(
                               foregroundColor: AppTheme.brandPurple,
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              textStyle: const TextStyle(
+                                fontFamily: AppTheme.sansFamily,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                            child: const Text(
-                              'Forgot password?',
-                              style: TextStyle(fontSize: 14),
-                            ),
+                            child: const Text('Forgot password?'),
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
                         // Login button
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppTheme.brandPurple,
-                                AppTheme.brandPurpleLight,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(24), // rounded-2xl
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.brandPurple.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _login,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : const Text(
-                                    'Sign In',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w400,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                          ),
+                        HearthButton.primary(
+                          label: 'Sign In',
+                          onPressed: _isLoading ? null : _login,
+                          loading: _isLoading,
                         ),
                         const SizedBox(height: 24),
                         // Divider
-                        Row(
+                        const Row(
                           children: [
                             Expanded(
                               child: Divider(
-                                color: AppTheme.borderLight,
+                                color: AppTheme.borderWarm,
                                 thickness: 1,
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding: EdgeInsets.symmetric(horizontal: 16),
                               child: Text(
                                 'or',
                                 style: TextStyle(
+                                  fontFamily: AppTheme.sansFamily,
                                   fontSize: 14,
+                                  height: 21 / 14,
                                   color: AppTheme.textMuted,
                                 ),
                               ),
                             ),
                             Expanded(
                               child: Divider(
-                                color: AppTheme.borderLight,
+                                color: AppTheme.borderWarm,
                                 thickness: 1,
                               ),
                             ),
@@ -466,59 +361,47 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 24),
                         // Google button
-                        OutlinedButton.icon(
+                        HearthButton.secondary(
+                          label: 'Continue with Google',
+                          icon: Icons.g_mobiledata,
                           onPressed: _isLoading ? null : _signInWithGoogle,
-                          icon: const Icon(Icons.g_mobiledata, size: 24),
-                          label: const Text('Continue with Google'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.textPrimary,
-                            side: BorderSide(color: AppTheme.borderLight),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
                         ),
                         const SizedBox(height: 12),
                         // Apple button
-                        OutlinedButton.icon(
+                        HearthButton.secondary(
+                          label: 'Continue with Apple',
+                          icon: Icons.apple,
                           onPressed: _isLoading ? null : _signInWithApple,
-                          icon: const Icon(Icons.apple, size: 24),
-                          label: const Text('Continue with Apple'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.textPrimary,
-                            side: BorderSide(color: AppTheme.borderLight),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
                         ),
                         const SizedBox(height: 24),
-                        // Sign up link
+                        // Sign up / terms link
                         Center(
                           child: TextButton(
-                            onPressed: () => Navigator.pushReplacementNamed(context, Routes.signup),
+                            onPressed: () => Navigator.pushReplacementNamed(context, Routes.terms),
                             style: TextButton.styleFrom(
                               foregroundColor: AppTheme.textMuted,
                             ),
-                            child: RichText(
-                              text: TextSpan(
+                            child: Text.rich(
+                              const TextSpan(
                                 style: TextStyle(
+                                  fontFamily: AppTheme.sansFamily,
                                   fontSize: 14,
+                                  height: 21 / 14,
+                                  fontWeight: FontWeight.w400,
                                   color: AppTheme.textMuted,
                                 ),
                                 children: [
-                                  const TextSpan(text: "Don't have an account? "),
+                                  TextSpan(text: "Don't have an account? "),
                                   TextSpan(
-                                    text: 'Sign up',
+                                    text: 'Review Terms & Sign up',
                                     style: TextStyle(
                                       color: AppTheme.brandPurple,
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ],
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ),
@@ -531,7 +414,27 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+/// Field label above its input, as Hearth forms show it.
+class _AuthField extends StatelessWidget {
+  const _AuthField({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
   }
 }

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — After your visit summary (rating)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; background: #8E8794; font-family: 'Figtree', system-ui, sans-serif; color: #2D2733">
+<div role="dialog" aria-labelledby="rate-title" style="display: flex; flex-direction: column; padding: 20px 24px 24px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 28px">
+
+<div style="display: flex; align-items: center; gap: 12px">
+<h1 id="rate-title" style="flex: 1; margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">After your visit summary</h1>
+<button aria-label="Close" style="flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%; border: 1px solid #E6D5B8; background: #F5F1E8; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<p style="margin: 6px 0 0; font-size: 14px; line-height: 21px; color: #4A3F52">Your answers help us learn whether the summary was clear and useful (1 = not at all, 5 = very much).</p>
+
+<div style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px">
+
+<div role="group" aria-labelledby="rate-q1" style="display: flex; flex-direction: column; gap: 8px">
+<p id="rate-q1" style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600">I understand what this means.</p>
+<div style="display: flex; justify-content: center; gap: 6px">
+<button aria-label="1 of 5" aria-pressed="true" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="2 of 5" aria-pressed="true" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="3 of 5" aria-pressed="true" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="4 of 5" aria-pressed="true" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="5 of 5" aria-pressed="true" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+</div>
+<p style="margin: 0; text-align: center; font-size: 13px; line-height: 18px; color: #6B5C75">5 of 5</p>
+</div>
+
+<div role="group" aria-labelledby="rate-q2" style="display: flex; flex-direction: column; gap: 8px">
+<p id="rate-q2" style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600">I know what I need to do next.</p>
+<div style="display: flex; justify-content: center; gap: 6px">
+<button aria-label="1 of 5" aria-pressed="true" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="2 of 5" aria-pressed="true" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="3 of 5" aria-pressed="true" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="4 of 5" aria-pressed="true" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="#D4A574" stroke="#8F5F33" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="5 of 5" aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#C4956A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+</div>
+<p style="margin: 0; text-align: center; font-size: 13px; line-height: 18px; color: #6B5C75">4 of 5</p>
+</div>
+
+<div role="group" aria-labelledby="rate-q3" style="display: flex; flex-direction: column; gap: 8px">
+<p id="rate-q3" style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600">I feel confident about my next steps.</p>
+<div style="display: flex; justify-content: center; gap: 6px">
+<button aria-label="1 of 5" aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#C4956A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="2 of 5" aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#C4956A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="3 of 5" aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#C4956A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="4 of 5" aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#C4956A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+<button aria-label="5 of 5" aria-pressed="false" style="width: 44px; height: 44px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#C4956A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"></path></svg></button>
+</div>
+<p style="margin: 0; text-align: center; font-size: 13px; line-height: 18px; color: #6B5C75">Tap stars to rate (1 = low, 5 = high)</p>
+</div>
+
+</div>
+
+<div style="display: flex; align-items: center; justify-content: space-between; margin-top: 24px">
+<button style="min-height: 44px; padding: 0 8px; border: 0; background: transparent; font-size: 16px; font-weight: 700; color: #663399">Skip</button>
+<button style="height: 52px; padding: 0 32px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Submit</button>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

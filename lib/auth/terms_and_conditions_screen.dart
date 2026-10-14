@@ -1,42 +1,55 @@
 import 'package:flutter/material.dart';
 import '../app_router.dart';
+import '../constants/legal_docs_urls.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 
 class TermsAndConditionsScreen extends StatelessWidget {
-  const TermsAndConditionsScreen({super.key});
+  const TermsAndConditionsScreen({
+    super.key,
+    this.onAccept,
+    this.acceptLabel = 'Accept',
+  });
+
+  /// Custom action for the Accept button. When null (default sign-up flow),
+  /// accepting routes to the sign-up screen. The guest-entry flow passes a
+  /// handler that signs in anonymously and enters the app.
+  final Future<void> Function(BuildContext context)? onAccept;
+
+  /// Label for the primary (accept) button.
+  final String acceptLabel;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Terms & Conditions'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: AppTheme.ground,
       body: Column(
         children: [
+          SafeArea(
+            bottom: false,
+            // Back shows only when there is a route to return to, as the
+            // app bar's implied leading did.
+            child: HearthPushedHeader(
+              title: 'Terms & Conditions',
+              showBack: Navigator.of(context).canPop(),
+              backTooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            ),
+          ),
           // Scrollable content
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'EmpowerHealth Watch – Terms and Conditions & End User License Agreement',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.brandPurple,
-                    ),
+                    'EmpowerHealth Watch: Terms and Conditions & End User License Agreement',
+                    style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Last Updated: ${DateTime.now().year}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: hearthCaptionStyle,
                   ),
                   const SizedBox(height: 24),
                   
@@ -80,7 +93,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                   
                   _buildSection(
                     '5. Intellectual Property',
-                    'All content in the App—including logos, graphics, text, audio, designs, health modules, and software—is owned by The Empowerment Foundation and protected by copyright and trademark law.',
+                    'All content in the App (including logos, graphics, text, audio, designs, health modules, and software) is owned by The Empowerment Foundation and protected by copyright and trademark law.',
                   ),
                   
                   _buildSection(
@@ -174,61 +187,75 @@ class TermsAndConditionsScreen extends StatelessWidget {
                     'Website: https://www.drcorinn.com',
                   ),
                   
+                  const Divider(color: AppTheme.borderWarm, height: 1, thickness: 1),
                   const SizedBox(height: 20),
+                  Text(
+                    'You can review the full Privacy Policy and additional legal documentation anytime on our website.',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: [
+                      TextButton(
+                        onPressed: () =>
+                            _openDocsSection(context, LegalDocsFragments.privacy),
+                        child: const Text('Privacy Policy'),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            _openDocsSection(context, LegalDocsFragments.terms),
+                        child: const Text('Terms of Service'),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            _openDocsSection(context, LegalDocsFragments.eula),
+                        child: const Text('EULA'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ),
           
           // Accept/Decline buttons outside scroll view
+          // A top border, not a shadow, separates the action bar (Hearth has
+          // no drop shadows).
           Container(
-            padding: const EdgeInsets.all(20.0),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            decoration: const BoxDecoration(
+              color: AppTheme.surface,
+              border: Border(top: BorderSide(color: AppTheme.borderWarm)),
             ),
             child: SafeArea(
+              top: false,
               child: Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: HearthButton.secondary(
+                      label: 'Decline',
                       onPressed: () {
                         // Decline - go back to auth screen
                         Navigator.of(context).pushReplacementNamed(Routes.auth);
                       },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: BorderSide(color: AppTheme.brandPurple),
-                      ),
-                      child: const Text(
-                        'Decline',
-                        style: TextStyle(fontSize: 16),
-                      ),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Accept - go to sign up screen
-                        Navigator.of(context).pushReplacementNamed(Routes.signup);
+                    child: HearthButton.primary(
+                      label: acceptLabel,
+                      onPressed: () async {
+                        if (onAccept != null) {
+                          await onAccept!(context);
+                        } else {
+                          // Accept - go to sign up screen
+                          Navigator.of(context)
+                              .pushReplacementNamed(Routes.signup);
+                        }
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.brandPurple,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: const Text(
-                        'Accept',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
                     ),
                   ),
                 ],
@@ -248,24 +275,36 @@ class TermsAndConditionsScreen extends StatelessWidget {
         children: [
           Text(
             title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.brandPurple,
+            style: const TextStyle(
+              fontFamily: AppTheme.sansFamily,
+              fontSize: 17,
+              height: 24 / 17,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.ink,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             content,
             style: const TextStyle(
-              fontSize: 14,
-              height: 1.5,
-              color: Colors.black87,
+              fontFamily: AppTheme.sansFamily,
+              fontSize: 15,
+              height: 22 / 15,
+              color: AppTheme.textSecondary,
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _openDocsSection(BuildContext context, String fragment) async {
+    if (!await launchLegalDocs(fragment)) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open documentation')),
+      );
+    }
   }
 }
 

@@ -159,17 +159,9 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundWarm,
-      appBar: AppBar(
-        title: Text(
-          'Birth Plan Creator',
-          style: TextStyle(
-            fontWeight: FontWeight.w400,
-            color: AppTheme.textSecondary,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: AppTheme.textSecondary,
-        elevation: 0,
+      appBar: AppTheme.newUiAppBar(
+        context,
+        title: 'Birth Plan Creator',
         actions: _generatedBirthPlan != null
             ? [
                 IconButton(
@@ -282,7 +274,7 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
               onPressed: _isLoading ? null : _generateBirthPlan,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.brandPurple,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.brandWhite,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: _isLoading
@@ -291,7 +283,7 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.brandWhite),
                       ),
                     )
                   : const Text(
@@ -306,7 +298,7 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.surfaceCard,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(

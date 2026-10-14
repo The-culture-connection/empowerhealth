@@ -74,11 +74,8 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Visit Summary'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Visit Summary'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -200,7 +197,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
                 onPressed: _isGenerating ? null : _generateSummary,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.brandWhite,
                 ),
                 child: _isGenerating
                     ? const SizedBox(
@@ -208,7 +205,7 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: AppTheme.surfaceCard,
                         ),
                       )
                     : const Text(
@@ -226,12 +223,16 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Your Visit Explained',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.brandPurple,
+                  Flexible(
+                    child: const Text(
+                      'Your Visit Explained',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.brandPurple,
+                      ),
                     ),
                   ),
                   Row(

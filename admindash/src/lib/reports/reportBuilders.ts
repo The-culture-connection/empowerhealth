@@ -65,6 +65,52 @@ function zeroInWhitelist(ev: NormalizedEvent[], whitelist: readonly string[]): s
   return whitelist.filter((n) => (counts.get(n) || 0) === 0);
 }
 
+/** Review + listing-report analytics (metadata from mobile `logEvent` payloads). */
+function providerPeerFeedbackFromEvents(ev: NormalizedEvent[]): {
+  lines: string[];
+  extraKpis: { key: string; label: string; value: string | number }[];
+} {
+  const rev = ev.filter((e) => e.eventName === "provider_review_submitted");
+  const rep = ev.filter((e) => e.eventName === "provider_listing_report_submitted");
+  const nRev = rev.length;
+  const nRep = rep.length;
+  const metaT = (e: NormalizedEvent, k: string) => e.metadata[k] === true;
+  const heard = rev.filter((e) => metaT(e, "felt_heard")).length;
+  const respected = rev.filter((e) => metaT(e, "felt_respected")).length;
+  const clear = rev.filter((e) => metaT(e, "explained_clearly")).length;
+  const www = rev.filter((e) => metaT(e, "has_what_went_well")).length;
+  const share = (num: number) => (nRev > 0 ? M.pct(M.safeRate(num, nRev)) : "n/a");
+
+  const lines: string[] = [
+    `Provider directory peer signals in this event set: ${nRev} review submissions, ${nRep} listing reports.`,
+  ];
+  if (nRev > 0) {
+    lines.push(
+      `Among review events, shares with felt_heard / felt_respected / explained_clearly / has_what_went_well are ≈ ${share(heard)} / ${share(respected)} / ${share(clear)} / ${share(www)}.`,
+    );
+  } else if (nRep > 0) {
+    lines.push("No review events in range; listing reports still show users flagging directory issues.");
+  }
+
+  const extraKpis: { key: string; label: string; value: string | number }[] = [
+    { key: "provider_review_events", label: "provider_review_submitted (count)", value: nRev },
+    {
+      key: "provider_listing_report_events",
+      label: "provider_listing_report_submitted (count)",
+      value: nRep,
+    },
+  ];
+  if (nRev > 0) {
+    extraKpis.push(
+      { key: "review_felt_heard_share", label: "Reviews w/ felt_heard", value: share(heard) },
+      { key: "review_felt_respected_share", label: "Reviews w/ felt_respected", value: share(respected) },
+      { key: "review_explained_clearly_share", label: "Reviews w/ explained_clearly", value: share(clear) },
+      { key: "review_has_www_share", label: "Reviews w/ has_what_went_well", value: share(www) },
+    );
+  }
+  return { lines, extraKpis };
+}
+
 function pulseOutcome(ev: NormalizedEvent[]): OutcomeSignalsBlock {
   const n =
     ev.filter((e) => e.eventName === "micro_measure_submitted" || e.eventName === "confidence_signal_submitted")
@@ -99,6 +145,7 @@ export function buildHealthUnderstandingReport(dataset: ReportDataset, params: R
 
   const usersMod = M.usersWithAnyOf(ev, ["learning_module_completed"], anonymized);
   const usersAvs = M.usersWithAnyOf(ev, ["visit_summary_created"], anonymized);
+  const rightsViews = M.countByEvent(ev, "know_your_rights_viewed");
   const modUnd = M.avgModuleUnderstanding(modFb);
   const pulse = pulseOutcome(ev);
 
@@ -150,6 +197,7 @@ export function buildHealthUnderstandingReport(dataset: ReportDataset, params: R
       { key: "uniqueUsers", label: "Unique users", value: nUsers },
       { key: "learningModuleCompletedUsers", label: "Users w/ learning_module_completed", value: usersMod.size },
       { key: "visitSummaryCreatedUsers", label: "Users w/ visit_summary_created", value: usersAvs.size },
+      { key: "knowYourRightsViews", label: "know_your_rights_viewed (count)", value: rightsViews },
       { key: "moduleCompletionShare", label: "Share of users completing a module", value: M.pct(completionRate) },
       { key: "avgModuleUnderstanding", label: "Avg ModuleFeedback understanding (1–5)", value: modUnd != null ? modUnd.toFixed(2) : "n/a" },
     ],
@@ -211,8 +259,10 @@ export function buildSelfAdvocacyReport(dataset: ReportDataset, params: ReportPa
   const zeros = zeroInWhitelist(ev, WHITELIST[type]);
 
   const pulse = pulseOutcome(ev);
+  const peer = providerPeerFeedbackFromEvents(ev);
   const outcome: OutcomeSignalsBlock = {
     lines: [
+      ...peer.lines,
       ...pulse.lines,
       `CareSurvey: ${care.length} submissions; composite access score (1–5): ${avgCare != null ? avgCare.toFixed(2) : "n/a"}.`,
     ],
@@ -221,6 +271,7 @@ export function buildSelfAdvocacyReport(dataset: ReportDataset, params: ReportPa
   };
 
   const journalUsers = M.usersWithAnyOf(ev, ["journal_entry_created"], anonymized);
+  const rightsViews = M.countByEvent(ev, "know_your_rights_viewed");
   const conclusions: string[] = [];
   if (avgCare != null && avgCare >= 3.5 && care.length > 0) {
     conclusions.push("Care navigation survey responses in this window skew toward better access / clarity on average.");
@@ -234,10 +285,18 @@ export function buildSelfAdvocacyReport(dataset: ReportDataset, params: ReportPa
   if (conclusions.length === 0) {
     conclusions.push("Widen the date range or confirm instrumentation if confidence and journal signals look thin.");
   }
+  if (peer.extraKpis[0] && Number(peer.extraKpis[0].value) > 0) {
+    conclusions.push(
+      "Provider reviews in this window carry structured experience flags—useful for whether users feel heard and respected in care settings.",
+    );
+  }
+  if (Number(peer.extraKpis[1]?.value ?? 0) > 0) {
+    conclusions.push("Listing reports indicate users exercising judgment on directory accuracy and safety.");
+  }
 
   const trend = mainTrendFromDaily(ev, "journal_entry_created");
   const evidence: EvidenceReport = {
-    summaryParagraph: `Self-advocacy confidence is summarized using only journal, visit-summary, micro-measure, confidence pulse, and CareSurvey sources listed below. ${users.size} users generated at least one whitelisted analytics event in range; CareSurvey adds structured navigation confidence.`,
+    summaryParagraph: `Self-advocacy confidence is summarized using journal, visit-summary, micro-measure, confidence pulse, CareSurvey, and provider directory peer signals (reviews + listing reports) listed below. ${users.size} users generated at least one whitelisted analytics event in range; CareSurvey adds structured navigation confidence.`,
     totalUsers: users.size,
     dateRangeLabel: makeSummary("", params).dateRangeLabel,
     mainTrend: trend,
@@ -246,8 +305,10 @@ export function buildSelfAdvocacyReport(dataset: ReportDataset, params: ReportPa
     metricsKpis: [
       { key: "uniqueUsers", label: "Unique users (whitelisted events)", value: users.size },
       { key: "journalUsers", label: "Users w/ journal_entry_created", value: journalUsers.size },
+      { key: "knowYourRightsViews", label: "know_your_rights_viewed (count)", value: rightsViews },
       { key: "careSurveyN", label: "CareSurvey submissions", value: care.length },
       { key: "avgCareComposite", label: "Avg CareSurvey composite", value: avgCare != null ? avgCare.toFixed(2) : "n/a" },
+      ...peer.extraKpis,
     ],
     outcomeSignals: outcome,
     conclusions,
@@ -292,6 +353,7 @@ export function buildCareNavigationReport(dataset: ReportDataset, params: Report
   const searches = M.countByEvent(ev, "provider_search_initiated");
   const profiles = M.countByEvent(ev, "provider_profile_viewed");
   const contacts = M.countByEvent(ev, "provider_contact_clicked");
+  const rightsViews = M.countByEvent(ev, "know_your_rights_viewed");
   const posOut = out.filter((o) => o.outcome === "yes" || o.outcome === "partly").length;
   const posShare = out.length > 0 ? M.pct(M.safeRate(posOut, out.length)) : "n/a";
 
@@ -346,6 +408,7 @@ export function buildCareNavigationReport(dataset: ReportDataset, params: Report
     metricsKpis: [
       { key: "uniqueUsers", label: "Unique users", value: users.size },
       { key: "searches", label: "provider_search_initiated", value: searches },
+      { key: "knowYourRightsViews", label: "know_your_rights_viewed (count)", value: rightsViews },
       { key: "contactRate", label: "Contacts / searches", value: M.pct(contactRate) },
       { key: "profileViews", label: "provider_profile_viewed", value: profiles },
     ],
@@ -429,6 +492,7 @@ export function buildEngagementPathwayReport(dataset: ReportDataset, params: Rep
 
   const avgScreen = M.avgSecondsForEventNames(ev, ["screen_time_spent"]);
   const avgFeat = M.avgSecondsForEventNames(ev, ["feature_time_spent"]);
+  const rightsViews = M.countByEvent(ev, "know_your_rights_viewed");
 
   const conclusions: string[] = [];
   if (navRate > selfRate && navUsers.size > 0 && selfUsers.size > 0) {
@@ -444,8 +508,10 @@ export function buildEngagementPathwayReport(dataset: ReportDataset, params: Rep
     conclusions.push(`Average screen_time_spent duration where present: ${avgScreen != null ? `${avgScreen.toFixed(0)}s` : "n/a"}; feature_time_spent: ${avgFeat != null ? `${avgFeat.toFixed(0)}s` : "n/a"}.`);
   }
 
+  const peer = providerPeerFeedbackFromEvents(ev);
+
   const evidence: EvidenceReport = {
-    summaryParagraph: `Engagement compares only the listed shell, learning, provider, community, journal, and birth-plan events. Cohort tags come from event metadata (navigator / self_directed). ${users.size} users generated at least one whitelisted event.`,
+    summaryParagraph: `Engagement compares the listed shell, learning, provider (including reviews and listing reports), community, journal, and birth-plan events. Cohort tags come from event metadata (navigator / self_directed). ${users.size} users generated at least one whitelisted event.`,
     totalUsers: users.size,
     dateRangeLabel: makeSummary("", params).dateRangeLabel,
     mainTrend: mainTrendFromDaily(ev, "session_started"),
@@ -457,11 +523,16 @@ export function buildEngagementPathwayReport(dataset: ReportDataset, params: Rep
       { key: "sessions_self", label: "session_started (self_directed)", value: sessionByCohort.self_directed },
       { key: "moduleRate_nav", label: "Module completion rate (navigator users)", value: M.pct(navRate) },
       { key: "moduleRate_self", label: "Module completion rate (self-directed users)", value: M.pct(selfRate) },
+      { key: "knowYourRightsViews", label: "know_your_rights_viewed (count)", value: rightsViews },
       { key: "avgScreenSec", label: "Avg screen_time_spent duration (s)", value: avgScreen != null ? avgScreen.toFixed(0) : "n/a" },
       { key: "avgFeatureSec", label: "Avg feature_time_spent duration (s)", value: avgFeat != null ? avgFeat.toFixed(0) : "n/a" },
+      ...peer.extraKpis,
     ],
     outcomeSignals: {
-      lines: ["Outcome surveys are not primary in this report; focus is behavioral engagement by cohort."],
+      lines: [
+        ...peer.lines,
+        "Outcome surveys are not primary in this report; focus is behavioral engagement by cohort.",
+      ],
     },
     conclusions,
     coverageNote: coverageNoteFromRows(rowsE, zeros),
@@ -516,6 +587,7 @@ export function buildCarePreparationReport(dataset: ReportDataset, params: Repor
 
   const birthU = M.usersWithAnyOf(ev, ["birth_plan_completed"], anonymized);
   const learnU = M.usersWithAnyOf(ev, ["learning_module_completed"], anonymized);
+  const rightsViews = M.countByEvent(ev, "know_your_rights_viewed");
   const und = M.avgModuleUnderstanding(modFb);
 
   const conclusions: string[] = [];
@@ -542,6 +614,7 @@ export function buildCarePreparationReport(dataset: ReportDataset, params: Repor
       { key: "uniqueUsers", label: "Unique users", value: users.size },
       { key: "birthPlanUsers", label: "Users w/ birth_plan_completed", value: birthU.size },
       { key: "moduleUsers", label: "Users w/ learning_module_completed", value: learnU.size },
+      { key: "knowYourRightsViews", label: "know_your_rights_viewed (count)", value: rightsViews },
       { key: "avgModuleUnderstanding", label: "Avg ModuleFeedback understanding", value: und != null ? und.toFixed(2) : "n/a" },
     ],
     outcomeSignals: {
@@ -587,6 +660,7 @@ export function buildCommunitySupportReport(dataset: ReportDataset, params: Repo
   const overlap = new Set([...postU].filter((u) => journalU.has(u)));
 
   const helpful = M.countByEvent(ev, "helpfulness_survey_submitted");
+  const peer = providerPeerFeedbackFromEvents(ev);
 
   const conclusions: string[] = [];
   if (postU.size > 0 && journalU.size > 0 && overlap.size > 0) {
@@ -601,9 +675,12 @@ export function buildCommunitySupportReport(dataset: ReportDataset, params: Repo
   if (conclusions.length < 2) {
     conclusions.push("Reply and like counts help gauge reciprocity; widen dates if interaction counts look small.");
   }
+  if (Number(peer.extraKpis[0]?.value ?? 0) > 0) {
+    conclusions.push("Provider reviews tie community-adjacent trust signals to real care experiences shared in-app.");
+  }
 
   const evidence: EvidenceReport = {
-    summaryParagraph: `Community support is measured only from community, journal, helpfulness, and CareSurvey sources listed. ${users.size} users had ≥1 whitelisted event.`,
+    summaryParagraph: `Community support is measured from community, journal, helpfulness, CareSurvey, and provider peer-feedback events (reviews + listing reports) listed. ${users.size} users had ≥1 whitelisted event.`,
     totalUsers: users.size,
     dateRangeLabel: makeSummary("", params).dateRangeLabel,
     mainTrend: mainTrendFromDaily(ev, "community_post_created"),
@@ -616,9 +693,11 @@ export function buildCommunitySupportReport(dataset: ReportDataset, params: Repo
       { key: "careSurveyN", label: "CareSurvey submissions", value: care.length },
       { key: "avgCare", label: "Avg CareSurvey composite", value: avgCare != null ? avgCare.toFixed(2) : "n/a" },
       { key: "helpfulness", label: "helpfulness_survey_submitted", value: helpful },
+      ...peer.extraKpis,
     ],
     outcomeSignals: {
       lines: [
+        ...peer.lines,
         `CareSurvey (clarity / access proxy): ${care.length} docs, avg composite ${avgCare != null ? avgCare.toFixed(2) : "n/a"}.`,
         `Users both posting and journaling: ${overlap.size} (overlap among users with either action).`,
       ],
@@ -647,5 +726,140 @@ export function buildCommunitySupportReport(dataset: ReportDataset, params: Repo
     insights: conclusions,
     coverageFlags: [],
     rows: [{ uniqueUsers: users.size, overlapPostJournal: overlap.size }],
+  };
+}
+
+function recruitmentLabel(source: string | null): string {
+  switch (source) {
+    case "doula":
+      return "Doula";
+    case "chw":
+      return "CHW";
+    case "home_visitor":
+      return "Home Visitor";
+    case "cbo":
+      return "CBO";
+    case "social_media":
+      return "Social Media";
+    case "event":
+      return "Event";
+    case "other":
+      return "Other";
+    case "research_participant":
+      return "Research Participant";
+    default:
+      return "Not provided";
+  }
+}
+
+export function buildUserRecruitmentAvenuesReport(
+  dataset: ReportDataset,
+  params: ReportParams,
+): ReportPayload {
+  const profiles = dataset.userProfiles;
+  const total = profiles.length;
+  const counts = new Map<string, number>();
+  for (const p of profiles) {
+    const label = recruitmentLabel(p.recruitmentSource);
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const researchParticipantCount = profiles.filter((p) => p.isResearchParticipant).length;
+  const top = sorted[0];
+
+  const conclusions: string[] = [];
+  if (total === 0) {
+    conclusions.push("No user profiles were created in the selected date range.");
+  } else {
+    conclusions.push(
+      `${top ? `${top[0]} is the top recruitment source` : "No recruitment source dominates"} in this window (${top?.[1] ?? 0} of ${total} users).`,
+    );
+    conclusions.push(
+      `${researchParticipantCount} users are flagged as research participants in this window (${M.pct(M.safeRate(researchParticipantCount, total))}).`,
+    );
+    if (counts.get("Not provided")) {
+      conclusions.push(
+        `${counts.get("Not provided")} users did not provide a recruitment source yet; onboarding completion checks may be needed.`,
+      );
+    }
+  }
+
+  const evidence: EvidenceReport = {
+    summaryParagraph:
+      total > 0
+        ? `This report summarizes onboarding recruitment avenues for ${total} user profiles created in the selected date range. Sources come from the user-level field \`recruitmentSource\` captured during onboarding.`
+        : "This report summarizes onboarding recruitment avenues; no user profiles were available in the selected date range.",
+    totalUsers: total,
+    dateRangeLabel: makeSummary("", params).dateRangeLabel,
+    mainTrend:
+      top != null
+        ? `Top source: ${top[0]} (${top[1]} users, ${M.pct(M.safeRate(top[1], Math.max(total, 1)))})`
+        : "No recruitment-source data in range.",
+    takeaways: conclusions.slice(0, 3),
+    eventsIncluded: [],
+    metricsKpis: [
+      { key: "usersInRange", label: "User profiles created in range", value: total },
+      {
+        key: "distinctSources",
+        label: "Distinct recruitment sources observed",
+        value: sorted.filter(([label]) => label !== "Not provided").length,
+      },
+      {
+        key: "researchParticipantCount",
+        label: "Research participant users",
+        value: researchParticipantCount,
+      },
+      {
+        key: "researchParticipantShare",
+        label: "Research participant share",
+        value: total > 0 ? M.pct(M.safeRate(researchParticipantCount, total)) : "n/a",
+      },
+    ],
+    outcomeSignals: {
+      lines: sorted.length
+        ? sorted.map(
+            ([label, count]) =>
+              `${label}: ${count} users (${M.pct(M.safeRate(count, Math.max(total, 1)))})`,
+          )
+        : ["No recruitment-source rows available in this date range."],
+    },
+    conclusions,
+    coverageNote:
+      "Data source: users collection (`recruitmentSource`, `isResearchParticipant`) filtered by user profile creation date.",
+  };
+
+  return {
+    summary: makeSummary("User Recruitment Avenues Report", params),
+    evidence,
+    kpis: evidence.metricsKpis.map((k) => ({ key: k.key, label: k.label, value: k.value })),
+    charts: [
+      {
+        id: "recruitmentAvenues",
+        title: "Recruitment source distribution",
+        kind: "bar",
+        labels: sorted.map(([label]) => label),
+        series: [{ name: "Users", data: sorted.map(([, count]) => count) }],
+      },
+    ],
+    tables: [
+      {
+        title: "Recruitment source breakdown",
+        columns: ["Source", "Users", "Share"],
+        rows: sorted.map(([label, count]) => [
+          label,
+          count,
+          M.pct(M.safeRate(count, Math.max(total, 1))),
+        ]),
+      },
+    ],
+    insights: conclusions,
+    coverageFlags: [],
+    rows: sorted.map(([label, count]) => ({
+      source: label,
+      users: count,
+      share: M.pct(M.safeRate(count, Math.max(total, 1))),
+      totalUsers: total,
+      researchParticipantUsers: researchParticipantCount,
+    })),
   };
 }

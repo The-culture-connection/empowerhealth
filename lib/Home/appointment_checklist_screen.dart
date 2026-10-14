@@ -70,11 +70,8 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Appointment Checklist'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Appointment Checklist'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -208,7 +205,7 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
                 onPressed: _isGenerating ? null : _generateChecklist,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.brandWhite,
                 ),
                 child: _isGenerating
                     ? const SizedBox(
@@ -216,7 +213,7 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: AppTheme.surfaceCard,
                         ),
                       )
                     : const Text(
@@ -234,12 +231,16 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Your Checklist',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.brandPurple,
+                  const Flexible(
+                    child: Text(
+                      'Your Checklist',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.brandPurple,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Row(
@@ -322,7 +323,7 @@ class _TrimesterChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.brandPurple : Colors.white,
+          color: isSelected ? AppTheme.brandPurple : AppTheme.surfaceCard,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: AppTheme.brandPurple,
@@ -332,7 +333,7 @@ class _TrimesterChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : AppTheme.brandPurple,
+            color: isSelected ? AppTheme.brandWhite : AppTheme.brandPurple,
             fontWeight: FontWeight.bold,
           ),
         ),

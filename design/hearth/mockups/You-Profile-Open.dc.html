@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Your profile, sections open</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 2800px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="position: relative; overflow: hidden; padding: 64px 20px 4px; display: flex; flex-direction: column; gap: 10px">
+<span aria-hidden="true" style="position: absolute; top: -70px; right: -60px; width: 200px; height: 200px; border-radius: 50%; background: #EFE0C6"></span>
+<h1 style="position: relative; margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 34px; line-height: 40px; font-weight: 400">Your profile</h1>
+<p style="position: relative; margin: 0; font-size: 16px; line-height: 23px; color: #4A3F52">Manage your information and preferences</p>
+</header>
+
+<div style="padding: 20px 20px 0; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z"></path><path d="M9 12l2 2 4-4"></path></svg>
+<p style="flex: 1; min-width: 0; margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">Profile and health details are stored securely and used to personalize your experience.</p>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 16px; padding: 20px; background: #EFE0C6; border-radius: 24px">
+<div style="display: flex; flex-direction: row; align-items: flex-start; gap: 16px">
+<span style="flex: none; width: 64px; height: 64px; border-radius: 50%; background: #FAF8F4; display: flex; align-items: center; justify-content: center; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; color: #663399">J</span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 19px; line-height: 25px; font-weight: 400; overflow-wrap: anywhere">Jasmine C.</h2>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52; overflow-wrap: anywhere">jasmine.c@example.com</p>
+<p style="margin: 4px 0 0; font-size: 14px; line-height: 21px; color: #4A3F52">Due date: March 11, 2027</p>
+</div>
+</div>
+<button style="align-self: flex-start; display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 24px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700; white-space: nowrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19z"></path></svg>Edit Profile</button>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<h2 style="flex: 1; min-width: 0; margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Pregnancy Details</h2>
+<button style="flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; border: 0; background: transparent; font-size: 15px; font-weight: 700; color: #663399"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19z"></path></svg>Edit</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 16px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Current Week</span><span style="font-size: 15px; line-height: 22px; font-weight: 600">Week 18 of 40</span></div>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M4 10h16M8 3v4M16 3v4"></path></svg>
+</div>
+<span style="height: 1px; background: #E6D5B8"></span>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Due Date</span><span style="font-size: 15px; line-height: 22px; font-weight: 600">March 11, 2027</span></div>
+<span style="height: 1px; background: #E6D5B8"></span>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Trimester</span><span style="font-size: 15px; line-height: 22px; font-weight: 600">Second Trimester</span></div>
+</div>
+</section>
+
+<div style="display: flex; flex-direction: column; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px; overflow: hidden">
+<button aria-expanded="false" style="box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 4px 16px; border: 0; background: transparent; text-align: left; font-size: 16px; line-height: 22px; font-weight: 700; color: #2D2733">Basic Information<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></button>
+<span style="height: 1px; background: #E6D5B8"></span>
+<button aria-expanded="false" style="box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 4px 16px; border: 0; background: transparent; text-align: left; font-size: 16px; line-height: 22px; font-weight: 700; color: #2D2733">Demographics<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></button>
+<span style="height: 1px; background: #E6D5B8"></span>
+<button aria-expanded="false" style="box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 4px 16px; border: 0; background: transparent; text-align: left; font-size: 16px; line-height: 22px; font-weight: 700; color: #2D2733">Health Information<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></button>
+<span style="height: 1px; background: #E6D5B8"></span>
+
+<button aria-expanded="true" style="box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 4px 16px; border: 0; background: transparent; text-align: left; font-size: 16px; line-height: 22px; font-weight: 700; color: #663399">Your support experience<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 15l6-6 6 6"></path></svg></button>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 8px 16px 16px">
+<a href="#" style="display: flex; flex-direction: column; gap: 6px; padding: 16px 16px 6px; background: #EFE0C6; border-radius: 20px">
+<span style="font-size: 16px; line-height: 22px; font-weight: 700; color: #2D2733">We're here with you</span>
+<span style="font-size: 13px; line-height: 18px; color: #4A3F52">Emotional support, guidance, and help with next steps, whenever you need it.</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 15px; font-weight: 700; color: #663399">See support options<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></span>
+</a>
+<a href="You-Sheet-SupportStage.dc.html" style="display: flex; align-items: center; gap: 14px; padding: 12px; background: #F5F1E8; border: 1px solid #E6D5B8; border-radius: 18px">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; line-height: 22px; font-weight: 700">Update my current support stage</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Currently pregnant</span></span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</div>
+<span style="height: 1px; background: #E6D5B8"></span>
+
+<button aria-expanded="true" style="box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 4px 16px; border: 0; background: transparent; text-align: left; font-size: 16px; line-height: 22px; font-weight: 700; color: #663399">Support Network<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 15l6-6 6 6"></path></svg></button>
+<div style="display: flex; flex-direction: column; padding: 8px 16px 16px">
+<label style="display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 15px; line-height: 22px; color: #2D2733"><input type="checkbox" checked="checked" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399">Doula</label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 15px; line-height: 22px; color: #2D2733"><input type="checkbox" checked="checked" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399">Partner or Spouse</label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 15px; line-height: 22px; color: #2D2733"><input type="checkbox" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399">Support Person</label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 15px; line-height: 22px; color: #2D2733"><input type="checkbox" checked="checked" style="flex: none; width: 22px; height: 22px; margin: 0; accent-color: #663399">Primary OB/GYN or Midwife</label>
+</div>
+<span style="height: 1px; background: #E6D5B8"></span>
+
+<button aria-expanded="false" style="box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 4px 16px; border: 0; background: transparent; text-align: left; font-size: 16px; line-height: 22px; font-weight: 700; color: #2D2733">Wellness &amp; Access<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></button>
+<span style="height: 1px; background: #E6D5B8"></span>
+
+<button aria-expanded="true" style="box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 4px 16px; border: 0; background: transparent; text-align: left; font-size: 16px; line-height: 22px; font-weight: 700; color: #663399">Provider Preferences<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 15l6-6 6 6"></path></svg></button>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px 16px">
+<button aria-pressed="true" style="height: 44px; padding: 0 17px; border-radius: 999px; background: #EFE0C6; border: 2px solid #663399; color: #663399; font-size: 14px; font-weight: 700; white-space: nowrap">Cultural match</button>
+<button aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Gender preference</button>
+<button aria-pressed="true" style="height: 44px; padding: 0 17px; border-radius: 999px; background: #EFE0C6; border: 2px solid #663399; color: #663399; font-size: 14px; font-weight: 700; white-space: nowrap">Trauma-informed care</button>
+<button aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">LGBTQ+ friendly</button>
+<button aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Spanish-speaking</button>
+<button aria-pressed="true" style="height: 44px; padding: 0 17px; border-radius: 999px; background: #EFE0C6; border: 2px solid #663399; color: #663399; font-size: 14px; font-weight: 700; white-space: nowrap">Black-owned practice</button>
+<button aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Holistic approach</button>
+<button aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Evidence-based care</button>
+<button aria-pressed="false" style="height: 44px; padding: 0 18px; border-radius: 999px; background: #F5F1E8; border: 1px solid #E6D5B8; color: #4A3F52; font-size: 14px; font-weight: 600; white-space: nowrap">Community-based care</button>
+</div>
+<span style="height: 1px; background: #E6D5B8"></span>
+
+<button aria-expanded="false" style="box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 4px 16px; border: 0; background: transparent; text-align: left; font-size: 16px; line-height: 22px; font-weight: 700; color: #2D2733">Goals<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></button>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 12px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Privacy &amp; Settings</h2>
+<a href="You-Privacy.dc.html" style="display: flex; align-items: center; gap: 14px; padding: 8px 0; min-height: 46px">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; line-height: 22px; font-weight: 700">Privacy &amp; Trust Center</span><span style="font-size: 13px; line-height: 18px; color: #6B5C75">Manage your privacy settings and data</span></span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<button style="width: 100%; height: 52px; border: 0; border-radius: 999px; background: #663399; color: #FFFFFF; font-size: 16px; font-weight: 700">Save Changes</button>
+<button style="width: 100%; height: 52px; border: 1.5px solid #2D2733; border-radius: 999px; background: transparent; color: #2D2733; font-size: 16px; font-weight: 700">Delete Profile</button>
+</div>
+
+<div style="display: flex; flex-direction: column; padding: 16px 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<a href="You-Dialog-SignOut.dc.html" style="display: flex; align-items: center; gap: 14px; min-height: 46px">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #EFE0C6; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5"></path><path d="M14 8l4 4-4 4M18 12H9"></path></svg></span>
+<span style="flex: 1; font-size: 16px; line-height: 22px; font-weight: 700; color: #2D2733">Sign Out</span>
+</a>
+</div>
+
+</div>
+
+<nav style="margin-top: auto; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: #FAF8F4; border-top: 1px solid #E6D5B8; padding: 0 8px 26px">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg>Home</a>
+<a href="Learn-Center.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2z"></path><path d="M12 6v14"></path></svg>Learn</a>
+<a href="Journal-Hub.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg>Journal</a>
+<a href="Community-Feed.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 500; color: #6B5C75"><span style="width: 24px; height: 3px; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>Community</a>
+<a href="You-Profile.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 56px; font-size: 11px; font-weight: 700; color: #663399"><span style="width: 24px; height: 3px; border-radius: 0 0 3px 3px; background: #D4A574; margin-bottom: 7px"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>You</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2800}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

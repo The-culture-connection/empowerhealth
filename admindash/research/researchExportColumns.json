@@ -1,0 +1,13 @@
+{
+  "specVersion": "1.0.0",
+  "source": "EmpowerHealth Watch Research Field Specification for App + Export.pdf",
+  "instruments": [
+    "baseline",
+    "micro_measures",
+    "needs_checklist",
+    "navigation_outcomes",
+    "milestone_prompts",
+    "app_activity"
+  ],
+  "note": "Canonical column order and code maps are in functions/src/research/researchFieldSpec.ts"
+}

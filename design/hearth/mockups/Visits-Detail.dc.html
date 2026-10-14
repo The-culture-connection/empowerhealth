@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hearth — Visit detail</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 2680px; box-sizing: border-box; display: flex; flex-direction: column; background: #F5F1E8; color: #2D2733; font-family: 'Figtree', system-ui, sans-serif">
+
+<header style="padding: 64px 20px 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<a href="Visits-List.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; font-weight: 600; color: #4A3F52"><span style="width: 44px; height: 44px; border-radius: 50%; background: #FAF8F4; border: 1px solid #E6D5B8; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></span>My Visits</a>
+<a href="Visits-Detail-Delete.dc.html" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 14px; font-weight: 600; color: #4A3F52"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A3F52" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"></path></svg>Delete this summary</a>
+</header>
+
+<div style="padding: 12px 20px 32px; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; gap: 14px; align-items: center; padding: 20px; background: #663399; border-radius: 24px; color: #FFFFFF">
+<span style="flex: none; width: 46px; height: 46px; border-radius: 50%; background: #D4A574; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2D2733" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"></path><path d="M10 12h5M10 16h5"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><h1 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 26px; line-height: 32px; font-weight: 400">Oct 7, 2026</h1><p style="margin: 0; font-size: 14px; line-height: 20px; color: #F5F1E8">Visit summary · 6th grade level</p></div>
+</div>
+<p style="margin: 0; display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px; color: #6B5C75"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6"></path><circle cx="12" cy="7.6" r=".6"></circle></svg><span>Plain-language summary. It doesn't replace medical advice from your provider.</span></p>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">What was discussed</h2>
+<div style="display: flex; flex-direction: column; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<h3 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 700; color: #663399">What this means</h3>
+<p style="margin: 10px 0 0; font-size: 15px; line-height: 22px; color: #2D2733">Your visit on October 7 went well overall. Your blood work showed mild anemia, which means your iron is a little low. This is common in the second trimester, and your midwife started you on an iron supplement to help.</p>
+<p style="margin: 10px 0 0; font-size: 15px; line-height: 22px; color: #2D2733">Your baby's heartbeat sounded strong and your belly is measuring right on track for 18 weeks. You also talked about how you have been feeling, and Danielle referred you to behavioral health so you have extra support.</p>
+<span aria-hidden="true" style="height: 1px; margin: 18px 0 14px; background: #E6D5B8"></span>
+<h3 style="margin: 0 0 8px; font-size: 13px; line-height: 18px; font-weight: 700; color: #663399">Key terms</h3>
+<div style="display: flex; flex-direction: column">
+<button aria-expanded="true" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0; border: 0; background: transparent; text-align: left; font-size: 15px; font-weight: 700; color: #663399">Anemia<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 15l6-6 6 6"></path></svg></button>
+<p style="margin: 0; padding: 0 4px 8px; font-size: 14px; line-height: 21px; color: #4A3F52">When your blood has fewer healthy red blood cells than it needs. It can make you feel tired or short of breath.</p>
+<button aria-expanded="false" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0; border: 0; border-top: 1px solid #E6D5B8; background: transparent; text-align: left; font-size: 15px; font-weight: 700; color: #2D2733">Iron supplement<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></button>
+<button aria-expanded="false" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0; border: 0; border-top: 1px solid #E6D5B8; background: transparent; text-align: left; font-size: 15px; font-weight: 700; color: #2D2733">Anatomy ultrasound<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></button>
+</div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Important next steps</h2>
+<ul style="margin: 0; padding: 20px; list-style: none; display: flex; flex-direction: column; gap: 10px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<li style="display: flex; gap: 12px; align-items: flex-start"><span aria-hidden="true" style="flex: none; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: #663399"></span><span style="font-size: 15px; line-height: 22px; color: #2D2733">Start your iron supplement. Take it once a day, the way Danielle showed you.</span></li>
+<li style="display: flex; gap: 12px; align-items: flex-start"><span aria-hidden="true" style="flex: none; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: #663399"></span><span style="font-size: 15px; line-height: 22px; color: #2D2733">Repeat blood work on November 4 to check that your iron is coming up.</span></li>
+<li style="display: flex; gap: 12px; align-items: flex-start"><span aria-hidden="true" style="flex: none; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: #663399"></span><span style="font-size: 15px; line-height: 22px; color: #2D2733">Anatomy ultrasound on October 21. This is a detailed look at how your baby is growing.</span></li>
+<li style="display: flex; gap: 12px; align-items: flex-start"><span aria-hidden="true" style="flex: none; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: #663399"></span><span style="font-size: 15px; line-height: 22px; color: #2D2733">Behavioral health intake call. Someone from the office will call you to set up a first conversation.</span></li>
+</ul>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Medications mentioned</h2>
+<div style="display: flex; flex-direction: column; gap: 14px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<div style="display: flex; flex-direction: column; gap: 4px"><h3 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 700">Iron supplement</h3><p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">Helps bring your iron level back up. Take it once a day with food.</p></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><h3 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 700">Prenatal vitamin</h3><p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">Supports you and your baby as you both grow. Keep taking it once a day.</p></div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; display: flex; align-items: center; gap: 8px; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M4 5h16v11H9l-5 4z"></path></svg>Questions to ask next time</h2>
+<ul style="margin: 0; padding: 20px; list-style: none; display: flex; flex-direction: column; gap: 12px; background: #EFE0C6; border-radius: 24px">
+<li style="display: flex; gap: 12px; align-items: flex-start"><span aria-hidden="true" style="flex: none; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: #663399"></span><span style="font-size: 14px; line-height: 21px; color: #2D2733">How will we know if the iron supplement is working?</span></li>
+<li style="display: flex; gap: 12px; align-items: flex-start"><span aria-hidden="true" style="flex: none; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: #663399"></span><span style="font-size: 14px; line-height: 21px; color: #2D2733">What can I do if the iron upsets my stomach?</span></li>
+<li style="display: flex; gap: 12px; align-items: flex-start"><span aria-hidden="true" style="flex: none; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: #663399"></span><span style="font-size: 14px; line-height: 21px; color: #2D2733">What will the anatomy ultrasound look at?</span></li>
+<li style="display: flex; gap: 12px; align-items: flex-start"><span aria-hidden="true" style="flex: none; width: 6px; height: 6px; margin-top: 8px; border-radius: 50%; background: #663399"></span><span style="font-size: 14px; line-height: 21px; color: #2D2733">What should I expect from the behavioral health intake call?</span></li>
+</ul>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Notes</h2>
+<ul style="margin: 0; padding: 20px; list-style: none; display: flex; flex-direction: column; gap: 12px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<li style="display: flex; gap: 10px; align-items: flex-start"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M4 20l1-4L16 5l3 3L8 19z"></path></svg><span style="font-size: 14px; line-height: 21px; color: #4A3F52">Your blood pressure was in a healthy range at this visit.</span></li>
+<li style="display: flex; gap: 10px; align-items: flex-start"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M4 20l1-4L16 5l3 3L8 19z"></path></svg><span style="font-size: 14px; line-height: 21px; color: #4A3F52">Your next routine prenatal visit is in four weeks.</span></li>
+</ul>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-family: 'Young Serif', Georgia, serif; font-size: 20px; line-height: 26px; font-weight: 400">Suggested learning</h2>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 20px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">1. Iron and anemia in pregnancy: Because your blood work showed mild anemia.</p>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">2. Your anatomy ultrasound: What to expect on October 21.</p>
+<p style="margin: 0; font-size: 14px; line-height: 21px; color: #4A3F52">3. Emotional wellbeing in pregnancy: To go with your behavioral health referral.</p>
+</div>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 8px 16px 16px; background: #FAF8F4; border: 1px solid #E6D5B8; border-radius: 24px">
+<button aria-expanded="true" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0; border: 0; background: transparent; text-align: left; color: #2D2733"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6"></path><circle cx="12" cy="7.6" r=".6"></circle></svg><span style="flex: 1; font-size: 15px; line-height: 22px; font-weight: 700">Reminder</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B5C75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 15l6-6 6 6"></path></svg></button>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #6B5C75">This summary helps you understand your document. It does not replace medical advice from your healthcare provider. Always contact your provider with questions or concerns.</p>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2680}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

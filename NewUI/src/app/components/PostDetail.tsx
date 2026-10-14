@@ -1,10 +1,12 @@
-import { ArrowLeft, Heart, MessageCircle, Share2, Flag, ThumbsUp, Award, MoreVertical } from "lucide-react";
-import { Link } from "react-router";
+import { ArrowLeft, Heart, MessageCircle, Share2, Flag, ThumbsUp, Award, MoreVertical, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router";
 import { useState } from "react";
 
 export function PostDetail() {
+  const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [comment, setComment] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   const post = {
     id: 1,
@@ -79,7 +81,7 @@ Happy to answer any questions! 💜`,
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#f8f6f8] pb-24">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-5 py-4 sticky top-0 z-10">
+      <div className="bg-[#faf8f4] border-b border-gray-100 px-5 py-4 sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <Link to="/community" className="flex items-center gap-2 text-gray-600 hover:text-[#663399] transition-colors">
             <ArrowLeft className="w-5 h-5" />
@@ -93,7 +95,7 @@ Happy to answer any questions! 💜`,
 
       <div className="max-w-2xl mx-auto p-5">
         {/* Post Header */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-4">
+        <div className="bg-[#faf8f4] rounded-3xl p-6 shadow-sm border border-gray-100 mb-4">
           {/* Category Badge */}
           <div className="flex items-center gap-2 mb-4">
             <span className="text-xs px-3 py-1.5 rounded-full bg-purple-50 text-[#663399] border border-purple-100">
@@ -147,7 +149,7 @@ Happy to answer any questions! 💜`,
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <button
               onClick={() => setLiked(!liked)}
               className={`py-2.5 px-4 rounded-2xl transition-colors flex items-center justify-center gap-2 text-sm ${
@@ -167,6 +169,13 @@ Happy to answer any questions! 💜`,
               <Flag className="w-4 h-4" />
               <span>Report</span>
             </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="py-2.5 px-4 rounded-2xl bg-gray-50 text-gray-700 border border-gray-200 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 transition-colors flex items-center justify-center gap-2 text-sm"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete</span>
+            </button>
           </div>
         </div>
 
@@ -176,7 +185,7 @@ Happy to answer any questions! 💜`,
           
           <div className="space-y-3">
             {replies.map((reply, index) => (
-              <div key={index} className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+              <div key={index} className="bg-[#faf8f4] rounded-3xl p-5 shadow-sm border border-gray-100">
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#663399] to-[#cbbec9] flex items-center justify-center text-white text-sm flex-shrink-0">
                     {reply.authorInitial}
@@ -221,7 +230,7 @@ Happy to answer any questions! 💜`,
             onChange={(e) => setComment(e.target.value)}
             rows={4}
             placeholder="Share your thoughts, experiences, or encouragement..."
-            className="w-full px-4 py-3 rounded-2xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 resize-none text-sm mb-3"
+            className="w-full px-4 py-3 rounded-2xl bg-[#faf8f4] border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#663399]/20 resize-none text-sm mb-3"
           ></textarea>
           <div className="flex items-center justify-between">
             <p className="text-xs text-gray-500">Be kind and supportive 💜</p>
@@ -242,6 +251,36 @@ Happy to answer any questions! 💜`,
           </p>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="bg-[#faf8f4] dark:bg-[#2a2435] rounded-[28px] p-6 max-w-md w-full shadow-[0_24px_72px_rgba(0,0,0,0.3)] border border-gray-100 dark:border-[#3d3547]">
+            <h3 className="text-xl mb-3 text-[#2d2733] dark:text-[#f5f0f7] font-normal">Delete this post?</h3>
+            <p className="text-sm text-[#6b5c75] dark:text-[#c9bfd4] mb-6 font-light leading-relaxed">
+              This will permanently remove your post and all its replies. This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-3 px-4 rounded-[20px] bg-gray-50 dark:bg-[#3d3547] text-[#6b5c75] dark:text-[#c9bfd4] border border-gray-200 dark:border-[#4a4057] hover:bg-gray-100 dark:hover:bg-[#4a4057] transition-colors font-light"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // Delete post logic here
+                  // For now, just navigate back to community
+                  navigate('/community');
+                }}
+                className="flex-1 py-3 px-4 rounded-[20px] bg-rose-500 text-white hover:bg-rose-600 transition-colors font-light shadow-[0_4px_16px_rgba(244,63,94,0.3)]"
+              >
+                Delete post
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

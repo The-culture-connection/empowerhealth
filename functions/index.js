@@ -7,6 +7,13 @@ const axios = require("axios");
 const XLSX = require("xlsx");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
+const engine = require("./providerSearchEngine");
+const {
+  PREGNANCY_LOSS_LEARNING_SYSTEM,
+  pregnancyLossLearningUserMessage,
+  isPregnancyLossLearningRequest,
+} = require("./pregnancyLossLearningPrompt");
 // Import BIPOC provider import function (lazy load to avoid initialization issues)
 let importBipocProviders = null;
 function getImportBipocProviders() {
@@ -40,6 +47,178 @@ function getOpenAIClient(apiKey) {
   });
 }
 
+/** Parse client appointmentDate: YYYY-MM-DD (preferred) or ISO (date part only) or Timestamp. */
+function parseAppointmentCalendarParts(appointmentDate) {
+  if (appointmentDate == null || appointmentDate === "") {
+    const n = new Date();
+    return {y: n.getUTCFullYear(), m: n.getUTCMonth() + 1, d: n.getUTCDate()};
+  }
+  if (appointmentDate && typeof appointmentDate.toDate === "function") {
+    const dt = appointmentDate.toDate();
+    return {y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate()};
+  }
+  if (typeof appointmentDate === "string") {
+    const dateStr = appointmentDate.split("T")[0].trim();
+    const parts = dateStr.split("-").map(Number);
+    if (parts.length >= 3 && parts.every((n) => !Number.isNaN(n))) {
+      return {y: parts[0], m: parts[1], d: parts[2]};
+    }
+  }
+  if (appointmentDate instanceof Date) {
+    return {
+      y: appointmentDate.getUTCFullYear(),
+      m: appointmentDate.getUTCMonth() + 1,
+      d: appointmentDate.getUTCDate(),
+    };
+  }
+  const n = new Date();
+  return {y: n.getUTCFullYear(), m: n.getUTCMonth() + 1, d: n.getUTCDate()};
+}
+
+function firestoreTimestampFromCalendarYmd(y, m, d) {
+  return admin.firestore.Timestamp.fromDate(
+    new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0)),
+  );
+}
+
+function calendarYmdKey(y, m, d) {
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+function appointmentCalendarKeyFromValue(val) {
+  const {y, m, d} = parseAppointmentCalendarParts(val);
+  return calendarYmdKey(y, m, d);
+}
+
+/** OpenAI sometimes returns prose or fenced JSON; extract and parse. */
+function parseJsonFromOpenAIContent(raw) {
+  if (!raw || typeof raw !== "string") {
+    throw new Error("Empty AI response");
+  }
+  let s = raw.trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (fence) {
+    s = fence[1].trim();
+  }
+  try {
+    return JSON.parse(s);
+  } catch (e1) {
+    const i = s.indexOf("{");
+    const j = s.lastIndexOf("}");
+    if (i !== -1 && j > i) {
+      try {
+        return JSON.parse(s.slice(i, j + 1));
+      } catch (e2) {
+        /* fall through */
+      }
+    }
+    throw e1;
+  }
+}
+
+// ============================================================================
+// VOICE CONSISTENCY (second person, woman-facing content)
+// ============================================================================
+
+/**
+ * Shared prompt rule: all woman-facing generated content speaks directly to
+ * the mother in second person ("you/your"), never "the patient".
+ */
+const SECOND_PERSON_VOICE_RULE = `VOICE (required): Speak directly to the mother using second person ("you" / "your") in plain language. Never refer to her as "the patient", "the mother", "the client", or "she/her". Examples: write "Your next annual exam is in one year" (not "The patient's next annual exam..."), "You were referred to a specialist" (not "The patient has been referred..."), "Your blood pressure was normal" (not "The patient's blood pressure was normal"). Keep all clinical facts, numbers, medication names, doses, and instructions exactly accurate; change only who the sentence is addressed to. If you must quote the provider's notes word for word, introduce the quote for her, e.g. "Your provider's note says: '...'". Use third person only when it is clinically necessary (for example, describing the baby or another person). Do not use em dashes (—); use commas, periods or colons instead.`;
+
+// Nouns that follow "the patient" in normal phrases we must not rewrite
+// (e.g. "the patient portal", "the patient advocate").
+const PATIENT_COMPOUND_NOUNS = [
+  "portal", "portals", "advocate", "advocates", "advocacy", "navigator", "navigators",
+  "education", "educator", "rights", "bill", "handbook", "experience", "services",
+  "relations", "representative", "liaison", "safety", "center", "line", "access",
+  "ID", "id", "number", "record", "records", "chart", "information", "instructions",
+  "summary", "survey", "form", "forms", "account", "app", "care", "support", "guide",
+];
+const PATIENT_NOUN_GUARD = `(?!\\s+(?:${PATIENT_COMPOUND_NOUNS.join("|")})\\b)`;
+
+// Third-person verbs that commonly follow "the patient" → second-person form.
+const PATIENT_VERB_MAP = {
+  "has": "have", "is": "are", "was": "were", "does": "do", "needs": "need",
+  "wants": "want", "reports": "report", "reported": "reported", "states": "state",
+  "denies": "deny", "plans": "plan", "requires": "require", "takes": "take",
+  "continues": "continue", "presents": "present", "understands": "understand",
+  "agrees": "agree", "prefers": "prefer", "feels": "feel", "appears": "appear",
+  "remains": "remain", "declines": "decline", "receives": "receive",
+  "should": "should", "will": "will", "can": "can", "may": "may", "must": "must",
+  "would": "would", "could": "could",
+};
+
+/**
+ * Conservative safety net: rewrite common third-person clinical phrasings
+ * ("The patient's...", "The patient has been referred...") into second person.
+ * Only matches "the patient" with the article, so "outpatient", "inpatient",
+ * "patients", "patient portal", and "patient advocate" are left untouched.
+ */
+function toSecondPerson(text) {
+  if (!text || typeof text !== "string" || !/\bthe patient\b/i.test(text)) {
+    return text;
+  }
+  let out = text;
+
+  // Possessive: "The patient's" → "Your", "the patient's" → "your"
+  out = out.replace(/\bThe patient(?:'|’)s\b/g, "Your");
+  out = out.replace(/\bthe patient(?:'|’)s\b/g, "your");
+
+  // Subject + verb: "The patient has" → "You have", "the patient is" → "you are"
+  const verbs = Object.keys(PATIENT_VERB_MAP).join("|");
+  out = out.replace(new RegExp(`\\b(T|t)he patient\\s+(${verbs})\\b`, "g"), (match, t, verb) => {
+    const pronoun = t === "T" ? "You" : "you";
+    return `${pronoun} ${PATIENT_VERB_MAP[verb]}`;
+  });
+
+  // Remaining "The patient" / "the patient" (not followed by a compound noun)
+  out = out.replace(new RegExp(`\\bThe patient\\b(?!(?:'|’))${PATIENT_NOUN_GUARD}`, "g"), "You");
+  out = out.replace(new RegExp(`\\bthe patient\\b(?!(?:'|’))${PATIENT_NOUN_GUARD}`, "g"), "you");
+
+  return out;
+}
+
+// Keys whose values are names/labels (medical terms, drug names, enums) — never rewritten.
+const SECOND_PERSON_SKIP_KEYS = new Set(["term", "name", "diagnosis", "category", "type"]);
+
+/** Recursively apply toSecondPerson to all strings in an AI JSON value. */
+function toSecondPersonDeep(value, key = null) {
+  if (key && SECOND_PERSON_SKIP_KEYS.has(key)) return value;
+  if (typeof value === "string") return toSecondPerson(value);
+  if (Array.isArray(value)) return value.map((v) => toSecondPersonDeep(v));
+  if (value && typeof value === "object") {
+    const out = {};
+    Object.keys(value).forEach((k) => {
+      out[k] = toSecondPersonDeep(value[k], k);
+    });
+    return out;
+  }
+  return value;
+}
+
+/**
+ * Normalize woman-facing fields of a visit-summary AI response (summary text,
+ * todos/next steps, learning modules, red-flag descriptions) to second person
+ * before it is formatted, saved to Firestore, or returned to the app.
+ */
+function applySecondPersonToVisitAnalysis(parsed) {
+  if (!parsed || typeof parsed !== "object") return parsed;
+  if (parsed.summary && typeof parsed.summary === "object") {
+    parsed.summary = toSecondPersonDeep(parsed.summary);
+  }
+  if (Array.isArray(parsed.todos)) {
+    parsed.todos = parsed.todos.map((todo) => toSecondPersonDeep(todo));
+  }
+  if (Array.isArray(parsed.learningModules)) {
+    parsed.learningModules = parsed.learningModules.map((mod) => toSecondPersonDeep(mod));
+  }
+  if (Array.isArray(parsed.redFlags)) {
+    parsed.redFlags = parsed.redFlags.map((flag) => toSecondPersonDeep(flag));
+  }
+  return parsed;
+}
+
 // Helper function to simplify text to 6th grade level
 async function simplifyTo6thGrade(text, context = "") {
   try {
@@ -52,7 +231,9 @@ async function simplifyTo6thGrade(text, context = "") {
           content: `You are a medical communication expert who translates complex medical information 
 into simple, clear language appropriate for a 6th grade reading level. Use short sentences, 
 common words, and avoid medical jargon. When medical terms are necessary, explain them simply. 
-Focus on what the person needs to know and do.`,
+Focus on what the person needs to know and do.
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
@@ -115,14 +296,27 @@ exports.generateLearningContent = onCall(
     }
   }
 
+  const usePregnancyLossPrompt = isPregnancyLossLearningRequest(data);
+
   try {
     const openai = getOpenAIClient(openaiApiKey.value());
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
+
+    let messages;
+    if (usePregnancyLossPrompt) {
+      messages = [
+        {role: "system", content: PREGNANCY_LOSS_LEARNING_SYSTEM},
+        {
+          role: "user",
+          content: pregnancyLossLearningUserMessage(topic, personalContext),
+        },
+      ];
+    } else {
+      messages = [
         {
           role: "system",
-          content: `You are a culturally affirming, trauma-informed maternal health educator creating personalized content for EmpowerHealth Watch. Create detailed, comprehensive learning modules that are warm, supportive, and empowering. Use plain language at a ${readingLevel} reading level. Emphasize: Your rights, Your choices, Your voice. Brand voice: "Your Health. Your Voice. Your Empowerment."`,
+          content: `You are a culturally affirming, trauma-informed maternal health educator creating personalized content for EmpowerHealth Watch. Create detailed, comprehensive learning modules that are warm, supportive, and empowering. Use plain language at a ${readingLevel} reading level. Emphasize: Your rights, Your choices, Your voice. Brand voice: "Your Health. Your Voice. Your Empowerment."
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
@@ -132,35 +326,51 @@ ${personalContext}
 
 ${userProfile?.insuranceType ? `Insurance Type: ${userProfile.insuranceType}. Tailor information for this insurance type, including coverage considerations, what's typically covered, and any cost considerations.` : "Provide insurance-agnostic guidance that applies regardless of insurance type."}
 
-CRITICAL: This module must be DETAILED (not high-level) and follow this EXACT structure:
+CRITICAL: This module must be DETAILED (not high-level) and follow this EXACT structure.
 
-1. **What This Is (Simple Explanation)** - Clear, plain-language explanation of what this is
-2. **Why It Matters for Your Health** - Explain the "why" behind the "what" - why this matters, why it's important, what happens if ignored. Be detailed and specific.
-3. **What to Expect** - Step-by-step, detailed guidance on what will happen. Be specific and clear.
-4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts the mother can use during appointments. Examples: "Can you explain why this test is needed?", "What are my options?", "What happens if I don't do this?"
-5. **Risks, Options, and Alternatives** - Balanced, non-fearful information about risks, options, and alternatives. Be honest but not alarming.
-6. **When to Seek Medical Help** - Clear, specific guidance on when to call provider or seek emergency care
-7. **How This Connects to Your Empowerment** - How this topic relates to self-advocacy, empowerment, and informed decision-making
-8. **Key Points** - 3-5 key takeaways in bullet format
-9. **Your Rights** - 2-3 specific rights related to this topic (e.g., right to ask questions, right to refuse, right to second opinion)
-10. **Insurance Notes** - ${userProfile?.insuranceType ? `Specific information for ${userProfile.insuranceType} insurance, including coverage, costs, and what to ask your insurance about.` : "Insurance-agnostic guidance on what to ask your insurance provider about coverage and costs."}
+FORMATTING (required for the app):
+- Each section starts on its own line as a markdown H2 heading with the number and title. Example: ## 1. What This Is (Simple Explanation)
+- Do NOT wrap section titles in asterisks. Use **only** inside paragraphs for short emphasis on a word or phrase (not whole headings).
+- After each heading, write 2–4 short paragraphs (not one long wall of text). Use a blank line between paragraphs.
+- For lists, use lines starting with "- " (hyphen space). Reserve bullets mainly for "Key Points" and "Your Rights" sections.
+- Do not use a giant numbered list for the whole module body; the numbered structure is only the ten section headings.
+
+The ten sections (use these exact titles after ## and the number):
+
+1. What This Is (Simple Explanation): clear, plain-language explanation of what this is
+2. Why It Matters for Your Health: why this matters, what happens if ignored; be specific
+3. What to Expect: step-by-step, concrete guidance
+4. What You Can Ask or Say: at least 3 advocacy prompts you can use, written in your own voice (e.g. "Can you explain why this test is needed?") (can be bullet lines)
+5. Risks, Options, and Alternatives: balanced, non-alarming
+6. When to Seek Medical Help: when to call or seek emergency care
+7. How This Connects to Your Empowerment: self-advocacy and informed choice
+8. Key Points: 3–5 takeaways as "- " bullets
+9. Your Rights: 2–3 rights as "- " bullets
+10. Insurance Notes: ${userProfile?.insuranceType ? `Tailor for ${userProfile.insuranceType}: coverage, costs, what to ask.` : "Insurance-agnostic: what to ask about coverage and costs."}
 
 TONE & VOICE REQUIREMENTS:
 - Warm, supportive, nonjudgmental language
+- Speak directly to her as "you/your" throughout; never "the patient" or "the mother"
 - Sound like: "Here's what this test means and why it matters. You deserve clear explanations and the chance to ask questions."
 - Trauma-informed: Acknowledge possible fears, past negative experiences, pressure. Use supportive language that reassures and centers safety.
 - Cultural responsiveness: Reflect realities Black mothers may face (bias, being dismissed, rushed). Use validating, empowering language.
 - Avoid: Fear-based language, provider-blaming, cultural stereotypes, overly technical explanations, long paragraphs without breaks
-- Use: Short paragraphs, bulleted lists, defined terms
+- Use: Short paragraphs, defined terms, bullets only where they help (especially Key Points and Rights)
 
-Keep everything at ${readingLevel} reading level. Make it personally relevant based on the user's profile. Return the content in a structured format with clear sections.`,
+Keep everything at ${readingLevel} reading level. Make it personally relevant based on the user's profile.`,
         },
-      ],
-      temperature: 0.8,
+      ];
+    }
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages,
+      temperature: usePregnancyLossPrompt ? 0.5 : 0.8,
       max_tokens: 1500,
     });
 
-    const content = response.choices[0].message.content;
+    // Safety net: keep woman-facing module text in second person ("you/your")
+    const content = toSecondPerson(response.choices[0].message.content);
 
     // Save to Firestore
     await admin.firestore().collection("learning_modules").add({
@@ -204,11 +414,13 @@ exports.summarizeVisitNotes = onCall(
           content: `You are a medical interpreter helping pregnant women understand their medical visits. 
 Translate medical information into clear, accessible language at a 6th grade reading level. 
 Use professional, clinical language. Avoid casual terms like "momma". 
-Be supportive and factual. Organize information clearly with headers.`,
+Be supportive and factual. Organize information clearly with headers.
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
-          content: `Create a visit summary that a 6th grader could understand:
+          content: `Create a visit summary that a 6th grader could understand, written directly to her as "you/your" (e.g. "You were referred to...", "Your next visit is..."), never "the patient":
 
 Visit Notes: ${visitNotes || "None provided"}
 
@@ -241,7 +453,8 @@ Format as:
       max_tokens: 2000,
     });
 
-    const summary = response.choices[0].message.content;
+    // Safety net: keep woman-facing summary text in second person ("you/your")
+    const summary = toSecondPerson(response.choices[0].message.content);
 
     // Note: The app code saves the summary to Firestore with the correct appointmentDate
     // We only generate and return the summary here to avoid duplicate saves
@@ -273,8 +486,10 @@ exports.generateBirthPlan = onCall(
         {
           role: "system",
           content: `You are a birth planning specialist helping create personalized birth plans. Create a comprehensive 
-yet accessible birth plan that respects the patient's wishes while being medically informed. 
-Use professional, clinical language and a 6th grade reading level. Avoid casual terms like "momma".`,
+yet accessible birth plan that respects the mother's wishes while being medically informed. 
+Use professional, clinical language and a 6th grade reading level. Avoid casual terms like "momma".
+
+VOICE (required): The plan belongs to her and is shared with her care team, so write each preference in her own first-person voice (e.g. "I would like to move freely during labor", "My support person is..."). Any notes or explanations addressed to her use "you/your". Never refer to her as "the patient" or "the mother". Keep all clinical details accurate.`,
         },
         {
           role: "user",
@@ -340,7 +555,9 @@ exports.generateAppointmentChecklist = onCall(
           role: "system",
           content: `You are a healthcare coordinator helping pregnant women prepare for medical appointments. 
 Create clear, actionable checklists at a 6th grade reading level. Use professional clinical language. 
-Avoid casual terms like "momma". Be supportive and thorough.`,
+Avoid casual terms like "momma". Be supportive and thorough.
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
@@ -348,7 +565,7 @@ Avoid casual terms like "momma". Be supportive and thorough.`,
 
 Appointment Type: ${appointmentType}
 Trimester: ${trimester}
-Patient Concerns: ${concerns || "None specified"}
+Her Concerns: ${concerns || "None specified"}
 Last Visit Notes: ${lastVisit || "First visit"}
 
 Include:
@@ -365,7 +582,7 @@ Keep language simple and actionable.`,
       max_tokens: 1500,
     });
 
-    const checklist = response.choices[0].message.content;
+    const checklist = toSecondPerson(response.choices[0].message.content);
 
     return {success: true, checklist};
   } catch (error) {
@@ -395,7 +612,9 @@ exports.analyzeEmotionalContent = onCall(
           role: "system",
           content: `You are a healthcare advocate. Analyze text for emotional content, 
 confusion, concerns, or distress. Identify moments that might need follow-up or support. 
-Use professional, clinical language. Avoid casual terms. Provide clear, supportive recommendations.`,
+Use professional, clinical language. Avoid casual terms. Provide clear, supportive recommendations.
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
@@ -452,7 +671,9 @@ exports.generateRightsContent = onCall(
           role: "system",
           content: `You are a patient rights advocate specializing in maternal healthcare. 
 Explain patient rights clearly and empoweringly at a 6th grade reading level. 
-Be specific, actionable, and encouraging.`,
+Be specific, actionable, and encouraging.
+
+${SECOND_PERSON_VOICE_RULE}`,
         },
         {
           role: "user",
@@ -472,7 +693,7 @@ Keep language simple, clear, and empowering.`,
       max_tokens: 1500,
     });
 
-    const content = response.choices[0].message.content;
+    const content = toSecondPerson(response.choices[0].message.content);
 
     return {success: true, content};
   } catch (error) {
@@ -496,10 +717,14 @@ exports.simplifyText = onCall(
       
       // If context is provided, use it as a custom system prompt for general AI assistant
       // Otherwise, use the default text simplification prompt
-      const systemPrompt = textContext || `You are a medical communication expert who translates complex medical information 
+      const systemPrompt = textContext ? `${textContext}
+
+${SECOND_PERSON_VOICE_RULE}` : `You are a medical communication expert who translates complex medical information 
 into simple, clear language appropriate for a 6th grade reading level. Use short sentences, 
 common words, and avoid medical jargon. When medical terms are necessary, explain them simply. 
-Focus on what the person needs to know and do.`;
+Focus on what the person needs to know and do.
+
+${SECOND_PERSON_VOICE_RULE}`;
 
       const userPrompt = textContext 
         ? text 
@@ -521,7 +746,7 @@ Focus on what the person needs to know and do.`;
         max_tokens: 1000,
       });
 
-      const simplified = response.choices[0].message.content;
+      const simplified = toSecondPerson(response.choices[0].message.content);
       return {success: true, simplified};
     } catch (error) {
       console.error("Error simplifying text:", error);
@@ -814,61 +1039,181 @@ exports.processUploadedVisitSummary = onObjectFinalized(
   }
 );
 
-// Helper function to analyze PDF (extracted from summarizeAfterVisitPDF)
-async function analyzeVisitSummaryPDF({pdfText, appointmentDate, educationLevel, userProfile, userId}) {
-      console.log(`🟢 [DEBUG] analyzeVisitSummaryPDF HELPER function called`);
-      console.log(`🟢 [DEBUG] Helper function params:`, {
-        userId: userId,
-        appointmentDate: appointmentDate,
-        appointmentDateType: typeof appointmentDate,
-        pdfTextLength: pdfText?.length || 0,
-        hasEducationLevel: !!educationLevel,
-        hasUserProfile: !!userProfile,
-      });
-      
-      // Extract user context with safe defaults
-      const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
-      const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
-      const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
-      const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
-      const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
-      const learningStyle = (userProfile?.learningStyle || "visual").toString();
-      const insuranceType = (userProfile?.insuranceType || "").toString();
+// ============================================================================
+// VISIT SUMMARY ANALYSIS (shared by typed notes, text PDFs, scans and photos)
+// ============================================================================
+// All three entry points (analyzeVisitSummaryText, analyzeVisitSummaryPDF and
+// the legacy summarizeAfterVisitPDF) produce the same JSON shape through Chat
+// Completions. Text PDFs go through the text prompt; scanned PDFs and photos
+// (which the app converts to a one-page PDF) go to a vision model as a file.
+// The Assistants API that the PDF path used before was shut down by OpenAI in
+// Aug 2026 and now returns 404.
 
-    // Determine reading level based on education
-    const getReadingLevel = (educationLevel) => {
-      if (!educationLevel) return "6th grade";
-      if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
-        return "8th grade";
-      }
-      if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
-        return "6th-7th grade";
-      }
-      return "5th-6th grade";
-    };
+const VISIT_SUMMARY_MODEL = "gpt-4o";
+// Fewer non-whitespace characters than this means the PDF is a scan or photo.
+const VISIT_SUMMARY_MIN_TEXT_CHARS = 200;
+// Raw PDF cap. Base64 adds about a third, and OpenAI limits file input size.
+const VISIT_SUMMARY_MAX_PDF_BYTES = 20 * 1024 * 1024;
+// Cap on document text sent to the model so the prompt stays within limits.
+const VISIT_SUMMARY_MAX_TEXT_CHARS = 60000;
+// Per-request OpenAI timeout (the callables run with timeoutSeconds: 300).
+const VISIT_SUMMARY_OPENAI_TIMEOUT_MS = 180000;
 
-      const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "6th grade";
+// Plain-language messages shown to the user (sent in HttpsError details.userMessage).
+const VISIT_SUMMARY_MESSAGES = {
+  unreadable_file: "We couldn't read that file. Try a clearer photo or paste the text instead.",
+  unreadable_text: "We couldn't find visit details in that text. Please check it and try again.",
+  too_large: "That file is too large. Try a smaller PDF, one clear photo, or paste the text instead.",
+  file_not_found: "We couldn't find your uploaded file. Please try uploading it again.",
+  busy: "We couldn't simplify this right now. Please try again in a moment.",
+};
 
-  console.log("🤖 Calling OpenAI API for analysis...");
-      const openai = getOpenAIClient(openaiApiKey.value());
-      const response = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. 
-Generate a comprehensive, plain-language visit summary at a ${readingLevel} reading level using professional clinical language. 
-Avoid casual terms like "momma". Structure your response as a JSON object with specific sections.`,
-          },
-          {
-            role: "user",
-            content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary. 
-Explain medical terms clearly, outline next steps, offer advocacy questions the mother can ask, and provide supportive, trauma-informed language. 
-Tailor the content to her trimester (${trimester}), stated concerns (${JSON.stringify(concerns)}), and birth preferences (${JSON.stringify(birthPlanPreferences)}). 
-Include a short explanation, what to expect, questions to ask, and when to seek help.
+/** Error with a plain-language message that is safe to show to the user. */
+class VisitSummaryUserError extends Error {
+  constructor(code, reason, detail) {
+    super(detail || VISIT_SUMMARY_MESSAGES[reason] || VISIT_SUMMARY_MESSAGES.busy);
+    this.name = "VisitSummaryUserError";
+    this.httpsCode = code;
+    this.reason = reason;
+    this.userMessage = VISIT_SUMMARY_MESSAGES[reason] || VISIT_SUMMARY_MESSAGES.busy;
+  }
+}
 
-Visit Summary:
-${pdfText}
+/**
+ * Convert any error from the visit summary pipeline into an HttpsError whose
+ * message is plain language. Details are logged server-side by the caller.
+ * @param {Error} error
+ * @param {string} unreadableReason reason to use when OpenAI rejects the input (400)
+ * @return {HttpsError}
+ */
+function toVisitSummaryHttpsError(error, unreadableReason = "unreadable_file") {
+  const make = (code, reason) => new HttpsError(code, VISIT_SUMMARY_MESSAGES[reason], {
+    reason,
+    userMessage: VISIT_SUMMARY_MESSAGES[reason],
+  });
+  if (error instanceof VisitSummaryUserError) {
+    return make(error.httpsCode, error.reason);
+  }
+  if (error instanceof HttpsError) {
+    return error;
+  }
+  const status = typeof error?.status === "number" ? error.status : null;
+  if (status === 400) {
+    // OpenAI could not use the document (corrupt PDF, unsupported content).
+    return make("invalid-argument", unreadableReason);
+  }
+  if (status === 429) {
+    return make("resource-exhausted", "busy");
+  }
+  const name = error?.name || "";
+  const message = (error?.message || "").toLowerCase();
+  if (name.includes("Timeout") || message.includes("timed out") || message.includes("timeout")) {
+    return make("deadline-exceeded", "busy");
+  }
+  return make("internal", "busy");
+}
+
+function getVisitSummaryReadingLevel(educationLevel) {
+  // Target ~5th grade for health literacy support (not diagnosis or care decisions)
+  if (!educationLevel) return "about 5th grade";
+  const level = educationLevel.toString();
+  if (level.includes("Graduate") || level.includes("Bachelor")) {
+    return "about 6th grade";
+  }
+  if (level.includes("High School") || level.includes("Some College")) {
+    return "about 5th–6th grade";
+  }
+  return "about 5th grade";
+}
+
+/** Count of non-whitespace characters (used to tell text PDFs from scans). */
+function countMeaningfulChars(text) {
+  if (!text || typeof text !== "string") return 0;
+  return text.replace(/\s+/g, "").length;
+}
+
+/**
+ * Stable fingerprint of what the user submitted, used to catch accidental
+ * double-submits (same date + same text or same file bytes).
+ * @param {string} kind "text" or "pdf"
+ * @param {string|Buffer} content
+ * @return {string} hex sha256
+ */
+function computeVisitSourceHash(kind, content) {
+  const hash = crypto.createHash("sha256");
+  hash.update(`${kind}:`);
+  if (Buffer.isBuffer(content)) {
+    hash.update(content);
+  } else {
+    hash.update(String(content || "").replace(/\s+/g, " ").trim());
+  }
+  return hash.digest("hex");
+}
+
+/** Deterministic doc id so concurrent double-submits collide on create(). */
+function visitSummaryDocId(calendarKey, sourceHash) {
+  return `${calendarKey}_${sourceHash.substring(0, 24)}`;
+}
+
+/** Extract text from a PDF buffer. Returns "" when the PDF has no text layer. */
+async function extractPdfText(pdfBuffer) {
+  // Require the library entry directly (pdf-parse's index.js has a debug
+  // branch that reads a test file when module.parent is missing).
+  const pdfParse = require("pdf-parse/lib/pdf-parse.js");
+  // pdf.js reads the underlying ArrayBuffer and ignores a Buffer's byteOffset,
+  // so a pooled Node Buffer parses as garbage ("bad XRef entry"). Give it a
+  // standalone copy. Fall back to the newer bundled pdf.js if the default fails.
+  for (const version of [undefined, "v2.0.550"]) {
+    try {
+      const data = new Uint8Array(pdfBuffer.length);
+      data.set(pdfBuffer);
+      const pdfData = await pdfParse(data, version ? {version} : undefined);
+      if (pdfData && typeof pdfData.text === "string") return pdfData.text;
+    } catch (e) {
+      console.warn(`⚠️ pdf-parse (${version || "default"}) could not read the PDF: ${e.message}`);
+    }
+  }
+  console.warn("⚠️ No text layer extracted from PDF, will use the vision model");
+  return "";
+}
+
+/**
+ * Build the system + user prompts for visit summary analysis.
+ * @return {{systemPrompt: string, userPrompt: string, readingLevel: string, trimester: string}}
+ */
+function buildVisitSummaryPrompts({documentText, educationLevel, userProfile}) {
+  // Extract user context with safe defaults
+  const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
+  const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
+  const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
+  const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
+  const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
+  const learningStyle = (userProfile?.learningStyle || "visual").toString();
+  const insuranceType = (userProfile?.insuranceType || "").toString();
+  const readingLevel = getVisitSummaryReadingLevel(educationLevel);
+
+  const systemPrompt = `You are a culturally affirming, trauma-informed health literacy educator for EmpowerHealth Watch (maternal health).
+
+Your role is strictly to help the user READ and UNDERSTAND paperwork or visit-related text in plain language at a ${readingLevel} reading level.
+
+You do NOT diagnose, treat, or interpret clinical findings as medical truth. You do not replace a clinician. Frame everything as understanding what the document or visit notes say, questions to ask the care team, and practical next steps, not as definitive medical advice.
+
+Accept and work from: after-visit summaries, discharge instructions, provider or nurse notes, printed visit recaps, and similar documents, even if the text is partial or informal. Documents may be scanned pages or phone photos of paperwork; read them carefully.
+
+Avoid casual terms like "momma".
+
+${SECOND_PERSON_VOICE_RULE} This applies to every string value in the JSON (summary fields, todos, learning modules, notes, tips).
+
+Your entire reply must be one JSON object only: no apologies, no "It seems…", no markdown fences, no text before or after the JSON. Only if the document has no readable content at all (blank, completely blurry, or not a document), reply with exactly {"unreadable": true}.`;
+
+  const userPrompt = `From the following document or visit text, produce JSON that helps the user understand what they have in front of them.
+
+Explain medical terms simply. Include "tap-to-explain" style entries in keyMedicalTerms (term + short explanation). Prefer short sentences and short paragraphs.
+
+Tailor tone to trimester (${trimester}), concerns (${JSON.stringify(concerns)}), birth preferences (${JSON.stringify(birthPlanPreferences)}).
+
+Document / visit text:
+${documentText}
 
 User Context:
 - Trimester: ${trimester}
@@ -881,15 +1226,21 @@ User Context:
 Return a JSON object with the following structure:
 {
   "summary": {
-    "howBabyIsDoing": "Brief summary of fetal health, measurements, heartbeat, movements, development",
-    "howYouAreDoing": "Brief summary of maternal health, vitals, symptoms, concerns addressed",
+    "whatThisMeans": "1–3 short paragraphs at ${readingLevel} level, written to you: in plain words, what this visit or document is mainly about (literacy support only, not a diagnosis)",
+    "importantNextSteps": "Plain language, written to you: what you need to do next, follow-ups, scheduling; separate from medication list (e.g. \"You were referred to a specialist. Call to schedule within 2 weeks.\")",
+    "howBabyIsDoing": "If applicable: brief plain-language note on fetal/baby-related content; else empty string",
+    "howYouAreDoing": "If applicable: brief plain-language note on your health topics mentioned, written to you; else empty string",
     "keyMedicalTerms": [
-      {"term": "term name", "explanation": "plain language explanation"}
+      {"term": "term name", "explanation": "plain language explanation for tap-to-read"}
     ],
-    "nextSteps": "Plain language breakdown of next steps",
+    "nextSteps": "May repeat or align with importantNextSteps; plain language only",
     "questionsToAsk": [
       "Question 1",
       "Question 2"
+    ],
+    "visitNotes": [
+      "Short affirming reminder or takeaway from this visit (1–2 sentences)",
+      "Another supportive note for you to remember (e.g. \"You asked clear questions about your care today.\")"
     ],
     "empowermentTips": [
       "Advocacy tip 1",
@@ -904,18 +1255,34 @@ Return a JSON object with the following structure:
     "medications": [
       {"name": "medication name", "purpose": "why prescribed", "instructions": "how to take"}
     ],
-    "followUpInstructions": "Instructions for follow-up care",
+    "followUpInstructions": "Follow-up care instructions written to you (e.g. \"You were referred to a specialist. Your next annual exam is in one year.\")",
     "providerCommunicationStyle": "Description of communication style if flagged (rushed, unclear, dismissive, etc.)",
     "emotionalMarkers": ["confused", "scared", "unsure", etc. if detected],
-    "advocacyMoments": ["Provider said XYZ without explanation", etc.],
+    "advocacyMoments": ["Your provider mentioned XYZ without explaining it", etc.],
     "contradictions": ["Any contradictions or missing explanations"]
   },
   "todos": [
-    {"title": "Todo title", "description": "Todo description", "category": "advocacy|followup|medication|test"},
+    {"title": "Schedule your follow-up ultrasound", "description": "Your provider wants to check your baby's growth in 4 weeks. Call the office to book it.", "category": "advocacy|followup|medication|test"},
     ...
   ],
   "learningModules": [
-    {"title": "Module title", "description": "Why this is relevant", "reason": "Based on visit content"},
+    {
+      "title": "Module title",
+      "description": "Why this matters for you",
+      "reason": "Based on what came up at your visit",
+      "content": {
+        "whatThisIs": "Simple explanation of what this is",
+        "whyItMatters": "Why this matters for your health - explain the 'why' behind the 'what' in detail",
+        "whatToExpect": "Step-by-step what to expect",
+        "whatYouCanAsk": ["Advocacy question 1", "Advocacy question 2", "Advocacy question 3"],
+        "risksOptionsAlternatives": "Balanced information about risks, options, and alternatives",
+        "whenToSeekHelp": "When to seek medical help",
+        "empowermentConnection": "How this connects to your empowerment",
+        "keyPoints": ["Key point 1", "Key point 2", "Key point 3"],
+        "yourRights": ["Your right 1", "Your right 2"],
+        "insuranceNotes": "Insurance-specific information if applicable, otherwise insurance-agnostic guidance"
+      }
+    },
     ...
   ],
   "redFlags": [
@@ -924,39 +1291,42 @@ Return a JSON object with the following structure:
 }
 
 CRITICAL REQUIREMENTS:
-1. Explain key medical terms mentioned - add to keyMedicalTerms array
-2. Break down next steps in plain language - add to nextSteps
-3. Highlight questions to ask at the next visit - add to questionsToAsk
-4. Provide empowerment + advocacy tips based on that specific encounter - add to empowermentTips AND create todos
-5. Reinforce understanding of any new diagnoses, tests, or procedures - add to newDiagnoses/testsProcedures AND create learning modules
-6. Flag potential mistreatment or unclear communication - add to redFlags
-7. Tests or procedures recommended - add to testsProcedures AND create learning modules
-8. Medications discussed - add to medications AND create learning modules
-9. Follow-up instructions - turn into todos
-10. Provider communication style (e.g., rushed, unclear, dismissive — if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
-11. Emotional markers (mom tapped "confused," "scared," or "unsure") - add to emotionalMarkers
-12. Advocacy moments (e.g., "provider said XYZ without explanation") - add to advocacyMoments
-13. Any contradictions or missing explanations - add to contradictions AND create learning modules to bridge gap
+0. Fill **whatThisMeans** and **importantNextSteps** clearly; they drive the main "What this means" and "Important next steps" sections in the app.
+1. Explain key medical terms mentioned: add at least 3–8 items to keyMedicalTerms when the text includes clinical words (for tap-to-explain in the app).
+2. Break down next steps in plain language: importantNextSteps and nextSteps should be consistent and actionable (who to call, what to schedule), not diagnostic conclusions.
+3. **questionsToAsk**: At least 4 specific questions for the next visit (advocacy-focused); shown in the visit detail "Questions to ask" card in the app.
+4. **visitNotes**: 2–4 short, affirming strings for the visit detail "Notes" card: warm reminders of what mattered, strengths, or gentle encouragement (not the same as empowermentTips; visitNotes are reflective, tips are action-oriented).
+5. Provide empowerment + advocacy tips based on that specific encounter - add to empowermentTips AND create todos
+6. Reinforce understanding of any new diagnoses, tests, or procedures - add to newDiagnoses/testsProcedures AND create learning modules
+7. Flag potential mistreatment or unclear communication - add to redFlags
+8. Tests or procedures recommended - add to testsProcedures AND create learning modules
+9. Medications discussed - add to medications AND create learning modules
+10. Follow-up instructions - turn into todos
+11. Provider communication style (e.g., rushed, unclear, dismissive, if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
+12. Emotional markers (mom tapped "confused," "scared," or "unsure") - add to emotionalMarkers
+13. Advocacy moments (e.g., "Your provider mentioned XYZ without explaining it") - add to advocacyMoments
+14. Any contradictions or missing explanations - add to contradictions AND create learning modules to bridge gap
 
 TODOS: Create todos for:
 - Empowerment/advocacy tips (category: "advocacy")
 - Follow-up instructions (category: "followup")
 - Medications to take (category: "medication")
 - Tests to schedule (category: "test")
+Each todo is a short plain-language next step written to her as "you": "title" is a short action that starts with a verb (8 words or fewer); "description" is a 1-2 sentence summary under 30 words saying what to do and why (e.g. "You were referred to a heart specialist. Call to book a visit in the next 2 weeks."). Keep extra clinical detail out of todos; it belongs in the summary or learning modules.
 
 LEARNING MODULES: Create DETAILED, comprehensive learning modules (not high-level) for new diagnoses, tests/procedures discussed, medications, provider communication issues, contradictions/missing explanations.
 
-Each learning module MUST follow this structure and be DETAILED:
+Each learning module MUST follow this structure (in its "content" object) and be DETAILED:
 1. **What This Is (Simple Explanation)** - Clear, plain-language explanation
 2. **Why It Matters for Your Health** - Explain the "why" behind the "what" - why this matters, why it's important, what happens if ignored. Be detailed and specific.
 3. **What to Expect** - Step-by-step, detailed guidance on what will happen
-4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts the mother can use
+4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts you can use (written in her own voice, e.g. "Can you explain why I need this?")
 5. **Risks, Options, and Alternatives** - Balanced, non-fearful information
 6. **When to Seek Medical Help** - Clear guidance on when to call provider
 7. **How This Connects to Your Empowerment** - How this topic relates to self-advocacy and empowerment
 8. **Key Points** - 3-5 key takeaways
 9. **Your Rights** - 2-3 specific rights related to this topic
-10. **Insurance Notes** - ${userProfile?.insuranceType ? `Tailor information for ${userProfile.insuranceType} insurance. Include coverage considerations, what's typically covered, and any cost considerations.` : "Provide insurance-agnostic guidance that applies regardless of insurance type."}
+10. **Insurance Notes** - ${insuranceType ? `Tailor information for ${insuranceType} insurance. Include coverage considerations, what's typically covered, and any cost considerations.` : "Provide insurance-agnostic guidance that applies regardless of insurance type."}
 
 TONE & VOICE REQUIREMENTS:
 - Warm, supportive, nonjudgmental language
@@ -969,271 +1339,204 @@ TONE & VOICE REQUIREMENTS:
 
 Brand Voice: "Your Health. Your Voice. Your Empowerment."
 
-Use trauma-informed, culturally affirming language throughout. Make all explanations accessible at ${readingLevel} reading level.`,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 4000,
-      });
+Use trauma-informed, culturally affirming language throughout. Make all explanations accessible at ${readingLevel} reading level. Return ONLY valid JSON.`;
 
-      if (!response.choices || response.choices.length === 0 || !response.choices[0].message.content) {
-    throw new Error("❌ OpenAI API returned an invalid response");
-      }
+  return {systemPrompt, userPrompt, readingLevel, trimester};
+}
 
-      const responseContent = response.choices[0].message.content;
-      let parsedResponse;
-      
-      try {
-        parsedResponse = JSON.parse(responseContent);
-      } catch (parseError) {
+/** Placeholder for the "Document / visit text" slot when the PDF is attached as a file. */
+const VISIT_SUMMARY_ATTACHED_PDF_TEXT =
+  "(The document is attached to this message as a PDF file. It may be a scanned page or a phone photo of paperwork. Read every page carefully and work only from what it says.)";
+
+/**
+ * Chat Completions user content for the vision path: the PDF as a file
+ * content part followed by the instructions. Matches OpenAI's documented
+ * file input format: {type: "file", file: {filename, file_data: "data:application/pdf;base64,..."}}.
+ */
+function buildVisitSummaryPdfUserContent({pdfBuffer, filename, userPrompt}) {
+  return [
+    {
+      type: "file",
+      file: {
+        filename: filename || "visit_summary.pdf",
+        file_data: `data:application/pdf;base64,${pdfBuffer.toString("base64")}`,
+      },
+    },
+    {type: "text", text: userPrompt},
+  ];
+}
+
+/** Request body for the visit summary Chat Completions call. */
+function buildVisitSummaryChatRequest({systemPrompt, userContent}) {
+  return {
+    model: VISIT_SUMMARY_MODEL,
+    messages: [
+      {role: "system", content: systemPrompt},
+      {role: "user", content: userContent},
+    ],
+    temperature: 0.7,
+    max_tokens: 8000,
+    response_format: {type: "json_object"},
+  };
+}
+
+/**
+ * Parse and validate the model's JSON reply, then apply the second-person
+ * safety net. Throws VisitSummaryUserError when the model says the document
+ * is unreadable.
+ */
+function parseVisitSummaryResponse(responseContent, unreadableReason) {
+  let parsedResponse;
+  try {
+    parsedResponse = parseJsonFromOpenAIContent(responseContent);
+  } catch (parseError) {
     console.error("❌ JSON parse error:", parseError);
-    throw new Error("❌ Failed to parse AI response");
+    console.error("Response content (start):", String(responseContent).substring(0, 500));
+    throw new Error("Failed to parse AI response: " + parseError.message);
   }
 
-  // Check for existing summary with same appointment date to prevent duplicates
-      // Normalize appointment date to start of day for comparison
-      // Parse the date string consistently - handle ISO 8601 format
-      console.log(`🟢 [DEBUG] Helper: Starting duplicate check`);
-      let appointmentDateObj;
-      if (typeof appointmentDate === 'string') {
-        console.log(`🟢 [DEBUG] Helper: Parsing date string: ${appointmentDate}`);
-        // Parse ISO 8601 date string (e.g., "2026-02-12T00:00:00.000Z" or "2026-02-12")
-        const dateStr = appointmentDate.split('T')[0]; // Get just the date part
-        console.log(`🟢 [DEBUG] Helper: Extracted date part: ${dateStr}`);
-        const [year, month, day] = dateStr.split('-').map(Number);
-        console.log(`🟢 [DEBUG] Helper: Parsed components: year=${year}, month=${month}, day=${day}`);
-        appointmentDateObj = new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed
-        console.log(`🟢 [DEBUG] Helper: Created Date object: ${appointmentDateObj.toISOString()}`);
-      } else if (appointmentDate instanceof Date) {
-        console.log(`🟢 [DEBUG] Helper: Date is already a Date object: ${appointmentDate.toISOString()}`);
-        appointmentDateObj = appointmentDate;
-      } else {
-        console.log(`🟢 [DEBUG] Helper: Date is unknown type, using current date`);
-        appointmentDateObj = new Date();
-      }
-      
-      // Normalize to start of day in UTC to avoid timezone issues
-      const normalizedDate = new Date(Date.UTC(
-        appointmentDateObj.getUTCFullYear(),
-        appointmentDateObj.getUTCMonth(),
-        appointmentDateObj.getUTCDate(),
-        0, 0, 0, 0 // Set to midnight UTC
-      ));
-      const appointmentTimestamp = admin.firestore.Timestamp.fromDate(normalizedDate);
-      
-      console.log(`📅 Normalized appointment date (helper): ${normalizedDate.toISOString()} (original: ${appointmentDate})`);
-      console.log(`🟢 [DEBUG] Helper: Normalized date components: year=${normalizedDate.getUTCFullYear()}, month=${normalizedDate.getUTCMonth() + 1}, day=${normalizedDate.getUTCDate()}`);
-      console.log(`🟢 [DEBUG] Helper: Firestore Timestamp: ${appointmentTimestamp.toDate().toISOString()}`);
-      
-      // Check if summary already exists for this date using range query to catch timezone variations
-      const dayStart = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
-        normalizedDate.getUTCFullYear(),
-        normalizedDate.getUTCMonth(),
-        normalizedDate.getUTCDate(),
-        0, 0, 0, 0
-      )));
-      const dayEnd = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
-        normalizedDate.getUTCFullYear(),
-        normalizedDate.getUTCMonth(),
-        normalizedDate.getUTCDate(),
-        23, 59, 59, 999
-      )));
-      
-      console.log(`🟢 [DEBUG] Helper: Checking for existing summaries between ${dayStart.toDate().toISOString()} and ${dayEnd.toDate().toISOString()}`);
-      console.log(`🟢 [DEBUG] Helper: Query path: users/${userId}/visit_summaries`);
-      
-      // DEBUG: List ALL summaries for this user to see what exists
-      let allSummaries;
-      try {
-        allSummaries = await admin.firestore()
-          .collection("users")
-          .doc(userId)
-          .collection("visit_summaries")
-          .orderBy("createdAt", "desc")
-          .limit(10)
-          .get();
-      } catch (e) {
-        // If orderBy fails (no index), just get without ordering
-        console.log(`🟢 [DEBUG] Helper: orderBy failed, getting without order: ${e.message}`);
-        allSummaries = await admin.firestore()
-          .collection("users")
-          .doc(userId)
-          .collection("visit_summaries")
-          .limit(10)
-          .get();
-      }
-      console.log(`🟢 [DEBUG] Helper: Total summaries for user: ${allSummaries.size}`);
-      allSummaries.docs.forEach((doc, idx) => {
-        const data = doc.data();
-        // Safely extract appointmentDate - handle Timestamp, Date, or string
-        let appointmentDateStr = 'unknown';
-        if (data.appointmentDate) {
-          if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
-            appointmentDateStr = data.appointmentDate.toDate().toISOString();
-          } else if (data.appointmentDate instanceof Date) {
-            appointmentDateStr = data.appointmentDate.toISOString();
-          } else if (typeof data.appointmentDate === 'string') {
-            appointmentDateStr = data.appointmentDate;
-          } else {
-            appointmentDateStr = String(data.appointmentDate);
-          }
-        }
-        
-        let createdAtStr = 'unknown';
-        if (data.createdAt) {
-          if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
-            createdAtStr = data.createdAt.toDate().toISOString();
-          } else if (data.createdAt instanceof Date) {
-            createdAtStr = data.createdAt.toISOString();
-          } else if (typeof data.createdAt === 'string') {
-            createdAtStr = data.createdAt;
-          }
-        }
-        
-        console.log(`🟢 [DEBUG] Helper: Summary ${idx + 1}:`, {
-          id: doc.id,
-          appointmentDate: appointmentDateStr,
-          appointmentDateTimestamp: data.appointmentDate?.seconds,
-          createdAt: createdAtStr,
-        });
-      });
-      
-      // Get ALL summaries and filter client-side to handle both Timestamp and string formats
-      const allUserSummaries = await admin.firestore()
-        .collection("users")
-        .doc(userId)
-        .collection("visit_summaries")
-        .get();
-      
-      console.log(`🟢 [DEBUG] Helper: Total summaries in collection: ${allUserSummaries.size}`);
-      
-      // Filter client-side to find matches (handles both Timestamp and string formats)
-      const matchingSummaries = allUserSummaries.docs.filter((doc) => {
-        const data = doc.data();
-        const existingDate = data.appointmentDate;
-        
-        if (!existingDate) return false;
-        
-        // Try to normalize the existing date
-        let existingDateObj;
-        if (existingDate.toDate && typeof existingDate.toDate === 'function') {
-          // It's a Firestore Timestamp
-          existingDateObj = existingDate.toDate();
-        } else if (existingDate instanceof Date) {
-          existingDateObj = existingDate;
-        } else if (typeof existingDate === 'string') {
-          // It's a string - parse it
-          try {
-            const dateStr = existingDate.split('T')[0];
-            const [year, month, day] = dateStr.split('-').map(Number);
-            existingDateObj = new Date(Date.UTC(year, month - 1, day));
-          } catch (e) {
-            return false;
-          }
-        } else {
-          return false;
-        }
-        
-        // Normalize to start of day for comparison
-        const existingNormalized = new Date(Date.UTC(
-          existingDateObj.getUTCFullYear(),
-          existingDateObj.getUTCMonth(),
-          existingDateObj.getUTCDate(),
-          0, 0, 0, 0
-        ));
-        
-        // Compare normalized dates
-        return existingNormalized.getTime() === normalizedDate.getTime();
-      });
-      
-      console.log(`🟢 [DEBUG] Helper: Client-side filter found: ${matchingSummaries.length} matching summaries`);
-      
-      let existingSummaries = { empty: matchingSummaries.length === 0, docs: matchingSummaries, size: matchingSummaries.length };
-      
-      console.log(`🟢 [DEBUG] Helper: Existing summaries found: ${existingSummaries.size}`);
-      if (existingSummaries.size > 0) {
-        existingSummaries.docs.forEach((doc, idx) => {
-          const data = doc.data();
-          // Safely extract appointmentDate - handle Timestamp, Date, or string
-          let appointmentDateStr = 'unknown';
-          if (data.appointmentDate) {
-            if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
-              appointmentDateStr = data.appointmentDate.toDate().toISOString();
-            } else if (data.appointmentDate instanceof Date) {
-              appointmentDateStr = data.appointmentDate.toISOString();
-            } else if (typeof data.appointmentDate === 'string') {
-              appointmentDateStr = data.appointmentDate;
-            } else {
-              appointmentDateStr = String(data.appointmentDate);
-            }
-          }
-          
-          let createdAtStr = 'unknown';
-          if (data.createdAt) {
-            if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
-              createdAtStr = data.createdAt.toDate().toISOString();
-            } else if (data.createdAt instanceof Date) {
-              createdAtStr = data.createdAt.toISOString();
-            } else if (typeof data.createdAt === 'string') {
-              createdAtStr = data.createdAt;
-            }
-          }
-          
-          console.log(`🟢 [DEBUG] Helper: Existing summary ${idx + 1}:`, {
-            id: doc.id,
-            appointmentDate: appointmentDateStr,
-            createdAt: createdAtStr,
-            hasSummary: !!data.summary,
-          });
-        });
-      }
-      
-      if (!existingSummaries.empty) {
-        console.log(`⚠️ Summary already exists for appointment date ${normalizedDate.toISOString()}, skipping duplicate creation`);
-        console.log(`🟢 [DEBUG] Helper: Returning existing summary ID: ${existingSummaries.docs[0].id}`);
-        return {
-          summaryId: existingSummaries.docs[0].id,
-          summary: formatSummaryForDisplay(
-            parsedResponse.summary,
-            parsedResponse.learningModules || []
-          ),
-          todos: parsedResponse.todos || [],
-          learningModules: parsedResponse.learningModules || [],
-          redFlags: parsedResponse.redFlags || [],
-        };
-      }
-      
-      console.log(`🟢 [DEBUG] Helper: No existing summary found, will create new one`);
+  if (parsedResponse && parsedResponse.unreadable === true && !parsedResponse.summary) {
+    throw new VisitSummaryUserError("invalid-argument", unreadableReason, "Model reported the document as unreadable");
+  }
 
-  // Save to Firestore
-      const formattedSummary = formatSummaryForDisplay(
-        parsedResponse.summary,
-        parsedResponse.learningModules || []
-      );
-      
-      console.log(`🟢 [DEBUG] Helper: Creating new summary document`);
-      const summaryRef = await admin.firestore()
-          .collection("users")
-    .doc(userId)
-          .collection("visit_summaries")
-          .add({
-        appointmentDate: appointmentTimestamp,
-      originalText: pdfText.substring(0, 10000),
-        summary: formattedSummary,
-        summaryData: parsedResponse.summary,
-        todos: parsedResponse.todos || [],
-        learningModules: parsedResponse.learningModules || [],
-        redFlags: parsedResponse.redFlags || [],
-        readingLevel: readingLevel,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      console.log(`🟢 [DEBUG] Helper: Created new summary with ID: ${summaryRef.id}`);
-      console.log(`🟢 [DEBUG] Helper: New summary appointmentDate: ${appointmentTimestamp.toDate().toISOString()}`);
+  if (!parsedResponse.summary || typeof parsedResponse.summary !== "object" || Array.isArray(parsedResponse.summary)) {
+    throw new Error("AI JSON must include a \"summary\" object");
+  }
+
+  // Safety net: rewrite any third-person "the patient" phrasing in woman-facing
+  // fields (summary, todos/next steps, learning modules) to second person.
+  applySecondPersonToVisitAnalysis(parsedResponse);
+  return parsedResponse;
+}
+
+async function requestVisitSummaryAnalysis({systemPrompt, userContent, unreadableReason}) {
+  console.log(`🤖 Calling OpenAI (${VISIT_SUMMARY_MODEL}) for visit summary analysis (${Array.isArray(userContent) ? "PDF file input" : "text input"})...`);
+  const openai = getOpenAIClient(openaiApiKey.value());
+  const response = await openai.chat.completions.create(
+    buildVisitSummaryChatRequest({systemPrompt, userContent}),
+    {timeout: VISIT_SUMMARY_OPENAI_TIMEOUT_MS, maxRetries: 1},
+  );
+
+  const choice = response && Array.isArray(response.choices) ? response.choices[0] : null;
+  const responseContent = choice && choice.message ? choice.message.content : null;
+  if (!responseContent) {
+    console.error("❌ OpenAI returned no content", {
+      finishReason: choice?.finish_reason,
+      refusal: choice?.message?.refusal ? "present" : "none",
+    });
+    throw new Error("OpenAI API returned an empty response");
+  }
+  if (choice.finish_reason === "length") {
+    console.warn("⚠️ OpenAI response hit max_tokens; JSON may be truncated");
+  }
+  console.log(`✅ Received response (${responseContent.length} chars)`);
+  return parseVisitSummaryResponse(responseContent, unreadableReason);
+}
+
+/** Same response shape as a fresh analysis, built from a stored summary doc. */
+function visitSummaryResultFromDoc(snap) {
+  const data = snap.data() || {};
+  const learningModules = Array.isArray(data.learningModules) ? data.learningModules : [];
+  let summary = typeof data.summary === "string" ? data.summary : "";
+  if (!summary.trim()) {
+    summary = formatSummaryForDisplay(data.summaryData || data.summary, learningModules);
+  }
+  return {
+    summaryId: snap.id,
+    summary,
+    todos: Array.isArray(data.todos) ? data.todos : [],
+    learningModules,
+    redFlags: Array.isArray(data.redFlags) ? data.redFlags : [],
+  };
+}
+
+function visitSummariesCollection(userId) {
+  return admin.firestore().collection("users").doc(userId).collection("visit_summaries");
+}
+
+/**
+ * Accidental double-submit guard: the same text or file for the same
+ * appointment date already has a summary. A different note for a date that
+ * already has a summary is NOT a duplicate and gets its own summary.
+ * @return {Promise<object|null>} full result with duplicate: true, or null
+ */
+async function findDuplicateVisitSummary({userId, appointmentDate, sourceHash}) {
+  if (!sourceHash) return null;
+  const {y, m, d} = parseAppointmentCalendarParts(appointmentDate);
+  const docId = visitSummaryDocId(calendarYmdKey(y, m, d), sourceHash);
+  const snap = await visitSummariesCollection(userId).doc(docId).get();
+  if (!snap.exists) return null;
+  const result = visitSummaryResultFromDoc(snap);
+  if (!result.summary || !result.summary.trim()) return null;
+  console.log(`♻️ Same source already summarized for this date, returning existing summary ${snap.id}`);
+  return {...result, duplicate: true};
+}
+
+/**
+ * Save a parsed analysis: visit_summaries doc + learning_tasks for todos and
+ * learning modules. Uses a deterministic doc id (date + source hash) with
+ * create() so a concurrent double-submit returns the first summary instead of
+ * writing a second one.
+ */
+async function saveVisitSummaryAnalysis({
+  userId,
+  appointmentDate,
+  parsedResponse,
+  readingLevel,
+  trimester,
+  sourceHash,
+  docFields = {},
+}) {
+  // Same **calendar** date as the picker (YYYY-MM-DD from client). Store noon UTC so US TZs don't show prior day.
+  const {y, m, d} = parseAppointmentCalendarParts(appointmentDate);
+  const calendarKey = calendarYmdKey(y, m, d);
+  const appointmentTimestamp = firestoreTimestampFromCalendarYmd(y, m, d);
+  console.log(`📅 Appointment calendar key: ${calendarKey} → Firestore: ${appointmentTimestamp.toDate().toISOString()} (original: ${appointmentDate})`);
+
+  const formattedSummary = formatSummaryForDisplay(
+    parsedResponse.summary,
+    parsedResponse.learningModules || []
+  );
+  if (typeof formattedSummary !== "string" || !formattedSummary.trim()) {
+    throw new Error("Could not build visit summary text from AI output");
+  }
+
+  const summaries = visitSummariesCollection(userId);
+  const summaryRef = sourceHash ?
+    summaries.doc(visitSummaryDocId(calendarKey, sourceHash)) :
+    summaries.doc();
+
+  try {
+    await summaryRef.create({
+      ...docFields,
+      appointmentDate: appointmentTimestamp,
+      summary: formattedSummary,
+      summaryData: parsedResponse.summary,
+      todos: parsedResponse.todos || [],
+      learningModules: parsedResponse.learningModules || [],
+      redFlags: parsedResponse.redFlags || [],
+      readingLevel: readingLevel,
+      sourceHash: sourceHash || null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    const alreadyExists = e && (e.code === 6 || e.code === "already-exists" ||
+      /already exists/i.test(e.message || ""));
+    if (alreadyExists) {
+      const existing = await summaryRef.get();
+      if (existing.exists) {
+        console.log(`♻️ Concurrent submit already created summary ${summaryRef.id}, returning it`);
+        return {...visitSummaryResultFromDoc(existing), duplicate: true};
+      }
+    }
+    throw e;
+  }
+  console.log(`✅ Created visit summary ${summaryRef.id}`);
 
   // Create todos
-      if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
-        const todosBatch = admin.firestore().batch();
-        parsedResponse.todos.forEach((todo) => {
+  if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
+    const todosBatch = admin.firestore().batch();
+    parsedResponse.todos.forEach((todo) => {
       if (!todo || !todo.title) return;
       const todoRef = admin.firestore().collection("learning_tasks").doc();
       todosBatch.set(todoRef, {
@@ -1256,740 +1559,224 @@ Use trauma-informed, culturally affirming language throughout. Make all explanat
     parsedResponse.learningModules.forEach((module) => {
       if (!module || !module.title) return;
       const moduleRef = admin.firestore().collection("learning_tasks").doc();
-        modulesBatch.set(moduleRef, {
-          userId: userId,
-          title: module.title.toString(),
-          description: (module.description || module.reason || "").toString(),
-          content: module.content || null, // Store detailed content structure
-          trimester: trimester,
-          isGenerated: true,
-          visitSummaryId: summaryRef.id,
-          moduleType: "visit_based",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+      modulesBatch.set(moduleRef, {
+        userId: userId,
+        title: module.title.toString(),
+        description: (module.description || module.reason || "").toString(),
+        content: module.content || null, // Store detailed content structure
+        trimester: trimester,
+        isGenerated: true,
+        visitSummaryId: summaryRef.id,
+        moduleType: "visit_based",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
     });
     await modulesBatch.commit();
   }
 
-  console.log(`🟢 [DEBUG] Helper: Returning from analyzeVisitSummaryPDF helper function`);
   return {
     summaryId: summaryRef.id,
     summary: formattedSummary,
     todos: parsedResponse.todos || [],
     learningModules: parsedResponse.learningModules || [],
     redFlags: parsedResponse.redFlags || [],
+    duplicate: false,
   };
 }
 
-// 9. Analyze PDF directly with OpenAI (NO text extraction)
-// Analyze Visit Summary PDF - Recreated to match working function structure exactly
-exports.analyzeVisitSummaryPDF = onCall(
-  {secrets: [openaiApiKey]},
-  async (request) => {
-    const functionCallId = `CF-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    console.log(`🔵 [DEBUG] ========================================`);
-    console.log(`🔵 [DEBUG] analyzeVisitSummaryPDF Cloud Function called`);
-    console.log(`🔵 [DEBUG] Function Call ID: ${functionCallId}`);
-    console.log(`🔵 [DEBUG] User ID: ${request.auth?.uid || 'NOT AUTHENTICATED'}`);
-    console.log(`🔵 [DEBUG] Timestamp: ${new Date().toISOString()}`);
-    
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "🔒 User must be authenticated. Please log in.");
-    }
+/**
+ * Analyze a visit document and save it. Pass either `documentText` (typed
+ * notes or text extracted from a PDF) or `pdfFile` ({buffer, filename}) for a
+ * scanned PDF / photo, which goes to the vision model as a file.
+ * @return {Promise<{summaryId, summary, todos, learningModules, redFlags, duplicate}>}
+ */
+async function analyzeAndSaveVisitSummary({
+  userId,
+  appointmentDate,
+  educationLevel,
+  userProfile,
+  documentText,
+  pdfFile,
+  sourceHash,
+  unreadableReason = "unreadable_text",
+  docFields = {},
+}) {
+  const duplicate = await findDuplicateVisitSummary({userId, appointmentDate, sourceHash});
+  if (duplicate) return duplicate;
 
-    const data = request.data;
+  let prompts;
+  let userContent;
+  if (pdfFile) {
+    prompts = buildVisitSummaryPrompts({
+      documentText: VISIT_SUMMARY_ATTACHED_PDF_TEXT,
+      educationLevel,
+      userProfile,
+    });
+    userContent = buildVisitSummaryPdfUserContent({
+      pdfBuffer: pdfFile.buffer,
+      filename: pdfFile.filename,
+      userPrompt: prompts.userPrompt,
+    });
+  } else {
+    const text = String(documentText || "").substring(0, VISIT_SUMMARY_MAX_TEXT_CHARS);
+    prompts = buildVisitSummaryPrompts({documentText: text, educationLevel, userProfile});
+    userContent = prompts.userPrompt;
+  }
+
+  const parsedResponse = await requestVisitSummaryAnalysis({
+    systemPrompt: prompts.systemPrompt,
+    userContent,
+    unreadableReason,
+  });
+
+  return saveVisitSummaryAnalysis({
+    userId,
+    appointmentDate,
+    parsedResponse,
+    readingLevel: prompts.readingLevel,
+    trimester: prompts.trimester,
+    sourceHash,
+    docFields,
+  });
+}
+
+// Helper used by analyzeVisitSummaryText, summarizeAfterVisitPDF and the
+// (disabled) storage trigger: analyze plain text and save the summary.
+async function analyzeVisitSummaryPDF({pdfText, appointmentDate, educationLevel, userProfile, userId}) {
+  console.log(`🟢 analyzeVisitSummaryPDF helper called`, {
+    userId: userId,
+    appointmentDate: appointmentDate,
+    pdfTextLength: pdfText?.length || 0,
+    hasEducationLevel: !!educationLevel,
+    hasUserProfile: !!userProfile,
+  });
+  return analyzeAndSaveVisitSummary({
+    userId,
+    appointmentDate,
+    educationLevel,
+    userProfile,
+    documentText: pdfText,
+    sourceHash: computeVisitSourceHash("text", pdfText),
+    unreadableReason: "unreadable_text",
+    docFields: {
+      originalText: String(pdfText || "").substring(0, 10000),
+      sourceType: "text",
+    },
+  });
+}
+
+// 9. Analyze an uploaded visit summary PDF (text PDF, scan, or photo converted to PDF)
+exports.analyzeVisitSummaryPDF = onCall(
+  {secrets: [openaiApiKey], timeoutSeconds: 300, memory: "1GiB"},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Please sign in again, then try once more.");
+    }
+    const userId = request.auth.uid;
+
     const {
       storagePath,
       downloadUrl,
       appointmentDate,
       educationLevel,
       userProfile,
-    } = data;
-    
-    console.log(`🔵 [DEBUG] Input data:`, {
-      storagePath: storagePath?.substring(0, 50) + '...',
-      downloadUrl: downloadUrl ? 'present' : 'missing',
-      appointmentDate: appointmentDate,
-      appointmentDateType: typeof appointmentDate,
+    } = request.data || {};
+
+    console.log(`🔵 analyzeVisitSummaryPDF called`, {
+      userId,
+      storagePath: storagePath ? `${String(storagePath).substring(0, 60)}...` : "missing",
+      downloadUrl: downloadUrl ? "present" : "missing",
+      appointmentDate,
       hasEducationLevel: !!educationLevel,
       hasUserProfile: !!userProfile,
     });
-    
-    // Check for processing lock to prevent concurrent executions
-    const lockDocRef = admin.firestore()
-      .collection("users")
-      .doc(request.auth.uid)
-      .collection("processing_locks")
-      .doc(`visit_summary_${storagePath?.replace(/\//g, '_') || 'unknown'}`);
-    
-    const lockDoc = await lockDocRef.get();
-    if (lockDoc.exists) {
-      const lockData = lockDoc.data();
-      const lockTime = lockData.timestamp?.toDate();
-      const now = new Date();
-      const lockAge = now - lockTime;
-      
-      // If lock is less than 5 minutes old, another process is likely running
-      if (lockAge < 5 * 60 * 1000) {
-        console.log(`🔵 [DEBUG] Processing lock found - another process may be running`);
-        console.log(`🔵 [DEBUG] Lock age: ${lockAge}ms, Lock function: ${lockData.functionCallId}`);
-        // Don't throw error, just log - we'll check for duplicates later
-      }
-    }
-    
-    // Create processing lock
-    await lockDocRef.set({
-      functionCallId: functionCallId,
-      storagePath: storagePath,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    });
-    console.log(`🔵 [DEBUG] Created processing lock: ${functionCallId}`);
 
-    if (!storagePath && !downloadUrl) {
-      throw new HttpsError("invalid-argument", "📄 PDF file location is required (storagePath or downloadUrl)");
+    if (!storagePath || typeof storagePath !== "string") {
+      throw new HttpsError("invalid-argument", VISIT_SUMMARY_MESSAGES.file_not_found, {
+        reason: "file_not_found",
+        userMessage: VISIT_SUMMARY_MESSAGES.file_not_found,
+      });
     }
-
+    // Only read files from the caller's own upload folder.
+    if (!storagePath.startsWith(`visit_summaries/${userId}/`) || storagePath.includes("..")) {
+      throw new HttpsError("permission-denied", "You can only summarize files you uploaded.");
+    }
     if (!appointmentDate) {
-      throw new HttpsError("invalid-argument", "📅 Appointment date is required");
+      throw new HttpsError("invalid-argument", "Please choose your appointment date first.");
     }
-
-    // Extract user context
-    const trimester = (userProfile?.pregnancyStage || userProfile?.trimester || "Unknown").toString();
-    const concerns = Array.isArray(userProfile?.concerns) ? userProfile.concerns : [];
-    const birthPlanPreferences = Array.isArray(userProfile?.birthPlanPreferences) ? userProfile.birthPlanPreferences : [];
-    const culturalPreferences = Array.isArray(userProfile?.culturalPreferences) ? userProfile.culturalPreferences : [];
-    const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
-    const learningStyle = (userProfile?.learningStyle || "visual").toString();
-    const insuranceType = (userProfile?.insuranceType || "").toString();
-
-    // Determine reading level
-    const getReadingLevel = (educationLevel) => {
-      if (!educationLevel) return "6th grade";
-      if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
-        return "8th grade";
-      }
-      if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
-        return "6th-7th grade";
-      }
-      return "5th-6th grade";
-    };
-
-    const readingLevel = educationLevel ? getReadingLevel(educationLevel.toString()) : "6th grade";
 
     try {
       // Download PDF from Firebase Storage
       console.log(`📥 Downloading PDF from storage: ${storagePath}`);
-      const bucket = admin.storage().bucket();
-      const file = bucket.file(storagePath);
+      const file = admin.storage().bucket().file(storagePath);
       const [exists] = await file.exists();
       if (!exists) {
-        throw new HttpsError("not-found", `📄 PDF file not found at: ${storagePath}`);
+        throw new VisitSummaryUserError("not-found", "file_not_found", `PDF not found at ${storagePath}`);
       }
       const [pdfBuffer] = await file.download();
       console.log(`✅ Downloaded PDF: ${pdfBuffer.length} bytes`);
-
-      // Upload PDF to OpenAI
-      console.log(`📤 Uploading PDF to OpenAI...`);
-      const openai = getOpenAIClient(openaiApiKey.value());
-      
-      // Create File object - Node.js 20 has File API available
-      // The OpenAI SDK expects a File object with name, type, and stream/buffer
-      const pdfFile = new File([pdfBuffer], "visit_summary.pdf", {
-        type: "application/pdf",
-      });
-      console.log(`📄 Created File: ${pdfFile.name}, ${pdfFile.size} bytes, type: ${pdfFile.type}`);
-      
-      // Upload PDF to OpenAI for analysis
-      // Note: OpenAI SDK accepts File objects in Node.js 20+
-      const fileUpload = await openai.files.create({
-        file: pdfFile,
-        purpose: "assistants",
-      });
-      console.log(`✅ File uploaded to OpenAI: ${fileUpload.id}`);
-
-      // Wait for file to be processed
-      console.log(`⏳ Waiting for file to be processed...`);
-      let fileStatus = await openai.files.retrieve(fileUpload.id);
-      let attempts = 0;
-      while (fileStatus.status !== "processed" && attempts < 60) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        fileStatus = await openai.files.retrieve(fileUpload.id);
-        attempts++;
-        if (fileStatus.status === "error") {
-          throw new HttpsError("internal", "❌ OpenAI file processing failed. Please try again.");
-        }
-        if (attempts % 10 === 0) {
-          console.log(`⏳ Still processing... (attempt ${attempts}/60)`);
-        }
+      if (pdfBuffer.length > VISIT_SUMMARY_MAX_PDF_BYTES) {
+        throw new VisitSummaryUserError("invalid-argument", "too_large", `PDF is ${pdfBuffer.length} bytes`);
       }
-      if (fileStatus.status !== "processed") {
-        throw new HttpsError("deadline-exceeded", "⏱️ File processing timed out. Please try again.");
-      }
-      console.log(`✅ File processed successfully`);
 
-      // Use Assistants API - attach file to message correctly
-      console.log(`🤖 Creating OpenAI assistant...`);
-      const assistant = await openai.beta.assistants.create({
-        name: "Visit Summary Analyzer",
-        instructions: `You are a culturally affirming, trauma-informed medical interpreter specializing in maternal health advocacy. Analyze the uploaded PDF visit summary and generate a comprehensive, plain-language summary at a ${readingLevel} reading level using professional clinical language. Avoid casual terms like "momma".`,
-        model: "gpt-4o", // Use stable model name
-        tools: [{ type: "code_interpreter" }],
-      });
-      console.log(`✅ Assistant created: ${assistant.id}`);
+      const sourceHash = computeVisitSourceHash("pdf", pdfBuffer);
+      const docFields = {
+        storagePath: storagePath,
+        downloadUrl: downloadUrl || null,
+      };
 
-      const thread = await openai.beta.threads.create();
-      console.log(`✅ Thread created: ${thread.id}`);
+      // Cheap check before any parsing or AI call: same file, same date.
+      const duplicate = await findDuplicateVisitSummary({userId, appointmentDate, sourceHash});
+      let result = duplicate;
+      if (!result) {
+        const extractedText = await extractPdfText(pdfBuffer);
+        const meaningfulChars = countMeaningfulChars(extractedText);
+        const useText = meaningfulChars >= VISIT_SUMMARY_MIN_TEXT_CHARS;
+        console.log(`📄 Extracted ${meaningfulChars} non-whitespace chars from PDF → ${useText ? "text analysis" : "vision (PDF file input)"}`);
 
-      // Add message with file attachment
-      console.log(`📝 Adding message with file attachment...`);
-      await openai.beta.threads.messages.create(thread.id, {
-        role: "user",
-        content: `Generate a culturally affirming, plain-language learning module for EmpowerHealth Watch based on the following visit summary PDF. Explain medical terms clearly, outline next steps, offer advocacy questions the mother can ask, and provide supportive, trauma-informed language. Tailor the content to her trimester (${trimester}), stated concerns (${JSON.stringify(concerns)}), and birth preferences (${JSON.stringify(birthPlanPreferences)}). Include a short explanation, what to expect, questions to ask, and when to seek help.
-
-User Context:
-- Trimester: ${trimester}
-- Stated Concerns: ${concerns.join(", ") || "None specified"} (pain, safety, anxiety, postpartum issues)
-- Birth Plan Preferences: ${birthPlanPreferences.join(", ") || "None specified"}
-- Cultural/Trauma-Informed Preferences: ${culturalPreferences.concat(traumaInformedPreferences).join(", ") || "None specified"}
-- Learning Style: ${learningStyle} (audio, visual, short summaries)
-- Insurance Type: ${insuranceType || "Not specified - use insurance-agnostic guidance"}
-
-Return a JSON object with this exact structure:
-{
-  "summary": {
-    "howBabyIsDoing": "Brief summary of fetal health, measurements, heartbeat, movements, development",
-    "howYouAreDoing": "Brief summary of maternal health, vitals, symptoms, concerns addressed",
-    "keyMedicalTerms": [{"term": "term name", "explanation": "plain language explanation"}],
-    "nextSteps": "Plain language breakdown of next steps",
-    "questionsToAsk": ["Question 1", "Question 2"],
-    "empowermentTips": ["Advocacy tip 1", "Advocacy tip 2"],
-    "newDiagnoses": [{"diagnosis": "name", "explanation": "plain language explanation"}],
-    "testsProcedures": [{"name": "test/procedure name", "explanation": "what to expect", "whyNeeded": "reason"}],
-    "medications": [{"name": "medication name", "purpose": "why prescribed", "instructions": "how to take"}],
-    "followUpInstructions": "Instructions for follow-up care",
-    "providerCommunicationStyle": "Description of communication style if flagged (rushed, unclear, dismissive, etc.)",
-    "emotionalMarkers": ["confused", "scared", "unsure", etc. if detected],
-    "advocacyMoments": ["Provider said XYZ without explanation", etc.],
-    "contradictions": ["Any contradictions or missing explanations"]
-  },
-  "todos": [
-    {"title": "Todo title", "description": "Todo description", "category": "advocacy|followup|medication|test"}
-  ],
-  "learningModules": [
-    {
-      "title": "Module title",
-      "description": "Why this is relevant",
-      "reason": "Based on visit content",
-      "content": {
-        "whatThisIs": "Simple explanation of what this is",
-        "whyItMatters": "Why this matters for your health - explain the 'why' behind the 'what' in detail",
-        "whatToExpect": "Step-by-step what to expect",
-        "whatYouCanAsk": ["Advocacy question 1", "Advocacy question 2", "Advocacy question 3"],
-        "risksOptionsAlternatives": "Balanced information about risks, options, and alternatives",
-        "whenToSeekHelp": "When to seek medical help",
-        "empowermentConnection": "How this connects to your empowerment",
-        "keyPoints": ["Key point 1", "Key point 2", "Key point 3"],
-        "yourRights": ["Your right 1", "Your right 2"],
-        "insuranceNotes": "Insurance-specific information if applicable, otherwise insurance-agnostic guidance"
-      }
-    }
-  ],
-  "redFlags": [
-    {"type": "mistreatment|unclear|dismissive", "description": "What was flagged"}
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-1. Explain key medical terms mentioned - add to keyMedicalTerms array
-2. Break down next steps in plain language - add to nextSteps
-3. Highlight questions to ask at the next visit - add to questionsToAsk
-4. Provide empowerment + advocacy tips based on that specific encounter - add to empowermentTips AND create todos
-5. Reinforce understanding of any new diagnoses, tests, or procedures - add to newDiagnoses/testsProcedures AND create learning modules
-6. Flag potential mistreatment or unclear communication - add to redFlags
-7. Tests or procedures recommended - add to testsProcedures AND create learning modules
-8. Medications discussed - add to medications AND create learning modules
-9. Follow-up instructions - turn into todos
-10. Provider communication style (e.g., rushed, unclear, dismissive — if flagged by user or sentiment analysis) - add to providerCommunicationStyle AND create learning module
-11. Emotional markers (mom tapped "confused," "scared," or "unsure") - add to emotionalMarkers
-12. Advocacy moments (e.g., "provider said XYZ without explanation") - add to advocacyMoments
-13. Any contradictions or missing explanations - add to contradictions AND create learning modules to bridge gap
-
-TODOS: Create todos for empowerment/advocacy tips (category: "advocacy"), follow-up instructions (category: "followup"), medications to take (category: "medication"), tests to schedule (category: "test").
-
-LEARNING MODULES: Create DETAILED, comprehensive learning modules (not high-level) for new diagnoses, tests/procedures discussed, medications, provider communication issues, contradictions/missing explanations.
-
-Each learning module MUST follow this structure and be DETAILED:
-1. **What This Is (Simple Explanation)** - Clear, plain-language explanation
-2. **Why It Matters for Your Health** - Explain the "why" behind the "what" - why this matters, why it's important, what happens if ignored. Be detailed and specific.
-3. **What to Expect** - Step-by-step, detailed guidance on what will happen
-4. **What You Can Ask or Say** - At least 3 specific advocacy questions/prompts the mother can use
-5. **Risks, Options, and Alternatives** - Balanced, non-fearful information
-6. **When to Seek Medical Help** - Clear guidance on when to call provider
-7. **How This Connects to Your Empowerment** - How this topic relates to self-advocacy and empowerment
-8. **Key Points** - 3-5 key takeaways
-9. **Your Rights** - 2-3 specific rights related to this topic
-10. **Insurance Notes** - ${insuranceType ? `Tailor information for ${insuranceType} insurance. Include coverage considerations, what's typically covered, and any cost considerations.` : "Provide insurance-agnostic guidance that applies regardless of insurance type."}
-
-TONE & VOICE REQUIREMENTS:
-- Warm, supportive, nonjudgmental language
-- Sound like: "Here's what this test means and why it matters. You deserve clear explanations and the chance to ask questions."
-- Trauma-informed (acknowledge possible fears, past negative experiences)
-- Emphasize: Your rights, Your choices, Your voice
-- Cultural responsiveness (acknowledge mistrust, bias, communication issues Black mothers may face)
-- Avoid: Fear-based language, provider-blaming, cultural stereotypes, overly technical explanations, long paragraphs
-- Use: Short paragraphs, bulleted lists, defined terms
-
-Brand Voice: "Your Health. Your Voice. Your Empowerment."
-
-Use trauma-informed, culturally affirming language throughout. Make all explanations accessible at ${readingLevel} reading level. Return ONLY valid JSON.`,
-        attachments: [
-          {
-            file_id: fileUpload.id,
-            tools: [{ type: "code_interpreter" }],
+        result = await analyzeAndSaveVisitSummary({
+          userId,
+          appointmentDate,
+          educationLevel,
+          userProfile,
+          // Redact obvious identifiers before sending text, as the typed-notes path does.
+          documentText: useText ? redactPHI(extractedText) : undefined,
+          pdfFile: useText ? undefined : {buffer: pdfBuffer, filename: "visit_summary.pdf"},
+          sourceHash,
+          unreadableReason: "unreadable_file",
+          docFields: {
+            ...docFields,
+            sourceType: useText ? "pdf_text" : "pdf_vision",
           },
-        ],
-      });
-
-      console.log(`🚀 Starting analysis run...`);
-      const run = await openai.beta.threads.runs.create(thread.id, {
-        assistant_id: assistant.id,
-      });
-
-      let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
-      let runAttempts = 0;
-      while (runStatus.status !== "completed" && runAttempts < 120) {
-        if (runStatus.status === "failed") {
-          const errorMsg = runStatus.last_error?.message || "Unknown error";
-          console.error(`❌ Run failed: ${errorMsg}`);
-          throw new HttpsError("internal", `🤖 OpenAI analysis failed: ${errorMsg}`);
-        }
-        if (runStatus.status === "cancelled" || runStatus.status === "expired") {
-          throw new HttpsError("deadline-exceeded", "⏱️ Analysis was cancelled or expired. Please try again.");
-        }
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
-        runAttempts++;
-        if (runAttempts % 15 === 0) {
-          console.log(`⏳ Analysis in progress... (${runAttempts * 2}s elapsed)`);
-        }
-      }
-      if (runStatus.status !== "completed") {
-        throw new HttpsError("deadline-exceeded", "⏱️ Analysis timed out. Please try again with a smaller PDF.");
-      }
-      console.log(`✅ Analysis completed`);
-
-      console.log(`📥 Retrieving analysis results...`);
-      const messages = await openai.beta.threads.messages.list(thread.id);
-      const assistantMessage = messages.data.find(m => m.role === "assistant");
-      
-      if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
-        console.error("❌ No response from OpenAI assistant");
-        throw new HttpsError("internal", "🤖 No response received from AI. Please try again.");
-      }
-
-      const responseContent = assistantMessage.content[0].text.value;
-      console.log(`✅ Received response (${responseContent.length} chars)`);
-      let parsedResponse;
-      try {
-        const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) || 
-                         responseContent.match(/```\s*([\s\S]*?)\s*```/);
-        const jsonString = jsonMatch ? jsonMatch[1] : responseContent;
-        parsedResponse = JSON.parse(jsonString);
-        console.log(`✅ Parsed JSON response successfully`);
-      } catch (parseError) {
-        console.error("❌ JSON parse error:", parseError);
-        console.error("Response content:", responseContent.substring(0, 500));
-        throw new HttpsError("internal", `❌ Failed to parse AI response: ${parseError.message}`);
-      }
-
-      // Clean up uploaded file and assistant
-      try {
-        await openai.files.del(fileUpload.id);
-        await openai.beta.assistants.del(assistant.id);
-        console.log(`🧹 Cleaned up OpenAI resources`);
-      } catch (e) {
-        console.warn("⚠️ Failed to clean up OpenAI resources:", e);
-      }
-
-      // Save to Firestore
-      console.log(`💾 Saving results to Firestore...`);
-      console.log(`🔵 [DEBUG] Starting duplicate check process`);
-      
-      // Normalize appointment date to start of day in UTC to avoid timezone issues
-      // Parse the date string consistently - handle ISO 8601 format
-      let appointmentDateObj;
-      if (typeof appointmentDate === 'string') {
-        console.log(`🔵 [DEBUG] Parsing date string: ${appointmentDate}`);
-        // Parse ISO 8601 date string (e.g., "2026-02-12T00:00:00.000Z" or "2026-02-12")
-        const dateStr = appointmentDate.split('T')[0]; // Get just the date part
-        console.log(`🔵 [DEBUG] Extracted date part: ${dateStr}`);
-        const [year, month, day] = dateStr.split('-').map(Number);
-        console.log(`🔵 [DEBUG] Parsed components: year=${year}, month=${month}, day=${day}`);
-        appointmentDateObj = new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed
-        console.log(`🔵 [DEBUG] Created Date object: ${appointmentDateObj.toISOString()}`);
-      } else if (appointmentDate instanceof Date) {
-        console.log(`🔵 [DEBUG] Date is already a Date object: ${appointmentDate.toISOString()}`);
-        appointmentDateObj = appointmentDate;
-      } else {
-        console.log(`🔵 [DEBUG] Date is unknown type, using current date`);
-        appointmentDateObj = new Date();
-      }
-      
-      // Normalize to start of day in UTC (ensure we're using UTC to avoid timezone shifts)
-      const normalizedDate = new Date(Date.UTC(
-        appointmentDateObj.getUTCFullYear(),
-        appointmentDateObj.getUTCMonth(),
-        appointmentDateObj.getUTCDate(),
-        0, 0, 0, 0 // Set to midnight UTC
-      ));
-      const appointmentTimestamp = admin.firestore.Timestamp.fromDate(normalizedDate);
-      
-      console.log(`📅 Normalized appointment date: ${normalizedDate.toISOString()} (original: ${appointmentDate})`);
-      console.log(`🔵 [DEBUG] Normalized date components: year=${normalizedDate.getUTCFullYear()}, month=${normalizedDate.getUTCMonth() + 1}, day=${normalizedDate.getUTCDate()}`);
-      console.log(`🔵 [DEBUG] Firestore Timestamp: ${appointmentTimestamp.toDate().toISOString()}`);
-      
-      // Check if summary already exists for this date to prevent duplicates
-      // Use a range query to catch any timezone-related variations (within 24 hours)
-      const dayStart = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
-        normalizedDate.getUTCFullYear(),
-        normalizedDate.getUTCMonth(),
-        normalizedDate.getUTCDate(),
-        0, 0, 0, 0
-      )));
-      const dayEnd = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(
-        normalizedDate.getUTCFullYear(),
-        normalizedDate.getUTCMonth(),
-        normalizedDate.getUTCDate(),
-        23, 59, 59, 999
-      )));
-      
-      console.log(`🔵 [DEBUG] Checking for existing summaries between ${dayStart.toDate().toISOString()} and ${dayEnd.toDate().toISOString()}`);
-      console.log(`🔵 [DEBUG] Normalized timestamp to match: ${appointmentTimestamp.toDate().toISOString()}`);
-      console.log(`🔵 [DEBUG] Query path: users/${request.auth.uid}/visit_summaries`);
-      
-      // DEBUG: List ALL summaries for this user to see what exists
-      let allSummaries;
-      try {
-        allSummaries = await admin.firestore()
-          .collection("users")
-          .doc(request.auth.uid)
-          .collection("visit_summaries")
-          .orderBy("createdAt", "desc")
-          .limit(10)
-          .get();
-      } catch (e) {
-        // If orderBy fails (no index), just get without ordering
-        console.log(`🔵 [DEBUG] orderBy failed, getting without order: ${e.message}`);
-        allSummaries = await admin.firestore()
-          .collection("users")
-          .doc(request.auth.uid)
-          .collection("visit_summaries")
-          .limit(10)
-          .get();
-      }
-      console.log(`🔵 [DEBUG] Total summaries for user: ${allSummaries.size}`);
-      allSummaries.docs.forEach((doc, idx) => {
-        const data = doc.data();
-        // Safely extract appointmentDate - handle Timestamp, Date, or string
-        let appointmentDateStr = 'unknown';
-        let appointmentTimestampValue = null;
-        if (data.appointmentDate) {
-          if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
-            appointmentDateStr = data.appointmentDate.toDate().toISOString();
-            appointmentTimestampValue = data.appointmentDate;
-          } else if (data.appointmentDate instanceof Date) {
-            appointmentDateStr = data.appointmentDate.toISOString();
-          } else if (typeof data.appointmentDate === 'string') {
-            appointmentDateStr = data.appointmentDate;
-          } else {
-            appointmentDateStr = String(data.appointmentDate);
-          }
-        }
-        
-        let createdAtStr = 'unknown';
-        if (data.createdAt) {
-          if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
-            createdAtStr = data.createdAt.toDate().toISOString();
-          } else if (data.createdAt instanceof Date) {
-            createdAtStr = data.createdAt.toISOString();
-          } else if (typeof data.createdAt === 'string') {
-            createdAtStr = data.createdAt;
-          }
-        }
-        
-        // Check if this summary matches our date
-        let matchesDate = false;
-        if (appointmentTimestampValue && appointmentTimestampValue.seconds) {
-          const isInRange = appointmentTimestampValue.seconds >= dayStart.seconds && 
-                           appointmentTimestampValue.seconds <= dayEnd.seconds;
-          matchesDate = isInRange;
-          console.log(`🔵 [DEBUG] Summary ${idx + 1} date comparison:`, {
-            summaryTimestamp: appointmentTimestampValue.seconds,
-            dayStart: dayStart.seconds,
-            dayEnd: dayEnd.seconds,
-            matches: isInRange,
-          });
-        }
-        
-        console.log(`🔵 [DEBUG] Summary ${idx + 1}:`, {
-          id: doc.id,
-          appointmentDate: appointmentDateStr,
-          appointmentDateTimestamp: data.appointmentDate?.seconds,
-          createdAt: createdAtStr,
-          matchesOurDate: matchesDate,
-        });
-      });
-      
-      // Get ALL summaries and filter client-side to handle both Timestamp and string formats
-      // This is necessary because older summaries may have appointmentDate as a string
-      const allUserSummaries = await admin.firestore()
-        .collection("users")
-        .doc(request.auth.uid)
-        .collection("visit_summaries")
-        .get();
-      
-      console.log(`🔵 [DEBUG] Total summaries in collection: ${allUserSummaries.size}`);
-      
-      // Filter client-side to find matches (handles both Timestamp and string formats)
-      const matchingSummaries = allUserSummaries.docs.filter((doc) => {
-        const data = doc.data();
-        const existingDate = data.appointmentDate;
-        
-        if (!existingDate) return false;
-        
-        // Try to normalize the existing date
-        let existingDateObj;
-        if (existingDate.toDate && typeof existingDate.toDate === 'function') {
-          // It's a Firestore Timestamp
-          existingDateObj = existingDate.toDate();
-        } else if (existingDate instanceof Date) {
-          existingDateObj = existingDate;
-        } else if (typeof existingDate === 'string') {
-          // It's a string - parse it
-          try {
-            const dateStr = existingDate.split('T')[0];
-            const [year, month, day] = dateStr.split('-').map(Number);
-            existingDateObj = new Date(Date.UTC(year, month - 1, day));
-          } catch (e) {
-            return false;
-          }
-        } else {
-          return false;
-        }
-        
-        // Normalize to start of day for comparison
-        const existingNormalized = new Date(Date.UTC(
-          existingDateObj.getUTCFullYear(),
-          existingDateObj.getUTCMonth(),
-          existingDateObj.getUTCDate(),
-          0, 0, 0, 0
-        ));
-        
-        // Compare normalized dates
-        const matches = existingNormalized.getTime() === normalizedDate.getTime();
-        
-        if (matches) {
-          console.log(`🔵 [DEBUG] Found matching summary: ${doc.id}, existing date: ${existingDateObj.toISOString()}, normalized: ${existingNormalized.toISOString()}`);
-        }
-        
-        return matches;
-      });
-      
-      console.log(`🔵 [DEBUG] Client-side filter found: ${matchingSummaries.length} matching summaries`);
-      
-      let existingSummaries = { empty: matchingSummaries.length === 0, docs: matchingSummaries, size: matchingSummaries.length };
-      
-      // Also check for summaries created in the last 30 seconds with same storagePath (race condition protection)
-      if (existingSummaries.empty && storagePath) {
-        const thirtySecondsAgo = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 30000));
-        const recentSummaries = await admin.firestore()
-          .collection("users")
-          .doc(request.auth.uid)
-          .collection("visit_summaries")
-          .where("createdAt", ">=", thirtySecondsAgo)
-          .where("storagePath", "==", storagePath)
-          .limit(1)
-          .get();
-        if (!recentSummaries.empty) {
-          console.log(`🔵 [DEBUG] Found recent summary created in last 30 seconds with same storagePath, using that instead`);
-          existingSummaries = recentSummaries;
-        }
-      }
-      
-      console.log(`🔵 [DEBUG] Existing summaries found: ${existingSummaries.size}`);
-      if (existingSummaries.size > 0) {
-        existingSummaries.docs.forEach((doc, idx) => {
-          const data = doc.data();
-          // Safely extract appointmentDate - handle Timestamp, Date, or string
-          let appointmentDateStr = 'unknown';
-          if (data.appointmentDate) {
-            if (data.appointmentDate.toDate && typeof data.appointmentDate.toDate === 'function') {
-              appointmentDateStr = data.appointmentDate.toDate().toISOString();
-            } else if (data.appointmentDate instanceof Date) {
-              appointmentDateStr = data.appointmentDate.toISOString();
-            } else if (typeof data.appointmentDate === 'string') {
-              appointmentDateStr = data.appointmentDate;
-            } else {
-              appointmentDateStr = String(data.appointmentDate);
-            }
-          }
-          
-          let createdAtStr = 'unknown';
-          if (data.createdAt) {
-            if (data.createdAt.toDate && typeof data.createdAt.toDate === 'function') {
-              createdAtStr = data.createdAt.toDate().toISOString();
-            } else if (data.createdAt instanceof Date) {
-              createdAtStr = data.createdAt.toISOString();
-            } else if (typeof data.createdAt === 'string') {
-              createdAtStr = data.createdAt;
-            }
-          }
-          
-          console.log(`🔵 [DEBUG] Existing summary ${idx + 1}:`, {
-            id: doc.id,
-            appointmentDate: appointmentDateStr,
-            createdAt: createdAtStr,
-            hasSummary: !!data.summary,
-          });
         });
       }
-      
-      // Format summary before using it (needed for both update and create paths)
-      const formattedSummary = formatSummaryForDisplay(
-        parsedResponse.summary,
-        parsedResponse.learningModules || []
-      );
-      
-      let summaryRef;
-      if (!existingSummaries.empty) {
-        console.log(`⚠️ Summary already exists for appointment date ${normalizedDate.toISOString()}, updating existing entry`);
-        console.log(`🔵 [DEBUG] Updating existing summary ID: ${existingSummaries.docs[0].id}`);
-        summaryRef = existingSummaries.docs[0].ref;
-        await summaryRef.update({
-          appointmentDate: appointmentTimestamp, // Update to normalized date
-          storagePath: storagePath,
-          downloadUrl: downloadUrl,
-          summary: formattedSummary,
-          summaryData: parsedResponse.summary,
-          todos: parsedResponse.todos || [],
-          learningModules: parsedResponse.learningModules || [],
-          redFlags: parsedResponse.redFlags || [],
-          readingLevel: readingLevel,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        console.log(`🔵 [DEBUG] Successfully updated existing summary`);
-      } else {
-        console.log(`🔵 [DEBUG] No existing summary found, creating new one`);
-        
-        summaryRef = await admin.firestore()
-          .collection("users")
-          .doc(request.auth.uid)
-          .collection("visit_summaries")
-          .add({
-            appointmentDate: appointmentTimestamp,
-            storagePath: storagePath,
-            downloadUrl: downloadUrl,
-            summary: formattedSummary,
-            summaryData: parsedResponse.summary,
-            todos: parsedResponse.todos || [],
-            learningModules: parsedResponse.learningModules || [],
-            redFlags: parsedResponse.redFlags || [],
-            readingLevel: readingLevel,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-        console.log(`🔵 [DEBUG] Created new summary with ID: ${summaryRef.id}`);
-        console.log(`🔵 [DEBUG] New summary appointmentDate: ${appointmentTimestamp.toDate().toISOString()}`);
-      }
 
-      // Create todos
-      if (parsedResponse.todos && Array.isArray(parsedResponse.todos) && parsedResponse.todos.length > 0) {
-        const todosBatch = admin.firestore().batch();
-        parsedResponse.todos.forEach((todo) => {
-          if (!todo || !todo.title) return;
-          const todoRef = admin.firestore().collection("learning_tasks").doc();
-          todosBatch.set(todoRef, {
-            userId: request.auth.uid,
-            title: todo.title.toString(),
-            description: (todo.description || "").toString(),
-            category: (todo.category || "followup").toString(),
-            visitSummaryId: summaryRef.id,
-            isGenerated: true,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            completed: false,
-          });
-        });
-        await todosBatch.commit();
-      }
-
-      // Create learning modules
-      if (parsedResponse.learningModules && Array.isArray(parsedResponse.learningModules) && parsedResponse.learningModules.length > 0) {
-        const modulesBatch = admin.firestore().batch();
-        parsedResponse.learningModules.forEach((module) => {
-          if (!module || !module.title) return;
-          const moduleRef = admin.firestore().collection("learning_tasks").doc();
-          modulesBatch.set(moduleRef, {
-            userId: request.auth.uid,
-            title: module.title.toString(),
-            description: (module.description || module.reason || "").toString(),
-          content: module.content || null, // Store detailed content structure
-            trimester: trimester,
-            isGenerated: true,
-            visitSummaryId: summaryRef.id,
-            moduleType: "visit_based",
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-        });
-        await modulesBatch.commit();
-      }
-
-      // Remove processing lock
-      try {
-        await lockDocRef.delete();
-        console.log(`🔵 [DEBUG] Removed processing lock: ${functionCallId}`);
-      } catch (e) {
-        console.log(`🔵 [DEBUG] Failed to remove lock (non-critical): ${e.message}`);
-      }
-      
-      console.log(`✅ Analysis complete! Summary ID: ${summaryRef.id}`);
-      console.log(`🔵 [DEBUG] Function Call ID: ${functionCallId} - CREATED/UPDATED summary: ${summaryRef.id}`);
-      console.log(`🔵 [DEBUG] Returning from analyzeVisitSummaryPDF Cloud Function`);
+      console.log(`✅ Visit summary ready: ${result.summaryId} (duplicate: ${!!result.duplicate})`);
       return {
-        success: true, 
-        summaryId: summaryRef.id,
-        summary: formattedSummary,
-        todos: parsedResponse.todos || [],
-        learningModules: parsedResponse.learningModules || [],
-        redFlags: parsedResponse.redFlags || [],
+        success: true,
+        summaryId: result.summaryId,
+        summary: result.summary,
+        todos: result.todos || [],
+        learningModules: result.learningModules || [],
+        redFlags: result.redFlags || [],
+        duplicate: !!result.duplicate,
       };
     } catch (error) {
-      console.error("❌ Error in analyzeVisitSummaryPDF:", error);
-      console.error("Error stack:", error.stack);
-      
-      // If it's already an HttpsError, rethrow it
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      
-      // Convert other errors to HttpsError
-      const errorMessage = error.message || "Unknown error";
-      if (errorMessage.includes("authentication") || errorMessage.includes("auth")) {
-        throw new HttpsError("unauthenticated", "🔒 Authentication error. Please log in again.");
-      } else if (errorMessage.includes("not found") || errorMessage.includes("not-found")) {
-        throw new HttpsError("not-found", `📄 ${errorMessage}`);
-      } else if (errorMessage.includes("timeout") || errorMessage.includes("deadline")) {
-        throw new HttpsError("deadline-exceeded", "⏱️ Analysis timed out. Please try again.");
-      } else if (errorMessage.includes("OpenAI") || errorMessage.includes("API")) {
-        throw new HttpsError("internal", `🤖 AI service error: ${errorMessage}`);
-      } else {
-        throw new HttpsError("internal", `❌ Failed to analyze PDF: ${errorMessage}`);
-      }
+      console.error("❌ Error in analyzeVisitSummaryPDF:", {
+        name: error?.name,
+        message: error?.message,
+        status: error?.status,
+        reason: error?.reason,
+      });
+      console.error("Error stack:", error?.stack);
+      throw toVisitSummaryHttpsError(error, "unreadable_file");
     }
   }
 );
 
 // 10. After-Visit Summary - Summarize uploaded PDF with specific structure (kept for backward compatibility)
 exports.summarizeAfterVisitPDF = onCall(
-  {secrets: [openaiApiKey]},
+  {secrets: [openaiApiKey], timeoutSeconds: 300},
   async (request) => {
     try {
       if (!request.auth) {
@@ -2059,17 +1846,21 @@ exports.summarizeAfterVisitPDF = onCall(
         learningModules: analysisResult.learningModules,
         redFlags: analysisResult.redFlags,
         summaryId: analysisResult.summaryId,
+        duplicate: !!analysisResult.duplicate,
       };
     } catch (error) {
       console.error("❌ Error in summarizeAfterVisitPDF:", error);
       console.error("Error stack:", error.stack);
       console.error("Error message:", error.message);
-      
+
       // Provide more specific error messages with emojis
       if (error instanceof HttpsError) {
         throw error;
       }
-      
+      if (error instanceof VisitSummaryUserError || typeof error?.status === "number") {
+        throw toVisitSummaryHttpsError(error, "unreadable_text");
+      }
+
       if (error.message && error.message.includes("authentication")) {
         throw new HttpsError("unauthenticated", "🔒 Authentication required. Please log in.");
       } else if (error.message && (error.message.includes("required") || error.message.includes("missing"))) {
@@ -2084,48 +1875,78 @@ exports.summarizeAfterVisitPDF = onCall(
 );
 
 // Helper function to format summary for display (matches image format)
+/**
+ * Trims and ends text with exactly one period (keeps ! and ?), so joined
+ * parts never read "levels.. Take". Returns "" for empty input.
+ */
+function asSentence(text) {
+  const t = String(text ?? "").trim().replace(/[.\s]+$/, "");
+  if (!t) return "";
+  return /[!?]$/.test(t) ? t : `${t}.`;
+}
+
 function formatSummaryForDisplay(summary, learningModules = []) {
+  if (summary == null || typeof summary !== "object" || Array.isArray(summary)) {
+    return typeof summary === "string" ? summary : "";
+  }
   let formatted = "";
-  
-  // How Your Baby Is Doing (shown on card - put first)
-  if (summary.howBabyIsDoing) {
-    formatted += `## How Your Baby Is Doing\n${summary.howBabyIsDoing}\n\n`;
+
+  const whatMeansRaw = summary.whatThisMeans && String(summary.whatThisMeans).trim();
+  const legacyBabyYou = [summary.howBabyIsDoing, summary.howYouAreDoing].filter(Boolean).join("\n\n");
+  if (whatMeansRaw) {
+    formatted += `## What This Means\n${whatMeansRaw}\n\n`;
+  } else if (legacyBabyYou) {
+    if (summary.howBabyIsDoing) {
+      formatted += `## How Your Baby Is Doing\n${summary.howBabyIsDoing}\n\n`;
+    }
+    if (summary.howYouAreDoing) {
+      formatted += `## How You Are Doing\n${summary.howYouAreDoing}\n\n`;
+    }
   }
-  
-  // How You Are Doing
-  if (summary.howYouAreDoing) {
-    formatted += `## How You Are Doing\n${summary.howYouAreDoing}\n\n`;
+
+  const nextParts = [];
+  if (summary.importantNextSteps && String(summary.importantNextSteps).trim()) {
+    nextParts.push(String(summary.importantNextSteps).trim());
   }
-  
-  // Actions To Take section (combines next steps, follow-up, empowerment tips)
-  let actionsToTake = [];
-  
-  if (summary.nextSteps) {
-    actionsToTake.push(summary.nextSteps);
+  if (summary.nextSteps && String(summary.nextSteps).trim()) {
+    nextParts.push(String(summary.nextSteps).trim());
   }
-  
-  if (summary.followUpInstructions) {
-    actionsToTake.push(summary.followUpInstructions);
+  if (summary.followUpInstructions && String(summary.followUpInstructions).trim()) {
+    nextParts.push(String(summary.followUpInstructions).trim());
   }
-  
   if (summary.empowermentTips && summary.empowermentTips.length > 0) {
-    actionsToTake.push(...summary.empowermentTips);
+    nextParts.push(...summary.empowermentTips.map((t) => String(t)));
   }
-  
+  if (nextParts.length > 0) {
+    formatted += `## Important Next Steps\n${nextParts.join("\n\n")}\n\n`;
+  } else {
+    // Legacy: single "Actions To Take" blob (includes meds) for older AI output
+    const actionsToTake = [];
+    if (summary.nextSteps) actionsToTake.push(summary.nextSteps);
+    if (summary.followUpInstructions) actionsToTake.push(summary.followUpInstructions);
+    if (summary.empowermentTips && summary.empowermentTips.length > 0) {
+      actionsToTake.push(...summary.empowermentTips);
+    }
+    if (summary.medications && summary.medications.length > 0) {
+      summary.medications.forEach((med) => {
+        actionsToTake.push([`Continue taking ${med.name}`, med.purpose, med.instructions]
+          .map(asSentence).filter(Boolean).join(" "));
+      });
+    }
+    if (actionsToTake.length > 0) {
+      formatted += `## Actions To Take\n${actionsToTake.map(asSentence).filter(Boolean).join(" ")}\n\n`;
+    }
+  }
+
   if (summary.medications && summary.medications.length > 0) {
-    const medInstructions = summary.medications.map(med => {
-      let text = `Continue taking ${med.name}`;
-      if (med.purpose) text += ` (${med.purpose})`;
-      if (med.instructions) text += `. ${med.instructions}`;
-      return text;
+    formatted += `## Medications Mentioned\n`;
+    summary.medications.forEach((med) => {
+      const detail = [med.purpose, med.instructions].map(asSentence).filter(Boolean).join(" ");
+      formatted += `- **${med.name || "Medication"}**${detail ? `: ${detail}` : ""}\n`;
     });
-    actionsToTake.push(...medInstructions);
+    formatted += `\n`;
   }
-  
-  if (actionsToTake.length > 0) {
-    formatted += `## Actions To Take\n${actionsToTake.join(' ')}\n\n`;
-  }
-  
+
   // Suggested Learning Topics (from learning modules)
   if (learningModules && learningModules.length > 0) {
     formatted += `## Suggested Learning Topics\n`;
@@ -2135,21 +1956,32 @@ function formatSummaryForDisplay(summary, learningModules = []) {
     });
     formatted += `\n`;
   }
-  
-  // Key Medical Terms Explained
+
+  // Key Medical Terms (tap-to-explain in app)
   if (summary.keyMedicalTerms && summary.keyMedicalTerms.length > 0) {
-    formatted += `## Key Medical Terms Explained\n`;
-    summary.keyMedicalTerms.forEach(term => {
+    formatted += `## Key Medical Terms (tap to read)\n`;
+    summary.keyMedicalTerms.forEach((term) => {
       formatted += `**${term.term}**: ${term.explanation}\n`;
     });
     formatted += `\n`;
   }
-  
-  // Questions to Ask at Your Next Visit
+
+  // Questions to Ask
   if (summary.questionsToAsk && summary.questionsToAsk.length > 0) {
-    formatted += `## Questions to Ask at Your Next Visit\n`;
+    formatted += `## Questions to Ask\n`;
     summary.questionsToAsk.forEach((q, i) => {
       formatted += `${i + 1}. ${q}\n`;
+    });
+    formatted += `\n`;
+  }
+
+  // Affirming visit notes (visit detail "Notes" card)
+  if (summary.visitNotes && summary.visitNotes.length > 0) {
+    formatted += `## Notes\n`;
+    summary.visitNotes.forEach((n) => {
+      if (n && String(n).trim()) {
+        formatted += `- ${String(n).trim()}\n`;
+      }
     });
     formatted += `\n`;
   }
@@ -2266,7 +2098,7 @@ function safeLog(level, message, data = {}) {
 // ============================================================================
 
 exports.analyzeVisitSummaryText = onCall(
-  {secrets: [openaiApiKey]},
+  {secrets: [openaiApiKey], timeoutSeconds: 300},
   async (request) => {
     // Verify authentication
     if (!request.auth) {
@@ -2317,12 +2149,17 @@ exports.analyzeVisitSummaryText = onCall(
         userId
       });
       
-      // Return summary (not raw text unless user opted in)
+      // Return summary (not raw text unless user opted in).
+      // duplicate: true means this exact text was already summarized for this
+      // date; the existing summary is returned in the same shape.
       return {
+        success: true,
+        summaryId: analysisResult.summaryId,
         summary: analysisResult.summary,
         todos: analysisResult.todos || [],
         learningModules: analysisResult.learningModules || [],
         redFlags: analysisResult.redFlags || [],
+        duplicate: !!analysisResult.duplicate,
         hasRedaction: hasRedaction,
         // Only include original text if user explicitly opted in
         ...(saveOriginalText ? {originalText: visitText} : {})
@@ -2330,9 +2167,12 @@ exports.analyzeVisitSummaryText = onCall(
     } catch (error) {
       safeLog('error', 'Error analyzing visit summary text', {
         userId,
-        error: error.message
+        error: error.message,
+        name: error.name,
+        status: error.status,
+        reason: error.reason,
       });
-      throw new HttpsError('internal', 'Failed to analyze visit summary: ' + error.message);
+      throw toVisitSummaryHttpsError(error, 'unreadable_text');
     }
   }
 );
@@ -2357,6 +2197,7 @@ exports.exportUserData = onCall(
         userId,
         exportedAt: new Date().toISOString(),
         profile: null,
+        researchParticipation: null,
         visitSummaries: [],
         notes: [],
         learningTasks: [],
@@ -2371,6 +2212,24 @@ exports.exportUserData = onCall(
         const profileData = profileDoc.data();
         // Remove sensitive fields if needed
         userData.profile = profileData;
+
+        // Derive research participation flag and recruitment source for export consumers
+        const recruitmentSource = profileData.recruitmentSource || null;
+        const privacySettings = profileData.privacySettings || {};
+        const researchDataSharing =
+          Object.prototype.hasOwnProperty.call(privacySettings, 'researchDataSharing')
+            ? !!privacySettings.researchDataSharing
+            : null;
+        const isResearchParticipant =
+          profileData.isResearchParticipant === true ||
+          recruitmentSource === 'research_participant' ||
+          researchDataSharing === true;
+
+        userData.researchParticipation = {
+          recruitmentSource,
+          researchDataSharing,
+          isResearchParticipant,
+        };
       }
       
       // Get visit summaries
@@ -2559,6 +2418,75 @@ exports.deleteUserAccount = onCall(
     }
   }
 );
+
+// ============================================================================
+// COMMUNITY: delete reply (reply author or post author only)
+// ============================================================================
+
+exports.deleteCommunityReply = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated");
+  }
+  const uid = request.auth.uid;
+  const dataIn = request.data || {};
+  const postId = dataIn.postId;
+  const replyId = dataIn.replyId;
+  const legacyContent = dataIn.legacyContent;
+  const legacyCreatedAtSeconds = dataIn.legacyCreatedAtSeconds;
+
+  if (!postId || typeof postId !== "string") {
+    throw new HttpsError("invalid-argument", "postId is required");
+  }
+
+  const ref = admin.firestore().collection("community_posts").doc(postId);
+
+  await admin.firestore().runTransaction(async (txn) => {
+    const snap = await txn.get(ref);
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Post not found");
+    }
+    const data = snap.data();
+    const postAuthorId = data.userId;
+    const replies = Array.isArray(data.replies) ? [...data.replies] : [];
+
+    let index = -1;
+    if (replyId && typeof replyId === "string") {
+      index = replies.findIndex((r) => r && r.replyId === replyId);
+    }
+    if (index === -1 && legacyContent != null && typeof legacyContent === "string") {
+      index = replies.findIndex((r) => {
+        if (!r || r.userId !== uid) return false;
+        if (r.content !== legacyContent) return false;
+        if (legacyCreatedAtSeconds != null && typeof legacyCreatedAtSeconds === "number") {
+          const ca = r.createdAt;
+          if (ca && typeof ca.seconds === "number") {
+            return ca.seconds === legacyCreatedAtSeconds;
+          }
+          return false;
+        }
+        return true;
+      });
+    }
+
+    if (index === -1) {
+      throw new HttpsError("not-found", "Reply not found");
+    }
+
+    const target = replies[index];
+    const replyAuthorId = target.userId;
+    if (replyAuthorId !== uid && postAuthorId !== uid) {
+      throw new HttpsError("permission-denied", "You cannot delete this reply");
+    }
+
+    replies.splice(index, 1);
+    txn.update(ref, {
+      replies,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  return {success: true};
+});
 
 // Firebase Cloud Function for Provider Search
 // This function processes provider search requests from the client
@@ -2751,223 +2679,6 @@ function isMaternityProviderType(providerTypeIds) {
 }
 
 /**
- * Build NPI Registry API URL with correct parameters
- * Based on official NPI Registry API: https://npiregistry.cms.hhs.gov/demo-api
- * 
- * @param {Object} params - Search parameters
- * @param {string} params.postal_code - ZIP code (REQUIRED - location must be included)
- * @param {string} params.state - State code (REQUIRED - location must be included, e.g., "OH")
- * @param {string} params.city - City name (REQUIRED - location must be included)
- * @param {string} params.taxonomy_code - Taxonomy code (REQUIRED - each provider type gets separate endpoint)
- * @param {number} params.limit - Results per page (default: 200)
- * @param {number} params.skip - Skip N results for pagination (default: 0)
- * @param {string} params.healthPlan - Health plan name (for logging context only - NPI API doesn't support this)
- * @returns {string} Full NPI API URL
- */
-function buildNpiUrl({ postal_code, state, city, taxonomy_code, limit = 200, skip = 0, healthPlan = null }) {
-  if (!taxonomy_code) {
-    throw new Error("taxonomy_code is required for NPI search");
-  }
-  
-  // Location parameters are REQUIRED for accurate NPI searches
-  if (!postal_code || !state) {
-    throw new Error("postal_code and state are required for NPI search (location must be included in all endpoints)");
-  }
-  
-  const npiUrl = new URL("https://npiregistry.cms.hhs.gov/api/");
-  const params = {
-    version: "2.1",
-    taxonomy_code: taxonomy_code, // Each provider type gets its own taxonomy_code
-    state: state, // REQUIRED - location must be included
-    limit: limit.toString(),
-  };
-  
-  // postal_code is REQUIRED - location must be included in all endpoints
-  params.postal_code = postal_code;
-  
-  // city is included if provided - location must be included in all endpoints
-  if (city) {
-    params.city = city;
-  }
-  
-  // Pagination
-  if (skip > 0) {
-    params.skip = skip.toString();
-  }
-  
-  // Note: healthPlan is NOT a valid NPI API parameter (that's Medicaid-specific)
-  // We log it for context but don't include it in the URL
-  if (healthPlan) {
-    console.log(`[buildNpiUrl] Note: healthPlan "${healthPlan}" is for context only - NPI API doesn't support health plan filtering`);
-  }
-  
-  Object.keys(params).forEach((key) => {
-    npiUrl.searchParams.append(key, params[key]);
-  });
-  
-  return npiUrl.toString();
-}
-
-/**
- * Fetch NPI results with pagination
- * Creates SEPARATE endpoints for each provider type (taxonomy code)
- * Location parameters (postal_code, state, city) are included in ALL endpoints
- * 
- * Fetches pages until: 1) enough results, 2) no more results, or 3) max pages hit
- * @param {Object} searchParams - Search parameters (must include zip, state, city)
- * @param {Array<string>} taxonomyCodes - Taxonomy codes to search (each gets separate endpoint)
- * @param {string} healthPlan - Health plan name (for logging context only)
- * @param {number} maxPages - Maximum pages to fetch (default: 5)
- * @param {number} targetResults - Target number of results (default: 200)
- * @returns {Promise<Array>} Array of NPI providers
- */
-async function fetchNpiWithPagination(searchParams, taxonomyCodes, healthPlan = null, maxPages = 5, targetResults = 200) {
-  const allProviders = [];
-  const urlsUsed = []; // Track URLs for final summary
-  
-  console.log(`[fetchNpiWithPagination] Creating SEPARATE endpoints for ${taxonomyCodes.length} provider type(s)`);
-  console.log(`[fetchNpiWithPagination] Location params (included in ALL endpoints): postal_code=${searchParams.zip}, state=${searchParams.state}, city=${searchParams.city}`);
-  if (healthPlan) {
-    console.log(`[fetchNpiWithPagination] Health plan context: ${healthPlan} (not used in NPI API - Medicaid only)`);
-  }
-  
-  // Each taxonomy code gets its own separate endpoint
-  for (const taxonomyCode of taxonomyCodes) {
-    console.log(`[fetchNpiWithPagination] ==========================================`);
-    console.log(`[fetchNpiWithPagination] Provider Type: ${taxonomyCode}`);
-    console.log(`[fetchNpiWithPagination] Creating separate endpoint for this provider type`);
-    console.log(`[fetchNpiWithPagination] ==========================================`);
-    
-    let page = 0;
-    let skip = 0;
-    const limit = 200;
-    let hasMore = true;
-    let firstPageUrl = null;
-    
-    while (hasMore && page < maxPages && allProviders.length < targetResults) {
-      page++;
-      skip = (page - 1) * limit;
-      
-      try {
-        // Build URL with location params ALWAYS included + this specific taxonomy_code
-        const npiUrl = buildNpiUrl({
-          postal_code: searchParams.zip,
-          state: searchParams.state || "OH",
-          city: searchParams.city,
-          taxonomy_code: taxonomyCode, // Separate endpoint per provider type
-          limit: limit,
-          skip: skip,
-          healthPlan: healthPlan, // For logging context only
-        });
-        
-        if (page === 1) {
-          firstPageUrl = npiUrl;
-          console.log(`[fetchNpiWithPagination] FINAL NPI URL (Page 1): ${npiUrl}`);
-        } else {
-          console.log(`[fetchNpiWithPagination] Page ${page} URL: ${npiUrl}`);
-        }
-        
-        urlsUsed.push(npiUrl);
-        
-        const npiResponse = await axios.get(npiUrl);
-        const npiData = npiResponse.data;
-        
-        if (npiData.results && Array.isArray(npiData.results)) {
-          const pageProviders = parseNpiResponse(npiData.results);
-          allProviders.push(...pageProviders);
-          
-          console.log(`[fetchNpiWithPagination] Page ${page}: ${npiData.results.length} results, ${pageProviders.length} parsed, total: ${allProviders.length}`);
-          
-          // Check if there are more results
-          if (npiData.results.length < limit) {
-            hasMore = false;
-            console.log(`[fetchNpiWithPagination] No more results for taxonomy ${taxonomyCode} (got ${npiData.results.length} < limit ${limit})`);
-          }
-        } else {
-          hasMore = false;
-          console.log(`[fetchNpiWithPagination] No results array in response for taxonomy ${taxonomyCode}`);
-        }
-      } catch (error) {
-        console.error(`[fetchNpiWithPagination] Error fetching page ${page} for taxonomy ${taxonomyCode}:`, error.message);
-        if (error.response) {
-          console.error(`[fetchNpiWithPagination] Response status: ${error.response.status}`);
-          console.error(`[fetchNpiWithPagination] Response data:`, JSON.stringify(error.response.data, null, 2));
-        }
-        hasMore = false; // Stop pagination on error
-      }
-    }
-    
-    console.log(`[fetchNpiWithPagination] Completed taxonomy ${taxonomyCode}: ${allProviders.length} total providers so far`);
-    if (firstPageUrl) {
-      console.log(`[fetchNpiWithPagination] Base URL for ${taxonomyCode}: ${firstPageUrl}`);
-    }
-  }
-  
-  console.log(`[fetchNpiWithPagination] Total URLs used: ${urlsUsed.length}`);
-  console.log(`[fetchNpiWithPagination] All URLs:`, urlsUsed);
-  
-  return allProviders;
-}
-
-/**
- * Filter NPI providers by taxonomy codes (safety check only)
- * Only keeps providers whose taxonomy list intersects with allowed taxonomy codes
- * This should be a light filter since upstream queries are already constrained
- */
-function filterByTaxonomy(npiProviders, allowedTaxonomyCodes) {
-  if (!allowedTaxonomyCodes || allowedTaxonomyCodes.length === 0) {
-    console.log(`[filterByTaxonomy] No taxonomy codes provided, returning empty array`);
-    return [];
-  }
-  
-  console.log(`[filterByTaxonomy] Safety filtering ${npiProviders.length} providers by taxonomy codes: ${JSON.stringify(allowedTaxonomyCodes)}`);
-  
-  const filtered = npiProviders.filter(provider => {
-    // Check if provider has any taxonomy codes that match allowed codes
-    if (!provider.providerTypes || !Array.isArray(provider.providerTypes)) {
-      console.log(`[filterByTaxonomy] Provider "${provider.name?.substring(0, 50)}" has no providerTypes, filtering out`);
-      return false;
-    }
-    
-    const hasMatchingTaxonomy = provider.providerTypes.some(providerTaxonomy => 
-      allowedTaxonomyCodes.includes(providerTaxonomy)
-    );
-    
-    if (!hasMatchingTaxonomy) {
-      console.log(`[filterByTaxonomy] Provider "${provider.name?.substring(0, 50)}" filtered out - taxonomies ${JSON.stringify(provider.providerTypes)} don't match ${JSON.stringify(allowedTaxonomyCodes)}`);
-    }
-    
-    return hasMatchingTaxonomy;
-  });
-  
-  const filteredCount = npiProviders.length - filtered.length;
-  if (filteredCount > 0) {
-    console.log(`[filterByTaxonomy] ⚠️ Filtered out ${filteredCount} providers (${npiProviders.length} -> ${filtered.length})`);
-    console.log(`[filterByTaxonomy] This suggests upstream query may not be correctly constrained`);
-  } else {
-    console.log(`[filterByTaxonomy] ✅ All ${filtered.length} providers match taxonomy codes (upstream filtering working correctly)`);
-  }
-  
-  return filtered;
-}
-
-/**
- * Build Medicaid FHIR API URL with correct parameters
- * Based on official Ohio Medicaid API: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
- * 
- * @param {Object} params - Search parameters
- * @param {string} params.zip - ZIP code (REQUIRED - location must be included)
- * @param {string} params.city - City name (REQUIRED - location must be included)
- * @param {string} params.state - State code (REQUIRED, e.g., "OH")
- * @param {string} params.healthplan - Health plan name (REQUIRED - included in all endpoints)
- * @param {string} params.providerTypeId - Single provider type ID (REQUIRED - each provider type gets separate endpoint)
- * @param {string} params.radius - Search radius (REQUIRED)
- * @param {boolean} params.acceptsPregnantWomen - Accepts pregnant women filter (optional, only for maternity types)
- * @param {boolean} params.acceptsNewborns - Accepts newborns filter (optional, only for maternity types)
- * @param {boolean} params.telehealth - Telehealth filter (optional)
- * @returns {string} Full Medicaid FHIR API URL
- */
-/**
  * Map frontend health plan names to API-expected format
  * Based on Ohio Medicaid API documentation: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
  */
@@ -2982,6 +2693,12 @@ function normalizeHealthPlanName(healthplan) {
     'Molina': 'Molina',
     'Anthem': 'Anthem',
     'Aetna': 'Aetna',
+    // "All plans" and "Not listed / not sure" search every Ohio Medicaid plan. The API's own
+    // "All Plans" value does that in one query and reports each provider's plans
+    // (PractitionerRole.organization), including plans the app does not list (Humana, AmeriHealth).
+    'Not listed / not sure': 'All Plans',
+    'All plans': 'All Plans',
+    'All Plans': 'All Plans',
   };
   
   // Normalize: trim and check map
@@ -2989,307 +2706,22 @@ function normalizeHealthPlanName(healthplan) {
   return healthPlanMap[normalized] || normalized; // Return mapped value or original if not found
 }
 
-/**
- * Build Medicaid FHIR API URL with comma-delimited provider types
- * Based on official Ohio Medicaid API: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
- * 
- * @param {Object} params - Search parameters
- * @param {string} params.zip - ZIP code (REQUIRED)
- * @param {string} params.state - State code (REQUIRED, e.g., "OH")
- * @param {string} params.healthplan - Health plan name (REQUIRED)
- * @param {Array<string>} params.providerTypeIds - Provider type IDs (REQUIRED, will be comma-delimited)
- * @param {string|number} params.radius - Search radius in miles (REQUIRED)
- * @param {boolean} params.acceptsPregnantWomen - Accepts pregnant women filter (optional, only if explicitly provided AND maternity type)
- * @param {boolean} params.acceptsNewborns - Accepts newborns filter (optional, only if explicitly provided AND maternity type)
- * @param {boolean} params.telehealth - Telehealth filter (optional)
- * @returns {string} Full Medicaid FHIR API URL
- */
-function buildMedicaidUrl({ zip, state, healthplan, providerTypeIds, radius, acceptsPregnantWomen, acceptsNewborns, telehealth }) {
-  if (!zip || !state || !healthplan || !providerTypeIds || !radius) {
-    throw new Error("zip, state, healthplan, providerTypeIds (array), and radius are required for Medicaid search");
-  }
-  
-  if (!Array.isArray(providerTypeIds) || providerTypeIds.length === 0) {
-    throw new Error("providerTypeIds must be a non-empty array");
-  }
-  
-  // Normalize health plan name to match API expectations
-  const normalizedHealthPlan = normalizeHealthPlanName(healthplan);
-  console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
-  console.log(`║  BUILDING MEDICAID URL                                           ║`);
-  console.log(`╚════════════════════════════════════════════════════════════════╝`);
-  console.log(`[buildMedicaidUrl] Health plan: "${healthplan}" → normalized to: "${normalizedHealthPlan}"`);
-  
-  // Join provider type IDs with commas (comma-delimited)
-  const providerTypeIDsDelimited = providerTypeIds.join(',');
-  
-  console.log(`[buildMedicaidUrl] Provider type IDs: ${JSON.stringify(providerTypeIds)}`);
-  console.log(`[buildMedicaidUrl] ProviderTypeIDsDelimited: "${providerTypeIDsDelimited}"`);
-  
-  const medicaidUrl = new URL("https://psapi.ohpnm.omes.maximus.com/fhir/PublicSearchFHIR");
-  const params = {
-    state: state, // REQUIRED
-    zip: zip, // REQUIRED
-    healthplan: normalizedHealthPlan, // REQUIRED - lowercase parameter name
-    ProviderTypeIDsDelimited: providerTypeIDsDelimited, // REQUIRED - comma-delimited provider type codes
-    radius: radius.toString(), // REQUIRED
-  };
-  
-  // Only add optional filters if explicitly provided
-  // IMPORTANT: Do not include AcceptsPregnantWomen/AcceptsNewborns unless user explicitly provides them
-  // These filters often eliminate non-OB providers
-  if (acceptsPregnantWomen !== undefined && acceptsPregnantWomen !== null) {
-    params.AcceptsPregnantWomen = acceptsPregnantWomen ? "1" : "0";
-  }
-  if (acceptsNewborns !== undefined && acceptsNewborns !== null) {
-    params.AcceptsNewborns = acceptsNewborns ? "1" : "0";
-  }
-  if (telehealth !== undefined && telehealth !== null) {
-    params.Telehealth = telehealth ? "1" : "0";
-  }
-  
-  // Build URL with all parameters
-  Object.keys(params).forEach((key) => {
-    medicaidUrl.searchParams.append(key, params[key]);
-  });
-  
-  const finalUrl = medicaidUrl.toString();
-  
-  // Log URL prominently (CRITICAL FOR DEBUGGING)
-  console.log(`\n\n\n`);
-  console.log(`================================================================================`);
-  console.log(`================================================================================`);
-  console.log(`🔗 FINAL MEDICAID URL BUILT (buildMedicaidUrl):`);
-  console.log(`${finalUrl}`);
-  console.log(`================================================================================`);
-  console.log(`================================================================================`);
-  console.log(`\n[buildMedicaidUrl] URL Parameters:`);
-  Object.keys(params).forEach(key => {
-    console.log(`   ${key}: ${params[key]}`);
-  });
-  console.log(`\n`);
-  
-  return finalUrl;
+// Upstream time budgets. The app calls OhioMaximusSearch with a 30 s client timeout and
+// searchProviders with 60 s (lib/services/firebase_functions_service.dart), so each callable
+// returns what it has (coverage.partial = true) before the app gives up.
+const OMX_MEDICAID_DEADLINE_MS = Number(process.env.PROVIDER_SEARCH_OMX_DEADLINE_MS || 25000);
+const SP_MEDICAID_DEADLINE_MS = Number(process.env.PROVIDER_SEARCH_SP_DEADLINE_MS || 40000);
+const SP_NPI_DEADLINE_MS = 20000;
+
+/** "1" -> "01" (the Ohio Medicaid API uses two-digit provider type codes). */
+function normalizeProviderTypeId(id) {
+  const s = String(id == null ? "" : id).trim();
+  const n = parseInt(s, 10);
+  if (/^\d+$/.test(s) && n >= 1 && n <= 9) return s.padStart(2, "0");
+  return s;
 }
 
-/**
- * Fetch Medicaid FHIR results using a single endpoint with comma-delimited provider types
- * Provider type is the PRIMARY constraint - results must change by provider type selection
- * 
- * @param {Object} searchParams - Search parameters (must include zip, state, healthplan, radius)
- * @param {Array<string>} providerTypeIds - Provider type IDs (comma-delimited in URL)
- * @param {boolean} acceptsPregnantWomen - Accepts pregnant women filter (optional, only if explicitly provided)
- * @param {boolean} acceptsNewborns - Accepts newborns filter (optional, only if explicitly provided)
- * @param {boolean} telehealth - Telehealth filter (optional)
- * @param {number} maxPages - Maximum pages to fetch (default: 5)
- * @returns {Promise<Array>} Array of Medicaid provider entries
- */
-async function fetchMedicaidResults(searchParams, providerTypeIds, acceptsPregnantWomen, acceptsNewborns, telehealth, maxPages = 5) {
-  console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
-  console.log(`║  FETCHING MEDICAID RESULTS (SINGLE ENDPOINT)                  ║`);
-  console.log(`╚════════════════════════════════════════════════════════════════╝`);
-  console.log(`[fetchMedicaidResults] Provider type IDs: ${JSON.stringify(providerTypeIds)}`);
-  console.log(`[fetchMedicaidResults] ProviderTypeIDsDelimited will be: "${providerTypeIds.join(',')}"`);
-  
-  try {
-    // Build single URL with comma-delimited provider types
-    const medicaidUrl = buildMedicaidUrl({
-      zip: searchParams.zip,
-      state: searchParams.state || "OH",
-      healthplan: searchParams.healthplan,
-      providerTypeIds: providerTypeIds, // Array - will be comma-delimited in URL
-      radius: searchParams.radius,
-      acceptsPregnantWomen: acceptsPregnantWomen,
-      acceptsNewborns: acceptsNewborns,
-      telehealth: telehealth,
-    });
-    
-    // Log the URL prominently (CRITICAL FOR DEBUGGING)
-    console.log(`\n\n\n`);
-    console.log(`================================================================================`);
-    console.log(`================================================================================`);
-    console.log(`🔗 MEDICAID API URL - THIS IS THE URL BEING CALLED:`);
-    console.log(`${medicaidUrl}`);
-    console.log(`================================================================================`);
-    console.log(`================================================================================`);
-    console.log(`\n`);
-    
-    // Store URL in Firestore with timestamp
-    try {
-      const db = admin.firestore();
-      await db.collection('medicaid_api_logs').add({
-        url: medicaidUrl,
-        providerTypeIds: providerTypeIds,
-        zip: searchParams.zip,
-        state: searchParams.state || "OH",
-        healthplan: searchParams.healthplan,
-        radius: searchParams.radius,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        createdAt: new Date().toISOString(),
-      });
-      console.log(`[fetchMedicaidResults] ✅ URL stored in Firestore collection 'medicaid_api_logs'`);
-    } catch (firestoreError) {
-      console.error(`[fetchMedicaidResults] ⚠️ Error storing URL in Firestore:`, firestoreError.message);
-      // Don't fail the request if Firestore logging fails
-    }
-    
-    // Fetch with pagination support
-    console.log(`[fetchMedicaidResults] Fetching entries from Medicaid API...`);
-    console.log(`[fetchMedicaidResults] URL: ${medicaidUrl}`);
-    const entries = await fetchFhirBundleWithPaging(medicaidUrl, maxPages);
-    
-    console.log(`[fetchMedicaidResults] Total entries collected: ${entries.length}`);
-    
-    if (entries.length === 0) {
-      console.log(`[fetchMedicaidResults] ⚠️ WARNING: No entries returned`);
-      console.log(`[fetchMedicaidResults] URL used: ${medicaidUrl}`);
-      console.log(`[fetchMedicaidResults] This may indicate: 1) No providers match criteria, 2) API parameter issue, 3) API error`);
-    } else {
-      // Log first 1-2 provider names to verify filtering
-      const sampleEntries = entries.slice(0, 2);
-      console.log(`[fetchMedicaidResults] Sample entries (first ${sampleEntries.length}):`);
-      sampleEntries.forEach((entry, idx) => {
-        if (entry.resource) {
-          const resource = entry.resource;
-          const name = resource.name?.[0] ? 
-            `${resource.name[0].given?.join(' ') || ''} ${resource.name[0].family || ''}`.trim() :
-            'N/A';
-          const providerTypes = resource.code?.map(c => c.coding?.[0]?.code).filter(Boolean) || [];
-          console.log(`[fetchMedicaidResults]   Entry ${idx + 1}: "${name}" - Provider Types: ${JSON.stringify(providerTypes)}`);
-        }
-      });
-    }
-    
-    return entries;
-    
-  } catch (error) {
-    console.error(`[fetchMedicaidResults] Error fetching Medicaid results:`, error.message);
-    console.error(`[fetchMedicaidResults] Error stack:`, error.stack);
-    if (error.response) {
-      console.error(`[fetchMedicaidResults] Response status: ${error.response.status}`);
-      console.error(`[fetchMedicaidResults] Response data:`, JSON.stringify(error.response.data, null, 2));
-    } else if (error.request) {
-      console.error(`[fetchMedicaidResults] Request was made but no response received`);
-    }
-    throw error;
-  }
-}
-
-/**
- * Fetch FHIR Bundle with pagination support
- * Handles cases where response has 'link' array instead of 'entry'
- */
-async function fetchFhirBundleWithPaging(initialUrl, maxPages = 5) {
-  const allEntries = [];
-  let currentUrl = initialUrl;
-  let pageCount = 0;
-  
-  console.log(`[fetchFhirBundleWithPaging] Starting fetch from: ${currentUrl}`);
-  console.log(`\n\n\n`);
-  console.log(`================================================================================`);
-  console.log(`================================================================================`);
-  console.log(`🌐 FETCHING MEDICAID API - URL BEING CALLED:`);
-  console.log(`${currentUrl}`);
-  console.log(`================================================================================`);
-  console.log(`================================================================================`);
-  console.log(`\n`);
-  
-  while (currentUrl && pageCount < maxPages) {
-    pageCount++;
-    console.log(`[fetchFhirBundleWithPaging] Fetching page ${pageCount}...`);
-    console.log(`   Page ${pageCount}...`);
-    
-    try {
-      // Log URL right before making the HTTP request
-      console.log(`\n[fetchFhirBundleWithPaging] Making HTTP GET request to: ${currentUrl}`);
-      console.log(`[fetchFhirBundleWithPaging] This is the exact URL being fetched\n`);
-      
-      const response = await axios.get(currentUrl);
-      const bundle = response.data;
-      
-      const entryCount = bundle.entry && Array.isArray(bundle.entry) ? bundle.entry.length : 0;
-      console.log(`   ✅ Response Status: ${response.status}`);
-      console.log(`   📦 Resource Type: ${bundle.resourceType || 'N/A'}`);
-      console.log(`   📄 Has Entry: ${!!bundle.entry}`);
-      console.log(`   📄 Entry Count: ${entryCount}`);
-      console.log(`   🔗 Has Link: ${!!bundle.link}`);
-      
-      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} response status: ${response.status}`);
-      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} resourceType: ${bundle.resourceType || 'N/A'}`);
-      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} has entry: ${!!bundle.entry}`);
-      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} entry count: ${entryCount}`);
-      console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} has link: ${!!bundle.link}`);
-      
-      if (bundle.link && Array.isArray(bundle.link)) {
-        console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} link array:`, JSON.stringify(bundle.link, null, 2));
-      }
-      
-      // If this bundle has entries, add them
-      if (bundle.entry && Array.isArray(bundle.entry)) {
-        const entryCount = bundle.entry.length;
-        console.log(`   📋 Entries in page ${pageCount}: ${entryCount}`);
-        console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} has ${entryCount} entries`);
-        allEntries.push(...bundle.entry);
-      } else if (bundle.entry && !Array.isArray(bundle.entry)) {
-        console.log(`   ⚠️ Entry is not an array, converting...`);
-        console.log(`[fetchFhirBundleWithPaging] Page ${pageCount} entry is not an array, converting...`);
-        allEntries.push(bundle.entry);
-      } else {
-        console.log(`   ⚠️ No entries found in page ${pageCount}`);
-      }
-      
-      // Check for next page link
-      let nextUrl = null;
-      if (bundle.link && Array.isArray(bundle.link)) {
-        const nextLink = bundle.link.find(link => link.relation === "next");
-        if (nextLink && nextLink.url) {
-          nextUrl = nextLink.url;
-          console.log(`[fetchFhirBundleWithPaging] Found next page link: ${nextUrl}`);
-        } else {
-          console.log(`[fetchFhirBundleWithPaging] No 'next' link found in link array`);
-        }
-      }
-      
-      // If no next link, we're done
-      if (!nextUrl) {
-        console.log(`   ✅ No more pages. Total entries: ${allEntries.length}`);
-        console.log(`[fetchFhirBundleWithPaging] No more pages, total entries collected: ${allEntries.length}`);
-        break;
-      }
-      
-      currentUrl = nextUrl;
-      
-    } catch (error) {
-      console.log(`   ❌ ERROR fetching page ${pageCount}: ${error.message}`);
-      if (error.response) {
-        console.log(`   ❌ Response Status: ${error.response.status}`);
-        console.log(`   ❌ Response Data: ${JSON.stringify(error.response.data, null, 2)}`);
-        console.error(`[fetchFhirBundleWithPaging] Response status: ${error.response.status}`);
-        console.error(`[fetchFhirBundleWithPaging] Response data:`, JSON.stringify(error.response.data, null, 2));
-      } else if (error.request) {
-        console.log(`   ❌ No response received from server`);
-        console.log(`   ❌ Request URL: ${currentUrl}`);
-      }
-      console.error(`[fetchFhirBundleWithPaging] Error fetching page ${pageCount}:`, error.message);
-      // If we have some entries, return what we have; otherwise throw
-      if (allEntries.length > 0) {
-        console.log(`   ⚠️ Returning ${allEntries.length} entries despite error`);
-        console.log(`[fetchFhirBundleWithPaging] Returning ${allEntries.length} entries despite error`);
-        break;
-      }
-      throw error;
-    }
-  }
-  
-  if (pageCount >= maxPages) {
-    console.log(`[fetchFhirBundleWithPaging] Reached max page limit (${maxPages}), stopping`);
-  }
-  
-  console.log(`[fetchFhirBundleWithPaging] Final result: ${allEntries.length} entries from ${pageCount} page(s)`);
-  return allEntries;
-}
-
-exports.searchProviders = onCall(async (request) => {
+exports.searchProviders = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
   // Validate authentication
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be authenticated");
@@ -3307,951 +2739,197 @@ exports.searchProviders = onCall(async (request) => {
     acceptsNewborns,
     telehealth,
     identityTags, // Identity & Cultural match filters
-  } = request.data;
+  } = request.data || {};
 
   // Validate required parameters
   if (!zip || !city || !healthPlan || !providerTypeIds || !radius) {
     throw new HttpsError(
       "invalid-argument",
-      "Missing required parameters: zip, city, healthPlan, providerTypeIds, radius"
+      "Missing required parameters: zip, city, healthPlan, providerTypeIds, radius",
     );
   }
 
-  // Normalize provider type IDs
-  // IMPORTANT: Ohio Medicaid API uses single digits (1-9) WITH leading zeros ("01", "02", "09")
-  // Frontend may send with or without leading zeros, so normalize to API format (with leading zeros for 1-9)
-  const normalizedProviderTypeIds = Array.isArray(providerTypeIds)
-    ? providerTypeIds.map((id) => {
-        const numId = parseInt(id, 10);
-        if (!isNaN(numId) && numId >= 1 && numId <= 9) {
-          return id.padStart(2, '0'); // Add leading zero (API format: "01", "02", "09")
-        }
-        return id; // Return as-is for double digits (10+)
-      })
-    : [providerTypeIds];
-
-  // CRITICAL: Validate provider type IDs are not empty
-  if (normalizedProviderTypeIds.length === 0 || normalizedProviderTypeIds.every(id => !id || id.trim() === '')) {
-    console.log(`[searchProviders] ⚠️ ERROR: providerTypeIds is empty or invalid`);
-    console.log(`[searchProviders] Returning empty results - provider type is required`);
+  const normalizedProviderTypeIds = [...new Set(
+    (Array.isArray(providerTypeIds) ? providerTypeIds : [providerTypeIds])
+      .map(normalizeProviderTypeId)
+      .filter((id) => id),
+  )];
+  if (normalizedProviderTypeIds.length === 0) {
     return {
       success: true,
       providers: [],
       count: 0,
-      error: "Provider type IDs are required for search"
+      error: "Provider type IDs are required for search",
     };
   }
 
-  console.log(`\n\n\n`);
-  console.log(`╔════════════════════════════════════════════════════════════════╗`);
-  console.log(`║          searchProviders FUNCTION CALLED                      ║`);
-  console.log(`╚════════════════════════════════════════════════════════════════╝`);
-  console.log(`\n[searchProviders] ==========================================`);
-  console.log(`[searchProviders] SEARCH REQUEST DETAILS`);
-  console.log(`[searchProviders] ==========================================`);
-  console.log(`[searchProviders] ZIP: ${zip}`);
-  console.log(`[searchProviders] City: ${city}`);
-  console.log(`[searchProviders] Health Plan: ${healthPlan}`);
-  console.log(`[searchProviders] Radius: ${radius}`);
-  console.log(`[searchProviders] Raw provider type IDs: ${JSON.stringify(providerTypeIds)}`);
-  console.log(`[searchProviders] Normalized provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-  // Resolve taxonomy codes for provider types (for NPI filtering)
+  const t0 = Date.now();
+  const radiusMiles = Number(radius);
+  const searchZip = engine.zip5(zip) || String(zip).trim();
+  const normalizedHealthPlan = normalizeHealthPlanName(String(healthPlan));
   const taxonomyCodes = taxonomyCodesForProviderTypeIds(normalizedProviderTypeIds);
-  
-  console.log(`[searchProviders] Provider type IDs delimited: ${normalizedProviderTypeIds.join(',')}`);
-  console.log(`[searchProviders] Resolved taxonomy codes: ${JSON.stringify(taxonomyCodes)}`);
-  console.log(`[searchProviders] Include NPI: ${includeNpi}`);
-  console.log(`[searchProviders] Accepts Pregnant Women: ${acceptsPregnantWomen}`);
-  console.log(`[searchProviders] Accepts Newborns: ${acceptsNewborns}`);
-  console.log(`[searchProviders] Telehealth: ${telehealth}`);
-  console.log(`[searchProviders] ==========================================\n`);
+  const origin = engine.searchOrigin(searchZip, city, "OH");
+  console.log(`[searchProviders] zip=${searchZip} city=${city} radius=${radiusMiles} plan="${healthPlan}"` +
+    ` -> "${normalizedHealthPlan}" types=${normalizedProviderTypeIds.join(",")} includeNpi=${includeNpi}` +
+    ` acceptsPregnantWomen=${acceptsPregnantWomen} acceptsNewborns=${acceptsNewborns} telehealth=${telehealth}` +
+    ` origin=${origin ? `${origin.lat},${origin.lon} (${origin.precision})` : "unknown"}`);
 
   try {
-    const providers = [];
-
-    // 1. Search Ohio Medicaid API
-    // IMPORTANT: Use single endpoint with comma-delimited provider types
-    // Provider type is the PRIMARY constraint - results must change by provider type selection
-    try {
-      console.log(`\n\n\n`);
-      console.log(`╔════════════════════════════════════════════════════════════════╗`);
-      console.log(`║          MEDICAID SEARCH STARTING                            ║`);
-      console.log(`╚════════════════════════════════════════════════════════════════╝`);
-      console.log(`[Medicaid] ==========================================`);
-      console.log(`[Medicaid] STARTING MEDICAID SEARCH`);
-      console.log(`[Medicaid] ==========================================`);
-      console.log(`[Medicaid] Provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-      console.log(`[Medicaid] ProviderTypeIDsDelimited: "${normalizedProviderTypeIds.join(',')}"`);
-      console.log(`[Medicaid] ZIP: ${zip}, State: OH`);
-      console.log(`[Medicaid] Health plan: ${healthPlan}`);
-      console.log(`[Medicaid] Radius: ${radius}`);
-      console.log(`[Medicaid] Using SINGLE endpoint with comma-delimited provider types`);
-      console.log(`[Medicaid] ==========================================\n`);
-      
-      // Log what the URL will look like (before building it)
-      const previewProviderTypes = normalizedProviderTypeIds.join(',');
-      const previewUrl = `https://psapi.ohpnm.omes.maximus.com/fhir/PublicSearchFHIR?state=OH&zip=${zip}&healthplan=${encodeURIComponent(healthPlan)}&ProviderTypeIDsDelimited=${previewProviderTypes}&radius=${radius}`;
-      console.log(`\n`);
-      console.log(`================================================================================`);
-      console.log(`🔗 MEDICAID URL PREVIEW (will be built and called):`);
-      console.log(`${previewUrl}`);
-      console.log(`================================================================================`);
-      console.log(`\n`);
-      
-      // Determine if this is a maternity-related search
-      const isMaternitySearch = isMaternityProviderType(normalizedProviderTypeIds);
-      console.log(`[Medicaid] Is maternity provider type: ${isMaternitySearch}`);
-      
-      // IMPORTANT: Only include AcceptsPregnantWomen/AcceptsNewborns if:
-      // 1. User explicitly provided them (not undefined/null)
-      // 2. Provider type is maternity-related
-      // These filters often eliminate non-OB providers
-      let finalAcceptsPregnantWomen = undefined;
-      let finalAcceptsNewborns = undefined;
-      
-      if (isMaternitySearch) {
-        // Only use if explicitly provided
-        if (acceptsPregnantWomen !== undefined && acceptsPregnantWomen !== null) {
-          finalAcceptsPregnantWomen = acceptsPregnantWomen;
-          console.log(`[Medicaid] Including AcceptsPregnantWomen filter: ${acceptsPregnantWomen}`);
-        } else {
-          console.log(`[Medicaid] Skipping AcceptsPregnantWomen filter (not explicitly provided)`);
-        }
-        
-        if (acceptsNewborns !== undefined && acceptsNewborns !== null) {
-          finalAcceptsNewborns = acceptsNewborns;
-          console.log(`[Medicaid] Including AcceptsNewborns filter: ${acceptsNewborns}`);
-        } else {
-          console.log(`[Medicaid] Skipping AcceptsNewborns filter (not explicitly provided)`);
-        }
-      } else {
-        console.log(`[Medicaid] Skipping AcceptsPregnantWomen/AcceptsNewborns filters (non-maternity provider type)`);
-      }
-      
-      // Fetch Medicaid results with single endpoint
-      const searchParams = {
-        zip: zip,
-        state: "OH",
-        healthplan: healthPlan,
-        radius: radius,
-      };
-      
-      console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
-      console.log(`║  CALLING fetchMedicaidResults (SINGLE ENDPOINT)                ║`);
-      console.log(`╚════════════════════════════════════════════════════════════════╝\n`);
-      
-      const allEntries = await fetchMedicaidResults(
-        searchParams,
-        normalizedProviderTypeIds, // Array - will be comma-delimited in URL
-        finalAcceptsPregnantWomen,
-        finalAcceptsNewborns,
-        telehealth,
-        5
-      );
-      
-      // Parse entries
-      console.log(`\n==========================================`);
-      console.log(`📊 MEDICAID RESULTS (TERMINAL OUTPUT):`);
-      console.log(`   Total entries fetched: ${allEntries.length}`);
-      
-      if (allEntries.length > 0) {
-        console.log(`[Medicaid] Parsing ${allEntries.length} entries...`);
-        const medicaidProviders = parseMedicaidResponse(allEntries, specialty);
-        providers.push(...medicaidProviders);
-        console.log(`   Providers after parsing: ${medicaidProviders.length}`);
-        console.log(`[Medicaid] Found ${medicaidProviders.length} providers after parsing`);
-        console.log(`[Medicaid] Medicaid source count: ${medicaidProviders.length}`);
-        
-        if (medicaidProviders.length === 0 && allEntries.length > 0) {
-          console.log(`   ⚠️ WARNING: ${allEntries.length} entries but 0 providers parsed!`);
-          console.log(`[Medicaid] WARNING: ${allEntries.length} entries but 0 providers parsed. Checking first entry...`);
-          if (allEntries[0] && allEntries[0].resource) {
-            const testProvider = parseFhirResource(allEntries[0].resource);
-            console.log(`[Medicaid] Test parse result:`, JSON.stringify(testProvider, null, 2));
-            console.log(`   First entry resource type: ${allEntries[0].resource?.resourceType || 'N/A'}`);
-            console.log(`   First entry has code: ${!!allEntries[0].resource?.code}`);
-          }
-        }
-      } else {
-        console.log(`   ⚠️ No entries returned from API`);
-        console.log("[Medicaid] No entries to parse after fetching");
-      }
-      console.log(`==========================================\n`);
-      
-      console.log(`[Medicaid] ==========================================\n`);
-    } catch (error) {
-      console.log(`\n\n\n`);
-      console.log(`╔════════════════════════════════════════════════════════════════╗`);
-      console.log(`║          ❌ MEDICAID SEARCH ERROR                                ║`);
-      console.log(`╚════════════════════════════════════════════════════════════════╝`);
-      console.log(`\n==========================================`);
-      console.log(`❌ MEDICAID SEARCH ERROR (TERMINAL OUTPUT):`);
-      console.log(`   Error: ${error.message}`);
-      console.log(`   Error Type: ${error.constructor.name}`);
-      if (error.response) {
-        console.log(`   Response Status: ${error.response.status}`);
-        console.log(`   Response Data: ${JSON.stringify(error.response.data, null, 2)}`);
-        console.error("[Medicaid] Response status:", error.response.status);
-        console.error("[Medicaid] Response data:", JSON.stringify(error.response.data, null, 2));
-      } else if (error.request) {
-        console.log(`   No response received from server`);
-        console.log(`   Request URL (if available): ${error.config?.url || 'N/A'}`);
-      }
-      console.log(`   Stack Trace:`);
-      console.log(error.stack);
-      console.log(`==========================================\n`);
-      console.error("[Medicaid] Error searching Medicaid API:", error.message);
-      console.error("[Medicaid] Error stack:", error.stack);
-      // Continue to NPI search if enabled
-    }
-
-    // 2. Search NPI Registry ONLY if explicitly requested (includeNpi=true)
-    // IMPORTANT: Do NOT call NPI fallback unless explicitly requested
-    // Provider type is the PRIMARY constraint - Medicaid directory should be sufficient
-    if (includeNpi === true) {
-      console.log(`\n[NPI] ==========================================`);
-      console.log(`[NPI] STARTING NPI SEARCH`);
-      console.log(`[NPI] ==========================================`);
-      console.log(`[NPI] Include NPI: ${includeNpi}`);
-      console.log(`[NPI] Providers found so far: ${providers.length}`);
-      console.log(`[NPI] Provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-      console.log(`[NPI] Resolved taxonomy codes: ${JSON.stringify(taxonomyCodes)}`);
-      console.log(`[NPI] ==========================================\n`);
-      
-      // CRITICAL: Require taxonomy codes for NPI search
-      if (taxonomyCodes.length === 0) {
-        console.log(`[NPI] ⚠️ ERROR: No taxonomy codes resolved for provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-        console.log(`[NPI] Skipping NPI search - provider type not supported for NPI fallback`);
-        console.log(`[NPI] Returning only Medicaid results (if any)`);
-        console.log(`[NPI] ⚠️ DO NOT perform broad NPI search without taxonomy codes`);
-      } else {
-        try {
-          // Get additional taxonomy codes from specialty if provided
-          let allTaxonomyCodes = [...taxonomyCodes];
-          
-          if (specialty) {
-            const specialtyTaxonomy = getTaxonomyCode(specialty);
-            if (specialtyTaxonomy && !allTaxonomyCodes.includes(specialtyTaxonomy)) {
-              allTaxonomyCodes.push(specialtyTaxonomy);
-              console.log(`[NPI] Added taxonomy code from specialty: ${specialtyTaxonomy}`);
-            }
-          }
-          
-          // Remove duplicates
-          allTaxonomyCodes = [...new Set(allTaxonomyCodes)];
-          
-          console.log(`[NPI] Final taxonomy codes to search: ${JSON.stringify(allTaxonomyCodes)}`);
-          console.log(`[NPI] Location params (included in ALL endpoints): zip=${zip}, city=${city}, state=OH`);
-          console.log(`[NPI] Health plan context: ${healthPlan} (not used in NPI API - Medicaid only)`);
-          console.log(`[NPI] Creating SEPARATE endpoints for each provider type (${allTaxonomyCodes.length} endpoint(s))`);
-          
-          // Fetch NPI results with pagination
-          // Location parameters (zip, city, state) are REQUIRED and included in ALL endpoints
-          const searchParams = {
-            zip: zip,
-            city: city,
-            state: "OH",
-          };
-          
-          console.log(`[NPI] Fetching NPI results with pagination (max 5 pages, target 200 results)...`);
-          console.log(`[NPI] Each provider type will get its own separate endpoint call`);
-          const allNpiProviders = await fetchNpiWithPagination(searchParams, allTaxonomyCodes, healthPlan, 5, 200);
-          
-          console.log(`[NPI] Total providers from NPI (before safety filter): ${allNpiProviders.length}`);
-          
-          // Safety filter: ensure all providers match taxonomy codes (should be minimal filtering)
-          const filteredProviders = filterByTaxonomy(allNpiProviders, allTaxonomyCodes);
-          
-          console.log(`[NPI] Total providers from NPI (after safety filter): ${filteredProviders.length}`);
-          
-          // Log first 5 providers with their taxonomy codes
-          if (filteredProviders.length > 0) {
-            console.log(`[NPI] First 5 providers from NPI:`);
-            filteredProviders.slice(0, 5).forEach((p, idx) => {
-              console.log(`[NPI]   ${idx + 1}. ${p.name?.substring(0, 60)}`);
-              console.log(`[NPI]      Taxonomies: ${JSON.stringify(p.providerTypes || [])}`);
-              console.log(`[NPI]      Source: ${p.source}`);
-            });
-          }
-          
-          // Add filtered NPI providers
-          providers.push(...filteredProviders);
-          console.log(`[NPI] Total NPI providers added: ${filteredProviders.length}`);
-          console.log(`[NPI] Total providers from all sources: ${providers.length}`);
-        } catch (error) {
-          console.error("[NPI] Error searching NPI API:", error.message);
-          if (error.response) {
-            console.error("[NPI] Response status:", error.response.status);
-            console.error("[NPI] Response data:", JSON.stringify(error.response.data, null, 2));
-          }
-          // Continue with Medicaid results only
-        }
-      }
-      console.log(`[NPI] ==========================================\n`);
-    }
-
-    // 3. Log counts from each source before deduplication
-    const medicaidCount = providers.filter(p => p.source === 'medicaid').length;
-    const npiCount = providers.filter(p => p.source === 'npi').length;
-    console.log(`\n[searchProviders] ==========================================`);
-    console.log(`[searchProviders] SOURCE COUNTS BEFORE DEDUPLICATION`);
-    console.log(`[searchProviders] ==========================================`);
-    console.log(`[searchProviders] Medicaid providers: ${medicaidCount}`);
-    console.log(`[searchProviders] NPI providers: ${npiCount}`);
-    console.log(`[searchProviders] Total providers: ${providers.length}`);
-    console.log(`[searchProviders] ==========================================\n`);
-
-    // 3. Search Firestore for providers that match search criteria (including BIPOC directory providers)
-    try {
-      console.log(`\n[searchProviders] ==========================================`);
-      console.log(`[searchProviders] SEARCHING FIRESTORE FOR MATCHING PROVIDERS`);
-      console.log(`[searchProviders] ==========================================`);
-      
-      // Search Firestore for providers with matching zip code and provider types
-      // This includes BIPOC directory providers and other Firestore-only providers
-      const firestoreProviders = await searchFirestoreProviders({
-        zip: zip,
-        city: city,
-        radius: radius,
-        providerTypeIds: normalizedProviderTypeIds,
-        specialty: specialty,
+    const timings = {};
+    const timed = (label, p) => {
+      const s = Date.now();
+      return p.finally(() => {
+        timings[label] = Date.now() - s;
       });
-      
-      if (firestoreProviders.length > 0) {
-        console.log(`[searchProviders] Found ${firestoreProviders.length} providers in Firestore`);
-        providers.push(...firestoreProviders);
-      } else {
-        console.log(`[searchProviders] No additional providers found in Firestore`);
+    };
+
+    // 1-3. Ohio Medicaid, NPI Registry and the in-app directory run in parallel.
+    const medicaidP = timed("medicaid", engine.searchMedicaid({
+      zip: searchZip,
+      city,
+      state: "OH",
+      plan: normalizedHealthPlan,
+      typeIds: normalizedProviderTypeIds,
+      radius: radiusMiles,
+      telehealth,
+      specialty,
+      deadlineMs: SP_MEDICAID_DEADLINE_MS,
+    })).catch((e) => {
+      console.error("[searchProviders] Medicaid search failed:", e.message);
+      return {providers: [], meta: {error: e.message, partial: true}};
+    });
+
+    let npiP = Promise.resolve(null);
+    if (includeNpi === true) {
+      const codes = [...taxonomyCodes];
+      if (specialty) {
+        const extra = getTaxonomyCode(specialty);
+        if (extra && !codes.includes(extra)) codes.push(extra);
       }
-      console.log(`[searchProviders] ==========================================\n`);
-    } catch (error) {
-      console.error(`[searchProviders] Error searching Firestore:`, error);
-      // Continue with API results only
+      npiP = timed("npi", engine.searchNpi({
+        zip: searchZip,
+        city,
+        state: "OH",
+        taxonomyCodes: codes,
+        radius: radiusMiles,
+        deadlineMs: SP_NPI_DEADLINE_MS,
+      })).catch((e) => {
+        console.error("[searchProviders] NPI search failed:", e.message);
+        return {providers: [], meta: {error: e.message, partial: true}};
+      });
     }
 
-    // 3b. Read BIPOC providers from Excel file (for Clinical Counselor searches)
-    try {
-      console.log(`\n[searchProviders] ==========================================`);
-      console.log(`[searchProviders] READING BIPOC PROVIDERS FROM EXCEL FILE`);
-      console.log(`[searchProviders] ==========================================`);
-      
-      // Check if searching for Clinical Counselor (provider type '47')
-      const isClinicalCounselorSearch = normalizedProviderTypeIds.some(id => 
-        id === "47" || id.toLowerCase().includes("counselor") || id.toLowerCase().includes("therapist")
-      );
+    const firestoreP = timed("directory", searchFirestoreProviders({
+      zip: searchZip,
+      city,
+      radius: radiusMiles,
+      providerTypeIds: normalizedProviderTypeIds,
+      specialty,
+      origin,
+    }));
 
-      if (isClinicalCounselorSearch) {
-        const excelProviders = await readBipocProvidersFromExcel({
-          zip: zip,
-          city: city,
-          radius: radius,
-          providerTypeIds: normalizedProviderTypeIds,
-          specialty: specialty,
-        });
-        
-        if (excelProviders.length > 0) {
-          console.log(`[searchProviders] Found ${excelProviders.length} BIPOC providers from Excel file`);
-          providers.push(...excelProviders);
-        } else {
-          console.log(`[searchProviders] No BIPOC providers found in Excel file`);
-        }
-      } else {
-        console.log(`[searchProviders] Skipping Excel file (not a Clinical Counselor search)`);
-      }
-      console.log(`[searchProviders] ==========================================\n`);
-    } catch (error) {
-      console.error(`[searchProviders] Error reading BIPOC providers from Excel:`, error);
-      // Continue with other results
-    }
+    // 3b. BIPOC providers from the Excel directory (Clinical Counselor searches only)
+    const isClinicalCounselorSearch = normalizedProviderTypeIds.some((id) =>
+      id === "47" || id.toLowerCase().includes("counselor") || id.toLowerCase().includes("therapist"),
+    );
+    const excelP = isClinicalCounselorSearch ?
+      readBipocProvidersFromExcel({zip: searchZip, city, radius: radiusMiles,
+        providerTypeIds: normalizedProviderTypeIds, specialty})
+        .then((list) => list.map((p) => {
+          // Annotate distance; keep rows whose address can't be located (legacy behaviour).
+          const placed = engine.placeLocations(p.locations, origin, radiusMiles);
+          if (placed) return {...p, locations: placed.locations, distanceMiles: placed.distance, _dist: placed.distance};
+          return origin && (p.locations || []).some((l) => engine.locatePoint(l)) ? null : p;
+        }).filter(Boolean))
+        .catch((e) => {
+          console.error("[searchProviders] Error reading BIPOC providers from Excel:", e);
+          return [];
+        }) :
+      Promise.resolve([]);
+
+    const [medicaid, npi, firestoreProviders, excelProviders] = await Promise.all([medicaidP, npiP, firestoreP,
+      excelP]);
+
+    const providers = [
+      ...medicaid.providers,
+      ...(npi ? npi.providers : []),
+      ...firestoreProviders,
+      ...excelProviders,
+    ];
+    const medicaidCount = medicaid.providers.length;
+    const npiCount = npi ? npi.providers.length : 0;
 
     // 4. Deduplicate providers by NPI or name+location
     const deduplicatedProviders = deduplicateProviders(providers);
-    console.log(`[searchProviders] After deduplication: ${deduplicatedProviders.length} providers`);
 
     // 5. Enrich with Firestore data (reviews, identity tags, Mama Approved)
-    const enrichedProviders = await enrichProvidersWithFirestore(deduplicatedProviders);
-    console.log(`[searchProviders] After enrichment: ${enrichedProviders.length} providers`);
+    const enrichedProviders = await timed("enrich", enrichProvidersWithFirestore(deduplicatedProviders));
 
-    // 5. Sort providers with prioritization
-    console.log(`[searchProviders] Before sorting: ${enrichedProviders.length} providers`);
-    
-    // Check if identity tags are selected (Identity & Cultural match)
+    // 5a. Sort: BIPOC first when identity tags are selected, then Mama Approved, rating,
+    // review count, and finally distance (nearest first).
     const hasIdentityTags = identityTags && Array.isArray(identityTags) && identityTags.length > 0;
-    console.log(`[searchProviders] Identity tags selected: ${hasIdentityTags ? identityTags.join(", ") : "none"}`);
-    
-    // Helper to check if provider has BIPOC tag
     const hasBipocTag = (provider) => {
       if (!provider.identityTags || !Array.isArray(provider.identityTags)) return false;
-      return provider.identityTags.some(tag => 
-        (tag.name && tag.name.toLowerCase() === "bipoc") || 
-        (tag.id && tag.id.toLowerCase() === "bipoc")
+      return provider.identityTags.some((tag) =>
+        (tag.name && tag.name.toLowerCase() === "bipoc") ||
+        (tag.id && tag.id.toLowerCase() === "bipoc"),
       );
     };
-    
+    const distOf = (p) => (p.distanceMiles == null ? Infinity : (p._dist != null ? p._dist : p.distanceMiles));
     enrichedProviders.sort((a, b) => {
-      const aHasBipoc = hasBipocTag(a);
-      const bHasBipoc = hasBipocTag(b);
-      
-      // If identity tags are selected, prioritize BIPOC providers first
       if (hasIdentityTags) {
+        const aHasBipoc = hasBipocTag(a);
+        const bHasBipoc = hasBipocTag(b);
         if (aHasBipoc && !bHasBipoc) return -1;
         if (!aHasBipoc && bHasBipoc) return 1;
       }
-      
-      // Mama Approved providers next
       if (a.mamaApproved && !b.mamaApproved) return -1;
       if (!a.mamaApproved && b.mamaApproved) return 1;
-      
-      // If identity tags selected and both have BIPOC, prioritize BIPOC with Mama Approved
-      if (hasIdentityTags && aHasBipoc && bHasBipoc) {
-        if (a.mamaApproved && !b.mamaApproved) return -1;
-        if (!a.mamaApproved && b.mamaApproved) return 1;
-      }
-      
-      // Then by rating (highest first)
       const ratingA = a.rating || 0;
       const ratingB = b.rating || 0;
       if (ratingA !== ratingB) return ratingB - ratingA;
-      
-      // Then by review count (more reviews = higher priority)
       const countA = a.reviewCount || 0;
       const countB = b.reviewCount || 0;
-      return countB - countA;
+      if (countA !== countB) return countB - countA;
+      return distOf(a) - distOf(b);
     });
-    
-    console.log(`[searchProviders] After sorting: ${enrichedProviders.length} providers`);
-    const bipocCount = enrichedProviders.filter(p => hasBipocTag(p)).length;
-    console.log(`[searchProviders] BIPOC providers in results: ${bipocCount}`);
 
-    // 6. Serialize providers to ensure JSON-compatible format
-    const serializedProviders = enrichedProviders.map(serializeProvider);
-    
-    // Final summary with comprehensive debugging
-    console.log(`\n[searchProviders] ==========================================`);
-    console.log(`[searchProviders] FINAL RESULTS SUMMARY`);
-    console.log(`[searchProviders] ==========================================`);
-    console.log(`[searchProviders] Total providers returned: ${serializedProviders.length}`);
-    console.log(`[searchProviders] Medicaid source: ${medicaidCount}`);
-    console.log(`[searchProviders] NPI source: ${npiCount}`);
-    console.log(`[searchProviders] After deduplication: ${deduplicatedProviders.length}`);
-    console.log(`[searchProviders] After enrichment: ${enrichedProviders.length}`);
-    
-    // Sanity checks
-    if (providers.length === 0 && normalizedProviderTypeIds.length > 0) {
-      console.log(`[searchProviders] ⚠️ WARNING: No providers found despite provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-    }
-    
-    if (medicaidCount === 0 && npiCount === 0) {
-      console.log(`[searchProviders] ⚠️ WARNING: No providers from either source`);
-      console.log(`[searchProviders] Check: 1) API URLs, 2) Provider type IDs, 3) Location parameters`);
-    }
-    
-    if (serializedProviders.length > 0) {
-      const providerTypesFound = new Set();
-      serializedProviders.forEach(p => {
-        if (p.providerTypes && Array.isArray(p.providerTypes)) {
-          p.providerTypes.forEach(t => providerTypesFound.add(t));
-        }
-      });
-      console.log(`[searchProviders] Provider types in results: ${JSON.stringify(Array.from(providerTypesFound))}`);
-      console.log(`[searchProviders] Searched for provider type IDs: ${JSON.stringify(normalizedProviderTypeIds)}`);
-      console.log(`[searchProviders] Resolved taxonomy codes: ${JSON.stringify(taxonomyCodes)}`);
-      console.log(`[searchProviders] Note: NPI URLs were logged during pagination (see [fetchNpiWithPagination] logs above)`);
-      
-      // Log first 5 providers with details
-      const sampleProviders = serializedProviders.slice(0, 5);
-      console.log(`[searchProviders] First ${sampleProviders.length} providers with taxonomy codes:`);
-      sampleProviders.forEach((p, idx) => {
-        console.log(`[searchProviders] Provider ${idx + 1}:`, JSON.stringify({
-          name: p.name?.substring(0, 60),
-          providerTypes: p.providerTypes,
-          taxonomyCodes: p.providerTypes, // NPI taxonomy codes are stored in providerTypes
-          source: p.source,
-          mamaApproved: p.mamaApproved,
-          rating: p.rating,
-          reviewCount: p.reviewCount,
-        }, null, 2));
-      });
-    }
-    console.log(`[searchProviders] ==========================================\n`);
+    // 5b. Remove listings that were deleted via report moderation
+    const visibleProviders = await timed("blocks", filterProvidersRemovedFromSearch(enrichedProviders));
+
+    // 6. Serialize providers to a JSON-compatible format
+    const serializedProviders = visibleProviders.map(serializeProvider);
+
+    const completeWithin = [medicaid.meta && medicaid.meta.completeWithinMiles,
+      npi && npi.meta && npi.meta.completeWithinMiles].filter((d) => d != null);
+    const coverage = {
+      origin: origin ? {lat: origin.lat, lon: origin.lon, precision: origin.precision} : null,
+      radiusMiles,
+      radiusLimitMiles: Math.round(engine.radiusLimit(radiusMiles) * 100) / 100,
+      healthPlan: normalizedHealthPlan,
+      completeWithinMiles: completeWithin.length ? Math.min(...completeWithin) : null,
+      partial: !!(medicaid.meta && medicaid.meta.partial) || !!(npi && npi.meta && npi.meta.timedOut),
+      medicaid: medicaid.meta,
+      npi: npi ? npi.meta : null,
+    };
+    timings.total = Date.now() - t0;
+    console.log(`[searchProviders] returned ${serializedProviders.length} (medicaid ${medicaidCount}, npi ${npiCount},` +
+      ` directory ${firestoreProviders.length}, excel ${excelProviders.length}) in ${timings.total}ms` +
+      ` ${JSON.stringify(timings)} medicaidQueries=${medicaid.meta && medicaid.meta.queries}` +
+      ` cacheHits=${medicaid.meta && medicaid.meta.cacheHits} partial=${coverage.partial}`);
 
     return {
       success: true,
       providers: serializedProviders,
       count: serializedProviders.length,
+      coverage,
+      timingsMs: timings,
     };
   } catch (error) {
     console.error("Error in searchProviders:", error);
     throw new HttpsError("internal", "Provider search failed: " + error.message);
   }
 });
-
-// Helper function to parse Medicaid FHIR Bundle entries
-// Handles Organization and OrganizationAffiliation resources
-function parseMedicaidResponse(entries, specialtyFilter) {
-  const providers = [];
-  let skippedCount = 0;
-  let errorCount = 0;
-  
-  console.log(`[parseMedicaidResponse] Processing ${entries.length} entries`);
-  console.log(`[parseMedicaidResponse] Specialty filter: ${specialtyFilter || 'none'}`);
-  
-  // Separate Organization and OrganizationAffiliation resources
-  const organizations = new Map(); // id -> Organization resource
-  const affiliations = []; // OrganizationAffiliation resources
-  
-  for (const entry of entries) {
-    if (!entry.resource) {
-      skippedCount++;
-      continue;
-    }
-    
-    const resource = entry.resource;
-    if (resource.resourceType === 'Organization') {
-      const orgId = resource.id || entry.fullUrl;
-      organizations.set(orgId, resource);
-    } else if (resource.resourceType === 'OrganizationAffiliation') {
-      affiliations.push(resource);
-    } else if (resource.resourceType === 'Practitioner' || resource.resourceType === 'PractitionerRole') {
-      // Handle Practitioner/PractitionerRole if they exist
-      const provider = parseFhirResource(resource);
-      if (provider) {
-        providers.push(provider);
-      } else {
-        skippedCount++;
-      }
-    } else {
-      skippedCount++;
-      console.log(`[parseMedicaidResponse] Skipping unknown resource type: ${resource.resourceType}`);
-    }
-  }
-  
-  console.log(`[parseMedicaidResponse] Found ${organizations.size} Organizations, ${affiliations.length} OrganizationAffiliations`);
-  
-  // Process OrganizationAffiliation resources to create providers
-  for (const affiliation of affiliations) {
-    try {
-      // Get the organization reference
-      const orgRef = affiliation.organization?.reference;
-      if (!orgRef) {
-        skippedCount++;
-        continue;
-      }
-      
-      // Extract organization ID from reference (format: "Organization/id" or just "id")
-      const orgId = orgRef.includes('/') ? orgRef.split('/')[1] : orgRef;
-      const organization = organizations.get(orgId);
-      
-      if (!organization) {
-        skippedCount++;
-        console.log(`[parseMedicaidResponse] Organization not found for affiliation: ${orgRef}`);
-        continue;
-      }
-      
-      // Extract provider name from Organization
-      const name = organization.name || 'Unknown';
-      
-      // Extract provider types from OrganizationAffiliation.code
-      const providerTypes = [];
-      if (affiliation.code && Array.isArray(affiliation.code)) {
-        for (const code of affiliation.code) {
-          if (code.coding && Array.isArray(code.coding)) {
-            for (const coding of code.coding) {
-              // Check if this is a ProviderType (not SpecialtyType)
-              if (coding.system && coding.system.includes('ProviderType') && coding.code) {
-                providerTypes.push(coding.code.toString());
-              }
-            }
-          }
-        }
-      }
-      
-      // Extract specialties from OrganizationAffiliation.code
-      const specialties = [];
-      if (affiliation.code && Array.isArray(affiliation.code)) {
-        for (const code of affiliation.code) {
-          if (code.coding && Array.isArray(code.coding)) {
-            for (const coding of code.coding) {
-              // Check if this is a SpecialtyType
-              if (coding.system && coding.system.includes('SpecialtyType') && coding.display) {
-                specialties.push(coding.display.toString());
-              }
-            }
-          }
-        }
-      }
-      
-      // Apply specialty filter if provided
-      if (specialtyFilter) {
-        const matchesSpecialty = specialties.some(s => 
-          s.toLowerCase().includes(specialtyFilter.toLowerCase())
-        );
-        if (!matchesSpecialty) {
-          skippedCount++;
-          continue;
-        }
-      }
-      
-      // Extract locations from Organization.contact
-      const locations = [];
-      if (organization.contact && Array.isArray(organization.contact)) {
-        for (const contact of organization.contact) {
-          if (contact.address) {
-            const addr = contact.address;
-            const addressLines = Array.isArray(addr.line) 
-              ? addr.line.map(l => {
-                  // Handle JSON string in line field
-                  if (typeof l === 'string' && l.startsWith('[')) {
-                    try {
-                      const parsed = JSON.parse(l);
-                      if (Array.isArray(parsed) && parsed[0] && parsed[0].ADDRESS_1) {
-                        return parsed[0].ADDRESS_1;
-                      }
-                    } catch (e) {
-                      // Not JSON, use as-is
-                    }
-                  }
-                  return l.toString();
-                }).filter(l => l && l.trim())
-              : (addr.line ? [addr.line.toString()] : []);
-            
-            if (addressLines.length > 0 || addr.city) {
-              locations.push({
-                address: addressLines.join(', '),
-                city: addr.city || '',
-                state: addr.state || 'OH',
-                zip: addr.postalCode || '',
-              });
-            }
-          }
-        }
-      }
-      
-      // Extract phone from Organization.contact
-      let phone = null;
-      if (organization.contact && Array.isArray(organization.contact)) {
-        for (const contact of organization.contact) {
-          if (contact.telecom && Array.isArray(contact.telecom)) {
-            for (const telecom of contact.telecom) {
-              if (telecom.system === 'phone' && telecom.value) {
-                phone = telecom.value.toString();
-                break;
-              }
-            }
-          }
-          if (phone) break;
-        }
-      }
-      
-      // Create provider object
-      const provider = {
-        name: name,
-        specialty: specialties.length > 0 ? specialties[0] : null,
-        practiceName: name, // For organizations, name is the practice name
-        npi: null, // Organizations don't have NPI
-        locations: locations,
-        providerTypes: providerTypes,
-        specialties: specialties,
-        phone: phone,
-        email: null,
-        source: 'medicaid',
-      };
-      
-      providers.push(provider);
-      
-    } catch (error) {
-      errorCount++;
-      console.error(`[parseMedicaidResponse] Error parsing OrganizationAffiliation:`, error.message);
-      continue;
-    }
-  }
-
-  console.log(`[parseMedicaidResponse] Results: ${providers.length} providers, ${skippedCount} skipped, ${errorCount} errors`);
-  
-  // Log provider types summary
-  if (providers.length > 0) {
-    const allTypes = new Set();
-    providers.forEach(p => {
-      if (p.providerTypes && Array.isArray(p.providerTypes)) {
-        p.providerTypes.forEach(t => allTypes.add(t));
-      }
-    });
-    console.log(`[parseMedicaidResponse] Unique provider types found: ${JSON.stringify(Array.from(allTypes))}`);
-  }
-  
-  return providers;
-}
-
-// Parse a single FHIR resource into a provider object
-function parseFhirResource(resource) {
-  try {
-    // Extract name
-    let name = "";
-    if (resource.name) {
-      if (Array.isArray(resource.name)) {
-        const nameParts = resource.name.map((n) => {
-          const given = Array.isArray(n.given) ? n.given.join(" ") : (n.given || "");
-          const family = n.family || "";
-          return `${given} ${family}`.trim();
-        }).filter((n) => n.length > 0);
-        name = nameParts.join(", ");
-      } else if (typeof resource.name === "object") {
-        const given = Array.isArray(resource.name.given) 
-          ? resource.name.given.join(" ") 
-          : (resource.name.given || "");
-        const family = resource.name.family || "";
-        name = `${given} ${family}`.trim();
-      }
-    }
-    
-    // Try organization name if no name found
-    if (!name && resource.organization && resource.organization.name) {
-      name = resource.organization.name;
-    }
-    
-    if (!name) return null; // Skip if no name
-    
-    // Extract addresses
-    const locations = [];
-    if (resource.address) {
-      const addresses = Array.isArray(resource.address) ? resource.address : [resource.address];
-      
-      for (const addr of addresses) {
-        if (addr && (addr.line || addr.city)) {
-          const addressLines = Array.isArray(addr.line) 
-            ? addr.line.map((l) => {
-                // Handle JSON string in line field (e.g., "[{\"ADDRESS_1\":\"4365 READING RD\",\"ADDRESS_2\":\" \"}]")
-                const lineStr = l.toString();
-                if (lineStr.startsWith('[') && lineStr.includes('ADDRESS_1')) {
-                  try {
-                    const parsed = JSON.parse(lineStr);
-                    if (Array.isArray(parsed) && parsed[0]) {
-                      const addrObj = parsed[0];
-                      const addr1 = addrObj.ADDRESS_1 || '';
-                      const addr2 = addrObj.ADDRESS_2 || '';
-                      // Combine ADDRESS_1 and ADDRESS_2, filtering out empty strings
-                      const combined = [addr1, addr2].filter(a => a && a.trim() !== '').join(' ');
-                      return combined.trim();
-                    }
-                  } catch (e) {
-                    // If JSON parsing fails, use the original string
-                    console.log(`[parseFhirResource] Could not parse address JSON: ${lineStr.substring(0, 50)}`);
-                  }
-                }
-                return lineStr;
-              }).filter(l => l && l.trim() !== '')
-            : (addr.line ? [addr.line.toString()] : []);
-          
-          // Only add location if we have address lines or city
-          if (addressLines.length > 0 || addr.city) {
-            locations.push({
-              address: addressLines.join(", "),
-              city: addr.city || "",
-              state: addr.state || "OH",
-              zip: addr.postalCode || "",
-            });
-          }
-        }
-      }
-    }
-    
-    // Extract provider types
-    const providerTypes = [];
-    if (resource.type) {
-      const types = Array.isArray(resource.type) ? resource.type : [resource.type];
-      for (const type of types) {
-        if (type && type.coding) {
-          const codings = Array.isArray(type.coding) ? type.coding : [type.coding];
-          for (const coding of codings) {
-            if (coding && coding.code) {
-              providerTypes.push(coding.code.toString());
-            }
-          }
-        }
-      }
-    }
-    
-    // Log provider types for debugging
-    if (providerTypes.length > 0) {
-      console.log(`[parseFhirResource] Provider "${name.substring(0, 50)}" has provider types: ${JSON.stringify(providerTypes)}`);
-    } else {
-      console.log(`[parseFhirResource] Provider "${name.substring(0, 50)}" has NO provider types extracted`);
-    }
-    
-    // Extract specialties
-    const specialties = [];
-    if (resource.specialty) {
-      const specialtyList = Array.isArray(resource.specialty) 
-        ? resource.specialty 
-        : [resource.specialty];
-      for (const spec of specialtyList) {
-        if (spec && spec.text) {
-          specialties.push(spec.text.toString());
-        }
-      }
-    }
-    
-    // Extract telecom (phone, email)
-    let phone = null;
-    let email = null;
-    if (resource.telecom) {
-      const telecom = Array.isArray(resource.telecom) ? resource.telecom : [resource.telecom];
-      for (const contact of telecom) {
-        if (contact && contact.system && contact.value) {
-          if (contact.system === "phone" && !phone) {
-            phone = contact.value.toString();
-          } else if (contact.system === "email" && !email) {
-            email = contact.value.toString();
-          }
-        }
-      }
-    }
-    
-    // Extract NPI from identifiers
-    let npi = null;
-    if (resource.identifier) {
-      const identifiers = Array.isArray(resource.identifier) 
-        ? resource.identifier 
-        : [resource.identifier];
-      for (const id of identifiers) {
-        if (id && id.system && id.system.includes("npi") && id.value) {
-          npi = id.value.toString();
-          break;
-        }
-      }
-    }
-    
-    return {
-      name: name,
-      specialty: specialties.length > 0 ? specialties[0] : null,
-      practiceName: resource.organization?.name || null,
-      npi: npi,
-      locations: locations,
-      providerTypes: providerTypes,
-      specialties: specialties,
-      phone: phone,
-      email: email,
-      source: "medicaid",
-    };
-  } catch (error) {
-    console.error("Error parsing FHIR resource:", error);
-    return null;
-  }
-}
-
-// Parse NPI Registry API response
-function parseNpiResponse(results) {
-  const providers = [];
-  
-  for (const result of results) {
-    try {
-      const provider = parseNpiResult(result);
-      if (provider) {
-        providers.push(provider);
-      }
-    } catch (error) {
-      console.error("Error parsing NPI result:", error);
-      continue;
-    }
-  }
-  
-  // Log provider types summary
-  if (providers.length > 0) {
-    const allTypes = new Set();
-    providers.forEach(p => {
-      if (p.providerTypes && Array.isArray(p.providerTypes)) {
-        p.providerTypes.forEach(t => allTypes.add(t));
-      }
-    });
-    console.log(`[parseNpiResponse] Unique provider types found: ${JSON.stringify(Array.from(allTypes))}`);
-  }
-  
-  return providers;
-}
-
-// Parse a single NPI result into a provider object
-function parseNpiResult(result) {
-  try {
-    const basicInfo = result.basic;
-    if (!basicInfo) return null;
-    
-    // Extract name
-    let name = "";
-    if (basicInfo.organization_name) {
-      name = basicInfo.organization_name;
-    } else {
-      const firstName = basicInfo.first_name || "";
-      const middleName = basicInfo.middle_name || "";
-      const lastName = basicInfo.last_name || "";
-      const credential = basicInfo.credential || "";
-      
-      name = [firstName, middleName, lastName].filter((n) => n).join(" ");
-      if (credential) {
-        name = `${name}, ${credential}`;
-      }
-    }
-    
-    if (!name) return null;
-    
-    // Extract addresses
-    const locations = [];
-    if (result.addresses && Array.isArray(result.addresses)) {
-      for (const addr of result.addresses) {
-        if (addr.address_1 || addr.city) {
-          locations.push({
-            address: addr.address_1 || "",
-            address2: addr.address_2 || null,
-            city: addr.city || "",
-            state: addr.state || "",
-            zip: addr.postal_code || "",
-            phone: addr.telephone_number || null,
-          });
-        }
-      }
-    }
-    
-    // Extract specialties from taxonomies
-    const specialties = [];
-    const providerTypes = [];
-    if (result.taxonomies && Array.isArray(result.taxonomies)) {
-      for (const tax of result.taxonomies) {
-        if (tax.desc) {
-          specialties.push(tax.desc);
-        }
-        if (tax.code) {
-          providerTypes.push(tax.code);
-        }
-      }
-    }
-    
-    // Log provider types for debugging
-    if (providerTypes.length > 0) {
-      console.log(`[parseNpiResult] Provider "${name.substring(0, 50)}" has provider types: ${JSON.stringify(providerTypes)}`);
-    } else {
-      console.log(`[parseNpiResult] Provider "${name.substring(0, 50)}" has NO provider types extracted`);
-    }
-    
-    // Extract phone from first address
-    let phone = null;
-    if (locations.length > 0 && locations[0].phone) {
-      phone = locations[0].phone;
-    }
-    
-    return {
-      name: name,
-      npi: result.number || null,
-      specialty: specialties.length > 0 ? specialties[0] : null,
-      locations: locations,
-      providerTypes: providerTypes,
-      specialties: specialties,
-      phone: phone,
-      source: "npi",
-    };
-  } catch (error) {
-    console.error("Error parsing NPI result:", error);
-    return null;
-  }
-}
 
 // Deduplicate providers by NPI or name+location
 function deduplicateProviders(providers) {
@@ -4280,6 +2958,121 @@ function deduplicateProviders(providers) {
   }
   
   return deduplicated;
+}
+
+/** Firestore-safe id for provider_search_blocks (doc id cannot contain `/`). */
+function blockDocIdForKey(key) {
+  let s = String(key ?? "");
+  if (s.length > 1400) s = s.slice(0, 1400);
+  return s.replace(/\//g, "__");
+}
+
+/**
+ * Keys that may appear in search results for this listing (matches deduplicateProviders + directory ids).
+ */
+function collectProviderSearchBlockKeys(obj) {
+  const keys = new Set();
+  const id = obj && (obj.id != null ? String(obj.id).trim() : "");
+  if (id) keys.add(id);
+  const npi = obj && obj.npi != null ? String(obj.npi).trim() : "";
+  if (npi) keys.add(`npi_${npi}`);
+  const name = obj && obj.name != null ? String(obj.name) : "";
+  const locs = obj && Array.isArray(obj.locations) ? obj.locations : [];
+  if (name && locs.length > 0 && !npi) {
+    // One key per location: search results now list the nearest location first, so the
+    // location a listing was reported/removed under may no longer be the first one.
+    for (const loc of locs) {
+      const l = loc || {};
+      const city = l.city != null ? String(l.city) : "";
+      const zip = l.zip != null ? String(l.zip) : "";
+      keys.add(`name_${name}_${city}_${zip}`.toLowerCase().replace(/[^a-z0-9_]/g, "_"));
+    }
+  } else if (name && !npi && locs.length === 0) {
+    keys.add(`name_${name}`.toLowerCase().replace(/[^a-z0-9_]/g, "_"));
+  }
+  return [...keys];
+}
+
+async function fetchProviderSearchBlockHits(logicalKeys) {
+  const unique = [...new Set((logicalKeys || []).filter(Boolean))];
+  const blocked = new Set();
+  if (unique.length === 0) return blocked;
+  const db = admin.firestore();
+  const chunkSize = 100;
+  const chunks = [];
+  for (let i = 0; i < unique.length; i += chunkSize) chunks.push(unique.slice(i, i + chunkSize));
+  await engine.mapLimit(chunks, 8, async (chunk) => {
+    const refs = chunk.map((k) =>
+      db.collection("provider_search_blocks").doc(blockDocIdForKey(k)),
+    );
+    const snaps = await db.getAll(...refs);
+    chunk.forEach((k, idx) => {
+      if (snaps[idx] && snaps[idx].exists) blocked.add(k);
+    });
+  });
+  return blocked;
+}
+
+/** Drop providers that were administratively removed from directory search. */
+async function filterProvidersRemovedFromSearch(providers) {
+  if (!providers || providers.length === 0) return providers;
+  // Check every known location of a listing (not only the in-radius ones shown).
+  const keysFor = (p) => collectProviderSearchBlockKeys(
+    Array.isArray(p._allLocations) ? {...p, locations: p._allLocations} : p);
+  const keysToCheck = new Set();
+  for (const p of providers) {
+    keysFor(p).forEach((k) => keysToCheck.add(k));
+  }
+  const blocked = await fetchProviderSearchBlockHits([...keysToCheck]);
+  return providers.filter((p) => {
+    const keys = keysFor(p);
+    return !keys.some((k) => blocked.has(k));
+  });
+}
+
+async function deleteStoragePrefix(prefix) {
+  if (!prefix || typeof prefix !== "string") return 0;
+  const trimmed = prefix.endsWith("/") ? prefix : `${prefix}/`;
+  try {
+    const bucket = admin.storage().bucket();
+    const [files] = await bucket.getFiles({prefix: trimmed, maxResults: 500});
+    let n = 0;
+    for (const f of files) {
+      try {
+        await f.delete();
+        n++;
+      } catch (e) {
+        console.warn(`[deleteStoragePrefix] skip delete ${f.name}:`, e.message);
+      }
+    }
+    return n;
+  } catch (e) {
+    console.warn(`[deleteStoragePrefix] list failed for ${trimmed}:`, e.message);
+    return 0;
+  }
+}
+
+async function assertAdminDashboardUser(auth) {
+  if (!auth || !auth.uid) {
+    throw new HttpsError("unauthenticated", "User must be authenticated");
+  }
+  const uid = auth.uid;
+  const email = auth.token && auth.token.email ? String(auth.token.email) : null;
+  const db = admin.firestore();
+  const snaps = await Promise.all([
+    db.doc(`ADMIN/${uid}`).get(),
+    email ? db.doc(`ADMIN/${email}`).get() : Promise.resolve({exists: false}),
+    db.doc(`RESEARCH_PARTNERS/${uid}`).get(),
+    email ? db.doc(`RESEARCH_PARTNERS/${email}`).get() : Promise.resolve({exists: false}),
+    db.doc(`COMMUNITY_MANAGERS/${uid}`).get(),
+    email ? db.doc(`COMMUNITY_MANAGERS/${email}`).get() : Promise.resolve({exists: false}),
+  ]);
+  const hasRole = snaps.some((s) => s && s.exists);
+  const legacyEmail =
+    email && (email === "osrgnoi@gmail.com" || email === "corinntaylor@gmail.com");
+  if (!hasRole && !legacyEmail) {
+    throw new HttpsError("permission-denied", "Admin dashboard access required");
+  }
 }
 
 // Helper function to serialize provider objects to JSON-compatible format
@@ -4312,7 +3105,16 @@ function serializeProvider(provider) {
       state: loc.state || null,
       zip: loc.zip || null,
       phone: loc.phone || null,
+      // Distance from the searched ZIP (miles) and the point it was measured to
+      // (street coordinates when known, else the ZIP/city centroid).
+      latitude: typeof loc.latitude === "number" ? Math.round(loc.latitude * 1e5) / 1e5 : null,
+      longitude: typeof loc.longitude === "number" ? Math.round(loc.longitude * 1e5) / 1e5 : null,
+      distance: typeof loc.distance === "number" ? Math.round(loc.distance * 10) / 10 : null,
     })) : [],
+    // Distance to the nearest in-radius location (= locations[0]), rounded to 0.1 mi.
+    distanceMiles: typeof provider.distanceMiles === "number" ? Math.round(provider.distanceMiles * 10) / 10 : null,
+    // Ohio Medicaid plans this provider is listed under (app plan names), when known.
+    healthPlans: Array.isArray(provider.healthPlans) ? provider.healthPlans.map((p) => String(p)) : null,
     identityTags: Array.isArray(provider.identityTags) ? provider.identityTags.map(tag => {
       // Handle Firestore document data or plain objects
       if (tag && typeof tag === 'object') {
@@ -4623,101 +3425,91 @@ async function readBipocProvidersFromExcel(searchParams) {
  * This includes BIPOC directory providers and other Firestore-only providers
  */
 async function searchFirestoreProviders(searchParams) {
-  const { zip, city, radius, providerTypeIds, specialty } = searchParams;
+  const {zip, city, radius, providerTypeIds, specialty} = searchParams;
+  const origin = searchParams.origin !== undefined ? searchParams.origin : engine.searchOrigin(zip, city, "OH");
   const providers = [];
 
   try {
-    // Query Firestore for providers with matching zip code
-    // Note: We'll need to filter by distance after fetching
-    // Firestore doesn't support geospatial queries directly, so we'll fetch by zip and filter
-    
-    let query = admin.firestore().collection("providers");
-    
-    // If we have provider types, filter by them
-    // Note: This is a simplified approach - Firestore doesn't support array-contains-any easily
-    // We'll fetch and filter in memory
-    
-    const snapshot = await query
+    // Firestore has no geo query here, so fetch the directory rows and filter by distance:
+    // a listing matches when any of its locations is within the radius of the searched ZIP
+    // (street coordinates when stored, else the ZIP or city centroid).
+    const snapshot = await admin.firestore().collection("providers")
       .where("source", "in", ["bipoc_directory", "admin_added", "user_submission"])
       .limit(500) // Limit to avoid too many reads
       .get();
 
-    console.log(`[searchFirestoreProviders] Found ${snapshot.size} Firestore-only providers to check`);
-
-    // Filter providers by location and provider types
     for (const doc of snapshot.docs) {
       const data = doc.data();
-      
-      // Check if provider has locations matching the search
-      if (!data.locations || !Array.isArray(data.locations) || data.locations.length === 0) {
-        continue;
+      if (data.directoryHidden === true) continue;
+      if (!data.locations || !Array.isArray(data.locations) || data.locations.length === 0) continue;
+
+      if (providerTypeIds && providerTypeIds.length > 0) {
+        const providerTypes = data.providerTypes || [];
+        const hasMatchingType = providerTypeIds.some((typeId) =>
+          providerTypes.includes(typeId) || providerTypes.includes(typeId.padStart(2, "0")),
+        );
+        if (!hasMatchingType) continue;
+      }
+      if (specialty) {
+        const specialties = data.specialties || [];
+        const providerSpecialty = data.specialty || "";
+        if (!specialties.includes(specialty) && providerSpecialty !== specialty) continue;
       }
 
-      // Check each location
-      for (const location of data.locations) {
-        // Check if zip matches (simple check - could be enhanced with radius calculation)
-        if (location.zip && location.zip.substring(0, 5) === zip.substring(0, 5)) {
-          // Check if provider types match (if specified)
-          if (providerTypeIds && providerTypeIds.length > 0) {
-            const providerTypes = data.providerTypes || [];
-            const hasMatchingType = providerTypeIds.some(typeId => 
-              providerTypes.includes(typeId) || providerTypes.includes(typeId.padStart(2, '0'))
-            );
-            if (!hasMatchingType) {
-              continue;
-            }
-          }
-
-          // Check specialty if specified
-          if (specialty) {
-            const specialties = data.specialties || [];
-            const providerSpecialty = data.specialty || "";
-            if (!specialties.includes(specialty) && providerSpecialty !== specialty) {
-              continue;
-            }
-          }
-
-          // Convert Firestore provider to API format
-          const provider = {
-            id: doc.id,
-            name: data.name || "",
-            specialty: data.specialty || null,
-            practiceName: data.practiceName || null,
-            npi: data.npi || null,
-            locations: [{
-              address: location.address || "",
-              address2: location.address2 || null,
-              city: location.city || "",
-              state: location.state || "OH",
-              zip: location.zip || "",
-              phone: location.phone || data.phone || null,
-              latitude: location.latitude || null,
-              longitude: location.longitude || null,
-            }],
-            providerTypes: data.providerTypes || [],
-            specialties: data.specialties || [],
-            phone: data.phone || null,
-            email: data.email || null,
-            website: data.website || null,
-            acceptingNewPatients: data.acceptingNewPatients || null,
-            acceptsPregnantWomen: data.acceptsPregnantWomen || null,
-            acceptsNewborns: data.acceptsNewborns || null,
-            telehealth: data.telehealth || null,
-            rating: data.rating || null,
-            reviewCount: data.reviewCount || 0,
-            mamaApproved: data.mamaApproved || false,
-            mamaApprovedCount: data.mamaApprovedCount || 0,
-            identityTags: data.identityTags || [],
-            source: data.source || "firestore",
-          };
-
-          providers.push(provider);
-          break; // Only add provider once, even if multiple locations match
-        }
+      const rawLocations = data.locations.map((location) => ({
+        address: location.address || "",
+        address2: location.address2 || null,
+        city: location.city || "",
+        state: location.state || "OH",
+        zip: location.zip || "",
+        phone: location.phone || data.phone || null,
+        latitude: location.latitude || null,
+        longitude: location.longitude || null,
+      }));
+      let locations;
+      let distance = null;
+      if (origin) {
+        const placed = engine.placeLocations(rawLocations, origin, radius);
+        if (!placed) continue;
+        locations = placed.locations;
+        distance = placed.distance;
+      } else {
+        // Unknown search ZIP: fall back to the old exact-ZIP match.
+        const z = String(zip || "").substring(0, 5);
+        const match = rawLocations.find((l) => l.zip && String(l.zip).substring(0, 5) === z);
+        if (!match) continue;
+        locations = [match, ...rawLocations.filter((l) => l !== match)];
       }
+
+      providers.push({
+        id: doc.id,
+        name: data.name || "",
+        specialty: data.specialty || null,
+        practiceName: data.practiceName || null,
+        npi: data.npi || null,
+        locations,
+        providerTypes: data.providerTypes || [],
+        specialties: data.specialties || [],
+        phone: data.phone || null,
+        email: data.email || null,
+        website: data.website || null,
+        acceptingNewPatients: data.acceptingNewPatients || null,
+        acceptsPregnantWomen: data.acceptsPregnantWomen || null,
+        acceptsNewborns: data.acceptsNewborns || null,
+        telehealth: data.telehealth || null,
+        rating: data.rating || null,
+        reviewCount: data.reviewCount || 0,
+        mamaApproved: data.mamaApproved || false,
+        mamaApprovedCount: data.mamaApprovedCount || 0,
+        identityTags: data.identityTags || [],
+        source: data.source || "firestore",
+        distanceMiles: distance,
+        _dist: distance,
+        _allLocations: rawLocations,
+      });
     }
 
-    console.log(`[searchFirestoreProviders] Returning ${providers.length} matching providers`);
+    console.log(`[searchFirestoreProviders] ${providers.length} of ${snapshot.size} directory rows within ${radius} mi`);
     return providers;
   } catch (error) {
     console.error(`[searchFirestoreProviders] Error:`, error);
@@ -4727,51 +3519,67 @@ async function searchFirestoreProviders(searchParams) {
 
 // Helper function to enrich providers with Firestore data
 async function enrichProvidersWithFirestore(providers) {
-  const enriched = [];
-  
-  for (const provider of providers) {
+  // Runs with limited concurrency (it used to be one provider at a time); order is preserved.
+  const results = await engine.mapLimit(providers, 16, async (provider) => {
     try {
       // Try to find provider in Firestore by NPI or name+location
       let firestoreProvider = null;
       let firestoreId = null;
-      
-      // Try by NPI first
+      let matchedHiddenDirectory = false;
+
+      // Try by NPI first (skip directory-hidden; if only hidden matches, drop this listing)
       if (provider.npi) {
         const npiQuery = await admin.firestore()
           .collection("providers")
           .where("npi", "==", provider.npi)
-          .limit(1)
+          .limit(10)
           .get();
-        
-        if (!npiQuery.empty) {
-          firestoreProvider = npiQuery.docs[0].data();
-          firestoreId = npiQuery.docs[0].id;
+
+        for (const doc of npiQuery.docs) {
+          const data = doc.data();
+          if (data.directoryHidden === true) {
+            matchedHiddenDirectory = true;
+            continue;
+          }
+          firestoreProvider = data;
+          firestoreId = doc.id;
+          matchedHiddenDirectory = false;
+          break;
         }
       }
-      
+
       // If not found by NPI, try by name+location
       if (!firestoreProvider && provider.locations && provider.locations.length > 0) {
-        const loc = provider.locations[0];
+        // Match on any of the listing's locations (the first one is now the nearest).
+        const provLocs = Array.isArray(provider._allLocations) ? provider._allLocations : provider.locations;
         const nameQuery = await admin.firestore()
           .collection("providers")
           .where("name", "==", provider.name)
           .limit(10)
           .get();
-        
-        // Find matching location
+
         for (const doc of nameQuery.docs) {
           const data = doc.data();
           if (data.locations && Array.isArray(data.locations)) {
-            const match = data.locations.find((l) => 
-              l.city === loc.city && l.zip === loc.zip
+            const match = data.locations.find((l) =>
+              provLocs.some((loc) => l.city === loc.city && l.zip === loc.zip)
             );
             if (match) {
+              if (data.directoryHidden === true) {
+                matchedHiddenDirectory = true;
+                continue;
+              }
               firestoreProvider = data;
               firestoreId = doc.id;
+              matchedHiddenDirectory = false;
               break;
             }
           }
         }
+      }
+
+      if (!firestoreProvider && matchedHiddenDirectory) {
+        return null;
       }
       
       // Calculate average rating from reviews
@@ -4788,7 +3596,8 @@ async function enrichProvidersWithFirestore(providers) {
             .get();
           
           if (!reviewsQuery.empty) {
-            const reviews = reviewsQuery.docs.map((doc) => doc.data());
+            const reviews = reviewsQuery.docs.map((doc) => doc.data())
+              .filter((r) => (r.status || "published") === "published");
             if (reviews.length > 0) {
               const totalRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
               rating = totalRating / reviews.length;
@@ -4801,26 +3610,28 @@ async function enrichProvidersWithFirestore(providers) {
         }
       }
       
-      // If no rating found and provider has NPI, try to find reviews by NPI
+      // If no rating found and provider has NPI, try to find reviews by NPI (visible directory rows only)
       if ((rating == null || rating == 0) && provider.npi) {
         try {
-          // Try to find provider by NPI to get Firestore ID
           const npiProviderQuery = await admin.firestore()
             .collection("providers")
             .where("npi", "==", provider.npi)
-            .limit(1)
+            .limit(10)
             .get();
-          
-          if (!npiProviderQuery.empty) {
-            const npiProviderId = npiProviderQuery.docs[0].id;
+
+          for (const doc of npiProviderQuery.docs) {
+            const pdata = doc.data();
+            if (pdata.directoryHidden === true) continue;
+            const npiProviderId = doc.id;
             const reviewsQuery = await admin.firestore()
               .collection("reviews")
               .where("providerId", "==", npiProviderId)
               .limit(50)
               .get();
-            
+
             if (!reviewsQuery.empty) {
-              const reviews = reviewsQuery.docs.map((doc) => doc.data());
+              const reviews = reviewsQuery.docs.map((d) => d.data())
+              .filter((r) => (r.status || "published") === "published");
               if (reviews.length > 0) {
                 const totalRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
                 rating = totalRating / reviews.length;
@@ -4828,6 +3639,7 @@ async function enrichProvidersWithFirestore(providers) {
                 console.log(`[Enrich] Provider NPI ${provider.npi}: calculated rating ${rating} from ${reviews.length} reviews`);
               }
             }
+            break;
           }
         } catch (error) {
           console.error(`Error getting reviews by NPI for ${provider.npi}:`, error);
@@ -4846,7 +3658,8 @@ async function enrichProvidersWithFirestore(providers) {
             .get();
           
           if (!reviewsQuery.empty) {
-            const reviews = reviewsQuery.docs.map((doc) => doc.data());
+            const reviews = reviewsQuery.docs.map((doc) => doc.data())
+              .filter((r) => (r.status || "published") === "published");
             if (reviews.length > 0) {
               const totalRating = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
               rating = totalRating / reviews.length;
@@ -4873,16 +3686,237 @@ async function enrichProvidersWithFirestore(providers) {
         telehealth: provider.telehealth || firestoreProvider?.telehealth || null,
       };
 
-      enriched.push(enrichedProvider);
+      return enrichedProvider;
     } catch (error) {
       console.error(`Error enriching provider ${provider.name}:`, error);
       // Add provider without enrichment
-      enriched.push(provider);
+      return provider;
     }
+  });
+
+  return results.filter(Boolean);
+}
+
+/**
+ * Permanently remove a directory listing after triage: delete `providers/{id}`,
+ * block future search hits (Medicaid/NPI/Firestore merge), delete Storage prefix
+ * `providers/{id}/`, and mark related reports. Callable — admin dashboard roles only.
+ */
+// Gen2 callables run on Cloud Run. Without `cors`, browsers block preflight from
+// non-Firebase hosts (e.g. Railway admin). Auth + assertAdminDashboardUser still gate access.
+exports.adminRemoveProviderListing = onCall(
+  {cors: true},
+  async (request) => {
+  await assertAdminDashboardUser(request.auth);
+
+  const providerId = request.data && request.data.providerId != null
+    ? String(request.data.providerId).trim()
+    : "";
+  if (!providerId) {
+    throw new HttpsError("invalid-argument", "providerId is required");
   }
 
-  return enriched;
-}
+  const uid = request.auth.uid;
+
+  const db = admin.firestore();
+  const pRef = db.collection("providers").doc(providerId);
+  const pSnap = await pRef.get();
+  const pData = pSnap.exists ? pSnap.data() : {};
+
+  const keys = new Set(collectProviderSearchBlockKeys({
+    id: providerId,
+    npi: pData.npi,
+    name: pData.name,
+    locations: pData.locations,
+  }));
+  keys.add(providerId);
+
+  const batch = db.batch();
+  const ts = admin.firestore.FieldValue.serverTimestamp();
+  for (const k of keys) {
+    if (!k) continue;
+    const docId = blockDocIdForKey(k);
+    batch.set(
+      db.collection("provider_search_blocks").doc(docId),
+      {
+        logicalKey: k,
+        providerId,
+        npi: pData.npi != null ? String(pData.npi) : null,
+        removedAt: ts,
+        removedBy: uid,
+        source: "admin_remove_listing",
+      },
+      {merge: true},
+    );
+  }
+  if (pSnap.exists) {
+    batch.delete(pRef);
+  }
+  await batch.commit();
+
+  const storageFilesDeleted = await deleteStoragePrefix(`providers/${providerId}`);
+
+  const upQuery = await db
+    .collection("UserProviders")
+    .where("publishedProviderId", "==", providerId)
+    .limit(25)
+    .get();
+  const upBatch = db.batch();
+  upQuery.docs.forEach((d) => {
+    upBatch.update(d.ref, {
+      status: "removed_from_directory",
+      publishedProviderId: null,
+      mamaApproved: false,
+      updatedAt: ts,
+      moderatedAt: ts,
+      moderationDecision: "removed_from_directory",
+      ...(uid ? {moderatedBy: uid} : {}),
+    });
+  });
+  if (!upQuery.empty) await upBatch.commit();
+
+  const reportUpdate = {
+    status: "listing_removed",
+    listingRemovedAt: ts,
+    ...(uid ? {listingRemovedBy: uid} : {}),
+    updatedAt: ts,
+  };
+  const rq = await db
+    .collection("provider_reports")
+    .where("providerId", "==", providerId)
+    .limit(500)
+    .get();
+  const chunk = 400;
+  for (let i = 0; i < rq.docs.length; i += chunk) {
+    const rb = db.batch();
+    rq.docs.slice(i, i + chunk).forEach((d) => rb.update(d.ref, reportUpdate));
+    await rb.commit();
+  }
+
+  return {
+    success: true,
+    providerId,
+    blocksWritten: keys.size,
+    providerDocExisted: pSnap.exists,
+    storageFilesDeleted,
+  };
+  },
+);
+
+/**
+ * Create missing provider_identity_claims rows for providers that already have
+ * review-sourced identityTags with verificationStatus pending (e.g. written before
+ * the app started enqueueing claims). Callable — admin dashboard roles only.
+ */
+exports.adminBackfillProviderIdentityClaims = onCall(
+  {cors: true},
+  async (request) => {
+    await assertAdminDashboardUser(request.auth);
+    const uid = request.auth.uid;
+    const rawMax =
+      request.data && request.data.maxProviders != null
+        ? request.data.maxProviders
+        : 150;
+    const maxProviders = Math.min(
+      Math.max(Number.parseInt(String(rawMax), 10) || 150, 1),
+      500,
+    );
+    const startAfterId =
+      request.data && request.data.startAfter != null
+        ? String(request.data.startAfter).trim()
+        : "";
+
+    const db = admin.firestore();
+    let q = db
+      .collection("providers")
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .limit(maxProviders);
+    if (startAfterId) {
+      q = q.startAfter(startAfterId);
+    }
+    const snap = await q.get();
+    if (snap.empty) {
+      return {
+        success: true,
+        created: 0,
+        scanned: 0,
+        done: true,
+        nextStartAfter: null,
+      };
+    }
+
+    let writeBatch = db.batch();
+    let writeCount = 0;
+    let created = 0;
+    let scanned = 0;
+
+    const flush = async () => {
+      if (writeCount === 0) return;
+      await writeBatch.commit();
+      writeBatch = db.batch();
+      writeCount = 0;
+    };
+
+    for (const doc of snap.docs) {
+      scanned++;
+      const data = doc.data() || {};
+      if (data.directoryHidden === true) continue;
+
+      const tags = Array.isArray(data.identityTags) ? data.identityTags : [];
+      const pendingReview = tags.filter(
+        (t) =>
+          t &&
+          typeof t === "object" &&
+          t.source === "review" &&
+          (t.verificationStatus === "pending" || t.verificationStatus == null),
+      );
+      if (!pendingReview.length) continue;
+
+      const cq = await db
+        .collection("provider_identity_claims")
+        .where("providerId", "==", doc.id)
+        .get();
+      const existing = new Set();
+      cq.forEach((c) => {
+        const d = c.data();
+        if (d.tagId != null) existing.add(String(d.tagId));
+      });
+
+      for (const tag of pendingReview) {
+        const tagId = tag.id != null ? String(tag.id) : "";
+        if (!tagId || existing.has(tagId)) continue;
+
+        const cref = db.collection("provider_identity_claims").doc();
+        writeBatch.set(cref, {
+          providerId: doc.id,
+          userId: `backfill:${uid}`,
+          tagId,
+          tagName: tag.name != null ? String(tag.name) : tagId,
+          category: tag.category != null ? String(tag.category) : "identity",
+          status: "pending",
+          sourceType: "review_backfill",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          backfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        existing.add(tagId);
+        created++;
+        writeCount++;
+        if (writeCount >= 400) await flush();
+      }
+    }
+
+    await flush();
+
+    const lastId = snap.docs[snap.docs.length - 1].id;
+    return {
+      success: true,
+      created,
+      scanned,
+      done: snap.size < maxProviders,
+      nextStartAfter: snap.size < maxProviders ? null : lastId,
+    };
+  },
+);
 
 // Admin function to add or update a provider manually (backend only)
 // This allows admins to add providers and mark them as Mama Approved
@@ -4994,282 +4028,177 @@ exports.addProvider = onCall(async (request) => {
 });
 
 /**
- * OhioMaximusSearch - Builds the correct Ohio Medicaid API URL from user inputs
- * Based on: https://ohiomedicaidprovider.com/PublicSearchAPI.aspx
- * 
- * @param {string} zip - ZIP code (REQUIRED)
- * @param {string} radius - Search radius in miles (REQUIRED)
- * @param {string} city - City name (optional, for logging)
- * @param {string} healthPlan - Health plan name (REQUIRED)
- * @param {string|Array<string>} providerType - Provider type name(s) or code(s) (REQUIRED)
- * @param {string} state - State code (defaults to "OH")
- * @returns {Object} Object containing the built URL and normalized parameters
+ * OhioMaximusSearch - Ohio Medicaid directory search (Maximus FHIR API).
+ *
+ * Request (unchanged): {zip, radius, city?, healthPlan, providerType (code/name or array), state?}
+ * Response: {success, url, urls, providers, count, parameters, coverage, timingsMs}
+ *   providers: one row per provider (duplicates merged), nearest in-radius location first,
+ *   each location with distance/latitude/longitude, plus distanceMiles and healthPlans.
+ * See functions/providerSearchEngine.js for how the API's 100-result cap is handled.
  */
-exports.OhioMaximusSearch = onCall(async (request) => {
-  // Log function call immediately
-  console.log(`\n\n\n`);
-  console.log(`╔════════════════════════════════════════════════════════════════╗`);
-  console.log(`║          OhioMaximusSearch FUNCTION CALLED                    ║`);
-  console.log(`╚════════════════════════════════════════════════════════════════╝`);
-  console.log(`[OhioMaximusSearch] Function execution started at: ${new Date().toISOString()}`);
-  console.log(`[OhioMaximusSearch] Request data:`, JSON.stringify(request.data, null, 2));
-  
+exports.OhioMaximusSearch = onCall({timeoutSeconds: 120, memory: "512MiB"}, async (request) => {
+  // Same behaviour as searchProviders for unauthenticated calls.
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated");
+  }
+  const t0 = Date.now();
+  const {
+    zip,
+    radius,
+    city,
+    healthPlan,
+    providerType,
+    state = "OH",
+  } = request.data || {};
+
+  if (!zip || !radius || !healthPlan || !providerType) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Missing required parameters: zip, radius, healthPlan, and providerType are required",
+    );
+  }
+  const radiusMiles = Number(radius);
+  if (!Number.isFinite(radiusMiles) || radiusMiles <= 0) {
+    throw new HttpsError("invalid-argument", "radius must be a positive number of miles");
+  }
+
+  // Provider Type Code Mapping (exact as provided)
+  const providerTypeCodeMap = {
+      "Acupuncturist": "23",
+      "Adaptive Behavior Service Provider": "53",
+      "Ambulance": "82",
+      "Ambulatory Surgery Center": "46",
+      "Anesthesia Assistant Individual": "68",
+      "Audiologist Individual": "43",
+      "Behavioral Health Para-professionals": "96",
+      "Certified Registered Nurse Anesthetist Individual": "73",
+      "Chemical Dependency": "54",
+      "Chiropractor Individual": "27",
+      "Clinic": "50",
+      "Clinical Counseling": "47",
+      "Clinical Nurse Specialist Individual": "65",
+      "Dentist Individual": "30",
+      "Dodd Targeted Case Management": "85",
+      "Doula": "09",
+      "Durable Medical Equipment Supplier": "76",
+      "End-stage Renal Disease Clinic": "59",
+      "Enhanced Care Management": "78",
+      "Federally Qualified Health Center": "12",
+      "Free Standing Birth Center": "11",
+      "Help Me Grow": "06",
+      "Home And Community Based Oda Assisted Living": "74",
+      "Hospice": "44",
+      "Hospital": "01",
+      "Independent Diagnostic Testing Facility": "79",
+      "Independent Laboratory": "80",
+      "Managed Care Organization Panel Provider Only": "19",
+      "Marriage And Family Therapy": "52",
+      "Medicaid School Program": "28",
+      "Medicare Certified Home Health Agency": "60",
+      "Mental Health Clinic": "51",
+      "Non-agency Home Care Attendant": "26",
+      "Non-agency Nurse -- Rn Or Lpn": "38",
+      "Non-agency Personal Care Aide": "25",
+      "Non-state Operated Icf-dd": "89",
+      "Nurse Midwife Individual": "71",
+      "Nurse Practitioner Individual": "72",
+      "Nursing Facility": "86",
+      "Occupational Therapist, Individual": "41",
+      "Ohio Department Of Mental Health Provider": "84",
+      "Omhas Certified/licensed Treatment Program": "95",
+      "Optician/ocularist": "75",
+      "Optometrist Individual": "35",
+      "Other Accredited Home Health Agency": "16",
+      "Outpatient Health Facility": "04",
+      "Pace": "08",
+      "Pediatric Recovery Center": "10",
+      "Pharmacist": "69",
+      "Pharmacy": "70",
+      "Physical Therapist, Individual": "39",
+      "Physician Assistant": "24",
+      "Physician/osteopath Individual": "20",
+      "Podiatrist Individual": "36",
+      "Portable X-ray Supplier": "81",
+      "Professional Dental Group": "31",
+      "Professional Medical Group": "21",
+      "Psychiatric Hospital": "02",
+      "Psychiatric Residential Treatment Facility": "03",
+      "Psychology": "42",
+      "Registered Dietitian Nutritionist": "07",
+      "Rural Health Clinic": "05",
+      "Social Work": "37",
+      "Speech Language Pathologist Individual": "40",
+      "State Operated Icf-dd": "88",
+      "Waivered Services Individual": "55",
+      "Waivered Services Organization": "45",
+      "Wheelchair Van": "83",
+  };
+
+  const toCode = (type) => {
+    const trimmedType = String(type).trim();
+    if (/^\d+$/.test(trimmedType)) return normalizeProviderTypeId(trimmedType);
+    const code = providerTypeCodeMap[trimmedType];
+    if (!code) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Invalid provider type: "${trimmedType}". Please use a valid provider type name or code.`,
+      );
+    }
+    return normalizeProviderTypeId(code);
+  };
+  const providerTypeIds = [...new Set((Array.isArray(providerType) ? providerType : [providerType]).map(toCode))];
+  const searchZip = engine.zip5(zip) || String(zip).trim();
+  const normalizedHealthPlan = normalizeHealthPlanName(String(healthPlan));
+
   try {
-    const {
-      zip,
-      radius,
+    const result = await engine.searchMedicaid({
+      zip: searchZip,
       city,
-      healthPlan,
-      providerType,
-      state = "OH",
-    } = request.data;
-
-    console.log(`[OhioMaximusSearch] Parsed parameters:`);
-    console.log(`   ZIP: ${zip}`);
-    console.log(`   Radius: ${radius}`);
-    console.log(`   City: ${city || 'N/A'}`);
-    console.log(`   Health Plan: ${healthPlan}`);
-    console.log(`   Provider Type: ${providerType}`);
-    console.log(`   State: ${state}`);
-
-    // Validate required parameters
-    if (!zip || !radius || !healthPlan || !providerType) {
-      const errorMsg = "Missing required parameters: zip, radius, healthPlan, and providerType are required";
-      console.error(`[OhioMaximusSearch] ❌ VALIDATION ERROR: ${errorMsg}`);
-      throw new HttpsError("invalid-argument", errorMsg);
-    }
-
-    // Provider Type Code Mapping (exact as provided)
-    const providerTypeCodeMap = {
-    "Acupuncturist": "23",
-    "Adaptive Behavior Service Provider": "53",
-    "Ambulance": "82",
-    "Ambulatory Surgery Center": "46",
-    "Anesthesia Assistant Individual": "68",
-    "Audiologist Individual": "43",
-    "Behavioral Health Para-professionals": "96",
-    "Certified Registered Nurse Anesthetist Individual": "73",
-    "Chemical Dependency": "54",
-    "Chiropractor Individual": "27",
-    "Clinic": "50",
-    "Clinical Counseling": "47",
-    "Clinical Nurse Specialist Individual": "65",
-    "Dentist Individual": "30",
-    "Dodd Targeted Case Management": "85",
-    "Doula": "09",
-    "Durable Medical Equipment Supplier": "76",
-    "End-stage Renal Disease Clinic": "59",
-    "Enhanced Care Management": "78",
-    "Federally Qualified Health Center": "12",
-    "Free Standing Birth Center": "11",
-    "Help Me Grow": "06",
-    "Home And Community Based Oda Assisted Living": "74",
-    "Hospice": "44",
-    "Hospital": "01",
-    "Independent Diagnostic Testing Facility": "79",
-    "Independent Laboratory": "80",
-    "Managed Care Organization Panel Provider Only": "19",
-    "Marriage And Family Therapy": "52",
-    "Medicaid School Program": "28",
-    "Medicare Certified Home Health Agency": "60",
-    "Mental Health Clinic": "51",
-    "Non-agency Home Care Attendant": "26",
-    "Non-agency Nurse -- Rn Or Lpn": "38",
-    "Non-agency Personal Care Aide": "25",
-    "Non-state Operated Icf-dd": "89",
-    "Nurse Midwife Individual": "71",
-    "Nurse Practitioner Individual": "72",
-    "Nursing Facility": "86",
-    "Occupational Therapist, Individual": "41",
-    "Ohio Department Of Mental Health Provider": "84",
-    "Omhas Certified/licensed Treatment Program": "95",
-    "Optician/ocularist": "75",
-    "Optometrist Individual": "35",
-    "Other Accredited Home Health Agency": "16",
-    "Outpatient Health Facility": "04",
-    "Pace": "08",
-    "Pediatric Recovery Center": "10",
-    "Pharmacist": "69",
-    "Pharmacy": "70",
-    "Physical Therapist, Individual": "39",
-    "Physician Assistant": "24",
-    "Physician/osteopath Individual": "20",
-    "Podiatrist Individual": "36",
-    "Portable X-ray Supplier": "81",
-    "Professional Dental Group": "31",
-    "Professional Medical Group": "21",
-    "Psychiatric Hospital": "02",
-    "Psychiatric Residential Treatment Facility": "03",
-    "Psychology": "42",
-    "Registered Dietitian Nutritionist": "07",
-    "Rural Health Clinic": "05",
-    "Social Work": "37",
-    "Speech Language Pathologist Individual": "40",
-    "State Operated Icf-dd": "88",
-    "Waivered Services Individual": "55",
-    "Waivered Services Organization": "45",
-    "Wheelchair Van": "83",
-    };
-
-    // Normalize provider type(s) to code(s)
-    let providerTypeIds = [];
-    
-    if (Array.isArray(providerType)) {
-    // Handle array of provider types
-    providerTypeIds = providerType.map((type) => {
-      const trimmedType = String(type).trim();
-      // Check if it's already a code (numeric)
-      if (/^\d+$/.test(trimmedType)) {
-        // Normalize: add leading zero for single digits (1-9)
-        const numId = parseInt(trimmedType, 10);
-        if (numId >= 1 && numId <= 9) {
-          return trimmedType.padStart(2, '0');
-        }
-        return trimmedType;
-      }
-      // Look up in map
-      const code = providerTypeCodeMap[trimmedType];
-      if (!code) {
-        throw new HttpsError(
-          "invalid-argument",
-          `Invalid provider type: "${trimmedType}". Please use a valid provider type name or code.`
-        );
-      }
-      // Normalize: add leading zero for single digits (1-9)
-      const numId = parseInt(code, 10);
-      if (numId >= 1 && numId <= 9) {
-        return code.padStart(2, '0');
-      }
-      return code;
-      });
-    } else {
-      // Handle single provider type
-      const trimmedType = String(providerType).trim();
-      // Check if it's already a code (numeric)
-      if (/^\d+$/.test(trimmedType)) {
-        // Normalize: add leading zero for single digits (1-9)
-        const numId = parseInt(trimmedType, 10);
-        if (numId >= 1 && numId <= 9) {
-          providerTypeIds = [trimmedType.padStart(2, '0')];
-        } else {
-          providerTypeIds = [trimmedType];
-        }
-      } else {
-        // Look up in map
-        const code = providerTypeCodeMap[trimmedType];
-        if (!code) {
-          throw new HttpsError(
-            "invalid-argument",
-            `Invalid provider type: "${trimmedType}". Please use a valid provider type name or code.`
-          );
-        }
-        // Normalize: add leading zero for single digits (1-9)
-        const numId = parseInt(code, 10);
-        if (numId >= 1 && numId <= 9) {
-          providerTypeIds = [code.padStart(2, '0')];
-        } else {
-          providerTypeIds = [code];
-        }
-      }
-    }
-
-    // Normalize health plan name
-    console.log(`[OhioMaximusSearch] Normalizing health plan: ${healthPlan}`);
-    const normalizedHealthPlan = normalizeHealthPlanName(healthPlan);
-    console.log(`[OhioMaximusSearch] Normalized health plan: ${normalizedHealthPlan}`);
-
-    // Build URL using existing buildMedicaidUrl function
-    console.log(`[OhioMaximusSearch] Building Medicaid URL...`);
-    console.log(`[OhioMaximusSearch] Provider type IDs: ${JSON.stringify(providerTypeIds)}`);
-    
-    const medicaidUrl = buildMedicaidUrl({
-      zip: zip,
-      state: state,
-      healthplan: normalizedHealthPlan,
-      providerTypeIds: providerTypeIds,
-      radius: radius.toString(),
+      state: state || "OH",
+      plan: normalizedHealthPlan,
+      typeIds: providerTypeIds,
+      radius: radiusMiles,
+      deadlineMs: OMX_MEDICAID_DEADLINE_MS,
     });
-
-    // Log the URL prominently
-    console.log(`\n`);
-    console.log(`================================================================================`);
-    console.log(`================================================================================`);
-    console.log(`🔗 OHIO MAXIMUS SEARCH - GENERATED URL:`);
-    console.log(`${medicaidUrl}`);
-    console.log(`================================================================================`);
-    console.log(`================================================================================`);
-    console.log(`\n[OhioMaximusSearch] Final Parameters:`);
-    console.log(`   ZIP: ${zip}`);
-    console.log(`   City: ${city || 'N/A'}`);
-    console.log(`   State: ${state}`);
-    console.log(`   Health Plan: ${healthPlan} → ${normalizedHealthPlan}`);
-    console.log(`   Provider Type: ${providerType} → ${providerTypeIds.join(',')}`);
-    console.log(`   Provider Type IDs: ${JSON.stringify(providerTypeIds)}`);
-    console.log(`   Radius: ${radius}`);
-    
-    // Fetch data from the URL
-    console.log(`\n[OhioMaximusSearch] Fetching providers from Ohio Maximus API...`);
-    let providers = [];
-    let allEntries = [];
-    
-    try {
-      // Use existing fetchFhirBundleWithPaging function to get entries
-      allEntries = await fetchFhirBundleWithPaging(medicaidUrl, 5);
-      console.log(`[OhioMaximusSearch] Fetched ${allEntries.length} entries from API`);
-      
-      // Parse entries using existing parseMedicaidResponse function
-      if (allEntries.length > 0) {
-        providers = parseMedicaidResponse(allEntries, null); // No specialty filter for now
-        console.log(`[OhioMaximusSearch] Parsed ${providers.length} providers from entries`);
-      } else {
-        console.log(`[OhioMaximusSearch] No entries returned from API`);
-      }
-    } catch (fetchError) {
-      console.error(`[OhioMaximusSearch] Error fetching/parsing providers:`, fetchError.message);
-      console.error(`[OhioMaximusSearch] Stack trace:`, fetchError.stack);
-      // Don't throw - return URL and empty providers list so user can see what was attempted
-    }
-    
-    console.log(`\n[OhioMaximusSearch] ✅ Function completed successfully`);
-    console.log(`[OhioMaximusSearch] Returning ${providers.length} providers`);
-    console.log(`╚════════════════════════════════════════════════════════════════╝\n\n`);
-
-    const result = {
+    const providers = result.providers.map(serializeProvider);
+    const ms = Date.now() - t0;
+    console.log(`[OhioMaximusSearch] zip=${searchZip} radius=${radiusMiles} plan="${healthPlan}" -> ` +
+      `"${normalizedHealthPlan}" types=${providerTypeIds.join(",")}: ${providers.length} providers in ${ms}ms ` +
+      `(queries ${result.meta.queries}, cache hits ${result.meta.cacheHits}, partial ${result.meta.partial})`);
+    return {
       success: true,
-      url: medicaidUrl,
-      providers: providers,
+      url: result.meta.urls[0] || engine.buildMaximusUrl({zip: searchZip, state, plan: normalizedHealthPlan,
+        typeId: providerTypeIds[0], radius: radiusMiles}),
+      urls: result.meta.urls,
+      providers,
       count: providers.length,
       parameters: {
-        zip: zip,
+        zip: searchZip,
         city: city || null,
         state: state,
         healthPlan: normalizedHealthPlan,
         providerTypeIds: providerTypeIds,
-        providerTypeIdsDelimited: providerTypeIds.join(','),
-        radius: radius.toString(),
+        providerTypeIdsDelimited: providerTypeIds.join(","),
+        radius: String(radius),
       },
+      coverage: {
+        origin: result.meta.origin,
+        radiusMiles,
+        radiusLimitMiles: Math.round(engine.radiusLimit(radiusMiles) * 100) / 100,
+        healthPlan: normalizedHealthPlan,
+        completeWithinMiles: result.meta.completeWithinMiles,
+        partial: result.meta.partial,
+        medicaid: result.meta,
+      },
+      timingsMs: {total: ms, medicaid: result.meta.ms},
     };
-
-    // Log the result being returned
-    console.log(`[OhioMaximusSearch] Returning result with ${providers.length} providers`);
-    
-    return result;
   } catch (error) {
-    // Log error details
-    console.error(`\n`);
-    console.error(`╔════════════════════════════════════════════════════════════════╗`);
-    console.error(`║          ❌ OhioMaximusSearch ERROR                            ║`);
-    console.error(`╚════════════════════════════════════════════════════════════════╝`);
-    console.error(`[OhioMaximusSearch] Error occurred at: ${new Date().toISOString()}`);
-    console.error(`[OhioMaximusSearch] Error message: ${error.message}`);
-    console.error(`[OhioMaximusSearch] Error stack: ${error.stack}`);
-    console.error(`[OhioMaximusSearch] Request data was:`, JSON.stringify(request.data, null, 2));
-    console.error(`╚════════════════════════════════════════════════════════════════╝\n`);
-    
-    // Re-throw the error
-    throw error;
+    console.error(`[OhioMaximusSearch] Error: ${error.message}`, error.stack);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Ohio Medicaid search failed: " + error.message);
   }
 });
+
 
 /**
  * Import BIPOC providers from Excel file
@@ -5357,3 +4286,6 @@ exports.importBipocProviders = onCall(async (request) => {
 
 // FCM push notifications (learning modules, weekly todos, trimester, community)
 Object.assign(exports, require("./pushNotifications"));
+
+// Pregnancy-loss support mode (emotional check-in → home)
+Object.assign(exports, require("./enterPregnancyLossSupportMode"));

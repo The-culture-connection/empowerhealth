@@ -3,290 +3,285 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
+import '../design_system/hearth.dart';
 import '../models/birth_plan.dart';
 import 'birth_plan_display_screen.dart';
 import 'comprehensive_birth_plan_screen.dart';
 
+/// Landing screen: reassurance note, plan list, footer note.
 class BirthPlansListScreen extends StatelessWidget {
   const BirthPlansListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser?.uid;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF8F6F8)],
-          ),
-        ),
-        child: SafeArea(
+      backgroundColor: AppTheme.ground,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Column(
+              HearthPushedHeader(
+                backLabel: 'Home',
+                padding: const EdgeInsets.only(top: 12),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Birth Plan Builder',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
+                          style: textTheme.displaySmall,
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
                           'Share your preferences with your care team',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
+                          style: textTheme.bodyLarge,
                         ),
                       ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      onPressed: () {
+                  ),
+                  const SizedBox(width: 12),
+                  Material(
+                    color: AppTheme.brandPurple,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const ComprehensiveBirthPlanScreen(),
+                            builder: (context) =>
+                                const ComprehensiveBirthPlanScreen(),
                           ),
                         );
                       },
-                      tooltip: 'Create Birth Plan',
-                    ),
-                  ],
-                ),
-              ),
-
-              // Content
-              Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('birth_plans')
-                      .where('userId', isEqualTo: userId)
-                      .orderBy('createdAt', descending: true)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFF663399), Color(0xFF8855BB)],
-                                  ),
-                                  borderRadius: BorderRadius.circular(40),
-                                ),
-                                child: const Icon(
-                                  Icons.favorite_border,
-                                  size: 40,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                'No Birth Plans Yet',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Create your first birth plan to get started',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const ComprehensiveBirthPlanScreen(),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.add),
-                                label: const Text('Create Birth Plan'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF663399),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 16,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                      child: const SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Icon(
+                          Icons.add,
+                          color: AppTheme.onPurple,
+                          size: 26,
                         ),
-                      );
-                    }
-
-                    return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: snapshot.data!.docs.length,
-                      itemBuilder: (context, index) {
-                        final doc = snapshot.data!.docs[index];
-                        final birthPlan = BirthPlan.fromFirestore(doc);
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: Colors.grey.shade100),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(24),
-                            onTap: () {
-                              if (birthPlan.status == 'incomplete' && birthPlan.progressData != null) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ComprehensiveBirthPlanScreen(
-                                      incompletePlanId: birthPlan.id,
-                                      savedProgress: birthPlan.progressData,
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => BirthPlanDisplayScreen(birthPlan: birthPlan),
-                                  ),
-                                );
-                              }
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFF663399), Color(0xFFCBBEC9)],
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: const Icon(
-                                      Icons.favorite,
-                                      color: Colors.white,
-                                      size: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Birth Plan',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Icon(Icons.calendar_today, size: 12, color: Colors.grey[400]),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              _formatDate(birthPlan.createdAt),
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey[500],
-                                              ),
-                                            ),
-                                            if (birthPlan.status != null) ...[
-                                              const SizedBox(width: 8),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: birthPlan.status == 'complete' 
-                                                      ? Colors.green.shade50
-                                                      : Colors.orange.shade50,
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: Text(
-                                                  birthPlan.status == 'complete' ? 'Complete' : 'Incomplete',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: birthPlan.status == 'complete' 
-                                                        ? Colors.green.shade700
-                                                        : Colors.orange.shade700,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                        if (birthPlan.dueDate != null) ...[
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'Due: ${_formatDate(birthPlan.dueDate!)}',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey[600],
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(Icons.chevron_right, color: Colors.grey[400]),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 24),
+              _reassuranceCard(),
+              const SizedBox(height: 24),
+              const HearthSectionHeading('Your birth plans'),
+              const SizedBox(height: 14),
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('birth_plans')
+                    .where('userId', isEqualTo: userId)
+                    .orderBy('createdAt', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.all(48),
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return _emptyState(context);
+                  }
+
+                  return Column(
+                    children: snapshot.data!.docs.map((doc) {
+                      final birthPlan = BirthPlan.fromFirestore(doc);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _planCard(context, birthPlan),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              _footerCard(),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Brief supportive line (replaces the large intro reassurance card).
+  Widget _reassuranceCard() {
+    return _supportiveLine(
+      'Your birth plan helps you share your preferences with your care team.',
+    );
+  }
+
+  // Brief supportive line (replaces the large footer card).
+  Widget _footerCard() {
+    return _supportiveLine('You can update your birth plan anytime.');
+  }
+
+  // The heart icon stands in for the emoji the copy used to start with.
+  Widget _supportiveLine(String message) {
+    return HearthNote(icon: Icons.favorite_border, text: message);
+  }
+
+  Widget _emptyState(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Center(
+        child: Column(
+          children: [
+            const SizedBox(
+              width: 80,
+              height: 80,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppTheme.brandPurple,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.favorite_border,
+                  size: 40,
+                  color: AppTheme.onPurple,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No birth plans yet',
+              textAlign: TextAlign.center,
+              style: textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Create your first plan to capture your preferences.',
+              textAlign: TextAlign.center,
+              style: textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
+            HearthButton.primary(
+              expand: false,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ComprehensiveBirthPlanScreen(),
+                  ),
+                );
+              },
+              icon: Icons.add,
+              label: 'Create birth plan',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _planCard(BuildContext context, BirthPlan birthPlan) {
+    final isIncomplete = birthPlan.status == 'incomplete';
+
+    return HearthCard(
+      padding: const EdgeInsets.all(20),
+      onTap: () {
+        if (birthPlan.status == 'incomplete' &&
+            birthPlan.progressData != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ComprehensiveBirthPlanScreen(
+                incompletePlanId: birthPlan.id,
+                savedProgress: birthPlan.progressData,
+              ),
+            ),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  BirthPlanDisplayScreen(birthPlan: birthPlan),
+            ),
+          );
+        }
+      },
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const HearthIconChip(Icons.favorite_border),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Wrap so the "Incomplete" badge drops below the title
+                // instead of overflowing at large text sizes.
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Birth Plan',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    if (isIncomplete) const HearthTag('Incomplete'),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.description_outlined,
+                      size: 14,
+                      color: AppTheme.textMuted,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        _formatDate(birthPlan.createdAt),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: hearthCaptionStyle,
+                      ),
+                    ),
+                  ],
+                ),
+                if (birthPlan.dueDate != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Due ${_formatDate(birthPlan.dueDate!)}',
+                    style: hearthCaptionStyle,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: AppTheme.textMuted,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -127,11 +127,8 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Birth Plan Creator'),
-        backgroundColor: AppTheme.brandPurple,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: AppTheme.backgroundWarm,
+      appBar: AppTheme.newUiAppBar(context, title: 'Birth Plan Creator'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -331,7 +328,7 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
                 onPressed: _isGenerating ? null : _generateBirthPlan,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.brandPurple,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.brandWhite,
                 ),
                 child: _isGenerating
                     ? const SizedBox(
@@ -339,7 +336,7 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: AppTheme.surfaceCard,
                         ),
                       )
                     : const Text(
@@ -357,12 +354,16 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Your Birth Plan',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.brandPurple,
+                  const Flexible(
+                    child: Text(
+                      'Your Birth Plan',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.brandPurple,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Row(

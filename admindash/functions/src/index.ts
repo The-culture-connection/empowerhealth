@@ -3,9 +3,9 @@
  */
 
 import * as functions from 'firebase-functions';
-import * as functionsV1 from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import { defineString, defineSecret } from 'firebase-functions/params';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 
 admin.initializeApp();
 
@@ -1675,25 +1675,28 @@ export const publishRelease = functions.https.onRequest({
  * Poll System Health
  * Scheduled function that checks system health every 5 minutes
  */
-export const pollSystemHealth = functionsV1.pubsub.schedule('every 5 minutes').onRun(async (context: any) => {
-  const checks = await performHealthChecks();
-  
-  // Write results to system_health collection
-  for (const [serviceKey, health] of Object.entries(checks)) {
-    await db.collection('system_health').doc(serviceKey).set({
-      name: health.name,
-      status: health.status,
-      lastCheckedAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastHealthyAt: health.status === 'operational' 
-        ? admin.firestore.FieldValue.serverTimestamp()
-        : admin.firestore.FieldValue.serverTimestamp(), // Keep existing if not operational
-      details: health.details,
-      metrics: health.metrics || {},
-    }, { merge: true });
-  }
+export const pollSystemHealth = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    region: 'us-central1',
+  },
+  async () => {
+    const checks = await performHealthChecks();
 
-  return null;
-});
+    for (const [serviceKey, health] of Object.entries(checks)) {
+      await db.collection('system_health').doc(serviceKey).set({
+        name: health.name,
+        status: health.status,
+        lastCheckedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastHealthyAt: health.status === 'operational'
+          ? admin.firestore.FieldValue.serverTimestamp()
+          : admin.firestore.FieldValue.serverTimestamp(),
+        details: health.details,
+        metrics: health.metrics || {},
+      }, { merge: true });
+    }
+  },
+);
 
 /**
  * Run Health Check Now
@@ -1904,6 +1907,56 @@ async function performHealthChecks(): Promise<Record<string, any>> {
   return checks;
 }
 
+export { exportResearchDataset, getResearchDashboardSummary } from './research/researchExport';
+
+export {
+  createResearchParticipant,
+  deriveAgeGroup,
+  submitBaselineResearchData,
+  validateResearchBaseline,
+} from './research/researchIdentity';
+
+export {
+  addRecruitmentPathway,
+  deleteRecruitmentPathway,
+  listRecruitmentPathways,
+} from './research/researchPathwayCallables';
+
+export { submitMicroMeasure, validateMicroMeasure } from './research/researchMicroMeasure';
+
+export { submitNeedsChecklist, validateNeedsChecklist } from './research/researchNeedsChecklist';
+
+export {
+  linkOutcomeToNeedsEvent,
+  submitNavigationOutcome,
+  validateNavigationOutcome,
+} from './research/researchNavigationOutcome';
+
+export {
+  getMilestoneTrackerSummary,
+  scheduleMilestonePrompt,
+  submitMilestoneCheckIn,
+  validateMilestoneCheckIn,
+} from './research/researchMilestone';
+
+export {
+  recordAvsUploadActivity,
+  recordHealthMadeSimpleAccess,
+  recordModuleCompletion,
+  recordProviderReviewActivity,
+} from './research/researchAppActivity';
+
+export { recomputeResearchSummaries } from './research/researchSummaryRecompute';
+
+export {
+  onResearchActivityCreated,
+  onResearchMicroMeasureCreated,
+  onResearchNeedsChecklistCreated,
+  onResearchOutcomeCreated,
+  onResearchMilestonePromptCreated,
+  onResearchParticipantCreated,
+} from './research/researchSummaryTriggers';
+
 export { onAnalyticsEventCreated } from './analyticsAggregation';
 
 export {
@@ -1912,6 +1965,7 @@ export {
   onCommunityPostCreated,
   scheduledWeeklyTodoReminders,
   scheduledTrimesterTransitionCheck,
+  scheduledBirthHospitalBasicsReminder,
 } from './pushNotifications';
 
 export { sendNotification, getNotificationLogs } from './notificationDashboard';

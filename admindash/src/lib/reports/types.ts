@@ -8,7 +8,8 @@ export type ReportType =
   | "care_navigation_success"
   | "care_preparation"
   | "engagement_pathway"
-  | "community_support";
+  | "community_support"
+  | "user_recruitment_avenues";
 
 export type EventImplementationStatus = "tracked" | "partial" | "needs-implementation";
 
@@ -69,11 +70,20 @@ export interface NormalizedCareNavigationOutcome {
   timestamp: Date | null;
 }
 
+export interface NormalizedUserProfile {
+  id: string;
+  userId: string;
+  recruitmentSource: string | null;
+  isResearchParticipant: boolean;
+  createdAt: Date | null;
+}
+
 export interface ReportDataset {
   events: NormalizedEvent[];
   moduleFeedback: NormalizedModuleFeedback[];
   careSurveys: NormalizedCareSurvey[];
   careNavigationOutcomes: NormalizedCareNavigationOutcome[];
+  userProfiles: NormalizedUserProfile[];
   /** Deprecated: kept empty; coverage lives on evidence.coverageNote per report. */
   coverageFlags: CoverageFlag[];
 }

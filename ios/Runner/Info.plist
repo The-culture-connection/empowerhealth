@@ -42,11 +42,11 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>We need access to your camera to take photos</string>
+	<string>EmpowerHealth Watch uses the camera only if you choose to take a picture of a paper visit summary, such as the printout you get at the end of a prenatal appointment, so the app can turn it into a plain-language summary in your account. The camera is never used without you tapping to take a picture.</string>
 	<key>NSDocumentPickerUsageDescription</key>
-	<string>We need access to documents to upload PDF visit summaries</string>
+	<string>EmpowerHealth Watch opens the files you pick, such as a PDF visit summary from your patient portal, so the app can turn it into a plain-language summary in your account. Only the file you choose is read.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need access to your photos to upload visit summaries</string>
+	<string>EmpowerHealth Watch reads only the photo you pick, such as a picture of your after-visit summary, so the app can turn it into a plain-language summary in your account. Other photos are not accessed.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

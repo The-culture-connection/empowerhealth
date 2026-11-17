@@ -108,18 +108,14 @@ class _NotesDialogState extends State<NotesDialog> {
   Future<void> _saveNote() async {
     if (_notesController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter some notes before saving'),
-        ),
+        const SnackBar(content: Text('Please enter some notes before saving')),
       );
       return;
     }
 
     if (_selectedTag == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a tag for your note'),
-        ),
+        const SnackBar(content: Text('Please select a tag for your note')),
       );
       return;
     }
@@ -161,7 +157,9 @@ class _NotesDialogState extends State<NotesDialog> {
         'tag': _selectedTag,
         'moduleTitle': widget.moduleTitle,
         'moduleId': widget.moduleId,
-        'highlightedText': widget.preFilledText != null ? widget.preFilledText : null,
+        'highlightedText': widget.preFilledText != null
+            ? widget.preFilledText
+            : null,
         'isFromModule': widget.moduleTitle != null,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -236,15 +234,19 @@ class _NotesDialogState extends State<NotesDialog> {
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
               child: Row(
                 children: [
-                  const Icon(Icons.note_add_outlined, size: 22, color: AppTheme.brandPurple),
+                  const Icon(
+                    Icons.note_add_outlined,
+                    size: 22,
+                    color: AppTheme.brandPurple,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       widget.isEditing
                           ? 'Edit Note'
                           : widget.preFilledText != null
-                              ? 'Add Note from Highlight'
-                              : 'Add Note',
+                          ? 'Add Note from Highlight'
+                          : 'Add Note',
                       style: textTheme.headlineMedium,
                     ),
                   ),
@@ -257,104 +259,139 @@ class _NotesDialogState extends State<NotesDialog> {
               ),
             ),
             // Content
+            // The tag tiles paint their fill and border on the nearest
+            // Material. Giving the scroll area its own keeps a selected tag
+            // from drawing over the buttons when it scrolls out of view.
             Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Module title if available
-                    if (widget.moduleTitle != null) ...[
-                      DecoratedBox(
-                        decoration: const ShapeDecoration(
-                          color: AppTheme.tintWarm,
-                          shape: StadiumBorder(),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.menu_book_outlined, size: 16, color: AppTheme.brandPurple),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  'From: ${widget.moduleTitle}',
-                                  style: textTheme.labelSmall,
-                                ),
+              child: Material(
+                type: MaterialType.transparency,
+                child: ClipRect(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Module title if available
+                        if (widget.moduleTitle != null) ...[
+                          DecoratedBox(
+                            decoration: const ShapeDecoration(
+                              color: AppTheme.tintWarm,
+                              shape: StadiumBorder(),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
                               ),
-                            ],
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.menu_book_outlined,
+                                    size: 16,
+                                    color: AppTheme.brandPurple,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      'From: ${widget.moduleTitle}',
+                                      style: textTheme.labelSmall,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        // Highlighted text if available
+                        if (widget.preFilledText != null &&
+                            widget.preFilledText!.trim().isNotEmpty) ...[
+                          NoteHighlightQuote(
+                            label: 'Highlighted Text:',
+                            text: widget.preFilledText!,
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        // Notes text field
+                        Text(
+                          'Your Notes',
+                          style: textTheme.labelMedium?.copyWith(
+                            color: AppTheme.ink,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    // Highlighted text if available
-                    if (widget.preFilledText != null && widget.preFilledText!.trim().isNotEmpty) ...[
-                      NoteHighlightQuote(
-                        label: 'Highlighted Text:',
-                        text: widget.preFilledText!,
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    // Notes text field
-                    Text('Your Notes', style: textTheme.labelMedium?.copyWith(color: AppTheme.ink)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _notesController,
-                      decoration: InputDecoration(
-                        fillColor: AppTheme.surfaceInset,
-                        hintText: widget.preFilledText != null
-                            ? 'Add your thoughts about the highlighted text...'
-                            : 'Write your notes here...',
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.keyboard_hide,
-                              color: AppTheme.textMuted, size: 20),
-                          onPressed: () => FocusScope.of(context).unfocus(),
-                          tooltip: 'Dismiss keyboard',
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _notesController,
+                          decoration: InputDecoration(
+                            fillColor: AppTheme.surfaceInset,
+                            hintText: widget.preFilledText != null
+                                ? 'Add your thoughts about the highlighted text...'
+                                : 'Write your notes here...',
+                            suffixIcon: IconButton(
+                              icon: const Icon(
+                                Icons.keyboard_hide,
+                                color: AppTheme.textMuted,
+                                size: 20,
+                              ),
+                              onPressed: () => FocusScope.of(context).unfocus(),
+                              tooltip: 'Dismiss keyboard',
+                            ),
+                          ),
+                          maxLines: 8,
+                          minLines: 4,
                         ),
-                      ),
-                      maxLines: 8,
-                      minLines: 4,
+                        const SizedBox(height: 16),
+                        // Tag selection
+                        const Text(
+                          'Tag this note:',
+                          style: hearthCardTitleStyle,
+                        ),
+                        const SizedBox(height: 6),
+                        ..._tags.map((tag) {
+                          final selected = _selectedTag == tag;
+                          return RadioListTile<String>(
+                            title: Text(
+                              tag,
+                              style: TextStyle(
+                                fontFamily: AppTheme.sansFamily,
+                                fontSize: 14,
+                                height: 20 / 14,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                                color: selected
+                                    ? AppTheme.ink
+                                    : AppTheme.textSecondary,
+                              ),
+                            ),
+                            value: tag,
+                            groupValue: _selectedTag,
+                            onChanged: (value) {
+                              setState(() => _selectedTag = value);
+                            },
+                            activeColor: AppTheme.brandPurple,
+                            selected: selected,
+                            tileColor: Colors.transparent,
+                            selectedTileColor: AppTheme.tintWarm,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: selected
+                                    ? AppTheme.brandPurple
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                            ),
+                          );
+                        }),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    // Tag selection
-                    const Text('Tag this note:', style: hearthCardTitleStyle),
-                    const SizedBox(height: 6),
-                    ..._tags.map((tag) {
-                      final selected = _selectedTag == tag;
-                      return RadioListTile<String>(
-                        title: Text(
-                          tag,
-                          style: TextStyle(
-                            fontFamily: AppTheme.sansFamily,
-                            fontSize: 14,
-                            height: 20 / 14,
-                            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                            color: selected ? AppTheme.ink : AppTheme.textSecondary,
-                          ),
-                        ),
-                        value: tag,
-                        groupValue: _selectedTag,
-                        onChanged: (value) {
-                          setState(() => _selectedTag = value);
-                        },
-                        activeColor: AppTheme.brandPurple,
-                        selected: selected,
-                        tileColor: Colors.transparent,
-                        selectedTileColor: AppTheme.tintWarm,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(
-                            color: selected ? AppTheme.brandPurple : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                        visualDensity: VisualDensity.compact,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                      );
-                    }),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -415,7 +452,10 @@ class NoteHighlightQuote extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(width: 4, child: ColoredBox(color: AppTheme.brandGold)),
+            const SizedBox(
+              width: 4,
+              child: ColoredBox(color: AppTheme.brandGold),
+            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -425,7 +465,11 @@ class NoteHighlightQuote extends StatelessWidget {
                     if (label != null) ...[
                       Row(
                         children: [
-                          const Icon(Icons.format_quote, size: 16, color: AppTheme.brandPurple),
+                          const Icon(
+                            Icons.format_quote,
+                            size: 16,
+                            color: AppTheme.brandPurple,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -459,4 +503,3 @@ class NoteHighlightQuote extends StatelessWidget {
     );
   }
 }
-

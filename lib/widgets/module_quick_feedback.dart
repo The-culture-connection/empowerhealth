@@ -146,8 +146,9 @@ class _ModuleQuickFeedbackState extends State<ModuleQuickFeedback> {
 
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid;
-      final profile =
-          userId == null ? null : await _databaseService.getUserProfile(userId);
+      final profile = userId == null
+          ? null
+          : await _databaseService.getUserProfile(userId);
 
       await _surveyService.saveQualitativeSurvey(
         feature: widget.feature,
@@ -168,7 +169,8 @@ class _ModuleQuickFeedbackState extends State<ModuleQuickFeedback> {
       if (userId != null) {
         await FirebaseFirestore.instance.collection('ModuleFeedback').add({
           'userId': userId,
-          'moduleTitle': widget.moduleTitle ?? widget.sourceId ?? widget.feature,
+          'moduleTitle':
+              widget.moduleTitle ?? widget.sourceId ?? widget.feature,
           'taskId': widget.sourceId,
           'understandingRating': option.score,
           'nextStepsRating': option.score,
@@ -207,7 +209,11 @@ class _ModuleQuickFeedbackState extends State<ModuleQuickFeedback> {
         child: _selectedScore != null
             ? const Row(
                 children: [
-                  Icon(Icons.favorite_border, size: 20, color: AppTheme.brandPurple),
+                  Icon(
+                    Icons.favorite_border,
+                    size: 20,
+                    color: AppTheme.brandPurple,
+                  ),
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -232,7 +238,10 @@ class _ModuleQuickFeedbackState extends State<ModuleQuickFeedback> {
                     spacing: 8,
                     runSpacing: 8,
                     children: widget.options
-                        .map((o) => _OptionChip(option: o, onTap: () => _select(o)))
+                        .map(
+                          (o) =>
+                              _OptionChip(option: o, onTap: () => _select(o)),
+                        )
                         .toList(),
                   ),
                 ],
@@ -265,61 +274,73 @@ Future<bool> showModuleExitFeedbackSheet(
         constraints: BoxConstraints(maxHeight: maxHeight),
         decoration: const BoxDecoration(
           color: AppTheme.ground,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLarge)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppTheme.radiusLarge),
+          ),
         ),
         padding: EdgeInsets.fromLTRB(
           20,
           12,
           20,
-          32 + MediaQuery.paddingOf(sheetContext).bottom,
+          12 + MediaQuery.paddingOf(sheetContext).bottom,
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Center(child: HearthSheetHandle()),
-              const SizedBox(height: 16),
-              Text(
-                'Before you go, a quick check-in\u00A0',
-                style: Theme.of(sheetContext).textTheme.headlineMedium,
+        // Only the questions scroll; the buttons stay pinned underneath so
+        // they are never cut off on short screens or large text.
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Center(child: HearthSheetHandle()),
+            const SizedBox(height: 16),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Before you go, a quick check-in\u00A0',
+                      style: Theme.of(sheetContext).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    ModuleQuickFeedback.didThisHelp(
+                      feature: feature,
+                      sourceId: sourceId,
+                      moduleTitle: moduleTitle,
+                    ),
+                    const SizedBox(height: 16),
+                    ModuleQuickFeedback.howDoYouFeel(
+                      feature: feature,
+                      sourceId: sourceId,
+                      moduleTitle: moduleTitle,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-              ModuleQuickFeedback.didThisHelp(
-                feature: feature,
-                sourceId: sourceId,
-                moduleTitle: moduleTitle,
-              ),
-              const SizedBox(height: 16),
-              ModuleQuickFeedback.howDoYouFeel(
-                feature: feature,
-                sourceId: sourceId,
-                moduleTitle: moduleTitle,
-              ),
-              const SizedBox(height: 16),
-              HearthButton.primary(
-                label: 'Done',
-                onPressed: () => Navigator.of(sheetContext).pop(true),
-              ),
-              const SizedBox(height: 4),
-              // The check-in is optional: Skip leaves without answering,
-              // Keep reading goes back to the lesson where the user was.
-              Wrap(
-                alignment: WrapAlignment.spaceEvenly,
-                spacing: 8,
-                children: [
-                  HearthButton.text(
-                    label: 'Keep reading',
-                    onPressed: () => Navigator.of(sheetContext).pop(false),
-                  ),
-                  HearthButton.text(
-                    label: 'Skip',
-                    onPressed: () => Navigator.of(sheetContext).pop(true),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+            HearthButton.primary(
+              label: 'Done',
+              onPressed: () => Navigator.of(sheetContext).pop(true),
+            ),
+            const SizedBox(height: 4),
+            // The check-in is optional: Skip leaves without answering,
+            // Keep reading goes back to the lesson where the user was.
+            Wrap(
+              alignment: WrapAlignment.spaceEvenly,
+              spacing: 8,
+              children: [
+                HearthButton.text(
+                  label: 'Keep reading',
+                  onPressed: () => Navigator.of(sheetContext).pop(false),
+                ),
+                HearthButton.text(
+                  label: 'Skip',
+                  onPressed: () => Navigator.of(sheetContext).pop(true),
+                ),
+              ],
+            ),
+          ],
         ),
       );
     },
@@ -367,7 +388,9 @@ Future<void> showModuleFeedbackSheet(
       return Container(
         decoration: const BoxDecoration(
           color: AppTheme.ground,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLarge)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppTheme.radiusLarge),
+          ),
         ),
         padding: EdgeInsets.fromLTRB(
           20,

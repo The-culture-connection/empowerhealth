@@ -768,6 +768,19 @@ Future<void> confirmDeleteVisitSummary(
   );
   if (ok != true || !context.mounted) return;
 
+  // Captured now: this screen closes once the delete finishes, and the
+  // confirmation must show on the list underneath.
+  final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
+  // Deleting takes a few network calls; show it is working right away.
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(
+    const SnackBar(
+      content: Text('Deleting summary...'),
+      duration: Duration(seconds: 30),
+    ),
+  );
+
   try {
     final fs = FirebaseFirestore.instance;
 
@@ -806,26 +819,25 @@ Future<void> confirmDeleteVisitSummary(
         .doc(summaryId)
         .delete();
 
-    if (context.mounted) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Summary deleted'),
-        ),
-      );
-    }
+    if (context.mounted) navigator.pop();
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Visit summary deleted'),
+        duration: Duration(seconds: 4),
+      ),
+    );
   } catch (e) {
     // Keep the raw error in logs; users only need a plain message.
     debugPrint('Delete visit summary failed: $e');
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "We couldn't delete this summary right now. Please try again.",
-          ),
-          backgroundColor: AppTheme.brandPurple,
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text(
+          "We couldn't delete this summary right now. Please try again.",
         ),
-      );
-    }
+        backgroundColor: AppTheme.brandPurple,
+      ),
+    );
   }
 }

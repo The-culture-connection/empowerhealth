@@ -14,7 +14,10 @@ void main() {
     ];
     for (final c in cases) {
       test(c, () {
-        expect(detectAssistantSafety(c), AssistantSafetyLevel.maternalEmergency);
+        expect(
+          detectAssistantSafety(c),
+          AssistantSafetyLevel.maternalEmergency,
+        );
       });
     }
   });
@@ -29,7 +32,56 @@ void main() {
     ];
     for (final c in cases) {
       test(c, () {
-        expect(detectAssistantSafety(c), AssistantSafetyLevel.mentalHealthCrisis);
+        expect(
+          detectAssistantSafety(c),
+          AssistantSafetyLevel.mentalHealthCrisis,
+        );
+      });
+    }
+  });
+
+  group('typos still trigger (QA: "killing myseld")', () {
+    const crisis = [
+      'I am thinking about killing myseld',
+      'I am thinking about kiling myslef',
+      'i keep thinking about sucide',
+      'my family would be beter off withou me',
+      'I want to hurt mysef',
+    ];
+    for (final c in crisis) {
+      test(c, () {
+        expect(
+          detectAssistantSafety(c),
+          AssistantSafetyLevel.mentalHealthCrisis,
+        );
+      });
+    }
+    const emergency = [
+      'I have a sever headache and blury vision',
+      'heavy bleding and I feel dizy',
+      'I have chets pain',
+      'I fainetd this morning',
+    ];
+    for (final c in emergency) {
+      test(c, () {
+        expect(
+          detectAssistantSafety(c),
+          AssistantSafetyLevel.maternalEmergency,
+        );
+      });
+    }
+  });
+
+  group('real words near key words stay quiet', () {
+    const cases = [
+      'Can you help me with spelling in my birth plan?',
+      'I have no moment to myself these days',
+      'Is it ok to keep fasting while breastfeeding?',
+      'I had a chess game with my partner and felt a mild headache',
+    ];
+    for (final c in cases) {
+      test(c, () {
+        expect(detectAssistantSafety(c), AssistantSafetyLevel.none);
       });
     }
   });

@@ -771,7 +771,79 @@ const ASSISTANT_CRISIS_LEAD =
  * @return {"maternal_emergency"|"mental_health_crisis"|null}
  */
 function detectAssistantSafety(text) {
-  const t = String(text || "");
+  const t = String(text || "").trim();
+  if (!t) return null;
+  const exact = detectAssistantSafetyExact(t);
+  if (exact) return exact;
+  const corrected = normalizeSafetyTypos(t);
+  return corrected === t ? null : detectAssistantSafetyExact(corrected);
+}
+
+// Key words worth correcting when misspelled ("killing myseld"), and real
+// words one letter away that must stay as typed. Mirrors assistant_safety.dart.
+const SAFETY_TYPO_KEYWORDS = [
+  "myself", "suicide", "suicidal", "kill", "killing", "hurting", "harming",
+  "smother", "without", "better", "anymore", "disappear", "living",
+  "bleeding", "headache", "vision", "blurry", "blurred", "swollen",
+  "swelling", "breath", "breathe", "breathing", "seizure", "fainted",
+  "fainting", "unconscious", "hemorrhage", "movement", "movements", "dizzy",
+  "lightheaded", "severe", "terrible", "chest", "vaginal",
+];
+const SAFETY_TYPO_KEEP = new Set([
+  "spelling", "smelling", "breeding", "breach", "chess", "cheat", "kiln",
+  "kilt", "kilo", "hunting", "hurling", "loving", "batter", "bitter",
+  "smoother", "blurted", "visions", "fainter",
+]);
+
+/**
+ * Edit distance counting swapped neighbours as one edit, capped.
+ * @param {string} a
+ * @param {string} b
+ * @param {number} cap
+ * @return {number}
+ */
+function safetyEditDistance(a, b, cap) {
+  if (Math.abs(a.length - b.length) > cap) return cap + 1;
+  const d = Array.from({length: a.length + 1}, (_, i) =>
+    Array.from({length: b.length + 1}, (_, j) => (i === 0 ? j : j === 0 ? i : 0)));
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let best = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        best = Math.min(best, d[i - 2][j - 2] + 1);
+      }
+      d[i][j] = best;
+    }
+  }
+  return d[a.length][b.length];
+}
+
+/**
+ * The message with likely misspellings of key safety words corrected.
+ * @param {string} text
+ * @return {string}
+ */
+function normalizeSafetyTypos(text) {
+  return text.replace(/[A-Za-z]+/g, (word) => {
+    const lower = word.toLowerCase();
+    if (lower.length < 3 || SAFETY_TYPO_KEEP.has(lower)) return word;
+    if (SAFETY_TYPO_KEYWORDS.includes(lower)) return word;
+    for (const key of SAFETY_TYPO_KEYWORDS) {
+      if (key[0] !== lower[0]) continue;
+      const allowed = key.length >= 9 ? 2 : 1;
+      if (safetyEditDistance(lower, key, allowed) <= allowed) return key;
+    }
+    return word;
+  });
+}
+
+/**
+ * Pattern check on the text as given.
+ * @param {string} t
+ * @return {"maternal_emergency"|"mental_health_crisis"|null}
+ */
+function detectAssistantSafetyExact(t) {
   const crisis = [
     /\bsuicid/i, /\bkill(ing)?\s+my\s*self\b/i, /\b(end|take)\s+my\s+(own\s+)?life\b/i,
     /\bend\s+it\s+all\b/i, /\b(want|wanted|wanting)\s+to\s+die\b/i,

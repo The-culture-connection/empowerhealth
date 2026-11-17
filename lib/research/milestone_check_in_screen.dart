@@ -46,9 +46,13 @@ class _MilestoneCheckInScreenState extends State<MilestoneCheckInScreen> {
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Milestone check-in save failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save: $e')),
+          const SnackBar(
+            content: Text("We couldn't save your answers right now. Please try again."),
+          ),
         );
       }
     } finally {

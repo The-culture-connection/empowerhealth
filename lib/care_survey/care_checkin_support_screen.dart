@@ -65,18 +65,14 @@ class CareCheckinSupportScreen extends StatelessWidget {
           'Here’s support based on what you shared',
           style: Theme.of(context).textTheme.displaySmall,
         ),
-        const SizedBox(height: 24),
-        HearthFeatureCard(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: SizedBox(
-            width: double.infinity,
-            child: Text(
-              kCareCheckinReinforcementMessage,
-              style: hearthCardBodyStyle.copyWith(color: AppTheme.ink),
-            ),
-          ),
+        // A plain line instead of a card: the review found the repeated
+        // reassurance cards made this flow long.
+        const SizedBox(height: 6),
+        Text(
+          kCareCheckinReinforcementMessage,
+          style: Theme.of(context).textTheme.bodyLarge,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         if (!hasNeeds) ...[
           Text(
             'You can explore community, providers, or learning topics anytime from home.',
@@ -124,10 +120,12 @@ class CareCheckinSupportScreen extends StatelessWidget {
               ),
             );
           }),
-        const SizedBox(height: 12),
-        const ImmediateSupportHomeCard(
-          entrySource: 'care_checkin',
-          compact: true,
+        const SizedBox(height: 4),
+        // One-line entry; the full "We're here with you" card repeated the
+        // check-in and hub headings.
+        const HearthCard(
+          padding: EdgeInsets.symmetric(vertical: 4),
+          child: ImmediateSupportEntryTile(entrySource: 'care_checkin'),
         ),
         const SizedBox(height: 24),
         Row(

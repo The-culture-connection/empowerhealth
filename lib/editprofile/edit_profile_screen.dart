@@ -154,9 +154,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         });
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Load profile failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading profile: $e')),
+          const SnackBar(
+            content: Text("We couldn't load your profile right now. Please try again."),
+          ),
         );
       }
     } finally {
@@ -255,10 +259,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         // Don't navigate away - let user stay on edit screen
       }
     } catch (e) {
+      debugPrint('Save profile failed: $e');
       if (mounted) {
+        // A lost session is the one failure users can fix themselves.
+        final sessionExpired = _auth.currentUser == null;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving profile: ${e.toString()}'),
+            content: Text(
+              sessionExpired
+                  ? 'Your session expired. Please sign in again.'
+                  : "We couldn't save your profile right now. Please try again.",
+            ),
             duration: const Duration(seconds: 4),
           ),
         );
@@ -299,9 +310,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           );
         }
       } catch (e) {
+        debugPrint('Sign out failed: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error signing out: $e')),
+            const SnackBar(
+              content: Text("We couldn't sign you out right now. Please try again."),
+            ),
           );
         }
       }
@@ -344,10 +358,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             );
           }
         }
-      } catch (e) {
+      } on FirebaseAuthException catch (e) {
+        debugPrint('Delete profile failed: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error deleting profile: $e')),
+            SnackBar(
+              content: Text(
+                e.code == 'requires-recent-login'
+                    ? 'For your security, please sign out and sign back in, then try deleting your profile again.'
+                    : "We couldn't delete your profile right now. Please try again.",
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('Delete profile failed: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("We couldn't delete your profile right now. Please try again."),
+            ),
           );
         }
       }

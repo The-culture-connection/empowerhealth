@@ -63,10 +63,16 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
         _isGenerating = false;
       });
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Visit summary generation failed: $e');
       setState(() => _isGenerating = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        const SnackBar(
+          content: Text(
+            "We couldn't create your visit summary right now. Please try again.",
+          ),
+        ),
       );
     }
   }

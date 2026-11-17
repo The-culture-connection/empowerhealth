@@ -9,8 +9,11 @@ import '../cors/ui_theme.dart';
 import '../design_system/hearth.dart';
 import '../services/database_service.dart';
 import '../services/analytics_service.dart';
+import '../models/provider.dart';
 import 'add_provider_screen.dart';
+import 'provider_search_location.dart';
 import 'provider_search_results_screen.dart';
+import 'saved_providers_screen.dart';
 
 /// Optional values when opening expanded search from quick search.
 class ProviderSearchPrefill {
@@ -131,6 +134,16 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
   void initState() {
     super.initState();
     final p = widget.prefill;
+    // Without a prefilled ZIP, start from this session's last search; the
+    // profile ZIP is only the fallback.
+    final last = ProviderSearchLocation.lastSearched.value;
+    if ((p?.zip == null || p!.zip!.isEmpty) && last != null) {
+      _zipController.text = last.zip;
+      _cityController.text = last.city;
+      if (_radiusOptions.contains('${last.radius}')) {
+        _radius = '${last.radius}';
+      }
+    }
     if (p != null) {
       if (p.zip != null && p.zip!.isNotEmpty) {
         _zipController.text = p.zip!;
@@ -138,7 +151,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
       if (p.city != null && p.city!.isNotEmpty) {
         _cityController.text = p.city!;
       }
-      if (p.radius != null && p.radius!.isNotEmpty) {
+      if (p.radius != null && _radiusOptions.contains(p.radius)) {
         _radius = p.radius!;
       }
       if (p.healthPlan != null && p.healthPlan!.isNotEmpty) {
@@ -168,8 +181,36 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
         _mamaApprovedOnly = p.mamaApprovedOnly!;
       }
     }
+    if (_cityController.text.isNotEmpty) _cityZip = _zipController.text;
     _trackScreenView();
     _loadUserProfileForAutofill();
+  }
+
+  /// ZIP the current city belongs to; a different ZIP triggers a new lookup
+  /// so the search never pairs a new ZIP with the old town.
+  String _cityZip = '';
+
+  /// Set once the user edits ZIP or city, so the late profile autofill never
+  /// puts the old profile location back.
+  bool _userEditedLocation = false;
+
+  Future<void> _onZipChanged(String value) async {
+    setState(() => _userEditedLocation = true);
+    final zip = value.trim();
+    if (zip.length != 5 || zip == _cityZip) return;
+    final city = await cityForZip(zip);
+    if (!mounted || _zipController.text.trim() != zip) return;
+    setState(() {
+      _cityZip = zip;
+      _cityController.text = city ?? '';
+    });
+  }
+
+  void _onCityChanged(String _) {
+    setState(() {
+      _userEditedLocation = true;
+      _cityZip = _zipController.text.trim();
+    });
   }
 
   Future<void> _trackScreenView() async {
@@ -217,14 +258,23 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
       final profile = await _databaseService.getUserProfile(userId);
       if (profile != null && mounted) {
         setState(() {
-          // Autofill ZIP code
-          if (profile.zipCode.isNotEmpty && _zipController.text.isEmpty) {
+          // Autofill ZIP and city together, and only into an untouched,
+          // empty location, so the profile never mixes with a newer ZIP.
+          if (!_userEditedLocation &&
+              profile.zipCode.isNotEmpty &&
+              _zipController.text.isEmpty) {
             _zipController.text = profile.zipCode;
-          }
-
-          // Autofill City
-          if (profile.city != null && profile.city!.isNotEmpty && _cityController.text.isEmpty) {
+            if (profile.city != null && profile.city!.isNotEmpty) {
+              _cityController.text = profile.city!;
+              _cityZip = profile.zipCode;
+            }
+          } else if (!_userEditedLocation &&
+              _cityController.text.isEmpty &&
+              _zipController.text == profile.zipCode &&
+              profile.city != null &&
+              profile.city!.isNotEmpty) {
             _cityController.text = profile.city!;
+            _cityZip = profile.zipCode;
           }
 
           // Map insurance type to health plan (overrides default "All plans" when known)
@@ -375,6 +425,19 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
   Future<void> _handleSearch() async {
     if (!_canSearch) return;
 
+    // Search tapped before the city lookup for a new ZIP finished.
+    final zip = _zipController.text.trim();
+    if (zip != _cityZip) {
+      final looked = await cityForZip(zip);
+      if (!mounted) return;
+      if (looked != null) {
+        setState(() {
+          _cityZip = zip;
+          _cityController.text = looked;
+        });
+      }
+    }
+
     // Convert provider type display names to IDs
     final providerTypeIds = <String>[];
     for (var displayName in _selectedProviderTypes) {
@@ -417,6 +480,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
       print('Error tracking provider search: $e');
     }
 
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -466,6 +530,28 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // One line of instructions stays visible; the details
+                      // live in "How this works" below it.
+                      Text(
+                        'Enter a ZIP code and city, then tap Search Providers. Everything else is optional.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      _buildHowThisWorks(),
+                      const SizedBox(height: 8),
+                      HearthRowCard(
+                        icon: Icons.bookmark_border,
+                        title: 'Saved providers',
+                        subtitle: 'Providers you bookmarked',
+                        onTap: () => Navigator.push<void>(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (context) => const SavedProvidersScreen(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
                       // Location Section
                       _buildSection(
                         title: 'Location',
@@ -481,6 +567,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                               keyboardType: TextInputType.number,
                               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                               hintText: 'Enter your ZIP code',
+                              onChanged: _onZipChanged,
                             ),
                             const SizedBox(height: 16),
                             Row(
@@ -518,14 +605,11 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                               label: 'City',
                               required: true,
                               hintText: 'Enter city name',
+                              onChanged: _onCityChanged,
                             ),
                           ],
                         ),
                       ),
-
-                      const SizedBox(height: 16),
-
-                      _buildAddProviderCallout(),
 
                       const SizedBox(height: 16),
 
@@ -547,16 +631,6 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                                 });
                               },
                               hint: 'Select your health plan',
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _healthPlan == ProviderSearchConstants.healthPlanAll ||
-                                      _healthPlan ==
-                                          ProviderSearchConstants
-                                              .healthPlanNotListed
-                                  ? 'We\'ll search Ohio Medicaid with a general plan; turn on the national list below if you want NPI results too.'
-                                  : 'Needed for the Ohio Medicaid directory.',
-                              style: hearthCaptionStyle,
                             ),
                             const SizedBox(height: 16),
                             Container(
@@ -616,8 +690,6 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                       _buildSection(
                         title: 'Provider Type (Optional)',
                         child: _buildTypingMultiSelect(
-                          helperText:
-                              'Optional. Leave blank for all types, or type a word like midwife or doula and tap to add.',
                           hintText: 'Type to filter provider types…',
                           queryController: _providerTypeQueryController,
                           allOptions: () {
@@ -648,8 +720,6 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
                       _buildSection(
                         title: 'Specialty (Optional)',
                         child: _buildTypingMultiSelect(
-                          helperText:
-                              'Optional: type a few letters to narrow specialties, then tap to add.',
                           hintText: 'Type to filter specialties…',
                           queryController: _specialtyQueryController,
                           allOptions: () {
@@ -837,55 +907,77 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     );
   }
 
-  Widget _buildAddProviderCallout() {
-    return HearthFeatureCard(
-      padding: const EdgeInsets.all(18),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (context) => const AddProviderScreen(),
-          ),
-        );
-      },
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  /// Collapsed explainer holding the field-by-field help that used to sit
+  /// above every section.
+  Widget _buildHowThisWorks() {
+    final labelStyle = Theme.of(context).textTheme.labelMedium;
+    Widget item(String heading, String body) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(heading, style: labelStyle?.copyWith(color: AppTheme.ink)),
+            const SizedBox(height: 2),
+            Text(body, style: hearthCardBodyStyle),
+          ],
+        ),
+      );
+    }
+
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        iconColor: AppTheme.brandPurple,
+        collapsedIconColor: AppTheme.brandPurple,
+        shape: const Border(),
+        collapsedShape: const Border(),
+        leading: const Icon(Icons.info_outline, color: AppTheme.brandPurple),
+        title: Text(
+          'How this works',
+          style: labelStyle?.copyWith(color: AppTheme.ink),
+        ),
+        childrenPadding: const EdgeInsets.only(bottom: 8),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HearthIconChip(
-            Icons.favorite_border,
-            tone: HearthChipTone.surface,
+          item(
+            'Health plan',
+            'Needed for the Ohio Medicaid directory. With '
+                '"${ProviderSearchConstants.healthPlanAll}" or '
+                '"${ProviderSearchConstants.healthPlanNotListed}", we\'ll search '
+                'Ohio Medicaid with a general plan; turn on the national list if '
+                'you want NPI results too.',
           ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Can\'t find your provider?',
-                  style: hearthCardTitleStyle,
-                ),
-                SizedBox(height: 6),
-                Text(
-                  'Add them here. It helps other mamas discover care that worked for you.',
-                  style: hearthCardBodyStyle,
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Add a provider →',
-                  style: TextStyle(
-                    fontFamily: AppTheme.sansFamily,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.brandPurple,
-                  ),
-                ),
-              ],
-            ),
+          item(
+            'Provider type',
+            'Optional. Leave blank for all types, or type a word like midwife '
+                'or doula and tap to add.',
           ),
-          const SizedBox(width: 8),
-          const Padding(
-            padding: EdgeInsets.only(top: 13),
-            child: Icon(Icons.chevron_right, size: 20, color: AppTheme.textMuted),
+          item(
+            'Specialty',
+            'Optional: type a few letters to narrow specialties, then tap to add.',
+          ),
+          item(
+            'Stars and Mama Approved™',
+            'Stars come from reviews by moms in this app, not from the '
+                'directories. ${Provider.mamaApprovedCriteriaText}',
+          ),
+          item(
+            'Can\'t find your provider?',
+            'Add them here. It helps other mamas discover care that worked for you.',
+          ),
+          HearthButton.text(
+            label: 'Add a provider',
+            icon: Icons.person_add_alt_outlined,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (context) => const AddProviderScreen(),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -893,7 +985,7 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
   }
 
   Widget _buildTypingMultiSelect({
-    required String helperText,
+    String? helperText,
     required String hintText,
     required TextEditingController queryController,
     required List<String> allOptions,
@@ -911,11 +1003,13 @@ class _ProviderSearchEntryScreenState extends State<ProviderSearchEntryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          helperText,
-          style: hearthCaptionStyle,
-        ),
-        const SizedBox(height: 12),
+        if (helperText != null) ...[
+          Text(
+            helperText,
+            style: hearthCaptionStyle,
+          ),
+          const SizedBox(height: 12),
+        ],
         TextField(
           controller: queryController,
           onChanged: (_) => setState(() {}),

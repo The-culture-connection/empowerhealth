@@ -240,10 +240,16 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
         _isLoading = false;
       });
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Learning tasks load failed: $e');
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading tasks: $e')),
+          const SnackBar(
+            content: Text(
+              "We couldn't load your tasks right now. Please try again.",
+            ),
+          ),
         );
       }
     }
@@ -367,10 +373,15 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
         );
       }
     } catch (e) {
+      debugPrint('Learning module generation failed: $e');
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
+          const SnackBar(
+            content: Text(
+              "We couldn't create this module right now. Please try again.",
+            ),
+          ),
         );
       }
     }
@@ -412,9 +423,14 @@ class _LearningTodoWidgetState extends State<LearningTodoWidget> {
         });
       }
     } catch (e) {
+      debugPrint('Task completion toggle failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          const SnackBar(
+            content: Text(
+              "We couldn't update this task right now. Please try again.",
+            ),
+          ),
         );
       }
     }

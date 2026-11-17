@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
 import '../design_system/hearth.dart';
 
@@ -143,8 +144,9 @@ class _NotesDialogState extends State<NotesDialog> {
           'updatedAt': FieldValue.serverTimestamp(),
         });
         if (mounted) {
+          final messenger = ScaffoldMessenger.of(context);
           Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             const SnackBar(
               content: Text('Note updated'),
               duration: Duration(seconds: 2),
@@ -166,20 +168,46 @@ class _NotesDialogState extends State<NotesDialog> {
       });
 
       if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Note saved to journal!'),
-            duration: Duration(seconds: 2),
+        // Captured before the pop so the confirmation shows on the screen
+        // left underneath, not on the closing dialog.
+        final messenger = ScaffoldMessenger.of(context);
+        final navigator = Navigator.of(context);
+        final fromLesson = widget.moduleTitle != null;
+        navigator.pop();
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              fromLesson
+                  ? 'Saved to Journal under Learning notes'
+                  : 'Saved to your Journal',
+            ),
+            duration: const Duration(seconds: 4),
+            // A SnackBar with an action stays up by default; this one
+            // should still clear itself.
+            persist: false,
+            action: SnackBarAction(
+              label: 'View',
+              // The dialog's context is gone by now; the navigator's is
+              // still mounted and lets goToTab find the tab scaffold.
+              onPressed: () => MainNavigationScope.goToTab(
+                navigator.context,
+                MainNavigationScope.tabJournal,
+              ),
+            ),
           ),
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Save note failed: $e');
       setState(() => _isSaving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving note: ${e.toString()}'),
+          const SnackBar(
+            content: Text(
+              "We couldn't save your note right now. Please try again.",
+            ),
           ),
         );
       }

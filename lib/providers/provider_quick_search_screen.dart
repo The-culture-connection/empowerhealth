@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 import '../constants/provider_search_constants.dart';
 import '../constants/provider_types.dart';
@@ -11,6 +9,7 @@ import '../cors/ui_theme.dart';
 import '../design_system/hearth.dart';
 import '../services/database_service.dart';
 import 'provider_search_entry_screen.dart';
+import 'provider_search_location.dart';
 import 'provider_search_results_screen.dart';
 
 /// Quick search by Ohio directory provider type, then results or expanded form.
@@ -115,42 +114,50 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
     String zip = '';
     String city = '';
 
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      try {
-        final profile = await _databaseService.getUserProfile(uid);
-        if (profile != null) {
-          zip = profile.zipCode.trim();
-          city = (profile.city ?? '').trim();
-        }
-      } catch (_) {}
+    // The last search this session wins over the profile ZIP.
+    final last = ProviderSearchLocation.lastSearched.value;
+    if (last != null) {
+      zip = last.zip;
+      city = last.city;
+      if (_radiusOptions.contains('${last.radius}')) _radius = last.radius;
+    } else {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        try {
+          final profile = await _databaseService.getUserProfile(uid);
+          if (profile != null) {
+            zip = profile.zipCode.trim();
+            city = (profile.city ?? '').trim();
+          }
+        } catch (_) {}
+      }
     }
 
     if (zip.length == 5 && city.isEmpty) {
-      city = await _cityFromZip(zip) ?? '';
+      city = await cityForZip(zip) ?? '';
     }
 
     if (mounted) {
       _zipController.text = zip;
       _cityController.text = city;
+      _cityZip = zip;
       setState(() => _loadingDefaults = false);
     }
   }
 
-  Future<String?> _cityFromZip(String zip) async {
-    try {
-      final r = await http
-          .get(Uri.parse('https://api.zippopotam.us/us/$zip'))
-          .timeout(const Duration(seconds: 6));
-      if (r.statusCode != 200) return null;
-      final j = json.decode(r.body) as Map<String, dynamic>;
-      final places = j['places'] as List<dynamic>?;
-      if (places == null || places.isEmpty) return null;
-      final first = places.first as Map<String, dynamic>;
-      return first['place name'] as String?;
-    } catch (_) {
-      return null;
-    }
+  /// ZIP the current city was filled in for. When the user types a different
+  /// ZIP, the city is looked up again so the search never pairs the new ZIP
+  /// with the old town.
+  String _cityZip = '';
+
+  Future<void> _onZipChanged(String value) async {
+    setState(() {});
+    final zip = value.trim();
+    if (zip.length != 5 || zip == _cityZip) return;
+    final city = await cityForZip(zip);
+    if (!mounted || _zipController.text.trim() != zip) return;
+    _cityZip = zip;
+    setState(() => _cityController.text = city ?? '');
   }
 
   void _onQueryChanged() {
@@ -226,7 +233,7 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
     });
   }
 
-  void _runSearch() {
+  Future<void> _runSearch() async {
     // Location is genuinely required for a directory search, but provider type
     // and specialty are NOT — this is a universal search.
     final zip = _zipController.text.trim();
@@ -238,6 +245,13 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
         ),
       );
       return;
+    }
+    // Search tapped before the city lookup for a new ZIP finished.
+    if (zip != _cityZip) {
+      final looked = await cityForZip(zip);
+      if (!mounted) return;
+      _cityZip = zip;
+      _cityController.text = looked ?? '';
     }
     final city = _cityController.text.trim();
     if (city.isEmpty) {
@@ -467,7 +481,7 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                               controller: _zipController,
                               keyboardType: TextInputType.number,
                               maxLength: 5,
-                              onChanged: (_) => setState(() {}),
+                              onChanged: _onZipChanged,
                               decoration: const InputDecoration(
                                 counterText: '',
                               ),
@@ -485,7 +499,10 @@ class _ProviderQuickSearchScreenState extends State<ProviderQuickSearchScreen> {
                             const SizedBox(height: 8),
                             TextField(
                               controller: _cityController,
-                              onChanged: (_) => setState(() {}),
+                              // A city typed by hand belongs to the ZIP shown.
+                              onChanged: (_) => setState(
+                                () => _cityZip = _zipController.text.trim(),
+                              ),
                               textCapitalization: TextCapitalization.words,
                             ),
                           ],

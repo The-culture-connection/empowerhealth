@@ -456,7 +456,8 @@ class _HomeScreenV2State extends State<HomeScreenV2> {
                                   context, MainNavigationScope.tabJournal, Routes.journal),
                             ),
                       ),
-                      cardGap,
+                      // Same gap as between the two cards in a row.
+                      const SizedBox(height: 10),
                       if (inLossMode)
                         _CareToolCard(
                           icon: Icons.menu_book_outlined,
@@ -1136,7 +1137,7 @@ class _CareToolPair extends StatelessWidget {
 
   const _CareToolPair({required this.first, required this.second});
 
-  static const double _gap = 12;
+  static const double _gap = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -1188,18 +1189,20 @@ class _CareToolCard extends StatelessWidget {
     required this.onTap,
   });
 
+  // Tighter padding, a smaller icon chip and shorter gaps keep these tool
+  // tiles compact; the whole card is still the tap target.
   @override
   Widget build(BuildContext context) {
     return HearthCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          HearthIconChip(icon),
-          const SizedBox(height: 12),
+          HearthIconChip(icon, size: 34, iconSize: 18),
+          const SizedBox(height: 8),
           Text(title, style: hearthCardTitleStyle),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(subtitle, style: hearthCaptionStyle),
         ],
       ),

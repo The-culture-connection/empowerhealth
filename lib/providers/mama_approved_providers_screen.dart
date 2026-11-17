@@ -182,10 +182,14 @@ class _MamaApprovedProvidersScreenState
                                       p.primaryDisplayName,
                                       style: textTheme.titleLarge,
                                     ),
-                                    const SizedBox(height: 8),
-                                    const MamaApprovedCommunityBadge(
-                                      compact: true,
-                                    ),
+                                    // The list is already filtered; the check
+                                    // keeps the badge on the shared threshold.
+                                    if (p.showsMamaApprovedBadge) ...[
+                                      const SizedBox(height: 8),
+                                      const MamaApprovedCommunityBadge(
+                                        compact: true,
+                                      ),
+                                    ],
                                     const SizedBox(height: 8),
                                     Text(
                                       p.specialty ?? 'Provider',
@@ -196,16 +200,13 @@ class _MamaApprovedProvidersScreenState
                                       locationText,
                                       style: hearthCaptionStyle,
                                     ),
-                                    if (p.rating != null ||
-                                        (p.reviewCount ?? 0) > 0) ...[
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        '${p.rating != null ? '${Provider.formatAverageRating(p.rating!)} ★ · ' : ''}${p.reviewCount ?? 0} reviews',
-                                        style: hearthCardBodyStyle.copyWith(
-                                          color: AppTheme.textMuted,
-                                        ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      p.communityRatingText,
+                                      style: hearthCardBodyStyle.copyWith(
+                                        color: AppTheme.textMuted,
                                       ),
-                                    ],
+                                    ),
                                   ],
                                 ),
                           );

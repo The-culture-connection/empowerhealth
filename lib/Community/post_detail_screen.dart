@@ -145,10 +145,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         }
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Toggle post like failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
+          const SnackBar(
+            content: Text("We couldn't update your like right now. Please try again."),
             backgroundColor: AppTheme.brandPurple,
           ),
         );
@@ -254,10 +256,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         );
       }
     } catch (e) {
+      debugPrint('Post reply failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error posting reply: ${e.toString()}'),
+          const SnackBar(
+            content: Text("We couldn't post your reply right now. Please try again."),
             backgroundColor: AppTheme.brandPurple,
           ),
         );
@@ -368,10 +371,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   );
                 }
               } catch (e) {
+                debugPrint('Report post failed: $e');
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error submitting report: ${e.toString()}'),
+                    const SnackBar(
+                      content: Text("We couldn't submit your report right now. Please try again."),
                       backgroundColor: AppTheme.brandPurple,
                     ),
                   );
@@ -471,10 +475,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   );
                 }
               } catch (e) {
+                debugPrint('Report reply failed: $e');
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error submitting report: ${e.toString()}'),
+                    const SnackBar(
+                      content: Text("We couldn't submit your report right now. Please try again."),
                       backgroundColor: AppTheme.brandPurple,
                     ),
                   );
@@ -557,10 +562,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         }
       }
     } catch (e) {
+      debugPrint('Block user failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not block user: $e'),
+          const SnackBar(
+            content: Text("We couldn't block this user right now. Please try again."),
             backgroundColor: AppTheme.brandPurple,
           ),
         );
@@ -607,10 +613,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         );
       }
     } catch (e) {
+      debugPrint('Delete post failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not delete post: $e'),
+          const SnackBar(
+            content: Text("We couldn't delete this post right now. Please try again."),
             backgroundColor: AppTheme.brandPurple,
           ),
         );
@@ -666,10 +673,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         );
       }
     } catch (e) {
+      debugPrint('Delete reply failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not delete reply: $e'),
+          const SnackBar(
+            content: Text("We couldn't delete this reply right now. Please try again."),
             backgroundColor: AppTheme.brandPurple,
           ),
         );

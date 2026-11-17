@@ -724,11 +724,17 @@ class _ComprehensiveBirthPlanScreenState
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Birth plan save failed: $e');
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "We couldn't save your birth plan right now. Please try again.",
+            ),
+          ),
+        );
       }
     }
   }

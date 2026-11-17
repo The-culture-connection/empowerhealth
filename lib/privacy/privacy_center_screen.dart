@@ -49,9 +49,13 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
         });
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Load privacy settings failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading settings: $e')),
+          const SnackBar(
+            content: Text("We couldn't load your settings right now. Please try again."),
+          ),
         );
       }
     } finally {
@@ -79,9 +83,12 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
         }
       });
     } catch (e) {
+      debugPrint('Update privacy setting failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating setting: $e')),
+          const SnackBar(
+            content: Text("We couldn't update this setting right now. Please try again."),
+          ),
         );
       }
     }
@@ -107,10 +114,11 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
         );
       }
     } catch (e) {
+      debugPrint('Export data failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error exporting data: ${e.toString()}'),
+          const SnackBar(
+            content: Text("We couldn't start your data export right now. Please try again."),
           ),
         );
       }
@@ -157,10 +165,11 @@ class _PrivacyCenterScreenState extends State<PrivacyCenterScreen> {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
+      debugPrint('Delete account failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error deleting account: ${e.toString()}'),
+          const SnackBar(
+            content: Text("We couldn't delete your account right now. Please try again."),
           ),
         );
       }

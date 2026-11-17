@@ -126,10 +126,16 @@ Future<void> openPostpartumMentalHealthProviders(BuildContext context) async {
       ),
     );
   } catch (e) {
+    // Keep the raw error in logs; users only need a plain message.
+    debugPrint('PPD provider search failed to open: $e');
     if (context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open provider search: $e')),
+        const SnackBar(
+          content: Text(
+            "We couldn't open provider search right now. Please try again.",
+          ),
+        ),
       );
     }
   }

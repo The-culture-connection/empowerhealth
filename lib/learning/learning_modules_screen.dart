@@ -458,10 +458,16 @@ class _LearningModulesScreenState extends State<LearningModulesScreen> with Sing
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Custom module generation failed: $e');
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
+          const SnackBar(
+            content: Text(
+              "We couldn't create this module right now. Please try again.",
+            ),
+          ),
         );
       }
     }

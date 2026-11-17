@@ -53,9 +53,13 @@ class _PostVisitSummaryRatingModalState extends State<PostVisitSummaryRatingModa
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Visit summary rating save failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save: $e')),
+          const SnackBar(
+            content: Text("We couldn't save your responses right now. Please try again."),
+          ),
         );
       }
     } finally {

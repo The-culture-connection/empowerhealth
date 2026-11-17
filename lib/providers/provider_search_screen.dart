@@ -1,11 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../widgets/feature_session_scope.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
 import '../constants/provider_search_constants.dart';
 import '../services/database_service.dart';
 import '../models/provider.dart';
@@ -17,6 +14,8 @@ import 'provider_profile_screen.dart';
 import 'mama_approved_providers_screen.dart';
 import 'provider_quick_search_screen.dart';
 import 'provider_search_entry_screen.dart';
+import 'provider_search_location.dart';
+import 'saved_providers_screen.dart';
 
 class ProviderSearchScreen extends StatefulWidget {
   const ProviderSearchScreen({super.key});
@@ -55,18 +54,7 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
       } catch (_) {}
     }
     if (zip.length == 5 && city.isEmpty) {
-      try {
-        final r = await http
-            .get(Uri.parse('https://api.zippopotam.us/us/$zip'))
-            .timeout(const Duration(seconds: 6));
-        if (r.statusCode == 200) {
-          final j = json.decode(r.body) as Map<String, dynamic>;
-          final places = j['places'] as List<dynamic>?;
-          if (places != null && places.isNotEmpty) {
-            city = (places.first as Map<String, dynamic>)['place name'] as String? ?? '';
-          }
-        }
-      } catch (_) {}
+      city = await cityForZip(zip) ?? '';
     }
     if (mounted) {
       setState(() {
@@ -87,18 +75,31 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
   }
 
   void _openExpandedSearch() {
+    // A search made this session beats the profile ZIP.
+    final last = ProviderSearchLocation.lastSearched.value;
+    final zip = last?.zip ?? _hubZip;
+    final city = last?.city ?? _hubCity;
     Navigator.push<void>(
       context,
       MaterialPageRoute<void>(
         builder: (context) => ProviderSearchEntryScreen(
           prefill: ProviderSearchPrefill(
-            zip: _hubZip.length == 5 ? _hubZip : null,
-            city: _hubCity.isNotEmpty ? _hubCity : null,
-            radius: '10',
+            zip: zip.length == 5 ? zip : null,
+            city: city.isNotEmpty ? city : null,
+            radius: '${last?.radius ?? 10}',
             healthPlan: ProviderSearchConstants.healthPlanAll,
             includeNpi: true,
           ),
         ),
+      ),
+    );
+  }
+
+  void _openSavedProviders() {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => const SavedProvidersScreen(),
       ),
     );
   }
@@ -248,18 +249,31 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 6),
-                  if (_hubLocationLoading)
-                    Text(
-                      'Loading your area…',
-                      style: hearthCaptionStyle,
-                    )
-                  else
-                    Text(
-                      _hubZip.length == 5
-                          ? 'Searching near $_hubZip · 10 mi · ${ProviderSearchConstants.healthPlanAll}'
-                          : 'Add ZIP in your profile for fastest search · ${ProviderSearchConstants.healthPlanAll}',
-                      style: hearthCaptionStyle,
-                    ),
+                  // Shows the ZIP last searched this session, so a new ZIP
+                  // replaces the profile one here as soon as it is searched.
+                  ValueListenableBuilder<ProviderSearchLocation?>(
+                    valueListenable: ProviderSearchLocation.lastSearched,
+                    builder: (context, last, _) {
+                      if (last != null) {
+                        return Text(
+                          'Last search: near ${last.zip} · ${last.radius} mi',
+                          style: hearthCaptionStyle,
+                        );
+                      }
+                      if (_hubLocationLoading) {
+                        return Text(
+                          'Loading your area…',
+                          style: hearthCaptionStyle,
+                        );
+                      }
+                      return Text(
+                        _hubZip.length == 5
+                            ? 'Searching near $_hubZip · 10 mi · ${ProviderSearchConstants.healthPlanAll}'
+                            : 'Add ZIP in your profile for fastest search · ${ProviderSearchConstants.healthPlanAll}',
+                        style: hearthCaptionStyle,
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -309,13 +323,21 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: HearthButton.text(
-                      label: 'Expanded search',
-                      icon: Icons.tune_rounded,
-                      onPressed: _openExpandedSearch,
-                    ),
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 8,
+                    children: [
+                      HearthButton.text(
+                        label: 'Saved providers',
+                        icon: Icons.bookmark_border,
+                        onPressed: _openSavedProviders,
+                      ),
+                      HearthButton.text(
+                        label: 'Expanded search',
+                        icon: Icons.tune_rounded,
+                        onPressed: _openExpandedSearch,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -595,22 +617,29 @@ class _ProviderSearchScreenState extends State<ProviderSearchScreen> {
               // Rating and Distance
               Row(
                 children: [
-                  const Icon(Icons.star_rounded, size: 18, color: AppTheme.brandGold),
+                  Icon(
+                    provider.showsCommunityRating
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    size: 18,
+                    color: AppTheme.brandGold,
+                  ),
                   const SizedBox(width: 4),
-                  Text(
-                    provider.rating != null
-                        ? Provider.formatAverageRating(provider.rating!)
-                        : 'N/A',
-                    style: hearthCardBodyStyle.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.ink,
+                  // Community rating with its review count.
+                  Expanded(
+                    child: Text(
+                      provider.communityRatingText,
+                      style: hearthCardBodyStyle.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.ink,
+                      ),
                     ),
                   ),
-                  Text(
-                    ' (${provider.reviewCount ?? 0})',
-                    style: hearthCardBodyStyle.copyWith(color: AppTheme.textMuted),
-                  ),
-                  const SizedBox(width: 12),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
                   const Icon(Icons.location_on_outlined, size: 16, color: AppTheme.textMuted),
                   const SizedBox(width: 4),
                   Expanded(

@@ -121,8 +121,14 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('PDF pick failed: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error selecting PDF: $e')),
+        const SnackBar(
+          content: Text(
+            "We couldn't open that PDF right now. Please try again.",
+          ),
+        ),
       );
     }
   }
@@ -162,14 +168,17 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
           throw Exception('Could not extract text from PDF. The PDF might be image-based or encrypted.');
         }
       } catch (e) {
+        debugPrint('PDF text extraction failed: $e');
         setState(() {
           _isLoading = false;
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error extracting PDF text: ${e.toString()}. Please enter text manually.'),
-              duration: const Duration(seconds: 5),
+            const SnackBar(
+              content: Text(
+                "We couldn't read this PDF. Please enter the text manually.",
+              ),
+              duration: Duration(seconds: 5),
             ),
           );
         }
@@ -254,12 +263,17 @@ class _VisitSummaryScreenState extends State<VisitSummaryScreen> {
 
       await _maybePromptVisitSummaryMicroMeasure(summaryDoc.id, 'visit_summary_notes');
     } catch (e) {
+      debugPrint('Visit summary generation failed: $e');
       setState(() {
         _isLoading = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
+          const SnackBar(
+            content: Text(
+              "We couldn't create your visit summary right now. Please try again.",
+            ),
+          ),
         );
       }
     }

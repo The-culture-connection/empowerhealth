@@ -177,11 +177,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Create post failed: $e');
       setState(() => _isSubmitting = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error creating post: ${e.toString()}'),
+          const SnackBar(
+            content: Text("We couldn't create your post right now. Please try again."),
             backgroundColor: AppTheme.brandPurple,
           ),
         );

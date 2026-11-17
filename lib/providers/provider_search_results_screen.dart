@@ -11,6 +11,7 @@ import '../widgets/provider_search_loading.dart';
 import '../constants/provider_types.dart';
 import 'provider_profile_screen.dart';
 import 'add_provider_screen.dart';
+import 'provider_search_location.dart';
 import '../widgets/qualitative_survey_dialog.dart';
 import '../widgets/mama_approved_community_badge.dart';
 
@@ -38,9 +39,31 @@ class _ProviderSearchResultsScreenState
   List<String> _searchProviderTypeIds =
       []; // Store search provider type IDs for card display
 
+  String get _searchZip {
+    final z = (widget.searchParams['zip'] as String? ?? '').trim();
+    return z.length > 5 ? z.substring(0, 5) : z;
+  }
+
+  int get _searchRadius => widget.searchParams['radius'] as int? ?? 10;
+
+  /// e.g. "within 10 mi of 45040".
+  String get _searchArea => _searchZip.isEmpty
+      ? 'within $_searchRadius mi'
+      : 'within $_searchRadius mi of $_searchZip';
+
   @override
   void initState() {
     super.initState();
+    // Remember what was searched so the other search screens show and
+    // prefill this location instead of an older profile ZIP. After the
+    // frame, because listeners on other screens rebuild.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ProviderSearchLocation.record(
+        zip: _searchZip,
+        city: (widget.searchParams['city'] as String? ?? '').trim(),
+        radius: _searchRadius,
+      );
+    });
     _trackScreenView();
     _performSearch();
   }
@@ -528,14 +551,15 @@ class _ProviderSearchResultsScreenState
                 title: 'Search results',
                 onBack: () => Navigator.pop(context),
                 // Only report a count once the search has finished — never
-                // "0 providers" while results are still loading.
+                // "0 providers" while results are still loading. The area
+                // always names the ZIP and radius this search actually used.
                 subtitle: _isLoading
-                    ? 'Searching for providers near you…'
+                    ? 'Searching $_searchArea…'
                     : _error != null
                     ? 'Search didn\'t finish'
                     : _providers.length == 1
-                    ? '1 provider found near you'
-                    : '${_providers.length} providers found near you',
+                    ? '1 provider found $_searchArea'
+                    : '${_providers.length} providers found $_searchArea',
               ),
 
               Expanded(
@@ -588,7 +612,7 @@ class _ProviderSearchResultsScreenState
                                   const HearthNote(
                                     icon: Icons.shield_outlined,
                                     text:
-                                        'Listings come from Ohio Medicaid and/or the national provider registry. Stars and tags reflect community input.',
+                                        'Listings come from Ohio Medicaid and/or the national provider registry. Stars and tags reflect community input from moms in this app, not the directories.',
                                   ),
                                   const SizedBox(height: 20),
 
@@ -1363,7 +1387,8 @@ class _ProviderCard extends StatelessWidget {
                   ),
                 ),
 
-                // Rating
+                // Community rating: stars only come from in-app reviews and
+                // always carry their review count.
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   child: Row(
@@ -1372,7 +1397,7 @@ class _ProviderCard extends StatelessWidget {
                         children: [
                           // Gold star with a dark rim, as in HearthStarRating;
                           // an empty outline when there is no rating yet.
-                          if (provider.rating != null && provider.rating! > 0)
+                          if (provider.showsCommunityRating)
                             const SizedBox(
                               width: 20,
                               height: 20,
@@ -1398,25 +1423,17 @@ class _ProviderCard extends StatelessWidget {
                               size: 20,
                               color: AppTheme.brandTerracotta,
                             ),
-                          const SizedBox(width: 6),
-                          Text(
-                            provider.rating != null && provider.rating! > 0
-                                ? Provider.formatAverageRating(provider.rating!)
-                                : 'N/A',
-                            style: hearthCardTitleStyle.copyWith(
-                              fontSize: 17,
-                              height: 24 / 17,
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          '(${provider.reviewCount ?? 0} review${(provider.reviewCount ?? 0) == 1 ? '' : 's'})',
-                          style: hearthCardBodyStyle.copyWith(
-                            color: AppTheme.textMuted,
-                          ),
+                          provider.communityRatingText,
+                          style: provider.showsCommunityRating
+                              ? hearthCardTitleStyle.copyWith(fontSize: 15)
+                              : hearthCardBodyStyle.copyWith(
+                                  color: AppTheme.textMuted,
+                                ),
                         ),
                       ),
                     ],

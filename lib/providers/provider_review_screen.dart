@@ -37,9 +37,10 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
   
   int _rating = 0;
   bool _wouldRecommend = false;
-  bool _feltHeard = false;
-  bool _feltRespected = false;
-  bool _explainedClearly = false;
+  // null = not answered, so a skipped question never counts as a "no".
+  bool? _feltHeard;
+  bool? _feltRespected;
+  bool? _explainedClearly;
   final _whatWentWellController = TextEditingController();
   bool _isSubmitting = false;
   final List<String> _raceEthnicity = [];
@@ -110,6 +111,14 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
       final userData = userDoc.data();
       final userName = userData?['username'] ?? 'Anonymous';
 
+      final visitAnswers = <String, bool>{
+        if (_feltHeard != null) ReviewExperience.feltHeard: _feltHeard!,
+        if (_feltRespected != null)
+          ReviewExperience.feltRespected: _feltRespected!,
+        if (_explainedClearly != null)
+          ReviewExperience.explainedClearly: _explainedClearly!,
+      };
+
       final review = ProviderReview(
         providerId: widget.providerId,
         userId: userId,
@@ -119,9 +128,12 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
             ? null
             : _reviewController.text.trim(),
         wouldRecommend: _wouldRecommend,
-        feltHeard: _feltHeard,
-        feltRespected: _feltRespected,
-        explainedClearly: _explainedClearly,
+        // The booleans stay "yes only" for older readers; the explicit
+        // answers (including "no" and skipped) live in experienceFields.
+        feltHeard: _feltHeard == true,
+        feltRespected: _feltRespected == true,
+        explainedClearly: _explainedClearly == true,
+        experienceFields: {ReviewExperience.answersKey: visitAnswers},
         whatWentWell: _whatWentWellController.text.trim().isEmpty
             ? null
             : _whatWentWellController.text.trim(),
@@ -175,11 +187,13 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
         Navigator.pop(context, firestoreProviderId ?? review.providerId);
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Submit provider review failed: $e');
       setState(() => _isSubmitting = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error submitting review: ${e.toString()}'),
+          const SnackBar(
+            content: Text("We couldn't submit your review right now. Please try again."),
           ),
         );
       }
@@ -236,28 +250,29 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
                       const HearthSectionHeading('How was your visit?'),
                       const SizedBox(height: 4),
                       Text(
-                        'These help other parents beyond stars alone.',
+                        'These help other parents beyond stars alone. Skip any you would rather not answer.',
                         style: textTheme.bodySmall,
                       ),
                       const SizedBox(height: 12),
                       HearthCard(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _visitCheck(
+                            _visitQuestion(
                               'I felt heard',
                               _feltHeard,
-                              (v) => setState(() => _feltHeard = v ?? false),
+                              (v) => setState(() => _feltHeard = v),
                             ),
-                            _visitCheck(
+                            _visitQuestion(
                               'I felt respected',
                               _feltRespected,
-                              (v) => setState(() => _feltRespected = v ?? false),
+                              (v) => setState(() => _feltRespected = v),
                             ),
-                            _visitCheck(
+                            _visitQuestion(
                               'Things were explained clearly',
                               _explainedClearly,
-                              (v) => setState(() => _explainedClearly = v ?? false),
+                              (v) => setState(() => _explainedClearly = v),
                             ),
                           ],
                         ),
@@ -357,16 +372,42 @@ class _ProviderReviewScreenState extends State<ProviderReviewScreen> {
     );
   }
 
-  Widget _visitCheck(String label, bool value, ValueChanged<bool?> onChanged) {
-    return CheckboxListTile(
-      value: value,
-      onChanged: onChanged,
-      title: Text(
-        label,
-        style: hearthCardBodyStyle.copyWith(fontSize: 15, color: AppTheme.ink),
+  /// Yes / No pair; tapping the selected answer again clears it.
+  Widget _visitQuestion(
+    String label,
+    bool? value,
+    ValueChanged<bool?> onChanged,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: hearthCardBodyStyle.copyWith(fontSize: 15, color: AppTheme.ink),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              HearthChoiceChip(
+                label: 'Yes',
+                selected: value == true,
+                icon: value == true ? Icons.check : null,
+                onSelected: () => onChanged(value == true ? null : true),
+              ),
+              HearthChoiceChip(
+                label: 'No',
+                selected: value == false,
+                icon: value == false ? Icons.check : null,
+                onSelected: () => onChanged(value == false ? null : false),
+              ),
+            ],
+          ),
+        ],
       ),
-      controlAffinity: ListTileControlAffinity.leading,
-      contentPadding: EdgeInsets.zero,
     );
   }
 

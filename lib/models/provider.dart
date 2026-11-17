@@ -159,6 +159,75 @@ class Provider {
         averageRating: rating,
       );
 
+  /// True when [rating] is backed by at least one community review. A rating
+  /// with no reviews behind it came from somewhere else and is never shown as
+  /// a community rating.
+  static bool hasCommunityRating({
+    required double? rating,
+    required int? reviewCount,
+  }) =>
+      (reviewCount ?? 0) > 0 && rating != null && !rating.isNaN && rating > 0;
+
+  /// Star line for cards and profiles, e.g. "5.0 · 1 community review", so
+  /// stars always read as community input with their review count.
+  static String communityRatingLabel({
+    required double? rating,
+    required int? reviewCount,
+  }) {
+    if (!hasCommunityRating(rating: rating, reviewCount: reviewCount)) {
+      return 'No community reviews yet';
+    }
+    final n = reviewCount!;
+    return '${formatAverageRating(rating!)} · $n community review${n == 1 ? '' : 's'}';
+  }
+
+  bool get showsCommunityRating =>
+      hasCommunityRating(rating: rating, reviewCount: reviewCount);
+
+  String get communityRatingText =>
+      communityRatingLabel(rating: rating, reviewCount: reviewCount);
+
+  /// Copy with the three experience rates set exactly, including back to null
+  /// ([copyWith] cannot clear a field).
+  Provider withExperienceRates({
+    required double? feltHeard,
+    required double? feltRespected,
+    required double? explainedClearly,
+  }) {
+    return Provider(
+      id: id,
+      name: name,
+      specialty: specialty,
+      practiceName: practiceName,
+      npi: npi,
+      locations: locations,
+      providerTypes: providerTypes,
+      specialties: specialties,
+      phone: phone,
+      email: email,
+      website: website,
+      acceptingNewPatients: acceptingNewPatients,
+      acceptsPregnantWomen: acceptsPregnantWomen,
+      acceptsNewborns: acceptsNewborns,
+      telehealth: telehealth,
+      rating: rating,
+      reviewCount: reviewCount,
+      feltHeardRate: feltHeard,
+      feltRespectedRate: feltRespected,
+      explainedClearlyRate: explainedClearly,
+      mamaApproved: mamaApproved,
+      mamaApprovedCount: mamaApprovedCount,
+      identityTags: identityTags,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      source: source,
+      directoryHidden: directoryHidden,
+      acceptedHealthType: acceptedHealthType,
+      acceptedHealthTypes: acceptedHealthTypes,
+      distanceMiles: distanceMiles,
+    );
+  }
+
   factory Provider.fromMap(Map<String, dynamic> map, {String? id}) {
     final rawName = (map['name'] as String?)?.trim() ?? '';
     final rawPractice = (map['practiceName'] as String?)?.trim() ?? '';
@@ -333,6 +402,75 @@ class Provider {
       acceptedHealthTypes: acceptedHealthTypes ?? this.acceptedHealthTypes,
       distanceMiles: distanceMiles ?? this.distanceMiles,
     );
+  }
+}
+
+/// Yes count and answered count for one "How was your visit?" question.
+class ExperienceTally {
+  const ExperienceTally({required this.yes, required this.answered});
+
+  final int yes;
+  final int answered;
+
+  /// Share of answered reviews that said yes; null when nobody answered, so
+  /// "no answers" never shows as 0%.
+  double? get rate => answered == 0 ? null : yes / answered;
+
+  int? get percent => rate == null ? null : (rate! * 100).round();
+
+  /// e.g. "100% felt heard · 1 response", or "Felt heard: No responses".
+  String label(String phrase) {
+    final p = percent;
+    if (p == null) {
+      return '${phrase[0].toUpperCase()}${phrase.substring(1)}: No responses';
+    }
+    return '$p% $phrase · $answered response${answered == 1 ? '' : 's'}';
+  }
+}
+
+/// Reads the three visit questions on a review map (Firestore data or
+/// [ProviderReview.toMap]), keeping "not answered" apart from "no".
+class ReviewExperience {
+  static const String feltHeard = 'feltHeard';
+  static const String feltRespected = 'feltRespected';
+  static const String explainedClearly = 'explainedClearly';
+  static const List<String> questions = [
+    feltHeard,
+    feltRespected,
+    explainedClearly,
+  ];
+
+  /// Key inside a review's `experienceFields` holding {question: true|false}
+  /// for the questions the reviewer actually answered.
+  static const String answersKey = 'visitAnswers';
+
+  /// true = yes, false = no, null = not answered.
+  static bool? answer(Map<String, dynamic> review, String question) {
+    final fields = review['experienceFields'];
+    if (fields is Map && fields[answersKey] is Map) {
+      final v = (fields[answersKey] as Map)[question];
+      return v is bool ? v : null;
+    }
+    // Older reviews used plain checkboxes, so an unticked box may only mean
+    // "skipped". Treat them as answered only when at least one box was ticked.
+    final engaged = questions.any((q) => review[q] == true);
+    if (!engaged) return null;
+    return review[question] == true;
+  }
+
+  static ExperienceTally tally(
+    Iterable<Map<String, dynamic>> reviews,
+    String question,
+  ) {
+    var yes = 0;
+    var answered = 0;
+    for (final r in reviews) {
+      final a = answer(r, question);
+      if (a == null) continue;
+      answered++;
+      if (a) yes++;
+    }
+    return ExperienceTally(yes: yes, answered: answered);
   }
 }
 

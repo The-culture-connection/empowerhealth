@@ -237,11 +237,13 @@ class _QualitativeSurveyDialogState extends State<QualitativeSurveyDialog> {
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Submit survey failed: $e');
       setState(() => _isSubmitting = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error submitting survey: ${e.toString()}'),
+          const SnackBar(
+            content: Text("We couldn't submit your feedback right now. Please try again."),
           ),
         );
       }

@@ -101,10 +101,12 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
         _step = 1;
       });
     } catch (e) {
+      // Server validation returns codes, not readable text; log them instead.
+      debugPrint('Research onboarding failed: $e');
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = e.toString();
+        _error = "We couldn't save your answers right now. Please try again.";
       });
     }
   }
@@ -135,10 +137,12 @@ class _ResearchOnboardingScreenState extends State<ResearchOnboardingScreen> {
         );
       }
     } catch (e) {
+      // Server validation returns codes, not readable text; log them instead.
+      debugPrint('Research onboarding failed: $e');
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = e.toString();
+        _error = "We couldn't save your answers right now. Please try again.";
       });
     }
   }

@@ -90,34 +90,34 @@ class NeedsChecklistScreen extends StatelessWidget {
           'Let’s check if your care needs were met. Select anything you needed help with, even if you didn’t receive it.',
           style: Theme.of(context).textTheme.bodyLarge,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
+        // Nine needs: plain rows in one card instead of a bordered card per
+        // option, so the list fits with far less scrolling.
         HearthCard(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ...kCareNeedsChecklistItems.map((need) {
-                final id = need['id']!;
-                final label = need['label']!;
-                final isSelected = selectedNeedIds.contains(id);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: HearthOptionRow(
-                    label: label,
-                    selected: isSelected,
-                    control: HearthControl.checkbox,
-                    onTap: () => onToggleNeed(id),
-                  ),
-                );
-              }),
+              for (final need in kCareNeedsChecklistItems)
+                _CompactCheckRow(
+                  label: need['label']!,
+                  selected: selectedNeedIds.contains(need['id']),
+                  onTap: () => onToggleNeed(need['id']!),
+                ),
               if (selectedNeedIds.contains('other')) ...[
-                const SizedBox(height: 8),
-                NeedOtherTextField(controller: otherDetailController, inCard: true),
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+                  child: NeedOtherTextField(
+                    controller: otherDetailController,
+                    inCard: true,
+                  ),
+                ),
               ],
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         Row(
           children: [
             Expanded(
@@ -139,6 +139,65 @@ class NeedsChecklistScreen extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// One checklist row: checkbox icon + label, at least 48px tall so it stays
+/// an easy tap target. Selected rows get the warm tint.
+class _CompactCheckRow extends StatelessWidget {
+  const _CompactCheckRow({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      checked: selected,
+      child: Material(
+        color: selected ? AppTheme.tintWarm : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppTheme.fieldRadius),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                children: [
+                  Icon(
+                    selected ? Icons.check_box : Icons.check_box_outline_blank,
+                    size: 22,
+                    color: selected ? AppTheme.brandPurple : AppTheme.textMuted,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontFamily: AppTheme.sansFamily,
+                        fontSize: 15,
+                        height: 20 / 15,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.w400,
+                        color:
+                            selected ? AppTheme.ink : AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

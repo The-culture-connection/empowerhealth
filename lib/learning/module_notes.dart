@@ -249,9 +249,13 @@ class _ModuleNotesViewDialog extends StatelessWidget {
         ),
       );
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Delete note failed: $e');
       messenger.showSnackBar(
-        SnackBar(
-          content: Text('Could not delete note: $e'),
+        const SnackBar(
+          content: Text(
+            "We couldn't delete this note right now. Please try again.",
+          ),
         ),
       );
     }

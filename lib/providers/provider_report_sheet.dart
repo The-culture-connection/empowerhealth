@@ -91,10 +91,12 @@ class _ProviderReportSheetBodyState extends State<_ProviderReportSheetBody> {
         ),
       );
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Provider report failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not send report: $e'),
+          const SnackBar(
+            content: Text("We couldn't submit your report right now. Please try again."),
           ),
         );
       }

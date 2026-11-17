@@ -69,12 +69,18 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Birth plan generation failed: $e');
       setState(() {
         _isLoading = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
+          const SnackBar(
+            content: Text(
+              "We couldn't create your birth plan right now. Please try again.",
+            ),
+          ),
         );
       }
     }
@@ -93,9 +99,14 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
         subject: 'My Birth Plan',
       );
     } catch (e) {
+      debugPrint('Birth plan share failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sharing: ${e.toString()}')),
+          const SnackBar(
+            content: Text(
+              "We couldn't share your birth plan right now. Please try again.",
+            ),
+          ),
         );
       }
     }
@@ -147,9 +158,14 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
         );
       }
     } catch (e) {
+      debugPrint('Birth plan PDF export failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error exporting: ${e.toString()}')),
+          const SnackBar(
+            content: Text(
+              "We couldn't export your birth plan right now. Please try again.",
+            ),
+          ),
         );
       }
     }

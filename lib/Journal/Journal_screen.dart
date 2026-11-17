@@ -209,10 +209,14 @@ class _JournalScreenState extends State<JournalScreen> {
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Journal entry save failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving entry: ${e.toString()}'),
+          const SnackBar(
+            content: Text(
+              "We couldn't save your entry right now. Please try again.",
+            ),
           ),
         );
       }
@@ -286,10 +290,13 @@ class _JournalScreenState extends State<JournalScreen> {
         );
       }
     } catch (e) {
+      debugPrint('Feeling entry save failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving feeling: ${e.toString()}'),
+          const SnackBar(
+            content: Text(
+              "We couldn't save your feeling right now. Please try again.",
+            ),
           ),
         );
       }
@@ -621,23 +628,41 @@ class _JournalScreenState extends State<JournalScreen> {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     final embeddedInMainNav = MainNavigationScope.maybeOf(context) != null;
     // Switching between the hub, quick check-in and write steps shows the new
-    // step from the top (the floating shortcuts work from anywhere in the list).
+    // step from the top (the header shortcuts work from anywhere in the list).
     _scrollController.syncStep(_entryMode);
-    // With the shell's extendBody, padding.bottom = nav bar height while
-    // viewPadding.bottom is only the home-indicator inset the nested
-    // Scaffold already respects for FAB placement.
-    final mq = MediaQuery.of(context);
-    final fabNavLift = embeddedInMainNav
-        ? (mq.padding.bottom - mq.viewPadding.bottom).clamp(0.0, 200.0)
-        : 0.0;
 
     final content = SafeArea(
           child: Column(
             children: [
-              const HearthTabHeader(
+              // The quick check-in / write shortcuts sit in the fixed header
+              // rather than floating, so they never cover the last entries.
+              // Only on the hub: inside the check-in / write cards they would
+              // duplicate the current mode.
+              HearthTabHeader(
                 title: 'Your journal',
                 subtitle: 'A private space for how you feel',
-                padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                trailing: _entryMode != _JournalEntryMode.hub
+                    ? null
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _JournalShortcutButton(
+                            icon: Icons.favorite_border,
+                            tooltip: 'Quick check-in',
+                            color: AppTheme.brandPurpleMid,
+                            onTap: () => setState(
+                                () => _entryMode = _JournalEntryMode.quick),
+                          ),
+                          const SizedBox(width: 8),
+                          _JournalShortcutButton(
+                            icon: Icons.add,
+                            tooltip: 'Write',
+                            color: AppTheme.brandPurple,
+                            onTap: _openWriteMode,
+                          ),
+                        ],
+                      ),
               ),
 
               // Content
@@ -714,11 +739,10 @@ class _JournalScreenState extends State<JournalScreen> {
                               );
                             }),
                           ],
-                          
-                          // Clear the floating quick check-in / write buttons
-                          // (2 x 56 + gap + margin) so the last reflection card
-                          // and any save actions can scroll fully above them.
-                          const SizedBox(height: 160),
+
+                          // Breathing room above the tab bar; nothing floats
+                          // over the list any more.
+                          const SizedBox(height: 32),
                         ],
                       ),
                     );
@@ -758,32 +782,6 @@ class _JournalScreenState extends State<JournalScreen> {
       backgroundColor:
           embeddedInMainNav ? Colors.transparent : AppTheme.ground,
       body: body,
-      // Shortcuts are only shown on the hub: inside the check-in / write cards
-      // they duplicate the current mode and could cover Save / Cancel.
-      floatingActionButton: _entryMode != _JournalEntryMode.hub
-          ? null
-          : Padding(
-        // This nested Scaffold does not know about the shell's translucent
-        // bottom nav (extendBody), so lift the buttons above it instead of
-        // letting them sit on top of the tab bar.
-        padding: EdgeInsets.only(bottom: fabNavLift),
-        child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _JournalShortcutButton(
-            icon: Icons.favorite_border,
-            color: AppTheme.brandPurpleMid,
-            onTap: () => setState(() => _entryMode = _JournalEntryMode.quick),
-          ),
-          const SizedBox(height: 10),
-          _JournalShortcutButton(
-            icon: Icons.add,
-            color: AppTheme.brandPurple,
-            onTap: _openWriteMode,
-          ),
-        ],
-      ),
-      ),
     );
   }
 }
@@ -847,34 +845,36 @@ class _PrivatePill extends StatelessWidget {
   }
 }
 
-/// Round floating shortcut on the hub (quick check-in / write). The ground
-/// ring separates it from cards it floats over; Hearth keeps shadows for the
-/// Support button only.
+/// Round shortcut in the hub header (quick check-in / write). 48px keeps a
+/// full tap target while fitting beside the title.
 class _JournalShortcutButton extends StatelessWidget {
   const _JournalShortcutButton({
     required this.icon,
+    required this.tooltip,
     required this.color,
     required this.onTap,
   });
 
   final IconData icon;
+  final String tooltip;
   final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: color,
-      shape: const CircleBorder(
-        side: BorderSide(color: AppTheme.ground, width: 3),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          width: 56,
-          height: 56,
-          child: Icon(icon, color: AppTheme.onPurple, size: 24),
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: color,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(icon, color: AppTheme.onPurple, size: 22),
+          ),
         ),
       ),
     );
@@ -1039,15 +1039,17 @@ class _EntryCard extends StatelessWidget {
 
     // Whole card is the tap target (incl. padding) and opens the full entry;
     // the preview below is clamped to keep the timeline scannable.
+    // Tighter padding and a smaller icon chip keep the timeline compact; the
+    // whole card stays the tap target.
     return HearthCard(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       onTap: () => _showEntryDetail(context),
-      padding: EdgeInsets.fromLTRB(16, 16, 16, _isLearningNote ? 6 : 16),
+      padding: EdgeInsets.fromLTRB(14, 12, 14, _isLearningNote ? 2 : 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          HearthIconChip(_kindIcon(mood)),
-          const SizedBox(width: 14),
+          HearthIconChip(_kindIcon(mood), size: 36, iconSize: 18),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1060,7 +1062,7 @@ class _EntryCard extends StatelessWidget {
                   child: Wrap(
                     alignment: WrapAlignment.spaceBetween,
                     spacing: 8,
-                    runSpacing: 6,
+                    runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Row(
@@ -1083,7 +1085,7 @@ class _EntryCard extends StatelessWidget {
                   ),
                 ),
                 if (_isLearningNote && title != null && title.isNotEmpty) ...[
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1107,7 +1109,7 @@ class _EntryCard extends StatelessWidget {
                     ],
                   ),
                 ],
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   preview,
                   maxLines: 2,
@@ -1124,13 +1126,11 @@ class _EntryCard extends StatelessWidget {
                           color: AppTheme.ink,
                         ),
                 ),
+                // The button's own 44px target supplies the gap above it.
                 if (_isLearningNote)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: _OpenLessonButton(
-                      moduleId: moduleId,
-                      moduleTitle: title,
-                    ),
+                  _OpenLessonButton(
+                    moduleId: moduleId,
+                    moduleTitle: title,
                   ),
               ],
             ),

@@ -76,7 +76,12 @@ class _ImmediateSupportCheckInScreenState
       ),
     );
 
-    if (mounted) Navigator.pop(context);
+    // Tiles like Journal or Community close every route above the tabs,
+    // including this one. Popping again here would remove the tabs and
+    // leave a black screen, so only close ourselves if still on top.
+    if (!mounted) return;
+    final route = ModalRoute.of(context);
+    if (route != null && route.isCurrent) Navigator.pop(context);
   }
 
   @override

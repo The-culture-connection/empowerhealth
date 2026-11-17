@@ -103,10 +103,16 @@ class _RightsScreenState extends State<RightsScreen> {
         ),
       );
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Rights content generation failed: $e');
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not load content: $e')),
+        const SnackBar(
+          content: Text(
+            "We couldn't load this topic right now. Please try again.",
+          ),
+        ),
       );
     }
   }

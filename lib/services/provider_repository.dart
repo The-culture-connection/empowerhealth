@@ -503,23 +503,24 @@ class ProviderRepository {
           final totalRating = reviews.fold<double>(0.0, (sum, review) => sum + review.rating);
           final averageRating = totalRating / reviews.length;
           final count = reviews.length;
-          final feltHeardRate =
-              reviews.where((r) => r.feltHeard).length / count;
-          final feltRespectedRate =
-              reviews.where((r) => r.feltRespected).length / count;
-          final explainedClearlyRate =
-              reviews.where((r) => r.explainedClearly).length / count;
+          // Rates are yes / answered, not yes / all reviews: a skipped
+          // question is not a "no".
+          final maps = reviews.map((r) => r.toMap()).toList();
+          double? rateFor(String q) => ReviewExperience.tally(maps, q).rate;
           print('✅ [ProviderRepository] Found $count reviews for ${provider.name}, rating: $averageRating');
 
           // Update provider with Firestore ID if we found it, and add reviews/rating
-          return provider.copyWith(
-            id: firestoreProvider?.id ?? provider.id,
-            rating: averageRating,
-            reviewCount: count,
-            feltHeardRate: feltHeardRate,
-            feltRespectedRate: feltRespectedRate,
-            explainedClearlyRate: explainedClearlyRate,
-          );
+          return provider
+              .copyWith(
+                id: firestoreProvider?.id ?? provider.id,
+                rating: averageRating,
+                reviewCount: count,
+              )
+              .withExperienceRates(
+                feltHeard: rateFor(ReviewExperience.feltHeard),
+                feltRespected: rateFor(ReviewExperience.feltRespected),
+                explainedClearly: rateFor(ReviewExperience.explainedClearly),
+              );
         } else {
           print('ℹ️ [ProviderRepository] No reviews found for ${provider.name}');
         }
@@ -1138,17 +1139,15 @@ class ProviderRepository {
       }
 
       // Experience-question affirm rates feed the Mama Approved™ trust score.
+      // Each rate is yes / answered; null (not 0) when nobody answered.
       if (publishedOnly.isNotEmpty) {
-        bool truthy(dynamic v) => v == true;
-        updateData['feltHeardRate'] =
-            publishedOnly.where((r) => truthy(r['feltHeard'])).length /
-                reviewCount;
+        double? rateFor(String q) =>
+            ReviewExperience.tally(publishedOnly, q).rate;
+        updateData['feltHeardRate'] = rateFor(ReviewExperience.feltHeard);
         updateData['feltRespectedRate'] =
-            publishedOnly.where((r) => truthy(r['feltRespected'])).length /
-                reviewCount;
+            rateFor(ReviewExperience.feltRespected);
         updateData['explainedClearlyRate'] =
-            publishedOnly.where((r) => truthy(r['explainedClearly'])).length /
-                reviewCount;
+            rateFor(ReviewExperience.explainedClearly);
       }
 
       await _firestore.collection('providers').doc(firestoreProviderId).update(updateData);

@@ -65,10 +65,16 @@ class _BirthPlanCreatorScreenState extends State<BirthPlanCreatorScreen> {
         _isGenerating = false;
       });
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Birth plan generation failed: $e');
       setState(() => _isGenerating = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        const SnackBar(
+          content: Text(
+            "We couldn't create your birth plan right now. Please try again.",
+          ),
+        ),
       );
     }
   }

@@ -165,14 +165,16 @@ class _AddProviderScreenState extends State<AddProviderScreen> {
         _isSubmitting = false;
       });
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Submit provider failed: $e');
       setState(() {
         _isSubmitting = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error submitting provider: $e'),
+          const SnackBar(
+            content: Text("We couldn't submit this provider right now. Please try again."),
           ),
         );
       }

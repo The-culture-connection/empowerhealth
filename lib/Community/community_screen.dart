@@ -344,9 +344,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Delete post failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not delete post: $e')),
+          const SnackBar(
+            content: Text("We couldn't delete this post right now. Please try again."),
+          ),
         );
       }
     }

@@ -59,10 +59,16 @@ class _AppointmentChecklistScreenState extends State<AppointmentChecklistScreen>
         _isGenerating = false;
       });
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Appointment checklist generation failed: $e');
       setState(() => _isGenerating = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        const SnackBar(
+          content: Text(
+            "We couldn't create your checklist right now. Please try again.",
+          ),
+        ),
       );
     }
   }

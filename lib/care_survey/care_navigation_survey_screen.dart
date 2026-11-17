@@ -4,11 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../app_router.dart';
+import '../appointments/visit_questions_screen.dart';
 import '../beta/beta_checklist_service.dart';
 import '../birthplan/birth_plans_list_screen.dart';
 import '../cors/main_navigation_scope.dart';
 import '../cors/ui_theme.dart';
 import '../design_system/hearth.dart';
+import '../emotional_support/emotional_support_hub_screen.dart';
+import '../immediate_support/immediate_support_constants.dart';
+import '../immediate_support/immediate_support_hub_screen.dart';
 import '../research/navigation_outcome_prompt.dart';
 import '../research/needs_checklist_screen.dart';
 import '../resources/app_external_resources.dart';
@@ -161,31 +165,26 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
 
       print('✅ [CareSurvey] Survey results saved to Firestore');
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
       print('❌ [CareSurvey] Error saving survey results: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving survey: ${e.toString()}'),
+          const SnackBar(
+            content: Text(
+              "We couldn't save your check-in right now. Please try again.",
+            ),
           ),
         );
       }
     }
   }
 
-  /// Opens an in-app destination *in place of* the check-in: [open] pushes the
-  /// destination (using the navigator's own context, which stays valid after
-  /// this screen is gone), then the survey route is removed from underneath
-  /// it. Closing the destination therefore returns to wherever the check-in
-  /// was opened from (Home), not back into the survey. Only this survey's own
-  /// route is removed, so nothing below it (the main tab scaffold, or the
-  /// auth route under it after login) is ever popped.
+  /// Opens an in-app destination on top of the check-in. It used to replace
+  /// the check-in, so Back landed on Home and users had to start over; now
+  /// Back returns to these support options with every selection kept.
+  /// [open] gets the navigator's own context, which outlives this screen.
   void _openInPlaceOfSurvey(void Function(BuildContext navContext) open) {
-    final navigator = Navigator.of(context);
-    final surveyRoute = ModalRoute.of(context);
-    open(navigator.context);
-    if (surveyRoute != null && surveyRoute.isActive && !surveyRoute.isFirst) {
-      navigator.removeRoute(surveyRoute);
-    }
+    open(Navigator.of(context).context);
   }
 
   /// Switches to a main tab when the tab scaffold is reachable; otherwise
@@ -286,6 +285,33 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
           ),
         );
         break;
+      case CareSupportDestination.visitQuestions:
+        _openInPlaceOfSurvey((nav) => unawaited(openVisitQuestions(nav)));
+        break;
+      case CareSupportDestination.crisisSupport:
+        _openInPlaceOfSurvey(
+          (nav) => Navigator.push(
+            nav,
+            MaterialPageRoute<void>(
+              builder: (_) => const ImmediateSupportHubScreen(
+                selectedOptionIds: {ImmediateSupportOptionId.emotional},
+              ),
+            ),
+          ),
+        );
+        break;
+      case CareSupportDestination.emotionalSupport:
+        _openInPlaceOfSurvey(
+          (nav) => Navigator.push(
+            nav,
+            MaterialPageRoute<void>(
+              builder: (_) => EmotionalSupportHubScreen(
+                selectedOptionIds: action.emotionalSupportOptionIds.toSet(),
+              ),
+            ),
+          ),
+        );
+        break;
       case CareSupportDestination.journal:
         _goToTabOrOpen(MainNavigationScope.tabJournal, Routes.journal);
         break;
@@ -345,13 +371,20 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
           researchAccess = true;
           final sid = await ResearchFirestoreService.instance.ensureStudyId(profile);
           if (sid != null) {
-            eventId = await ResearchNeedsChecklistService.instance.submitNeedsChecklist(
-              studyId: sid,
-              selectedCareNeedIds: List<String>.from(_selectedNeeds),
-              otherText: _selectedNeeds.contains('other')
-                  ? _otherNeedDetailController.text.trim()
-                  : null,
-            );
+            // A failed research write must not block the user's own support
+            // options; they continue without the research follow-up step.
+            try {
+              eventId = await ResearchNeedsChecklistService.instance.submitNeedsChecklist(
+                studyId: sid,
+                selectedCareNeedIds: List<String>.from(_selectedNeeds),
+                otherText: _selectedNeeds.contains('other')
+                    ? _otherNeedDetailController.text.trim()
+                    : null,
+              );
+            } catch (e) {
+              debugPrint('Research needs checklist submit failed: $e');
+              eventId = null;
+            }
           }
         }
       }
@@ -363,11 +396,14 @@ class _CareNavigationSurveyScreenState extends State<CareNavigationSurveyScreen>
         _step = 'support';
       });
     } catch (e) {
+      debugPrint('Care needs checklist submit failed: $e');
       if (mounted) {
         setState(() => _submittingNeedsChecklist = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not continue: ${e.toString()}'),
+          const SnackBar(
+            content: Text(
+              "We couldn't save your answers right now. Please try again.",
+            ),
           ),
         );
       }

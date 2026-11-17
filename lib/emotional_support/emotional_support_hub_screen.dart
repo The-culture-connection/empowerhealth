@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../appointments/visit_questions_screen.dart';
 import '../cors/ui_theme.dart';
 import '../widgets/feature_session_scope.dart';
 import '../widgets/medical_citations_section.dart';
@@ -57,15 +58,15 @@ class EmotionalSupportHubScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _ValidationBlock(),
-                      if (showCrisis) ...[
-                        const SizedBox(height: 20),
-                        const Crisis988Card(),
-                      ],
+                      // Crisis support sits near the top on every pathway so
+                      // it never has to be scrolled to.
+                      const SizedBox(height: 20),
+                      Crisis988Card(compact: !showCrisis),
                       if (selectedOptionIds
                           .contains(EmotionalSupportOptionId.notMyself)) ...[
                         const SizedBox(height: 28),
                         _PathwaySection(
-                          headline: 'You deserve support too\u00A0💜',
+                          headline: 'You deserve support too',
                           actions: [
                             _SupportTile(
                               label: 'Find postpartum mental health support',
@@ -113,10 +114,6 @@ class EmotionalSupportHubScreen extends StatelessWidget {
                                 action: () async => openCommunityTab(context),
                               ),
                             ),
-                            if (!showCrisis) ...[
-                              const SizedBox(height: 12),
-                              const Crisis988Card(compact: true),
-                            ],
                           ],
                         ),
                       ],
@@ -124,7 +121,7 @@ class EmotionalSupportHubScreen extends StatelessWidget {
                           .contains(EmotionalSupportOptionId.healthWorry)) ...[
                         const SizedBox(height: 28),
                         _PathwaySection(
-                          headline: 'Let’s help you figure out next steps\u00A0💜',
+                          headline: 'Let’s help you figure out next steps',
                           actions: [
                             _SupportTile(
                               label: 'When to contact a provider',
@@ -137,12 +134,12 @@ class EmotionalSupportHubScreen extends StatelessWidget {
                             ),
                             _SupportTile(
                               label: 'Prepare for your visit',
-                              subtitle: 'Journal prompts for questions & notes',
+                              subtitle: 'Write down and save questions to ask',
                               onTap: () => openEmotionalSupportResource(
                                 context,
                                 resourceId: 'health_visit_prep',
                                 pathwayId: 'health',
-                                action: () async => openJournalTab(context),
+                                action: () => openVisitQuestions(context),
                               ),
                             ),
                             _SupportTile(
@@ -180,7 +177,7 @@ class EmotionalSupportHubScreen extends StatelessWidget {
                         const SizedBox(height: 28),
                         _PathwaySection(
                           headline:
-                              'A lot of people feel overwhelmed during big life changes\u00A0💜',
+                              'A lot of people feel overwhelmed during big life changes',
                           subtext: 'You deserve support while adjusting too.',
                           actions: [
                             _SupportTile(

@@ -8,6 +8,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 import '../cors/ui_theme.dart';
 import '../design_system/hearth.dart';
+import '../services/firebase_functions_service.dart';
+import 'visit_questions_screen.dart';
 import 'visit_summary_preview.dart';
 import 'suggested_learning_list.dart';
 
@@ -208,6 +210,38 @@ class VisitDetailScreen extends StatelessWidget {
     return [b, y].where((x) => x.isNotEmpty).join('\n\n');
   }
 
+  /// Copies this summary's questions into the saved list used for visit prep.
+  Future<void> _saveQuestions(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final added = await saveVisitQuestions(
+        _questionsList(),
+        source: 'visit_summary',
+        summaryId: summaryId,
+      );
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(added > 0
+                ? 'Saved $added ${added == 1 ? 'question' : 'questions'} to My visit questions'
+                : 'These questions are already in My visit questions'),
+            action: SnackBarAction(
+              label: 'View',
+              onPressed: () => openVisitQuestions(context),
+            ),
+          ),
+        );
+    } catch (e) {
+      debugPrint('Save summary questions failed: $e');
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text("We couldn't save these questions right now. Please try again."),
+        ),
+      );
+    }
+  }
+
   Widget _card({
     required Widget child,
     Color color = AppTheme.surface,
@@ -248,12 +282,29 @@ class VisitDetailScreen extends StatelessWidget {
                   HearthPushedHeader(
                     backLabel: 'My Visits',
                     onBack: () => Navigator.pop(context),
+                    // Delete sits in a menu (with its confirmation dialog) so
+                    // a long label no longer squeezes "My Visits" onto two lines.
                     actions: [
-                      HearthTextAction(
-                        icon: Icons.delete_outline,
-                        label: 'Delete this summary',
-                        onPressed: () =>
-                            confirmDeleteVisitSummary(context, summaryId: summaryId),
+                      PopupMenuButton<String>(
+                        tooltip: 'More options',
+                        icon: const Icon(Icons.more_vert, color: AppTheme.ink),
+                        onSelected: (value) {
+                          if (value == 'delete') {
+                            confirmDeleteVisitSummary(context, summaryId: summaryId);
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline, size: 20, color: AppTheme.ink),
+                                SizedBox(width: 10),
+                                Text('Delete summary'),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -332,6 +383,8 @@ class VisitDetailScreen extends StatelessWidget {
                               : _whatWasDiscussed(),
                           style: _bodyInkStyle,
                         ),
+                        if (_whatWasDiscussed().isNotEmpty)
+                          _SimplerExplanationButton(text: _whatWasDiscussed()),
                         if (_summaryData != null &&
                             _summaryData!['keyMedicalTerms'] is List &&
                             (_summaryData!['keyMedicalTerms'] as List)
@@ -463,6 +516,12 @@ class VisitDetailScreen extends StatelessWidget {
                         }).toList(),
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    HearthButton.text(
+                      label: 'Save to My visit questions',
+                      icon: Icons.bookmark_add_outlined,
+                      onPressed: () => _saveQuestions(context),
+                    ),
                   ],
                   if (_notesList().isNotEmpty) ...[
                     ..._section(const HearthSectionHeading('Notes')),
@@ -592,6 +651,90 @@ class _Dot extends StatelessWidget {
   }
 }
 
+/// Rewrites "What this means" at an easier reading level on request, so a
+/// reader who finds the summary hard can get a simpler version.
+class _SimplerExplanationButton extends StatefulWidget {
+  const _SimplerExplanationButton({required this.text});
+
+  final String text;
+
+  @override
+  State<_SimplerExplanationButton> createState() =>
+      _SimplerExplanationButtonState();
+}
+
+class _SimplerExplanationButtonState extends State<_SimplerExplanationButton> {
+  static const _context =
+      'Rewrite this visit explanation at about a 3rd to 4th grade reading level. '
+      'Use very short sentences and everyday words. Keep every fact, number and '
+      'instruction exactly the same. Do not add anything that is not in the text. '
+      'Reply with the rewritten text only.';
+
+  bool _loading = false;
+  String? _simpler;
+
+  Future<void> _load() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      final result = await FirebaseFunctionsService().simplifyText(
+        text: widget.text,
+        context: _context,
+      );
+      final out = (result['simplified'] ?? '').toString().trim();
+      if (mounted) setState(() => _simpler = out.isEmpty ? null : out);
+    } catch (e) {
+      debugPrint('Simpler explanation failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("We couldn't make a simpler version right now. Please try again."),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final simpler = _simpler;
+    if (simpler != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: HearthNote(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('In simpler words', style: _cardLabelStyle),
+              const SizedBox(height: 6),
+              Text(simpler, style: _bodyInkStyle),
+            ],
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: _loading
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : HearthButton.text(
+              label: 'Explain more simply',
+              icon: Icons.auto_fix_high_outlined,
+              onPressed: _load,
+            ),
+    );
+  }
+}
+
 /// Deletes the user's visit summary, matching `file_uploads` rows (and Storage objects),
 /// and generated `learning_tasks` that reference this summary.
 Future<void> confirmDeleteVisitSummary(
@@ -672,10 +815,14 @@ Future<void> confirmDeleteVisitSummary(
       );
     }
   } catch (e) {
+    // Keep the raw error in logs; users only need a plain message.
+    debugPrint('Delete visit summary failed: $e');
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not delete: $e'),
+        const SnackBar(
+          content: Text(
+            "We couldn't delete this summary right now. Please try again.",
+          ),
           backgroundColor: AppTheme.brandPurple,
         ),
       );

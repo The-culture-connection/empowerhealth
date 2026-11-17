@@ -60,8 +60,9 @@ class _ImmediateSupportHubScreenState extends State<ImmediateSupportHubScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // The check-in before this already says "We're here with you".
                       Text(
-                        'We\'re here with you',
+                        'Your support options',
                         style: Theme.of(context).textTheme.displaySmall,
                       ),
                       const SizedBox(height: 8),

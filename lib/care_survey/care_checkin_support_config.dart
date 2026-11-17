@@ -1,3 +1,5 @@
+import '../emotional_support/emotional_support_constants.dart'
+    show EmotionalSupportOptionId;
 import '../research/needs_checklist_screen.dart' show kCareNeedsChecklistItems;
 
 /// Personalized support actions shown after care needs selection.
@@ -19,6 +21,12 @@ enum CareSupportDestination {
   birthLaborTopic,
   /// Calls Cloud Function and saves a personalized `learning_tasks` row.
   generateLearningModule,
+  /// Saved "questions for my next visit" list ([VisitQuestionsScreen]).
+  visitQuestions,
+  /// Immediate support hub with 988 and hotlines first.
+  crisisSupport,
+  /// Emotional support pathway for [CareSupportAction.emotionalSupportOptionIds].
+  emotionalSupport,
 }
 
 class CareSupportAction {
@@ -33,6 +41,7 @@ class CareSupportAction {
     this.learningModuleTopic,
     this.learningModuleDescription,
     this.resourceId,
+    this.emotionalSupportOptionIds = const [],
   });
 
   final String id;
@@ -45,6 +54,8 @@ class CareSupportAction {
   final String? learningModuleTopic;
   final String? learningModuleDescription;
   final String? resourceId;
+  /// [EmotionalSupportOptionId] values to open the emotional support pathway with.
+  final List<String> emotionalSupportOptionIds;
 }
 
 const String kCareCheckinReinforcementMessage =
@@ -58,11 +69,11 @@ const Map<String, List<CareSupportAction>> kCareCheckinSupportByNeedId = {
       label: 'Find a provider near me',
       destination: CareSupportDestination.providers,
     ),
+    // Opens the saved question list, not the newest visit summary.
     CareSupportAction(
       id: 'prepare_questions',
       label: 'Prepare questions for my next visit',
-      destination: CareSupportDestination.visitSummaries,
-      preferLatestVisitSummary: true,
+      destination: CareSupportDestination.visitQuestions,
     ),
     CareSupportAction(
       id: 'understand_symptoms',
@@ -92,10 +103,14 @@ const Map<String, List<CareSupportAction>> kCareCheckinSupportByNeedId = {
     ),
   ],
   'blood-pressure': [
+    // These two used to open Know Your Rights, which does not cover them.
     CareSupportAction(
       id: 'condition_meaning',
       label: 'What this condition means (plain language)',
-      destination: CareSupportDestination.rights,
+      destination: CareSupportDestination.generateLearningModule,
+      learningModuleTopic: 'High blood pressure in pregnancy and after birth',
+      learningModuleDescription:
+          'What high blood pressure and preeclampsia mean, in plain language, during pregnancy and after birth.',
     ),
     CareSupportAction(
       id: 'track_symptoms',
@@ -105,24 +120,29 @@ const Map<String, List<CareSupportAction>> kCareCheckinSupportByNeedId = {
     CareSupportAction(
       id: 'when_contact',
       label: 'When to contact a provider',
-      destination: CareSupportDestination.rights,
+      destination: CareSupportDestination.assistant,
+      assistantPrompt:
+          'Which blood pressure readings or symptoms mean I should call my provider, and which mean I need emergency care, during pregnancy or after birth?',
     ),
   ],
+  // Each tile opens support for that need; none of them open Community.
   'mental-health': [
     CareSupportAction(
       id: 'talk_now',
       label: 'Talk to someone now',
-      destination: CareSupportDestination.community,
+      destination: CareSupportDestination.crisisSupport,
     ),
     CareSupportAction(
       id: 'is_normal',
       label: 'What I’m feeling: is this normal?',
-      destination: CareSupportDestination.pregnancyJourney,
+      destination: CareSupportDestination.emotionalSupport,
+      emotionalSupportOptionIds: [EmotionalSupportOptionId.notMyself],
     ),
     CareSupportAction(
       id: 'support_today',
       label: 'Simple ways to get support today',
-      destination: CareSupportDestination.community,
+      destination: CareSupportDestination.emotionalSupport,
+      emotionalSupportOptionIds: [EmotionalSupportOptionId.hardAdjusting],
     ),
   ],
   'lactation': [
@@ -167,8 +187,7 @@ const Map<String, List<CareSupportAction>> kCareCheckinSupportByNeedId = {
     CareSupportAction(
       id: 'questions_baby',
       label: 'Questions to ask',
-      destination: CareSupportDestination.visitSummaries,
-      preferLatestVisitSummary: true,
+      destination: CareSupportDestination.visitQuestions,
     ),
   ],
   'benefits': [
@@ -208,10 +227,13 @@ const Map<String, List<CareSupportAction>> kCareCheckinSupportByNeedId = {
       destination: CareSupportDestination.resources,
       resourceId: '211_local',
     ),
+    // Visit summaries don't answer this, so ask the assistant instead.
     CareSupportAction(
       id: 'missed_appt',
       label: 'What to do if you miss an appointment',
-      destination: CareSupportDestination.visitSummaries,
+      destination: CareSupportDestination.assistant,
+      assistantPrompt:
+          'I missed a prenatal or postpartum appointment. What should I do next, and how can I get help with a ride next time?',
     ),
   ],
   'other': [

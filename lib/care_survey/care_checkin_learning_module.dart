@@ -150,11 +150,15 @@ Future<void> generateAndOpenCareCheckinLearningModule(
       ),
     );
   } catch (e) {
+    // Keep the raw error in logs; users only need a plain message.
+    debugPrint('Care check-in module failed: $e');
     if (context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not create module: ${e.toString()}'),
+        const SnackBar(
+          content: Text(
+            "We couldn't create this module right now. Please try again in a moment.",
+          ),
         ),
       );
     }

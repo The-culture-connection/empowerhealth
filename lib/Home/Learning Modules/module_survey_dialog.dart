@@ -125,11 +125,15 @@ class _ModuleSurveyDialogState extends State<ModuleSurveyDialog> {
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Module survey submit failed: $e');
       setState(() => _isSubmitting = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error submitting survey: ${e.toString()}'),
+          const SnackBar(
+            content: Text(
+              "We couldn't send your feedback right now. Please try again.",
+            ),
           ),
         );
       }

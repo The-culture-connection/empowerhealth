@@ -204,18 +204,27 @@ class _LearningModuleDetailScreenState
     super.dispose();
   }
 
-  /// Shows the exit feedback modal, then leaves the screen. Guarded so it runs
-  /// once whether triggered by the back button or the system back gesture.
+  /// Shows the optional exit check-in. Done or Skip leaves the lesson; Keep
+  /// reading or dismissing the sheet keeps the user where they were. Guarded so
+  /// back and the system gesture don't open it twice. Time-spent and completion
+  /// are logged in dispose, so they are saved whichever way the user leaves.
   Future<void> _confirmExit() async {
     if (_exiting) return;
     _exiting = true;
-    await showModuleExitFeedbackSheet(
+    final leave = await showModuleExitFeedbackSheet(
       context,
       feature: 'learning-modules',
       sourceId: widget.moduleId ?? widget.taskId,
       moduleTitle: widget.title,
     );
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    // Only pop this lesson; if it is no longer on top, popping would close
+    // whatever screen sits underneath instead.
+    if (leave && ModalRoute.of(context)?.isCurrent == true) {
+      Navigator.of(context).pop();
+    } else {
+      _exiting = false;
+    }
   }
 
   @override
@@ -564,11 +573,15 @@ class _ModuleReviewSectionOldState extends State<_ModuleReviewSectionOld> {
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Module survey submit failed: $e');
       setState(() => _isSubmitting = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error submitting survey: ${e.toString()}'),
+          const SnackBar(
+            content: Text(
+              "We couldn't send your feedback right now. Please try again.",
+            ),
           ),
         );
       }

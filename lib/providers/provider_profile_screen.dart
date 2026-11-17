@@ -9,8 +9,11 @@ import '../services/database_service.dart';
 import '../cors/ui_theme.dart';
 import '../design_system/hearth.dart';
 import '../widgets/mama_approved_community_badge.dart';
+import '../auth/guest_guard.dart';
 import 'provider_report_sheet.dart';
 import 'provider_review_screen.dart';
+import 'saved_providers_screen.dart';
+import 'saved_providers_store.dart';
 
 class ProviderProfileScreen extends StatefulWidget {
   final String? providerId;
@@ -37,7 +40,31 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   /// Shown on profile; moderated reviews can be hidden via [ProviderReview.status].
   List<ProviderReview> get _publishedReviews =>
       _reviews.where((r) => r.status == 'published').toList();
+
+  /// Count and average from the reviews shown on this page once they load,
+  /// so the stars, the count and the Mama Approved™ badge always agree.
+  int get _communityReviewCount {
+    final published = _publishedReviews;
+    if (published.isNotEmpty) return published.length;
+    return _provider?.reviewCount ?? 0;
+  }
+
+  double? get _communityAverage {
+    final published = _publishedReviews;
+    if (published.isNotEmpty) {
+      return published.fold<double>(0.0, (sum, r) => sum + r.rating) /
+          published.length;
+    }
+    return _provider?.rating;
+  }
+
+  bool get _hasCommunityRating => Provider.hasCommunityRating(
+        rating: _communityAverage,
+        reviewCount: _communityReviewCount,
+      );
   bool _isSaved = false;
+  bool _savingBookmark = false;
+  final SavedProvidersStore _savedStore = SavedProvidersStore();
   bool _showMamaApprovedInfo = false;
   bool _showTagInfo = false;
   bool _reviewSubmitted = false; // Track if a review was submitted
@@ -84,6 +111,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         _isLoading = false;
         _profileUnavailableMessage = null;
       });
+      _loadSavedState();
       _trackProviderProfileView();
       _trackScreenView();
       _loadReviews();
@@ -94,6 +122,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         _isLoading = false;
         _profileUnavailableMessage = null;
       });
+      _loadSavedState();
       _trackProviderProfileView();
       _trackScreenView();
       _loadReviews();
@@ -178,12 +207,95 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             : null;
       });
       if (provider != null) {
+        _loadSavedState();
         _trackProviderProfileView();
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  /// Bookmark id fixed when the profile first loads, so later enrichment
+  /// (which can add a Firestore id) never points the bookmark somewhere else.
+  String? _bookmarkDocId;
+
+  Future<void> _loadSavedState() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final p = _provider;
+    if (uid == null || p == null) return;
+    _bookmarkDocId ??= SavedProvidersStore.docIdFor(p);
+    try {
+      final saved = await _savedStore.isSaved(uid, _bookmarkDocId!);
+      if (mounted) setState(() => _isSaved = saved);
+    } catch (e) {
+      debugPrint('Load saved provider state failed: $e');
+    }
+  }
+
+  void _openSavedProviders() {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => const SavedProvidersScreen(),
+      ),
+    );
+  }
+
+  Future<void> _toggleSaved() async {
+    if (_savingBookmark || _provider == null) return;
+    if (!await requireAccount(context, action: 'save providers')) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || !mounted) return;
+    _bookmarkDocId ??= SavedProvidersStore.docIdFor(_provider!);
+    final becameSaved = !_isSaved;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _isSaved = becameSaved;
+      _savingBookmark = true;
+    });
+    try {
+      if (becameSaved) {
+        await _savedStore.save(uid, _provider!, docId: _bookmarkDocId);
+      } else {
+        await _savedStore.remove(uid, _bookmarkDocId!);
+      }
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            becameSaved
+                ? 'Saved to Saved providers'
+                : 'Removed from Saved providers',
+          ),
+          action: SnackBarAction(
+            label: 'View',
+            onPressed: _openSavedProviders,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Toggle saved provider failed: $e');
+      if (mounted) setState(() => _isSaved = !becameSaved);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text("We couldn't update your saved providers. Please try again."),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _savingBookmark = false);
+    }
+    if (!becameSaved) return;
+    try {
+      final userProfile = await _databaseService.getUserProfile(uid);
+      await _analytics.logProviderSelectedSuccess(
+        providerId: _provider!.id ?? 'unknown',
+        selectionMethod: 'bookmark',
+        userProfile: userProfile,
+      );
+    } catch (e) {
+      print('Error tracking provider selected success: $e');
     }
   }
 
@@ -294,31 +406,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       iconColor: _isSaved
                           ? AppTheme.brandPurple
                           : AppTheme.textMuted,
-                      onPressed: () async {
-                        final becameSaved = !_isSaved;
-                        setState(() {
-                          _isSaved = becameSaved;
-                        });
-                        if (becameSaved && _provider != null) {
-                          try {
-                            final userId =
-                                FirebaseAuth.instance.currentUser?.uid;
-                            if (userId != null) {
-                              final userProfile = await _databaseService
-                                  .getUserProfile(userId);
-                              await _analytics.logProviderSelectedSuccess(
-                                providerId: _provider!.id ?? 'unknown',
-                                selectionMethod: 'bookmark',
-                                userProfile: userProfile,
-                              );
-                            }
-                          } catch (e) {
-                            print(
-                              'Error tracking provider selected success: $e',
-                            );
-                          }
-                        }
-                      },
+                      tooltip: _isSaved
+                          ? 'Remove from Saved providers'
+                          : 'Save to Saved providers',
+                      onPressed: _toggleSaved,
                     ),
                 ],
               ),
@@ -435,7 +526,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         ],
                       ),
                     ],
-                    if (_provider!.showsMamaApprovedBadge) ...[
+                    if (Provider.qualifiesForMamaApproved(
+                      reviewCount: _communityReviewCount,
+                      averageRating: _communityAverage,
+                    )) ...[
                       const SizedBox(height: 4),
                       InkWell(
                         onTap: () {
@@ -484,37 +578,30 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             ),
           ],
           const SizedBox(height: 14),
+          // Stars are community ratings only, always shown with their count.
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.star_rounded, color: AppTheme.brandGold, size: 22),
-              const SizedBox(width: 6),
-              Text(
-                _provider!.rating != null && _provider!.rating! > 0
-                    ? Provider.formatAverageRating(_provider!.rating!)
-                    : _publishedReviews.isNotEmpty
-                    ? Provider.formatAverageRating(
-                        _publishedReviews.fold<double>(
-                              0.0, (sum, r) => sum + r.rating) /
-                            _publishedReviews.length,
-                      )
-                    : 'N/A',
-                style: const TextStyle(
-                  fontFamily: AppTheme.sansFamily,
-                  fontSize: 18,
-                  height: 24 / 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.onPurple,
-                ),
+              Icon(
+                _hasCommunityRating
+                    ? Icons.star_rounded
+                    : Icons.star_outline_rounded,
+                color: AppTheme.brandGold,
+                size: 22,
               ),
-              const SizedBox(width: 8),
-              Flexible(
+              const SizedBox(width: 6),
+              Expanded(
                 child: Text(
-                  '(${_publishedReviews.length} review${_publishedReviews.length == 1 ? '' : 's'})',
+                  Provider.communityRatingLabel(
+                    rating: _communityAverage,
+                    reviewCount: _communityReviewCount,
+                  ),
                   style: const TextStyle(
                     fontFamily: AppTheme.sansFamily,
-                    fontSize: 14,
-                    height: 20 / 14,
-                    color: AppTheme.onPurpleSecondary,
+                    fontSize: 16,
+                    height: 22 / 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.onPurple,
                   ),
                 ),
               ),
@@ -958,17 +1045,28 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     return HearthTag(label);
   }
 
+  List<MapEntry<String, dynamic>> _extraNotes(ProviderReview review) {
+    final fields = review.experienceFields;
+    if (fields == null) return const [];
+    return fields.entries
+        .where((e) => e.key != ReviewExperience.answersKey)
+        .toList();
+  }
+
   /// Community trust indicators from the experience questions — the same
   /// trust indicators shown alongside (not part of) the Mama Approved™ rule.
   Widget _buildExperienceTrustSummary() {
     final reviews = _publishedReviews;
     if (reviews.isEmpty) return const SizedBox.shrink();
-    final count = reviews.length;
-    int pct(bool Function(ProviderReview) test) =>
-        ((reviews.where(test).length / count) * 100).round();
-    final feltHeard = pct((r) => r.feltHeard);
-    final feltRespected = pct((r) => r.feltRespected);
-    final explained = pct((r) => r.explainedClearly);
+    // Percent of reviewers who answered each question, so a skipped question
+    // shows "No responses" instead of 0%.
+    final maps = reviews.map((r) => r.toMap()).toList();
+    ExperienceTally tally(String q) => ReviewExperience.tally(maps, q);
+    final feltHeard = tally(ReviewExperience.feltHeard).label('felt heard');
+    final feltRespected =
+        tally(ReviewExperience.feltRespected).label('felt respected');
+    final explained = tally(ReviewExperience.explainedClearly)
+        .label('said things were explained clearly');
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -990,13 +1088,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _trustRow(Icons.hearing, '$feltHeard% felt heard'),
+          _trustRow(Icons.hearing, feltHeard),
           const SizedBox(height: 10),
-          _trustRow(Icons.volunteer_activism_outlined,
-              '$feltRespected% felt respected'),
+          _trustRow(Icons.volunteer_activism_outlined, feltRespected),
           const SizedBox(height: 10),
-          _trustRow(Icons.chat_bubble_outline_rounded,
-              '$explained% said things were explained clearly'),
+          _trustRow(Icons.chat_bubble_outline_rounded, explained),
         ],
       ),
     );
@@ -1162,8 +1258,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         style: hearthCaptionStyle,
                       ),
                     ],
-                    if (review.experienceFields != null &&
-                        review.experienceFields!.isNotEmpty) ...[
+                    // Visit answers are shown above, not as raw notes.
+                    if (_extraNotes(review).isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
                         'Additional notes',
@@ -1171,7 +1267,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        review.experienceFields!.entries
+                        _extraNotes(review)
                             .map((e) => '${e.key}: ${e.value}')
                             .join('\n'),
                         style: hearthCardBodyStyle,

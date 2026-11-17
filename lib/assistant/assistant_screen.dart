@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../beta/beta_checklist_service.dart';
 import '../constants/medical_sources.dart';
@@ -14,6 +15,8 @@ import '../services/firebase_functions_service.dart';
 import '../services/database_service.dart';
 import '../immediate_support/immediate_support_navigation.dart';
 import '../widgets/ai_disclaimer_banner.dart';
+import 'assistant_safety.dart';
+import 'assistant_safety_card.dart';
 
 /// Firestore: `users/{uid}/assistant_messages`
 const String _kAssistantMessages = 'assistant_messages';
@@ -23,6 +26,25 @@ const List<String> _kAcknowledgementLines = [
   'Thanks for sharing. Give me just a moment.',
   'I\'m on it, pulling together a thoughtful reply.',
 ];
+
+/// Fallback instructions. A server with assistant mode uses its own copy of
+/// these rules (functions/index.js ASSISTANT_SYSTEM_PROMPT); keep them aligned.
+const String _kAssistantContext = '''
+You are the EmpowerHealth Watch assistant: a warm maternal health educator, not a doctor. Do not diagnose.
+
+SAFETY FIRST. Check every message before answering.
+- Urgent maternal warning signs (pregnancy or up to a year after birth): severe or lasting headache, vision changes, swelling of face or hands, chest pain, trouble breathing, seizure, fainting, heavy bleeding (soaking a pad in an hour or less, large clots), bleeding with dizziness, severe belly pain, fever of 100.4 F or higher, baby moving less, leg swelling with pain.
+  Your FIRST sentence is the action, with no greeting, congratulations or reassurance before it. Heavy bleeding, bleeding with dizziness, chest pain, trouble breathing, seizure, fainting, or severe headache with vision changes: "Call 911 now." Other warning signs: "Go to labor and delivery or the emergency room now. Call 911 if it gets worse or you cannot get there safely." Then say in 1 to 2 sentences what it could be (for example preeclampsia, which can happen up to 6 weeks after birth, or postpartum hemorrhage) and that this is not something to wait on for a routine appointment. Keep it under 100 words.
+- Thoughts of suicide or self-harm, direct or indirect ("my family would be better off without me", "I can't go on", "I don't want to be here"), or of harming the baby: respond with care first, then ask directly: "Are you thinking about ending your life or hurting yourself? Are you safe right now?" Give: call or text 988 (Suicide and Crisis Lifeline), National Maternal Mental Health Hotline 1-833-TLC-MAMA (1-833-852-6262), and call 911 if in immediate danger. Suggest having someone stay with her and telling her provider; postpartum depression is common and treatable. Do not lecture.
+
+STYLE
+- Short: about 120 words unless she asks for more. Lead with the answer. Plain words, about 5th grade reading level.
+- Use at most 4 short bullet points ("- "). Bold only a few key words. No headings or tables.
+- End with one clear next step.
+- Feeling dismissed by a provider: give 2 to 3 exact phrases she can say, check briefly for urgent symptoms, and point to Know Your Rights and the "My visit questions" list in the app.
+- Food, rides or other needs: put today's needs first. Only share contacts you are sure of: 211 (call or text 211), WIC, the number on the back of a Medicaid card for rides. Never invent phone numbers, addresses or hours; say to confirm with 211. Mention the Care Needs Checklist in the app.
+- Gestational diabetes: pregnancy hormones make the body resist insulin; it is not caused by something she did; she should get a diabetes test 4 to 12 weeks after birth. Offer 2 to 3 questions for her provider.
+''';
 
 String _ackLineFor(String userMessage) {
   final i = userMessage.hashCode.abs() % _kAcknowledgementLines.length;
@@ -299,6 +321,7 @@ class _AssistantScreenState extends State<AssistantScreen>
 
     final userMessage = _messageController.text.trim();
     _messageController.clear();
+    final safety = assistantSafetyFieldValue(detectAssistantSafety(userMessage));
 
     setState(() {
       _pendingAckLine = _ackLineFor(userMessage);
@@ -314,14 +337,17 @@ class _AssistantScreenState extends State<AssistantScreen>
           .add({
         'role': 'user',
         'text': userMessage,
+        // Saved so the safety card stays under this message in history.
+        if (safety != null) 'safety': safety,
         'createdAt': FieldValue.serverTimestamp(),
       });
       _scheduleScrollToBottom();
 
       final response = await _functionsService.simplifyText(
         text: userMessage,
-        context:
-            'You are a helpful AI assistant for EmpowerHealth, a maternal health app. Answer questions about pregnancy, maternal health, patient rights, and healthcare advocacy in a supportive, clear, and empowering way. Keep responses concise and at a 6th-8th grade reading level. Be warm, empathetic, and culturally sensitive.',
+        context: _kAssistantContext,
+        mode: 'assistant',
+        safetyLevel: safety,
       );
       final assistantResponse = response['simplified'] ??
           response['simplifiedText'] ??
@@ -878,10 +904,11 @@ class _AssistantChatListState extends State<_AssistantChatList> {
         reverse: true,
         shrinkWrap: true,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        // Extra bottom room so the newest reply never sits under the composer.
         padding: const EdgeInsets.only(
           left: 20,
           right: 20,
-          bottom: 12,
+          bottom: 20,
         ),
         itemCount: totalItems,
         // Keep the header's element (and the sources bar's expanded state)
@@ -917,13 +944,19 @@ class _AssistantChatListState extends State<_AssistantChatList> {
     final role = data['role'] as String? ?? 'assistant';
     final text = data['text'] as String? ?? '';
     final isUser = role == 'user';
-
-    return Align(
+    final bubble = Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: _MessageBubble(
         text: text,
         isUser: isUser,
       ),
+    );
+    final safety =
+        isUser ? assistantSafetyFromField(data['safety']) : AssistantSafetyLevel.none;
+    if (safety == AssistantSafetyLevel.none) return bubble;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [bubble, AssistantSafetyCard(level: safety)],
     );
   }
 }
@@ -1016,7 +1049,8 @@ class _MessageBubble extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.75,
+        // Replies get more width so they need less scrolling.
+        maxWidth: MediaQuery.of(context).size.width * (isUser ? 0.75 : 0.86),
       ),
       // Assistant replies sit on lavender, which Hearth keeps for AI content.
       decoration: BoxDecoration(
@@ -1026,17 +1060,54 @@ class _MessageBubble extends StatelessWidget {
           bottomLeft: !isUser ? const Radius.circular(4) : null,
         ),
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontFamily: AppTheme.sansFamily,
-          color: isUser ? AppTheme.onPurple : AppTheme.ink,
-          fontSize: 15,
-          height: 22 / 15,
-        ),
-      ),
+      child: isUser
+          ? Text(
+              text,
+              style: const TextStyle(
+                fontFamily: AppTheme.sansFamily,
+                color: AppTheme.onPurple,
+                fontSize: 15,
+                height: 22 / 15,
+              ),
+            )
+          // Replies use light Markdown (bold, bullets); plain Text showed
+          // raw ** characters.
+          : MarkdownBody(
+              data: _tidyAssistantMarkdown(text),
+              softLineBreak: true,
+              styleSheet: MarkdownStyleSheet(
+                p: _assistantBodyStyle,
+                strong: _assistantBodyStyle.copyWith(fontWeight: FontWeight.w700),
+                em: _assistantBodyStyle.copyWith(fontStyle: FontStyle.italic),
+                listBullet: _assistantBodyStyle,
+                h1: _assistantBodyStyle.copyWith(fontWeight: FontWeight.w700),
+                h2: _assistantBodyStyle.copyWith(fontWeight: FontWeight.w700),
+                h3: _assistantBodyStyle.copyWith(fontWeight: FontWeight.w700),
+                blockSpacing: 8,
+                listIndent: 20,
+              ),
+            ),
     );
   }
+}
+
+const TextStyle _assistantBodyStyle = TextStyle(
+  fontFamily: AppTheme.sansFamily,
+  color: AppTheme.ink,
+  fontSize: 15,
+  height: 22 / 15,
+);
+
+/// Turns headings into bold lines and drops horizontal rules, so replies
+/// read like a chat message rather than a document.
+String _tidyAssistantMarkdown(String text) {
+  return text
+      .replaceAllMapped(
+        RegExp(r'^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$', multiLine: true),
+        (m) => '**${m[1]}**',
+      )
+      .replaceAll(RegExp(r'^\s*([-*_]\s*){3,}$', multiLine: true), '')
+      .trim();
 }
 
 /// Collapsible "Sources & References" bar shown under the AI disclaimer so the

@@ -216,7 +216,33 @@ function applySecondPersonToVisitAnalysis(parsed) {
   if (Array.isArray(parsed.redFlags)) {
     parsed.redFlags = parsed.redFlags.map((flag) => toSecondPersonDeep(flag));
   }
+  stripSpeculativeVisitText(parsed);
   return parsed;
+}
+
+// A guess word next to a "nothing happened" word marks an unsupported
+// assumption, e.g. "there was likely no focus on fetal health".
+const SPECULATION_RE = /\b(likely|probably|presumably|it seems|it appears|may not have|might not have)\b/i;
+const ABSENCE_RE = /\b(no|not|wasn['’]?t|weren['’]?t|didn['’]?t|nothing|none|without)\b/i;
+
+/** Drops speculative "probably didn't happen" sentences from narrative summary fields. */
+function stripSpeculativeVisitText(parsed) {
+  const summary = parsed && parsed.summary;
+  if (!summary || typeof summary !== "object") return;
+  for (const key of ["whatThisMeans", "howBabyIsDoing", "howYouAreDoing"]) {
+    const value = summary[key];
+    if (typeof value !== "string" || !value.trim()) continue;
+    // Filter sentence by sentence but keep the paragraph breaks.
+    summary[key] = value
+      .split(/\n{2,}/)
+      .map((para) => para
+        .split(/(?<=[.!?])[ \t]+/)
+        .filter((s) => !(SPECULATION_RE.test(s) && ABSENCE_RE.test(s)))
+        .join(" ")
+        .trim())
+      .filter((para) => para)
+      .join("\n\n");
+  }
 }
 
 // Helper function to simplify text to 6th grade level
@@ -224,7 +250,7 @@ async function simplifyTo6thGrade(text, context = "") {
   try {
     const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -264,16 +290,12 @@ exports.generateLearningContent = onCall(
 
   const {topic, trimester, moduleType, userProfile} = data;
 
-  // Determine reading level based on education
+  // Plain language for everyone: capped near 5th-6th grade (pre-launch review).
   const getReadingLevel = (educationLevel) => {
-    if (!educationLevel) return "6th grade";
-    if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
-      return "8th grade";
+    if (educationLevel && (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor"))) {
+      return "about 6th grade";
     }
-    if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
-      return "6th-7th grade";
-    }
-    return "5th-6th grade";
+    return "about 5th grade";
   };
 
   const readingLevel = userProfile?.educationLevel ?
@@ -363,7 +385,7 @@ Keep everything at ${readingLevel} reading level. Make it personally relevant ba
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages,
       temperature: usePregnancyLossPrompt ? 0.5 : 0.8,
       max_tokens: 1500,
@@ -407,7 +429,7 @@ exports.summarizeVisitNotes = onCall(
   try {
     const openai = getOpenAIClient(openaiApiKey.value());
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -481,7 +503,7 @@ exports.generateBirthPlan = onCall(
   try {
     const openai = getOpenAIClient(openaiApiKey.value());
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -549,7 +571,7 @@ exports.generateAppointmentChecklist = onCall(
   try {
     const openai = getOpenAIClient(openaiApiKey.value());
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -606,7 +628,7 @@ exports.analyzeEmotionalContent = onCall(
   try {
     const openai = getOpenAIClient(openaiApiKey.value());
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -665,7 +687,7 @@ exports.generateRightsContent = onCall(
   try {
     const openai = getOpenAIClient(openaiApiKey.value());
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -702,6 +724,118 @@ Keep language simple, clear, and empowering.`,
   }
 });
 
+// AI Assistant rules. The app keeps a fallback copy in
+// lib/assistant/assistant_screen.dart (_kAssistantContext); keep them aligned.
+// Safety rules follow CDC Hear Her urgent maternal warning signs and 988 guidance.
+const ASSISTANT_SYSTEM_PROMPT = `You are the EmpowerHealth Watch assistant: a warm, culturally affirming maternal health educator. You are not a doctor. Do not diagnose; say what something "could be".
+
+SAFETY FIRST. Check every message before answering anything else.
+
+1. Urgent maternal warning signs (during pregnancy or up to a year after birth): severe or lasting headache, vision changes (blurry vision, seeing spots), swelling of the face or hands, chest pain or racing heart, trouble breathing, seizure, fainting, heavy bleeding (soaking a pad in an hour or less, clots bigger than an egg), bleeding with dizziness, severe belly pain, fever of 100.4 F or higher, baby moving less or not moving, leg swelling with pain or redness, vaginal bleeding or leaking fluid in pregnancy.
+   - Your FIRST sentence is the action. Never start with a greeting, congratulations, reassurance, or general education.
+   - Say "Call 911 now." first for: heavy bleeding, bleeding with dizziness or weakness, chest pain, trouble breathing, seizure, fainting, or severe headache with vision changes, confusion or swelling.
+   - For other warning signs say first: "Go to labor and delivery or the emergency room now. Call 911 if it gets worse or you cannot get there safely."
+   - Then in 1 to 2 short sentences: what it could be (for example preeclampsia, which can happen during pregnancy and up to 6 weeks or more after birth, or postpartum hemorrhage), and that this needs emergency care today, not a routine appointment.
+   - Then 2 to 3 short bullets: tell them you are pregnant or when you gave birth; do not drive yourself; call your provider or labor and delivery after you are safe.
+   - Keep the whole reply under 100 words.
+
+2. Thoughts of suicide or self-harm, direct or indirect (for example "my family would be better off without me", "I can't go on", "I don't want to be here", "I want to disappear"), or thoughts of harming the baby:
+   - Start with care, in one sentence (for example "I'm really glad you told me. You matter, and you deserve support right now.").
+   - Ask directly: "Are you thinking about ending your life or hurting yourself? Are you safe right now?"
+   - Give: call or text 988 (Suicide and Crisis Lifeline, free, 24/7); the National Maternal Mental Health Hotline, call or text 1-833-TLC-MAMA (1-833-852-6262); call 911 or go to the emergency room if you might act on these thoughts or are in danger now.
+   - Suggest asking someone you trust to stay with you, and telling your provider: postpartum depression is common and treatable, and it is not your fault.
+   - Mention the "Support" button in the app for more options. Keep it short and gentle. Do not lecture or list facts about depression first.
+
+STYLE FOR EVERYTHING ELSE
+- Short: about 120 words unless she asks for more detail. Lead with the direct answer.
+- Plain words at about a 5th grade reading level. Short sentences. Explain any medical word.
+- Use at most 4 short bullet points ("- "). Use **bold** only for a few key words. No headings, tables or horizontal lines.
+- End with one clear next step, and optionally one short offer such as "Want questions to ask your provider?".
+- Clearly separate emergency care ("go now") from routine follow-up ("ask at your next visit").
+
+TOPIC GUIDANCE
+- Feeling dismissed by a provider: validate briefly, give 2 to 3 exact phrases she can say (for example "I'm still worried about ___. What else could be causing this?", "Please note in my chart that I asked about ___ and what you decided.", "I would like a second opinion."), ask briefly whether she has any urgent warning signs, and point to "Know Your Rights" and the "My visit questions" list (Care Navigation) in the app.
+- Food, transportation, housing or other needs: put what she needs today first. Only share contacts you are sure are correct: 211 (call or text 211, or 211.org), WIC (signupwic.com or the county WIC office), Medicaid rides (call the member services number on the back of her Medicaid card or her health plan), SNAP. Never invent phone numbers, addresses, hours or eligibility rules. If you name a local organization, tell her to confirm details with 211. Suggest the Care Needs Checklist in the app's Care Navigation.
+- Gestational diabetes: explain briefly that pregnancy hormones make the body resist insulin, so blood sugar runs high; it is not caused by something she did; it usually goes away after birth, but she should have a diabetes test 4 to 12 weeks after birth and regular checks later. Offer 2 to 3 questions to ask her provider.
+- Never make up facts. If unsure, say so and suggest asking her provider.`;
+
+const ASSISTANT_EMERGENCY_LEAD =
+  "**This could be an emergency. Call 911 now, or go to labor and delivery or the emergency room right away.** Do not wait for a routine appointment.";
+const ASSISTANT_CRISIS_LEAD =
+  "**You deserve support right now. If you are thinking about ending your life or hurting yourself, call or text 988, or call the National Maternal Mental Health Hotline at 1-833-TLC-MAMA (1-833-852-6262). If you are in danger now, call 911.**";
+
+/**
+ * Server copy of the app's red-flag screen (lib/assistant/assistant_safety.dart),
+ * so older app versions get the same protection.
+ * @param {string} text
+ * @return {"maternal_emergency"|"mental_health_crisis"|null}
+ */
+function detectAssistantSafety(text) {
+  const t = String(text || "");
+  const crisis = [
+    /\bsuicid/i, /\bkill(ing)?\s+my\s*self\b/i, /\b(end|take)\s+my\s+(own\s+)?life\b/i,
+    /\bend\s+it\s+all\b/i, /\b(want|wanted|wanting)\s+to\s+die\b/i,
+    /\bwish\s+i\s+(was|were)\s+(dead|gone|never\s+born)\b/i, /\bbetter\s+off\s+without\s+me\b/i,
+    /\bbetter\s+off\s+if\s+i\s+(was|were|wasn'?t|weren'?t)\b/i, /\bbetter\s+off\s+(dead|gone)\b/i,
+    /\bno\s+(reason|point)\s+(to|in)\s+(live|living|go(ing)?\s+on)\b/i, /\b(can'?t|cannot)\s+go\s+on\b/i,
+    /\bdon'?t\s+want\s+to\s+(be\s+here|live|exist|wake\s+up)\b/i, /\b(hurt|harm|cut)(ing)?\s+my\s*self\b/i,
+    /\bself[\s-]?harm/i, /\b(hurt|harm|shake|smother)(ing)?\s+(my|the)\s+baby\b/i,
+    /\bthoughts?\s+of\s+(hurting|harming)\b/i, /\bdisappear\s+(forever|for\s+good)\b/i,
+    /\bnot\s+be\s+(here|around)\s+anymore\b/i,
+  ];
+  if (crisis.some((re) => re.test(t))) return "mental_health_crisis";
+  const emergency = [
+    /\bsoak(ing|ed|s)?\s+(through\s+)?(a|one|my|the|\d+)?\s*(pad|pads|maxi)/i,
+    /\b(pad|pads)\s+(every|each|in\s+(an?|one|less\s+than))\b/i,
+    /\b(heavy|heavily|lots?\s+of|a\s+lot\s+of|gushing)\s+bleed/i,
+    /\bbleeding\s+(heavily|a\s+lot|really\s+bad|won.?t\s+stop)/i,
+    /\b(large|big|golf\s*ball|egg)[\s-]*(sized\s+)?clots?\b/i, /\bhemorrhag|\bhaemorrhag/i,
+    /\bchest\s+pain/i,
+    /\b(can'?t|cannot|hard\s+to|trouble|difficulty|struggling\s+to)\s+(catch\s+my\s+)?breath/i,
+    /\bshort(ness)?\s+of\s+breath/i, /\bseizure|\bconvuls/i,
+    /\b(faint(ed|ing)?|passed\s+out|pass\s+out|blacked\s+out|unconscious)\b/i,
+    /\b(face|mouth)\s+(is\s+)?droop|\bslurred\s+speech/i,
+    /\b(severe|bad|terrible|worst|pounding|really\s+bad)\s+headache/i,
+    /\bheadache\s+(that\s+)?(won'?t|will\s+not|doesn'?t)\s+go\s+away/i,
+    /\b(blurry|blurred|double)\s+vision|\bseeing\s+(spots|stars|flashing)|\bvision\s+(changes?|loss|is\s+blurry)/i,
+    /\b(face|facial|hands?)\s+(is\s+|are\s+)?(very\s+|really\s+)?(swollen|swelling|puffy)|\bswelling\s+(in|of)\s+(my\s+)?(face|hands)\b/i,
+    /\bbaby\s+(is\s+|has\s+)?(not|isn'?t|hasn'?t|stopped|stop)\s+(been\s+)?mov/i,
+    /\b(no|less|fewer|decreased|reduced)\s+(fetal\s+|baby\s+)?(movement|movements|kicks)\b/i,
+    /\bfever\s+(of\s+|over\s+|above\s+)?(100\.4|10[1-5])/i,
+    /\b(severe|bad|terrible)\s+(belly|stomach|abdominal|pelvic)\s+pain/i,
+    /\bvaginal\s+bleeding/i,
+  ];
+  if (emergency.some((re) => re.test(t))) return "maternal_emergency";
+  if (/\bheadache|\bmigraine/i.test(t) && /\bvision|\bblurr|\bspots\b|\bswell|\bswollen|\bpuffy/i.test(t)) {
+    return "maternal_emergency";
+  }
+  if (/\bbleed|\bblood|\bclots?\b|\bpad\b|\bpads\b/i.test(t) &&
+      /\bdizz|\blight[\s-]?headed|\bweak\b|\bracing\s+heart|\bheart\s+racing/i.test(t)) {
+    return "maternal_emergency";
+  }
+  return null;
+}
+
+/**
+ * Makes sure a flagged reply opens with the emergency or crisis action, even
+ * if the model buried it or left it out.
+ * @param {string} reply
+ * @param {string|null} safety
+ * @return {string}
+ */
+function enforceAssistantSafety(reply, safety) {
+  const out = String(reply || "").trim();
+  if (!safety) return out;
+  const opening = out.slice(0, 220);
+  if (safety === "maternal_emergency" && !/\b911\b/.test(opening)) {
+    return `${ASSISTANT_EMERGENCY_LEAD}\n\n${out}`;
+  }
+  if (safety === "mental_health_crisis" && !/\b988\b/.test(out)) {
+    return `${ASSISTANT_CRISIS_LEAD}\n\n${out}`;
+  }
+  return out;
+}
+
 // Export helper function for use in other functions
 exports.simplifyText = onCall(
   {secrets: [openaiApiKey]},
@@ -710,16 +844,43 @@ exports.simplifyText = onCall(
       throw new Error("User must be authenticated");
     }
 
-    const {text, context: textContext} = request.data;
+    const {text, context: textContext, mode, safetyLevel} = request.data;
+    // Older app builds send their assistant prompt as context without a mode.
+    const isAssistant = mode === "assistant" ||
+      (typeof textContext === "string" &&
+        textContext.startsWith("You are a helpful AI assistant for EmpowerHealth"));
 
     try {
       const openai = getOpenAIClient(openaiApiKey.value());
-      
-      // If context is provided, use it as a custom system prompt for general AI assistant
+
+      if (isAssistant) {
+        const allowed = ["maternal_emergency", "mental_health_crisis"];
+        const safety = allowed.includes(safetyLevel) ? safetyLevel : detectAssistantSafety(text);
+        let system = `${ASSISTANT_SYSTEM_PROMPT}\n\n${SECOND_PERSON_VOICE_RULE}`;
+        if (safety === "maternal_emergency") {
+          system += "\n\nSAFETY ALERT: This message mentions possible urgent maternal warning signs. Follow safety rule 1 exactly. Your first sentence must tell her to call 911 or go to emergency care now.";
+        } else if (safety === "mental_health_crisis") {
+          system += "\n\nSAFETY ALERT: This message may express thoughts of suicide, self-harm, or harming the baby. Follow safety rule 2 exactly and include 988.";
+        }
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {role: "system", content: system},
+            {role: "user", content: String(text || "")},
+          ],
+          // Lower temperature keeps safety wording consistent; fewer tokens keep replies short.
+          temperature: 0.3,
+          max_tokens: 500,
+        });
+        const reply = toSecondPerson(response.choices[0].message.content);
+        return {success: true, simplified: enforceAssistantSafety(reply, safety), safety};
+      }
+
+      // If context is provided, use it as a custom system prompt
       // Otherwise, use the default text simplification prompt
       const systemPrompt = textContext ? `${textContext}
 
-${SECOND_PERSON_VOICE_RULE}` : `You are a medical communication expert who translates complex medical information 
+${SECOND_PERSON_VOICE_RULE}` : `You are a medical communication expert who translates complex medical information
 into simple, clear language appropriate for a 6th grade reading level. Use short sentences, 
 common words, and avoid medical jargon. When medical terms are necessary, explain them simply. 
 Focus on what the person needs to know and do.
@@ -731,7 +892,7 @@ ${SECOND_PERSON_VOICE_RULE}`;
         : `Please simplify this to 6th grade reading level:\n\n${text}`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
@@ -1113,16 +1274,9 @@ function toVisitSummaryHttpsError(error, unreadableReason = "unreadable_file") {
   return make("internal", "busy");
 }
 
-function getVisitSummaryReadingLevel(educationLevel) {
-  // Target ~5th grade for health literacy support (not diagnosis or care decisions)
-  if (!educationLevel) return "about 5th grade";
-  const level = educationLevel.toString();
-  if (level.includes("Graduate") || level.includes("Bachelor")) {
-    return "about 6th grade";
-  }
-  if (level.includes("High School") || level.includes("Some College")) {
-    return "about 5th–6th grade";
-  }
+function getVisitSummaryReadingLevel() {
+  // One ~5th grade target for everyone: plain language helps every reader of
+  // medical paperwork, and the pre-launch review asked for this target.
   return "about 5th grade";
 }
 
@@ -1204,13 +1358,15 @@ Avoid casual terms like "momma".
 
 ${SECOND_PERSON_VOICE_RULE} This applies to every string value in the JSON (summary fields, todos, learning modules, notes, tips).
 
+ACCURACY (required): Explain only what the document actually says. Do not guess what was likely discussed, focused on, checked, or left out, and never write sentences like "Since this was an annual exam, there was likely no focus on fetal health." Do not assume the visit was about pregnancy: it may be a gynecology, primary care, specialist, lab, imaging, dental, or pediatric document. If a field does not apply or the document does not mention it, return an empty string or empty array for that field instead of explaining why. The user's profile (trimester, concerns, preferences) only shapes tone and suggested questions; never present it as something that happened at this visit.
+
 Your entire reply must be one JSON object only: no apologies, no "It seems…", no markdown fences, no text before or after the JSON. Only if the document has no readable content at all (blank, completely blurry, or not a document), reply with exactly {"unreadable": true}.`;
 
   const userPrompt = `From the following document or visit text, produce JSON that helps the user understand what they have in front of them.
 
 Explain medical terms simply. Include "tap-to-explain" style entries in keyMedicalTerms (term + short explanation). Prefer short sentences and short paragraphs.
 
-Tailor tone to trimester (${trimester}), concerns (${JSON.stringify(concerns)}), birth preferences (${JSON.stringify(birthPlanPreferences)}).
+Tailor tone only (never facts) to trimester (${trimester}), concerns (${JSON.stringify(concerns)}), birth preferences (${JSON.stringify(birthPlanPreferences)}).
 
 Document / visit text:
 ${documentText}
@@ -1228,8 +1384,8 @@ Return a JSON object with the following structure:
   "summary": {
     "whatThisMeans": "1–3 short paragraphs at ${readingLevel} level, written to you: in plain words, what this visit or document is mainly about (literacy support only, not a diagnosis)",
     "importantNextSteps": "Plain language, written to you: what you need to do next, follow-ups, scheduling; separate from medication list (e.g. \"You were referred to a specialist. Call to schedule within 2 weeks.\")",
-    "howBabyIsDoing": "If applicable: brief plain-language note on fetal/baby-related content; else empty string",
-    "howYouAreDoing": "If applicable: brief plain-language note on your health topics mentioned, written to you; else empty string",
+    "howBabyIsDoing": "Only if the document itself mentions the pregnancy, fetus or baby: brief plain-language note on what it says. Otherwise an empty string (do not explain why it is empty)",
+    "howYouAreDoing": "Only health topics the document mentions, written to you; else empty string",
     "keyMedicalTerms": [
       {"term": "term name", "explanation": "plain language explanation for tap-to-read"}
     ],
@@ -1291,6 +1447,7 @@ Return a JSON object with the following structure:
 }
 
 CRITICAL REQUIREMENTS:
+00. Accuracy beats completeness. Every statement in summary fields, todos and notes must be supported by the document text. No speculation about what likely did or did not happen. Leave fields empty rather than filling them with assumptions.
 0. Fill **whatThisMeans** and **importantNextSteps** clearly; they drive the main "What this means" and "Important next steps" sections in the app.
 1. Explain key medical terms mentioned: add at least 3–8 items to keyMedicalTerms when the text includes clinical words (for tap-to-explain in the app).
 2. Break down next steps in plain language: importantNextSteps and nextSteps should be consistent and actionable (who to call, what to schedule), not diagnostic conclusions.
@@ -1817,18 +1974,7 @@ exports.summarizeAfterVisitPDF = onCall(
       const traumaInformedPreferences = Array.isArray(userProfile?.traumaInformedPreferences) ? userProfile.traumaInformedPreferences : [];
       const learningStyle = (userProfile?.learningStyle || "visual").toString();
 
-    // Determine reading level based on education
-    const getReadingLevel = (educationLevel) => {
-      if (!educationLevel) return "6th grade";
-      if (educationLevel.includes("Graduate") || educationLevel.includes("Bachelor")) {
-        return "8th grade";
-      }
-      if (educationLevel.includes("High School") || educationLevel.includes("Some College")) {
-        return "6th-7th grade";
-      }
-      return "5th-6th grade";
-    };
-
+      // Reading level comes from getVisitSummaryReadingLevel in the shared analysis.
       // Use the shared analysis function
       const analysisResult = await analyzeVisitSummaryPDF({
         pdfText,

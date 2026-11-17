@@ -52,9 +52,13 @@ class _PostModuleRatingModalState extends State<PostModuleRatingModal> {
         );
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Module rating save failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save: $e')),
+          const SnackBar(
+            content: Text("We couldn't save your responses right now. Please try again."),
+          ),
         );
       }
     } finally {

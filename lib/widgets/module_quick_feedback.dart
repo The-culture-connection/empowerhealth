@@ -245,14 +245,17 @@ class _ModuleQuickFeedbackState extends State<ModuleQuickFeedback> {
 /// Bottom sheet shown when a user leaves a learning module — asks BOTH quick
 /// questions ("Did this help?" and "How do you feel now?"). Answers save to the
 /// `ModuleFeedback` collection (admin dashboard report). The user can answer
-/// either/both and tap Done, or Skip.
-Future<void> showModuleExitFeedbackSheet(
+/// either/both and tap Done, Skip, or Keep reading.
+///
+/// Returns true only when the user chose to leave (Done or Skip). Keep reading
+/// or dismissing the sheet returns false, so the lesson stays open.
+Future<bool> showModuleExitFeedbackSheet(
   BuildContext context, {
   required String feature,
   String? sourceId,
   String? moduleTitle,
-}) {
-  return showModalBottomSheet<void>(
+}) async {
+  final leave = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -296,14 +299,24 @@ Future<void> showModuleExitFeedbackSheet(
               const SizedBox(height: 16),
               HearthButton.primary(
                 label: 'Done',
-                onPressed: () => Navigator.of(sheetContext).maybePop(),
+                onPressed: () => Navigator.of(sheetContext).pop(true),
               ),
               const SizedBox(height: 4),
-              Center(
-                child: HearthButton.text(
-                  label: 'Skip',
-                  onPressed: () => Navigator.of(sheetContext).maybePop(),
-                ),
+              // The check-in is optional: Skip leaves without answering,
+              // Keep reading goes back to the lesson where the user was.
+              Wrap(
+                alignment: WrapAlignment.spaceEvenly,
+                spacing: 8,
+                children: [
+                  HearthButton.text(
+                    label: 'Keep reading',
+                    onPressed: () => Navigator.of(sheetContext).pop(false),
+                  ),
+                  HearthButton.text(
+                    label: 'Skip',
+                    onPressed: () => Navigator.of(sheetContext).pop(true),
+                  ),
+                ],
               ),
             ],
           ),
@@ -311,6 +324,7 @@ Future<void> showModuleExitFeedbackSheet(
       );
     },
   );
+  return leave ?? false;
 }
 
 /// Shows the quick feedback as a bottom sheet — used to prompt the user right

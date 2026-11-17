@@ -323,10 +323,12 @@ class _ConsentScreenState extends State<ConsentScreen> {
         }
       }
     } catch (e) {
+      // Keep the raw error in logs; users only need a plain message.
+      debugPrint('Save consent failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving consent: ${e.toString()}'),
+          const SnackBar(
+            content: Text("We couldn't save your choices right now. Please try again."),
           ),
         );
       }

@@ -212,14 +212,20 @@ class FirebaseFunctionsService {
   }
 
   // Simplify text to 6th grade level
+  /// [mode] `assistant` tells the server to use its own safety-first assistant
+  /// prompt; [safetyLevel] is the on-device red-flag result for this message.
   Future<Map<String, dynamic>> simplifyText({
     required String text,
     String? context,
+    String? mode,
+    String? safetyLevel,
   }) async {
     try {
       final result = await _functions.httpsCallable('simplifyText').call({
         'text': text,
         'context': context,
+        if (mode != null) 'mode': mode,
+        if (safetyLevel != null) 'safetyLevel': safetyLevel,
       });
       return result.data as Map<String, dynamic>;
     } catch (e) {

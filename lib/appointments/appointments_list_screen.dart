@@ -6,6 +6,7 @@ import '../cors/ui_theme.dart';
 import '../design_system/hearth.dart';
 import 'upload_visit_summary_screen.dart';
 import 'visit_detail_screen.dart';
+import 'visit_questions_screen.dart';
 import '../services/analytics_service.dart';
 import '../services/database_service.dart';
 import '../immediate_support/widgets/immediate_support_home_card.dart';
@@ -57,11 +58,24 @@ class AppointmentsListScreen extends StatelessWidget {
                               ),
                             ],
                           ),
+                          // Visit prep lives next to the summaries; support
+                          // stays one tap away as a compact row.
                           Padding(
                             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                            child: ImmediateSupportHomeCard(
-                              entrySource: 'after_visit',
-                              compact: true,
+                            child: HearthRowCard(
+                              icon: Icons.checklist_rtl_outlined,
+                              title: 'My visit questions',
+                              subtitle: 'Write and save questions for your next visit',
+                              onTap: () => openVisitQuestions(context),
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(20, 10, 20, 0),
+                            child: HearthCard(
+                              padding: EdgeInsets.symmetric(vertical: 4),
+                              child: ImmediateSupportEntryTile(
+                                entrySource: 'after_visit',
+                              ),
                             ),
                           ),
                           Padding(
